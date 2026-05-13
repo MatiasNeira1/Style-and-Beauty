@@ -28,9 +28,9 @@ public class AuthController {
 
         @SuppressWarnings("unchecked")
         Map<String, Object> claims = (Map<String, Object>) claimsObj;
-        Object callerRole = claims.get("rol");
+       Object callerRole = claims.get("rol");
         if (callerRole == null || !"ADMIN".equals(String.valueOf(callerRole))) {
-            return ResponseEntity.status(403).body("Acceso denegado: se requiere rol ADMIN");
+         return ResponseEntity.status(403).body("Acceso denegado: se requiere rol ADMIN");
         }
 
         String uid = requestBody.getUid();
@@ -47,6 +47,23 @@ public class AuthController {
             return ResponseEntity.internalServerError().body("Error al comunicar con Firebase: " + e.getMessage());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Rol inválido: " + e.getMessage());
+        }
+    }
+//===============================================================================================================================
+    @PostMapping("/registrar-cliente")
+    public ResponseEntity<String> registrarClienteAutomatico(@RequestBody Map<String, String> requestBody) {
+        String uid = requestBody.get("uid");
+
+        if (uid == null || uid.isEmpty()) {
+            return ResponseEntity.badRequest().body("Falta el parámetro 'uid'");
+        }
+
+        try {
+            // Asignacion de usuario cliente por defecto al registrarse
+            rolService.assignRoleToUser(uid, "CLIENTE");
+            return ResponseEntity.ok("Rol CLIENTE asignado exitosamente al nuevo usuario");
+        } catch (FirebaseAuthException e) {
+            return ResponseEntity.internalServerError().body("Error al comunicar con Firebase: " + e.getMessage());
         }
     }
 }
