@@ -18,14 +18,18 @@ public class Servicio {
 
     private String descripcion;
 
+    private String categoria;
+
+    private String manual_uso_url;
+
     @Column(nullable = false)
     private Integer duracion_minutos;
 
     @Column(nullable = false)
-    private Integer precio_total;
+    private Double precio_total;
 
     @Column(nullable = false)
-    private Integer monto_fianza;
+    private Double monto_fianza;
 
     @Column(nullable = false)
     private Boolean activo = true;
