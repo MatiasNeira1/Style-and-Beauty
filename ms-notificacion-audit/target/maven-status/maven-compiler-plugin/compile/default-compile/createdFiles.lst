@@ -1,0 +1,9 @@
+com\style\beauty\ms_notificacion_audit\service\NotificacionService.class
+com\style\beauty\ms_notificacion_audit\MsNotificacionAuditApplication.class
+com\style\beauty\ms_notificacion_audit\repository\RegistroAuditoriaRepository.class
+com\style\beauty\ms_notificacion_audit\document\Alerta.class
+com\style\beauty\ms_notificacion_audit\document\RegistroAuditoria.class
+com\style\beauty\ms_notificacion_audit\controller\NotificacionController.class
+com\style\beauty\ms_notificacion_audit\controller\AuditoriaController.class
+com\style\beauty\ms_notificacion_audit\repository\AlertaRepository.class
+com\style\beauty\ms_notificacion_audit\service\AuditoriaService.class
