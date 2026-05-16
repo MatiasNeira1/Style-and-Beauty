@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ms-agenda-postgres
+    environment:
+      POSTGRES_DB: ms_agenda_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - ms_agenda_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ms_agenda_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ms-agenda:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ms-agenda
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ms_agenda_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_JPA_FORMAT_SQL: "true"
+    ports:
+      - "8084:8084"
+    restart: unless-stopped
+
+volumes:
+  ms_agenda_postgres_data:

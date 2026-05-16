@@ -3,15 +3,13 @@ package com.style.beauty.ms_cliente.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDate;
-import java.util.UUID;
-import org.hibernate.annotations.GenericGenerator;
 
 @Data
 @Entity
 @Table(name = "contratos")
 public class ContratoModel {
     @Id
-   @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_contrato")
     private Long idContrato;
 
