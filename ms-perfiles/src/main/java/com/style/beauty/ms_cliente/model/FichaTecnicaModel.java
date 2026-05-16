@@ -12,7 +12,7 @@ public class FichaTecnicaModel {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_cliente", nullable = false, unique = true)//crea la columna id_cliente en esta tabla.
     private ClienteModel cliente;
-@   Id
+    @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_ficha_tecnica")
     private Long idFichaTecnica;    
