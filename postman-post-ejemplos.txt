@@ -262,6 +262,38 @@ El backend ignora idAuth y tipoPerfil enviados en el body para este endpoint.
 Los obtiene desde el token Firebase.
 
 ============================================================
-13) ms-notificacion-audit
+13) ms-notificacion-audit - Crear notificacion
 ============================================================
-No hay ejemplos POST porque no existen clases Controller en ms-notificacion-audit.
+Metodo: POST
+URL: http://localhost:8080/api/notificacion
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "usuarioDestinoId": "22222222-2222-2222-2222-222222222222",
+  "tipoCanal": "EMAIL",
+  "asunto": "Recordatorio de cita",
+  "cuerpoMensaje": "Tu cita fue creada correctamente."
+}
+
+Guarda de la respuesta:
+- id
+
+============================================================
+14) ms-notificacion-audit - Registrar auditoria
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/audit
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "accionRealizada": "CREAR_CITA",
+  "usuarioResponsableId": "22222222-2222-2222-2222-222222222222",
+  "entidad": "Cita",
+  "valorAnterior": null,
+  "valorNuevo": "{\"estado\":\"PENDIENTE_PAGO\"}",
+  "detallesJson": "{\"origen\":\"postman\"}"
+}

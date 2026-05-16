@@ -177,10 +177,19 @@ Body raw JSON:
 }
 
 ============================================================
-8) ms-notificacion-audit - Sin endpoints HTTP actuales
+8) ms-notificacion-audit - PUT real
 ============================================================
-No encontre clases Controller en ms-notificacion-audit.
-Por ahora no hay PUT, PATCH, POST o GET documentables para Postman en este microservicio.
+Operacion: Marcar notificacion como enviada
+Metodo: PUT
+URL: http://localhost:8080/api/notificacion/{{idAlerta}}/enviar
+Headers:
+Content-Type: application/json
+
+Body:
+No requiere body.
+
+Ejemplo:
+PUT http://localhost:8080/api/notificacion/665000000000000000000001/enviar
 
 ============================================================
 9) Crear datos previos utiles para probar los PUT/PATCH
@@ -249,4 +258,15 @@ Content-Type: application/json
   "fechaHoraSolicitada": "2026-05-20T15:30:00-04:00",
   "motivoCliente": "Necesito atencion fuera del horario regular.",
   "precioBase": 30000
+}
+
+Crear notificacion para luego marcar como enviada:
+POST http://localhost:8080/api/notificacion
+Content-Type: application/json
+
+{
+  "usuarioDestinoId": "22222222-2222-2222-2222-222222222222",
+  "tipoCanal": "EMAIL",
+  "asunto": "Recordatorio de cita",
+  "cuerpoMensaje": "Tu cita fue creada correctamente."
 }
