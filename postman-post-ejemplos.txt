@@ -1,0 +1,267 @@
+POSTMAN - EJEMPLOS POST POR MICROSERVICIO
+Base URL por gateway: http://localhost:8080
+
+Notas importantes:
+- Swagger genera UUIDs de ejemplo genericos. No significa que existan en BD.
+- Para agenda, el staff de prueba cargado por data.sql es:
+  11111111-1111-1111-1111-111111111111
+- Ese staff solo tiene jornada lunes a viernes, de 09:00 a 18:00.
+- Usa fechas dentro de esa jornada, por ejemplo lunes 2026-05-18T10:00:00-04:00.
+- Reemplaza {{...}} por IDs reales devueltos por los POST anteriores.
+- Los endpoints de Firebase requieren Authorization: Bearer {{FIREBASE_ID_TOKEN}}.
+
+============================================================
+1) ms-catalogo - Crear servicio
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/servicio
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "nombre": "Corte mujer",
+  "descripcion": "Corte, lavado y brushing",
+  "categoria": "PELUQUERIA",
+  "manual_uso_url": "https://example.com/manual-corte.pdf",
+  "duracion_minutos": 60,
+  "precio_total": 30000,
+  "monto_fianza": 10000,
+  "activo": true
+}
+
+Guarda de la respuesta:
+- id_servicio
+
+============================================================
+2) ms-inventario - Crear producto
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/inventario/productos
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "nombre": "Shampoo hidratante",
+  "categoria": "CABELLO",
+  "descripcion": "Shampoo profesional para cabello seco"
+}
+
+Guarda de la respuesta:
+- idProducto
+
+============================================================
+3) ms-inventario - Crear stock para producto
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/inventario/stock
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "idProducto": "{{idProducto}}",
+  "cantidadActual": 20,
+  "unidadMedida": "UNIDAD",
+  "stockMinimo": 5
+}
+
+============================================================
+4) ms-inventario - Registrar movimiento de stock
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/inventario/movimientos
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "idProducto": "{{idProducto}}",
+  "tipoMovimiento": "ENTRADA",
+  "cantidad": 10,
+  "motivo": "Compra inicial",
+  "usuarioResponsable": "99999999-9999-9999-9999-999999999999"
+}
+
+Valores validos tipoMovimiento:
+ENTRADA, SALIDA, AJUSTE
+
+============================================================
+5) ms-agenda - Crear cita normal
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/agenda/citas
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "idCliente": "22222222-2222-2222-2222-222222222222",
+  "idStaff": "11111111-1111-1111-1111-111111111111",
+  "idServicio": "{{id_servicio}}",
+  "fechaHoraInicio": "2026-05-18T10:00:00-04:00",
+  "duracionServicioMin": 60,
+  "holguraMin": 20,
+  "observacionCliente": "Prefiere lavado antes del corte"
+}
+
+Por que este ejemplo evita tu error:
+- idStaff usa el staff que data.sql carga con jornada.
+- 2026-05-18 es lunes.
+- 10:00 a 11:00 queda dentro de 09:00 a 18:00.
+- duracionServicioMin no debe ser 0 para una cita real.
+
+Guarda de la respuesta:
+- idCita
+
+============================================================
+6) ms-agenda - Crear bloqueo de agenda
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/agenda/bloqueos
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "idStaff": "11111111-1111-1111-1111-111111111111",
+  "fechaHoraInicio": "2026-05-18T15:00:00-04:00",
+  "fechaHoraFin": "2026-05-18T16:00:00-04:00",
+  "tipoBloqueo": "STAFF",
+  "motivo": "Reunion interna"
+}
+
+Valores validos tipoBloqueo:
+STAFF, CLINICA, MANTENCION, EMERGENCIA
+
+============================================================
+7) ms-pagos - Crear transaccion para cita normal
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/pagos/transacciones
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "idCita": "{{idCita}}",
+  "idCitaExtraordinaria": null,
+  "montoTotal": 30000,
+  "montoAbono": 10000,
+  "montoRecargo": 0,
+  "tipoPago": "CITA_NORMAL"
+}
+
+Valores validos tipoPago:
+CITA_NORMAL, CITA_EXTRAORDINARIA
+
+Guarda de la respuesta:
+- idTransaccion
+- codigoWebpay
+- tokenWebpay
+
+============================================================
+8) ms-extra - Crear cita extraordinaria
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/extra/citas
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "idCliente": "22222222-2222-2222-2222-222222222222",
+  "idStaff": "11111111-1111-1111-1111-111111111111",
+  "idServicio": "{{id_servicio}}",
+  "fechaHoraSolicitada": "2026-05-18T19:00:00-04:00",
+  "motivoCliente": "Necesito atencion fuera del horario normal",
+  "precioBase": 30000
+}
+
+Guarda de la respuesta:
+- idCitaExtraordinaria
+
+============================================================
+9) ms-extra - Enviar mensaje al chat de cita extraordinaria
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/extra/citas/{{idCitaExtraordinaria}}/chat
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "idUsuario": "22222222-2222-2222-2222-222222222222",
+  "remitente": "CLIENTE",
+  "mensaje": "Hola, puedo asistir despues de las 19:00."
+}
+
+Valores validos remitente:
+CLIENTE, STAFF, ADMIN
+
+============================================================
+10) ms-auth - Registrar cliente automatico
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/auth/registrar-cliente
+Headers:
+Content-Type: application/json
+Authorization: Bearer {{FIREBASE_ID_TOKEN}}
+
+Body raw JSON:
+{
+  "uid": "firebase-user-uid"
+}
+
+Nota:
+Aunque el metodo no declara @RequestHeader, el interceptor de ms-auth aplica a /api/**
+y exige Authorization: Bearer.
+
+============================================================
+11) ms-auth - Asignar rol
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/auth/asignar-rol
+Headers:
+Content-Type: application/json
+Authorization: Bearer {{FIREBASE_ID_TOKEN_ADMIN}}
+
+Body raw JSON:
+{
+  "uid": "firebase-user-uid",
+  "rol": "STAFF"
+}
+
+Roles comunes:
+ADMIN, STAFF, CLIENTE
+
+============================================================
+12) ms-perfiles - Crear perfil
+============================================================
+Metodo: POST
+URL: http://localhost:8080/api/perfiles/crear
+Headers:
+Content-Type: application/json
+Authorization: Bearer {{FIREBASE_ID_TOKEN}}
+
+Body raw JSON:
+{
+  "rut": "12345678-9",
+  "nombre": "Camila",
+  "apellidos": "Perez Soto",
+  "fechaNacimiento": "1995-06-20",
+  "genero": "FEMENINO",
+  "telefono": "+56912345678",
+  "emailContacto": "camila.perez@example.com",
+  "idEspecialidad": null
+}
+
+Nota:
+El backend ignora idAuth y tipoPerfil enviados en el body para este endpoint.
+Los obtiene desde el token Firebase.
+
+============================================================
+13) ms-notificacion-audit
+============================================================
+No hay ejemplos POST porque no existen clases Controller en ms-notificacion-audit.
