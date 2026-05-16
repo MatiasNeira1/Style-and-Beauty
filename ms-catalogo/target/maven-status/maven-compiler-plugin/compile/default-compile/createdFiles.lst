@@ -1,0 +1,5 @@
+com\style\beauty\ms_catalogo\MsCatalogoApplication.class
+com\style\beauty\ms_catalogo\repository\ServicioRepository.class
+com\style\beauty\ms_catalogo\controller\ServicioController.class
+com\style\beauty\ms_catalogo\entity\Servicio.class
+com\style\beauty\ms_catalogo\service\ServicioService.class
