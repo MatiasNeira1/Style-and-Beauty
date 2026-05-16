@@ -15,6 +15,7 @@ public class config {
             .csrf(csrf -> csrf.disable()) // esto lo tengo que desactivar para poder usar Postman 
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/asignar-rol").permitAll() // Esta ruta es publica
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .anyRequest().authenticated()
             );
         
