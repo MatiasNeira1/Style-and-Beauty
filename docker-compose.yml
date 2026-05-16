@@ -16,6 +16,19 @@ services:
       timeout: 5s
       retries: 5
 
+  mongo:
+    image: mongo:7
+    container_name: style-beauty-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api-gateway:
     build:
       context: ./Api-gateway
@@ -146,14 +159,11 @@ services:
     container_name: style-beauty-ms-notificacion-audit
     environment:
       SERVER_PORT: 8088
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/style_beauty_audit
     depends_on:
-      postgres:
+      mongo:
         condition: service_healthy
 
 volumes:
   postgres-data:
+  mongo-data:
