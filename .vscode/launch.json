@@ -1,0 +1,84 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        
+
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "ApiGatewayApplication",
+            "request": "launch",
+            "mainClass": "com.style.beauty.Api_gateway.ApiGatewayApplication",
+            "projectName": "Api-gateway"
+        },
+        {
+            "type": "java",
+            "name": "MsAgendaApplication",
+            "request": "launch",
+            "mainClass": "com.style.beauty.ms_agenda.MsAgendaApplication",
+            "projectName": "ms-agenda"
+        },
+        {
+            "type": "java",
+            "name": "MsAuthApplication",
+            "request": "launch",
+            "mainClass": "com.style.beauty.ms_auth.MsAuthApplication",
+            "projectName": "ms-auth"
+        },
+        {
+            "type": "java",
+            "name": "MsCatalogoApplication",
+            "request": "launch",
+            "mainClass": "com.style.beauty.ms_catalogo.MsCatalogoApplication",
+            "projectName": "ms-catalogo"
+        },
+        {
+            "type": "java",
+            "name": "MsClienteApplication",
+            "request": "launch",
+            "mainClass": "com.style.beauty.ms_cliente.MsClienteApplication",
+            "projectName": "ms-cliente",
+            "env": {
+                "SPRING_DATASOURCE_URL": "jdbc:postgresql://aws-1-us-west-2.pooler.supabase.com:6543/postgres",
+                "SPRING_DATASOURCE_USERNAME": "postgres.klsfczwikscycexbivon",
+                "SPRING_DATASOURCE_PASSWORD": "Matimaxi123."
+            }
+        },
+        {
+            "type": "java",
+            "name": "MsExtraApplication",
+            "request": "launch",
+            "mainClass": "com.style.beauty.ms_extra.MsExtraApplication",
+            "projectName": "ms-extra"
+        },
+        {
+            "type": "java",
+            "name": "MsInventarioApplication",
+            "request": "launch",
+            "mainClass": "com.style.beauty.ms_inventario.MsInventarioApplication",
+            "projectName": "ms-inventario"
+        },
+        {
+            "type": "java",
+            "name": "MsNotificacionAuditApplication",
+            "request": "launch",
+            "mainClass": "com.style.beauty.ms_notificacion_audit.MsNotificacionAuditApplication",
+            "projectName": "ms-notificacion-audit"
+        },
+        {
+            "type": "java",
+            "name": "MsPagosApplication",
+            "request": "launch",
+            "mainClass": "com.style.beauty.ms_pagos.MsPagosApplication",
+            "projectName": "ms-pagos"
+        }
+    ]
+}
