@@ -1,0 +1,272 @@
+POSTMAN - EJEMPLOS DE ACTUALIZACION POR MICROSERVICIO
+Base URL por gateway: http://localhost:8080
+
+Notas:
+- Reemplaza los valores entre {{...}} por IDs reales.
+- Para endpoints protegidos por Firebase, reemplaza {{FIREBASE_ID_TOKEN}}.
+- Solo ms-catalogo, ms-inventario y ms-perfiles tienen PUT real en el codigo actual.
+- ms-agenda, ms-pagos y ms-extra actualizan estados con PATCH.
+- ms-auth no tiene PUT; usa POST para asignar rol.
+- ms-notificacion-audit no tiene controladores HTTP en el codigo actual.
+
+============================================================
+1) ms-catalogo - PUT real
+============================================================
+Operacion: Actualizar servicio existente
+Metodo: PUT
+URL: http://localhost:8080/api/servicio/{{idServicio}}
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "nombre": "Corte y brushing premium",
+  "descripcion": "Servicio actualizado de corte, lavado y brushing.",
+  "categoria": "PELUQUERIA",
+  "manual_uso_url": "https://example.com/manual-servicio.pdf",
+  "duracion_minutos": 75,
+  "precio_total": 35000,
+  "monto_fianza": 10000,
+  "activo": true
+}
+
+Ejemplo con UUID:
+PUT http://localhost:8080/api/servicio/11111111-1111-1111-1111-111111111111
+
+============================================================
+2) ms-inventario - PUT real
+============================================================
+Operacion: Actualizar producto
+Metodo: PUT
+URL: http://localhost:8080/api/inventario/productos/{{idProducto}}
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "nombre": "Shampoo hidratante 500ml",
+  "categoria": "CABELLO",
+  "descripcion": "Producto actualizado para cabello seco."
+}
+
+Ejemplo con UUID:
+PUT http://localhost:8080/api/inventario/productos/22222222-2222-2222-2222-222222222222
+
+============================================================
+3) ms-perfiles - PUT real
+============================================================
+Operacion: Actualizar mi perfil
+Metodo: PUT
+URL: http://localhost:8080/api/perfiles/actualizar
+Headers:
+Content-Type: application/json
+Authorization: Bearer {{FIREBASE_ID_TOKEN}}
+
+Body raw JSON:
+{
+  "rut": "12345678-9",
+  "nombre": "Camila",
+  "apellidos": "Perez Soto",
+  "fechaNacimiento": "1995-06-20",
+  "genero": "FEMENINO",
+  "telefono": "+56912345678",
+  "emailContacto": "camila.perez@example.com",
+  "idEspecialidad": null
+}
+
+Nota:
+El endpoint /admin/actualizar/{idAuthTarget} existe en el archivo AdminController,
+pero ese controlador no tiene @RestController, por lo que no queda expuesto por Spring
+en el estado actual del codigo.
+
+============================================================
+4) ms-agenda - No tiene PUT, usa PATCH para actualizar estado
+============================================================
+Operacion equivalente: Actualizar estado de cita
+Metodo: PATCH
+URL: http://localhost:8080/api/agenda/citas/{{idCita}}/estado
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "estadoCita": "CONFIRMADA",
+  "observacionStaff": "Cita confirmada por recepcion."
+}
+
+Estados validos:
+PENDIENTE_PAGO, CONFIRMADA, FINALIZADA, CANCELADA, EXPIRADA, RECHAZADA
+
+Ejemplo con UUID:
+PATCH http://localhost:8080/api/agenda/citas/33333333-3333-3333-3333-333333333333/estado
+
+============================================================
+5) ms-pagos - No tiene PUT, usa PATCH para cambiar estado del pago
+============================================================
+Operacion equivalente: Confirmar pago
+Metodo: PATCH
+URL: http://localhost:8080/api/pagos/transacciones/{{idTransaccion}}/confirmar
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "codigoWebpay": "AUTH-123456",
+  "tokenWebpay": "TOKEN-WEBPAY-123"
+}
+
+Ejemplo con UUID:
+PATCH http://localhost:8080/api/pagos/transacciones/44444444-4444-4444-4444-444444444444/confirmar
+
+Otras operaciones equivalentes sin body:
+PATCH http://localhost:8080/api/pagos/transacciones/{{idTransaccion}}/rechazar
+PATCH http://localhost:8080/api/pagos/transacciones/{{idTransaccion}}/expirar
+
+============================================================
+6) ms-extra - No tiene PUT, usa PATCH para negociacion de cita extraordinaria
+============================================================
+Operacion equivalente: Proponer horario por staff
+Metodo: PATCH
+URL: http://localhost:8080/api/extra/citas/{{idCitaExtraordinaria}}/propuesta-staff
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "fechaHoraPropuesta": "2026-05-20T15:30:00-04:00",
+  "respuestaStaff": "Puedo atender en este horario con recargo.",
+  "recargo": 5000
+}
+
+Ejemplo con UUID:
+PATCH http://localhost:8080/api/extra/citas/55555555-5555-5555-5555-555555555555/propuesta-staff
+
+Otras operaciones equivalentes sin body:
+PATCH http://localhost:8080/api/extra/citas/{{idCitaExtraordinaria}}/aceptar-cliente
+PATCH http://localhost:8080/api/extra/citas/{{idCitaExtraordinaria}}/rechazar-cliente
+PATCH http://localhost:8080/api/extra/citas/{{idCitaExtraordinaria}}/confirmar-pago/{{idCitaGenerada}}
+
+============================================================
+7) ms-auth - No tiene PUT, usa POST para roles
+============================================================
+Operacion equivalente: Asignar rol a usuario
+Metodo: POST
+URL: http://localhost:8080/api/auth/asignar-rol
+Headers:
+Content-Type: application/json
+Authorization: Bearer {{FIREBASE_ID_TOKEN_ADMIN}}
+
+Body raw JSON:
+{
+  "uid": "firebase-user-uid",
+  "rol": "ADMIN"
+}
+
+Roles sugeridos por el codigo:
+ADMIN, STAFF, CLIENTE
+
+Operacion alternativa: Registrar cliente automatico
+Metodo: POST
+URL: http://localhost:8080/api/auth/registrar-cliente
+Headers:
+Content-Type: application/json
+
+Body raw JSON:
+{
+  "uid": "firebase-user-uid"
+}
+
+============================================================
+8) ms-notificacion-audit - PUT real
+============================================================
+Operacion: Marcar notificacion como enviada
+Metodo: PUT
+URL: http://localhost:8080/api/notificacion/{{idAlerta}}/enviar
+Headers:
+Content-Type: application/json
+
+Body:
+No requiere body.
+
+Ejemplo:
+PUT http://localhost:8080/api/notificacion/665000000000000000000001/enviar
+
+============================================================
+9) Crear datos previos utiles para probar los PUT/PATCH
+============================================================
+
+Crear servicio para luego actualizar con PUT:
+POST http://localhost:8080/api/servicio
+Content-Type: application/json
+
+{
+  "nombre": "Corte mujer",
+  "descripcion": "Corte basico",
+  "categoria": "PELUQUERIA",
+  "manual_uso_url": "https://example.com/manual.pdf",
+  "duracion_minutos": 60,
+  "precio_total": 30000,
+  "monto_fianza": 10000,
+  "activo": true
+}
+
+Crear producto para luego actualizar con PUT:
+POST http://localhost:8080/api/inventario/productos
+Content-Type: application/json
+
+{
+  "nombre": "Shampoo hidratante",
+  "categoria": "CABELLO",
+  "descripcion": "Producto para cabello seco."
+}
+
+Crear cita para luego actualizar con PATCH:
+POST http://localhost:8080/api/agenda/citas
+Content-Type: application/json
+
+{
+  "idCliente": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "idStaff": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+  "idServicio": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+  "fechaHoraInicio": "2026-05-20T10:00:00-04:00",
+  "duracionServicioMin": 60,
+  "holguraMin": 10,
+  "observacionCliente": "Prefiere horario de manana."
+}
+
+Crear transaccion para luego confirmar/rechazar/expirar:
+POST http://localhost:8080/api/pagos/transacciones
+Content-Type: application/json
+
+{
+  "idCita": "33333333-3333-3333-3333-333333333333",
+  "idCitaExtraordinaria": null,
+  "montoTotal": 30000,
+  "montoAbono": 10000,
+  "montoRecargo": 0,
+  "tipoPago": "CITA_NORMAL"
+}
+
+Crear cita extraordinaria para luego negociar con PATCH:
+POST http://localhost:8080/api/extra/citas
+Content-Type: application/json
+
+{
+  "idCliente": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "idStaff": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+  "idServicio": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+  "fechaHoraSolicitada": "2026-05-20T15:30:00-04:00",
+  "motivoCliente": "Necesito atencion fuera del horario regular.",
+  "precioBase": 30000
+}
+
+Crear notificacion para luego marcar como enviada:
+POST http://localhost:8080/api/notificacion
+Content-Type: application/json
+
+{
+  "usuarioDestinoId": "22222222-2222-2222-2222-222222222222",
+  "tipoCanal": "EMAIL",
+  "asunto": "Recordatorio de cita",
+  "cuerpoMensaje": "Tu cita fue creada correctamente."
+}
