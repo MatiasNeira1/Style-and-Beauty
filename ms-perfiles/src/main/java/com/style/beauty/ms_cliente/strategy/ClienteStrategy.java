@@ -40,9 +40,9 @@ public class ClienteStrategy implements PerfilStrategy {
         ClienteModel clienteGuardado = clienteRepository.save(cliente);
 
         // aqui se crea crea su Ficha Técnica vacía y la vinculamos
-        FichaTecnicaModel ficha = new FichaTecnicaModel();
-        ficha.setCliente(clienteGuardado);
-        fichaTecnicaRepository.save(ficha);
+       // FichaTecnicaModel ficha = new FichaTecnicaModel();
+        //ficha.setCliente(clienteGuardado);
+        //fichaTecnicaRepository.save(ficha); LA COMENTÉ PORQUE ME DABA ERROR DE CON LA CREACION DEL CLIENTE 
 
         return clienteGuardado;
     }

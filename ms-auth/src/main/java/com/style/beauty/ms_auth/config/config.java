@@ -14,7 +14,8 @@ public class config {
         http
             .csrf(csrf -> csrf.disable()) // esto lo tengo que desactivar para poder usar Postman 
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/asignar-rol").permitAll() // Esta ruta es publica
+                .requestMatchers("/api/auth/asignar-rol").permitAll()
+                .requestMatchers("/api/auth/registrar-cliente").permitAll()// Esta ruta es publica
                 .anyRequest().authenticated()
             );
         
