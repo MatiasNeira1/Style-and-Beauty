@@ -3,11 +3,11 @@ export function StaffSelector({ staff = [], selectedId, onSelect }) {
     <div className="chip-group">
       {staff.map((member) => (
         <button
-          key={member.id}
-          className={member.id === selectedId ? 'chip active' : 'chip'}
+          key={member.id || member.nombre}
+          className={(member.id || member.nombre) === selectedId ? 'chip active' : 'chip'}
           onClick={() => onSelect?.(member)}
         >
-          {member.name}
+          {member.nombre || member.name}
         </button>
       ))}
     </div>

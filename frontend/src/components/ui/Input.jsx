@@ -1,8 +1,10 @@
-export function Input({ label, id, ...props }) {
+export function Input({ label, id, error, as = 'input', ...props }) {
+  const Field = as;
   return (
     <label className="field" htmlFor={id}>
       <span>{label}</span>
-      <input id={id} {...props} />
+      <Field id={id} {...props} />
+      {error && <small>{error}</small>}
     </label>
   );
 }

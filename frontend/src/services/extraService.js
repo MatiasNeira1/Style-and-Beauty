@@ -1,5 +1,6 @@
-import { apiClient } from './apiClient.js';
+import { request } from './apiClient.js';
 
 export const extraService = {
-  createRequest: (payload) => apiClient('/extra/solicitudes', { method: 'POST', body: JSON.stringify(payload) }),
+  listExtraBookings: () => request({ url: '/api/extra/citas' }),
+  createRequest: (payload) => request({ url: '/api/extra/citas', method: 'POST', data: payload }),
 };
