@@ -1,5 +1,6 @@
-import { apiClient } from './apiClient.js';
+import { request } from './apiClient.js';
 
 export const paymentService = {
-  createPayment: (payload) => apiClient('/pagos', { method: 'POST', body: JSON.stringify(payload) }),
+  listTransactions: () => request({ url: '/api/pagos/transacciones' }),
+  createPayment: (payload) => request({ url: '/api/pagos/transacciones', method: 'POST', data: payload }),
 };

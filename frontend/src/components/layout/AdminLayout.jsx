@@ -1,12 +1,13 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { BarChart3, CalendarRange, CreditCard, Package, Scissors, Users } from 'lucide-react';
 
 const adminLinks = [
-  ['/admin', 'Dashboard'],
-  ['/admin/agenda', 'Agenda'],
-  ['/admin/servicios', 'Servicios'],
-  ['/admin/inventario', 'Inventario'],
-  ['/admin/pagos', 'Pagos'],
-  ['/admin/clientes', 'Clientes'],
+  ['/admin', 'Dashboard', BarChart3],
+  ['/admin/agenda', 'Agenda', CalendarRange],
+  ['/admin/servicios', 'Servicios', Scissors],
+  ['/admin/inventario', 'Inventario', Package],
+  ['/admin/pagos', 'Pagos', CreditCard],
+  ['/admin/clientes', 'Clientes', Users],
 ];
 
 export function AdminLayout() {
@@ -14,8 +15,11 @@ export function AdminLayout() {
     <section className="admin-layout">
       <aside>
         <h2>Admin</h2>
-        {adminLinks.map(([to, label]) => (
-          <NavLink key={to} to={to} end={to === '/admin'}>{label}</NavLink>
+        {adminLinks.map(([to, label, Icon]) => (
+          <NavLink key={to} to={to} end={to === '/admin'}>
+            <Icon size={18} />
+            {label}
+          </NavLink>
         ))}
       </aside>
       <div className="admin-content">

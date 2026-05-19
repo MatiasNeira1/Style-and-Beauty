@@ -1,6 +1,5 @@
-import { apiClient } from './apiClient.js';
+import { request } from './apiClient.js';
 
 export const catalogService = {
-  listServices: () => apiClient('/catalogo/servicios'),
-  listProducts: () => apiClient('/catalogo/productos'),
+  listServices: () => request({ url: '/api/servicio' }),
 };

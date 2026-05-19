@@ -1,13 +1,32 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-export function useGsapReveal() {
+gsap.registerPlugin(ScrollTrigger);
+
+export function useGsapReveal({ stagger = false } = {}) {
   const ref = useRef(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!ref.current) return;
-    gsap.fromTo(ref.current, { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.6 });
-  }, []);
+
+    const ctx = gsap.context(() => {
+      const target = stagger ? ref.current.children : ref.current;
+      gsap.fromTo(target, { autoAlpha: 0, y: 34 }, {
+        autoAlpha: 1,
+        y: 0,
+        duration: 0.75,
+        ease: 'power3.out',
+        stagger: stagger ? 0.09 : 0,
+        scrollTrigger: {
+          trigger: ref.current,
+          start: 'top 82%',
+        },
+      });
+    }, ref);
+
+    return () => ctx.revert();
+  }, [stagger]);
 
   return ref;
 }

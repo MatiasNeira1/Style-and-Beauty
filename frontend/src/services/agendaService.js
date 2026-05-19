@@ -1,6 +1,9 @@
-import { apiClient } from './apiClient.js';
+import { request } from './apiClient.js';
 
 export const agendaService = {
-  listSlots: () => apiClient('/agenda/disponibilidad'),
-  createBooking: (payload) => apiClient('/agenda/reservas', { method: 'POST', body: JSON.stringify(payload) }),
+  listBookings: () => request({ url: '/api/agenda/citas' }),
+  createBooking: (payload) => request({ url: '/api/agenda/citas', method: 'POST', data: payload }),
+  listBlocks: () => request({ url: '/api/agenda/bloqueos' }),
+  createBlock: (payload) => request({ url: '/api/agenda/bloqueos', method: 'POST', data: payload }),
+  listWorkDays: () => request({ url: '/api/agenda/jornadas' }),
 };

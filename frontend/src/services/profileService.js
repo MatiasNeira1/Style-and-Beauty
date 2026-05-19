@@ -1,6 +1,5 @@
-import { apiClient } from './apiClient.js';
+import { request } from './apiClient.js';
 
 export const profileService = {
-  getProfile: () => apiClient('/perfiles/me'),
-  updateProfile: (payload) => apiClient('/perfiles/me', { method: 'PUT', body: JSON.stringify(payload) }),
+  createProfile: (payload) => request({ url: '/api/perfiles/crear', method: 'POST', data: payload }),
 };
