@@ -31,7 +31,7 @@ services:
 
   api-gateway:
     build:
-      context: ./Api-gateway
+      context: ./backend/Api-gateway
     container_name: style-beauty-api-gateway
     environment:
       SERVER_PORT: 8080
@@ -57,14 +57,14 @@ services:
 
   ms-auth:
     build:
-      context: ./ms-auth
+      context: ./backend/ms-auth
     container_name: style-beauty-ms-auth
     environment:
       SERVER_PORT: 8081
 
   ms-perfiles:
     build:
-      context: ./ms-perfiles
+      context: ./backend/ms-perfiles
     container_name: style-beauty-ms-perfiles
     environment:
       SERVER_PORT: 8082
@@ -79,7 +79,7 @@ services:
 
   ms-catalogo:
     build:
-      context: ./ms-catalogo
+      context: ./backend/ms-catalogo
     container_name: style-beauty-ms-catalogo
     environment:
       SERVER_PORT: 8083
@@ -94,7 +94,7 @@ services:
 
   ms-agenda:
     build:
-      context: ./ms-agenda
+      context: ./backend/ms-agenda
     container_name: style-beauty-ms-agenda
     environment:
       SERVER_PORT: 8084
@@ -110,7 +110,7 @@ services:
 
   ms-inventario:
     build:
-      context: ./ms-inventario
+      context: ./backend/ms-inventario
     container_name: style-beauty-ms-inventario
     environment:
       SERVER_PORT: 8085
@@ -125,7 +125,7 @@ services:
 
   ms-pagos:
     build:
-      context: ./ms-pagos
+      context: ./backend/ms-pagos
     container_name: style-beauty-ms-pagos
     environment:
       SERVER_PORT: 8086
@@ -140,7 +140,7 @@ services:
 
   ms-extra:
     build:
-      context: ./ms-extra
+      context: ./backend/ms-extra
     container_name: style-beauty-ms-extra
     environment:
       SERVER_PORT: 8087
@@ -155,7 +155,7 @@ services:
 
   ms-notificacion-audit:
     build:
-      context: ./ms-notificacion-audit
+      context: ./backend/ms-notificacion-audit
     container_name: style-beauty-ms-notificacion-audit
     environment:
       SERVER_PORT: 8088
