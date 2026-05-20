@@ -1,0 +1,169 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: style-beauty-postgres
+    environment:
+      POSTGRES_DB: style_beauty
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d style_beauty"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongo:
+    image: mongo:7
+    container_name: style-beauty-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-gateway:
+    build:
+      context: ./backend/Api-gateway
+    container_name: style-beauty-api-gateway
+    environment:
+      SERVER_PORT: 8080
+      MS_AUTH_URI: http://ms-auth:8081
+      MS_PERFILES_URI: http://ms-perfiles:8082
+      MS_CATALOGO_URI: http://ms-catalogo:8083
+      MS_AGENDA_URI: http://ms-agenda:8084
+      MS_INVENTARIO_URI: http://ms-inventario:8085
+      MS_PAGOS_URI: http://ms-pagos:8086
+      MS_EXTRA_URI: http://ms-extra:8087
+      MS_NOTIFICACION_AUDIT_URI: http://ms-notificacion-audit:8088
+    ports:
+      - "8080:8080"
+    depends_on:
+      - ms-auth
+      - ms-perfiles
+      - ms-catalogo
+      - ms-agenda
+      - ms-inventario
+      - ms-pagos
+      - ms-extra
+      - ms-notificacion-audit
+
+  ms-auth:
+    build:
+      context: ./backend/ms-auth
+    container_name: style-beauty-ms-auth
+    environment:
+      SERVER_PORT: 8081
+
+  ms-perfiles:
+    build:
+      context: ./backend/ms-perfiles
+    container_name: style-beauty-ms-perfiles
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ms-catalogo:
+    build:
+      context: ./backend/ms-catalogo
+    container_name: style-beauty-ms-catalogo
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ms-agenda:
+    build:
+      context: ./backend/ms-agenda
+    container_name: style-beauty-ms-agenda
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_SQL_INIT_MODE: always
+      SPRING_JPA_SHOW_SQL: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ms-inventario:
+    build:
+      context: ./backend/ms-inventario
+    container_name: style-beauty-ms-inventario
+    environment:
+      SERVER_PORT: 8085
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ms-pagos:
+    build:
+      context: ./backend/ms-pagos
+    container_name: style-beauty-ms-pagos
+    environment:
+      SERVER_PORT: 8086
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ms-extra:
+    build:
+      context: ./backend/ms-extra
+    container_name: style-beauty-ms-extra
+    environment:
+      SERVER_PORT: 8087
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ms-notificacion-audit:
+    build:
+      context: ./backend/ms-notificacion-audit
+    container_name: style-beauty-ms-notificacion-audit
+    environment:
+      SERVER_PORT: 8088
+      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/style_beauty_audit
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  mongo-data:
