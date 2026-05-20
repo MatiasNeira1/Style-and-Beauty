@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.style.beauty.ms_cliente.service.PerfilService;
 import com.google.firebase.auth.FirebaseAuth;
@@ -21,6 +23,8 @@ import com.style.beauty.ms_cliente.model.PersonaModel;
 
 
 //ZONA DE ADMINISTRADOR
+@RestController
+@RequestMapping("/api")
 public class AdminController {
     @Autowired
     private PerfilService perfilService;
