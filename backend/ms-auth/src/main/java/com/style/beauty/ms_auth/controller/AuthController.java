@@ -1,6 +1,7 @@
 package com.style.beauty.ms_auth.controller;
 
 import com.google.firebase.auth.FirebaseAuthException;
+import com.google.firebase.auth.UserRecord;
 import com.style.beauty.ms_auth.controller.RoleRequest;
 import com.style.beauty.ms_auth.service.RolService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,42 @@ public class AuthController {
 
     @Autowired
     private RolService rolService;
+
+    @PostMapping("/crear-usuario")
+    public ResponseEntity<?> crearUsuario(@RequestBody Map<String, String> requestBody, HttpServletRequest httpRequest) {
+        Object claimsObj = httpRequest.getAttribute("firebaseClaims");
+        if (!(claimsObj instanceof Map)) {
+            return ResponseEntity.status(401).body("No autenticado");
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> claims = (Map<String, Object>) claimsObj;
+        Object callerRole = claims.get("rol");
+        if (callerRole == null || !"ADMIN".equals(String.valueOf(callerRole))) {
+            return ResponseEntity.status(403).body("Acceso denegado: se requiere rol ADMIN");
+        }
+
+        String email = requestBody.get("email");
+        String password = requestBody.get("password");
+        String rol = requestBody.get("rol");
+
+        if (email == null || email.isBlank() || password == null || password.isBlank() || rol == null || rol.isBlank()) {
+            return ResponseEntity.badRequest().body("Faltan parametros: 'email', 'password' o 'rol'");
+        }
+
+        try {
+            UserRecord user = rolService.createUserWithRole(email, password, rol.toUpperCase());
+            return ResponseEntity.ok(Map.of(
+                    "uid", user.getUid(),
+                    "email", user.getEmail(),
+                    "rol", rol.toUpperCase()
+            ));
+        } catch (FirebaseAuthException e) {
+            return ResponseEntity.internalServerError().body("Error al crear usuario en Firebase: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body("Rol invalido: " + e.getMessage());
+        }
+    }
 
     @PostMapping("/asignar-rol")
     public ResponseEntity<String> asignarRol(@Valid @RequestBody RoleRequest requestBody, HttpServletRequest httpRequest) {

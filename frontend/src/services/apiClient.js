@@ -1,6 +1,8 @@
 import axios from 'axios';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+export const AUTH_API_BASE_URL = import.meta.env.VITE_AUTH_API_BASE_URL || 'http://localhost:8081';
+export const PROFILES_API_BASE_URL = import.meta.env.VITE_PROFILES_API_BASE_URL || 'http://localhost:8082';
 export const TOKEN_KEY = 'style_beauty_token';
 
 export const apiClient = axios.create({
@@ -21,7 +23,8 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message = error.response?.data?.message || error.message || 'Error de comunicacion con el servidor';
+    const responseData = error.response?.data;
+    const message = responseData?.message || (typeof responseData === 'string' ? responseData : null) || error.message || 'Error de comunicacion con el servidor';
     return Promise.reject(new Error(message));
   },
 );
