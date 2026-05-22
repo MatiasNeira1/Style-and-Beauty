@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { CalendarDays, Menu, ShoppingBag, UserRound } from 'lucide-react';
 import { useCart } from '../../store/CartContext.jsx';
+import { useAuth } from '../../store/AuthContext.jsx';
 
 const links = [
   ['/', 'Inicio'],
@@ -12,6 +13,7 @@ const links = [
 
 export function Navbar() {
   const { items, setIsCartOpen } = useCart();
+  const { isAuthenticated } = useAuth();
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
@@ -23,7 +25,7 @@ export function Navbar() {
         ))}
       </nav>
       <div className="navbar-actions">
-        <NavLink to="/perfil" className="icon-link" aria-label="Perfil">
+        <NavLink to={isAuthenticated ? '/perfil' : '/login'} className="icon-link" aria-label={isAuthenticated ? 'Perfil' : 'Iniciar sesion'}>
           <UserRound size={20} />
         </NavLink>
         <NavLink to="/reservar" className="icon-link" aria-label="Reservar">

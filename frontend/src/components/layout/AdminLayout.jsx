@@ -8,6 +8,7 @@ const adminLinks = [
   ['/admin/inventario', 'Inventario', Package],
   ['/admin/pagos', 'Pagos', CreditCard],
   ['/admin/clientes', 'Clientes', Users],
+  ['/admin/staff', 'Staff', Users]
 ];
 
 export function AdminLayout() {

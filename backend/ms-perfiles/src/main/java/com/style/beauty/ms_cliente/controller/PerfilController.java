@@ -20,10 +20,14 @@ public class PerfilController {
 
     @PostMapping("/crear")
     public ResponseEntity<?> crearNuevoPerfil(
-            @RequestHeader("Authorization") String authHeader,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody PerfilRequestDTO requestDTO) {
 
         try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body("Falta el header Authorization.");
+            }
+
             // Limpiamos el token
             String token = authHeader.replace("Bearer ", "");
 
@@ -57,8 +61,12 @@ public class PerfilController {
     }
     //obtener mi perfil
     @GetMapping("/me")
-    public ResponseEntity<?> obtenerMiPerfil(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<?> obtenerMiPerfil(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body("Falta el header Authorization.");
+            }
+
             String token = authHeader.replace("Bearer ", "");
             FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
             String uidVerdadero = decodedToken.getUid();
@@ -76,8 +84,12 @@ public class PerfilController {
     // Listar Clientes (Endpoint Restringido)
 
     @GetMapping("/clientes")
-    public ResponseEntity<?> listarClientes(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<?> listarClientes(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body("Falta el header Authorization.");
+            }
+
             String token = authHeader.replace("Bearer ", "");
             FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
             String rol = (String) decodedToken.getClaims().get("rol");
@@ -98,9 +110,13 @@ public class PerfilController {
 
     @PutMapping("/actualizar")
     public ResponseEntity<?> actualizarPerfil(
-            @RequestHeader("Authorization") String authHeader,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody PerfilRequestDTO requestDTO) {
         try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body("Falta el header Authorization.");
+            }
+
             String token = authHeader.replace("Bearer ", "");
             FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
             String uidVerdadero = decodedToken.getUid();
@@ -117,8 +133,12 @@ public class PerfilController {
 
     // DELETE: Eliminar mi cuenta
     @DeleteMapping("/eliminar")
-    public ResponseEntity<?> eliminarPerfil(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<?> eliminarPerfil(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(401).body("Falta el header Authorization.");
+            }
+
             String token = authHeader.replace("Bearer ", "");
             FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
             String uidVerdadero = decodedToken.getUid();
