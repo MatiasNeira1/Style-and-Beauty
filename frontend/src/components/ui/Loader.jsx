@@ -1,3 +1,11 @@
-export function Loader({ label = 'Cargando' }) {
-  return <span className="loader" aria-label={label} />;
+export function Loader() {
+  return (
+    <div className="loader-container">
+      <div className="loader" aria-label="Cargando">
+        <div className="loader-ring" />
+        <div className="loader-ring" />
+        <div className="loader-ring" />
+      </div>
+    </div>
+  );
 }

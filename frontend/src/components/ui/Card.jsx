@@ -1,3 +1,3 @@
-export function Card({ children, className = '', as: Component = 'article' }) {
-  return <Component className={`card ${className}`.trim()}>{children}</Component>;
+export function Card({ children, className = '' }) {
+  return <div className={`card ${className}`.trim()}>{children}</div>;
 }

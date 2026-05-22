@@ -79,6 +79,15 @@ public class PerfilService {
         if (dto.getTelefono() != null) persona.setTelefono(dto.getTelefono());
         if (dto.getEmailContacto() != null) persona.setEmailContacto(dto.getEmailContacto());
         
+        // Actualizamos la ficha técnica si es cliente
+        if (persona instanceof ClienteModel cliente) {
+            if (cliente.getFichaTecnica() != null) {
+                if (dto.getAlergias() != null) cliente.getFichaTecnica().setAlergias(dto.getAlergias());
+                if (dto.getMedicamentos() != null) cliente.getFichaTecnica().setMedicamentos(dto.getMedicamentos());
+                if (dto.getAfeccionesPiel() != null) cliente.getFichaTecnica().setAfeccionesPiel(dto.getAfeccionesPiel());
+            }
+        }
+        
         // Guardamos los cambios
         return personaRepository.save(persona);
     }
