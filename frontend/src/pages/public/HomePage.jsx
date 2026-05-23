@@ -155,7 +155,7 @@ export function HomePage() {
       </section>
 
       {/* ═══ CTA ═══ */}
-      <section className="cta-section" style={{ position: 'relative', overflow: 'hidden' }}>
+      <section className="cta-section cta-section-centered">
         <AuroraBackground />
         <Reveal>
           <SectionTitle eyebrow="Comienza ahora" title="Tu transformación te espera">
@@ -163,7 +163,7 @@ export function HomePage() {
           </SectionTitle>
         </Reveal>
         <Reveal delay={0.3}>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '1rem' }}>
+          <div className="cta-actions">
             <Link to="/reservar"><MagneticButton><Award size={18} /> Reservar ahora</MagneticButton></Link>
           </div>
         </Reveal>

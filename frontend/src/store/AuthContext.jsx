@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { TOKEN_KEY } from '../services/apiClient.js';
 import { authService } from '../services/authService.js';
@@ -16,7 +16,7 @@ export function AuthProvider({ children }) {
     return stored ? JSON.parse(stored) : null;
   });
 
-  const setSession = (session) => {
+  const setSession = useCallback((session) => {
     if (!session?.user) {
       window.localStorage.removeItem(TOKEN_KEY);
       window.localStorage.removeItem(USER_KEY);
@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
     }
     window.localStorage.setItem(USER_KEY, JSON.stringify(session.user));
     setUserState(session.user);
-  };
+  }, []);
 
   useEffect(() => {
     return onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
@@ -49,31 +49,31 @@ export function AuthProvider({ children }) {
         setIsAuthReady(true);
       }
     });
-  }, []);
+  }, [setSession]);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const session = await firebaseAuthService.login(email, password);
     setSession(session);
     return session;
-  };
+  }, [setSession]);
 
-  const registerClient = async ({ email, password, profile }) => {
+  const registerClient = useCallback(async ({ email, password, profile }) => {
     const created = await firebaseAuthService.register(email, password);
     await authService.registerClient({ uid: created.user.uid });
     const session = await firebaseAuthService.refreshSession();
     setSession(session);
     await profileService.createProfile(profile);
     return session;
-  };
+  }, [setSession]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await firebaseAuthService.logout();
     setSession(null);
-  };
+  }, [setSession]);
 
   const value = useMemo(
     () => ({ user, login, registerClient, setSession, logout, isAuthenticated: Boolean(user), isAuthReady }),
-    [user, isAuthReady]
+    [user, login, registerClient, setSession, logout, isAuthReady]
   );
 
   return <AuthContext.Provider value={value}>{isAuthReady ? children : null}</AuthContext.Provider>;

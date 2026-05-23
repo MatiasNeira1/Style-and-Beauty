@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { CalendarDays, Menu, ShoppingBag, UserRound, X, LogIn } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { CalendarDays, LogIn, Menu, ShoppingBag, UserRound, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useCart } from '../../store/CartContext.jsx';
 import { useAuth } from '../../store/AuthContext.jsx';
 
@@ -22,6 +22,7 @@ export function Navbar() {
 
   const handleProfileClick = (e) => {
     e.preventDefault();
+    setMobileOpen(false);
     if (!isAuthenticated) {
       navigate('/login');
     } else if (user?.role === 'admin' || user?.role === 'ADMIN') {
@@ -41,19 +42,26 @@ export function Navbar() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
       >
-        <NavLink to="/" className="brand">Style &amp; Beauty</NavLink>
-        <nav>
+        <NavLink to="/" className="brand" onClick={() => setMobileOpen(false)}>
+          Style &amp; Beauty
+        </NavLink>
+
+        <nav aria-label="Navegacion principal">
           {links.map(([to, label]) => (
-            <NavLink key={to} to={to} end={to === '/'}>{label}</NavLink>
+            <NavLink key={to} to={to} end={to === '/'}>
+              {label}
+            </NavLink>
           ))}
         </nav>
+
         <div className="navbar-actions">
           {!isAuthenticated ? (
-            <NavLink to="/login" className="icon-link" aria-label="Iniciar Sesión" style={{ display: 'flex', gap: '0.4rem', width: 'auto', padding: '0 1rem', borderRadius: '999px', background: 'var(--color-primary)', color: '#fff', border: 'none' }}>
-              <LogIn size={16} /> <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Login</span>
+            <NavLink to="/login" className="icon-link login-link" aria-label="Iniciar Sesion">
+              <LogIn size={16} />
+              <span>Login</span>
             </NavLink>
           ) : (
-            <button onClick={handleProfileClick} className="icon-link" aria-label="Perfil" style={{ background: 'rgba(212, 122, 158, 0.1)', color: 'var(--color-primary-strong)', borderColor: 'rgba(212, 122, 158, 0.2)' }}>
+            <button onClick={handleProfileClick} className="icon-link profile-link" aria-label="Perfil">
               <UserRound size={20} />
             </button>
           )}
@@ -67,7 +75,8 @@ export function Navbar() {
           <button
             className="icon-link mobile-only"
             onClick={() => setMobileOpen((prev) => !prev)}
-            aria-label="Menu"
+            aria-label={mobileOpen ? 'Cerrar menu' : 'Abrir menu'}
+            aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -89,13 +98,11 @@ export function Navbar() {
               </NavLink>
             ))}
             {!isAuthenticated ? (
-              <NavLink to="/login" onClick={() => setMobileOpen(false)} style={{ color: 'var(--color-primary-strong)' }}>
-                Iniciar Sesión
+              <NavLink to="/login" onClick={() => setMobileOpen(false)} className="mobile-menu-login">
+                Iniciar Sesion
               </NavLink>
             ) : (
-              <button onClick={(e) => { handleProfileClick(e); setMobileOpen(false); }} style={{ textAlign: 'left', width: '100%' }}>
-                Mi Perfil
-              </button>
+              <button onClick={handleProfileClick}>Mi Perfil</button>
             )}
           </motion.nav>
         )}

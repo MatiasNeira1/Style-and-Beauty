@@ -130,30 +130,47 @@ html.lenis, html.lenis body { height: auto; }
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  left: 50%;
-  max-width: min(calc(100% - 2rem), 1180px);
+  left: 0.5rem;
+  margin-inline: auto;
+  max-height: calc(100vh - 6.25rem);
+  max-width: 1040px;
+  overflow-y: auto;
   padding: 0.8rem;
   position: fixed;
-  top: 5.5rem;
-  transform: translateX(-50%);
-  width: 100%;
+  right: 0.5rem;
+  top: 5rem;
+  width: auto;
   z-index: 29;
   box-shadow: 0 15px 40px rgba(0,0,0,0.06);
 }
 
-.mobile-menu a {
+.mobile-menu a,
+.mobile-menu button {
   border-radius: var(--radius-xs);
   color: var(--color-ink-soft);
   font-size: 1rem;
-  padding: 0.9rem 1rem;
-  transition: background 200ms, color 200ms;
   font-weight: 500;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  transition: background 200ms, color 200ms;
+  width: 100%;
 }
 
 .mobile-menu a:hover,
-.mobile-menu a.active {
+.mobile-menu a.active,
+.mobile-menu button:hover {
   background: rgba(212, 122, 158, 0.1);
   color: var(--color-primary-strong);
+}
+
+.mobile-menu-login {
+  color: var(--color-primary-strong);
+}
+
+@media (max-width: 480px) {
+  .mobile-menu {
+    top: 4.65rem;
+  }
 }
 
 /* ═══════════════════════════════════════════

@@ -10,6 +10,7 @@
   max-width: 1580px;
   min-height: 92vh;
   padding: 6.5rem var(--page-x) 2rem 0;
+  width: 100%;
 }
 
 .admin-layout aside {
@@ -173,6 +174,8 @@
   }
 
   .admin-layout aside {
+    height: auto;
+    max-height: none;
     position: static;
   }
 

@@ -39,7 +39,9 @@ export function ClientsAdminPage() {
         rol: 'CLIENTE',
       });
 
-      const { password, ...profilePayload } = payload;
+      const profilePayload = { ...payload };
+      delete profilePayload.password;
+
       return profileService.createClient({
         ...profilePayload,
         idAuth: user.uid,

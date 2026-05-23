@@ -7,10 +7,11 @@ import { VirtualTour } from '../animations/VirtualTour.jsx';
 
 export function RootLayout() {
   const location = useLocation();
+  const showScrollBackground = location.pathname === '/';
 
   return (
     <div className="app-shell">
-      <VirtualTour />
+      {showScrollBackground && <VirtualTour />}
       <Navbar />
       <PageTransition routeKey={location.pathname}>
         <Outlet />
