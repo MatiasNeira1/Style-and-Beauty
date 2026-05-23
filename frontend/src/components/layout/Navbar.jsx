@@ -24,9 +24,9 @@ export function Navbar() {
     e.preventDefault();
     if (!isAuthenticated) {
       navigate('/login');
-    } else if (user.role === 'admin') {
+    } else if (user?.role === 'admin' || user?.role === 'ADMIN') {
       navigate('/admin');
-    } else if (user.role === 'employee') {
+    } else if (user?.role === 'employee' || user?.role === 'STAFF') {
       navigate('/employee');
     } else {
       navigate('/perfil');

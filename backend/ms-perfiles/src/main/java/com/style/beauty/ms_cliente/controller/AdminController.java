@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.style.beauty.ms_cliente.service.PerfilService;
 import com.google.firebase.auth.FirebaseAuth;
@@ -16,20 +18,36 @@ import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
 import com.style.beauty.ms_cliente.model.PersonaModel;
+import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 
 
 
 
 //ZONA DE ADMINISTRADOR
+@RestController
+@RequestMapping("/api")
 public class AdminController {
     @Autowired
     private PerfilService perfilService;
+
+    @Autowired
+    private EspecialidadRepository especialidadRepository;
 
 @GetMapping("/admin/staff")
     public ResponseEntity<?> adminListarStaff(@RequestHeader("Authorization") String authHeader) {
         try {
             if (!esAdmin(authHeader)) return ResponseEntity.status(403).body("Acceso denegado. Solo Administradores.");
             return ResponseEntity.ok(perfilService.listarTodoElStaff());
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/admin/especialidades")
+    public ResponseEntity<?> adminListarEspecialidades(@RequestHeader("Authorization") String authHeader) {
+        try {
+            if (!esAdmin(authHeader)) return ResponseEntity.status(403).body("Acceso denegado. Solo Administradores.");
+            return ResponseEntity.ok(especialidadRepository.findAll());
         } catch (Exception e) {
             return ResponseEntity.status(401).body(e.getMessage());
         }
