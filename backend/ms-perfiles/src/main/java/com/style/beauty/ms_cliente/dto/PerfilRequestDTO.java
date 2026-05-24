@@ -19,4 +19,7 @@ public class PerfilRequestDTO {
 
     // Solo obligatorio si el tipoPerfil es "STAFF"
     private Long idEspecialidad;
+    private String fotoUrl;
+    private String cvUrl;
+    private String descripcionPerfil;
 }

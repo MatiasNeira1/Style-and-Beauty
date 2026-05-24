@@ -1,4 +1,6 @@
-export function DataTable({ columns = [], rows = [] }) {
+import { memo } from 'react';
+
+export const DataTable = memo(function DataTable({ columns = [], rows = [] }) {
   return (
     <div className="overflow-hidden rounded-[28px] border border-neutral-200 bg-white shadow-xl">
 
@@ -54,4 +56,4 @@ export function DataTable({ columns = [], rows = [] }) {
       </div>
     </div>
   );
-}
+});

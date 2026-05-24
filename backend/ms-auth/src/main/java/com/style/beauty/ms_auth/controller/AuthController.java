@@ -49,7 +49,11 @@ public class AuthController {
                     "rol", rol.toUpperCase()
             ));
         } catch (FirebaseAuthException e) {
-            return ResponseEntity.internalServerError().body("Error al crear usuario en Firebase: " + e.getMessage());
+            String message = e.getMessage() == null ? "" : e.getMessage();
+            if (message.contains("EMAIL_EXISTS") || message.toLowerCase().contains("already exists")) {
+                return ResponseEntity.badRequest().body("Ya existe un usuario con ese correo.");
+            }
+            return ResponseEntity.internalServerError().body("Error al crear usuario en Firebase: " + message);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Rol invalido: " + e.getMessage());
         }

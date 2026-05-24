@@ -48,6 +48,8 @@ export function AuthProvider({ children }) {
   };
 
   const registerClient = async ({ email, password, profile }) => {
+    await profileService.validateAvailability({ ...profile, tipoPerfil: 'CLIENTE' });
+
     const created = await firebaseAuthService.register(email, password);
 
     await authService.registerClient({ uid: created.user.uid });
