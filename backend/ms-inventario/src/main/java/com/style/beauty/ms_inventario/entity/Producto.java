@@ -3,6 +3,7 @@ package com.style.beauty.ms_inventario.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -25,7 +26,11 @@ public class Producto {
     @Column(nullable = false)
     private String categoria;
 
+    @Column(columnDefinition = "TEXT")
     private String descripcion;
+
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal precio;
 
     @Column(nullable = false)
     private Boolean activo;

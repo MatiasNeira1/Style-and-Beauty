@@ -1,3 +1,5 @@
+import { CountUp } from './CountUp.jsx';
+
 export function AnimatedCounter({ value, suffix = '' }) {
-  return <strong className="animated-counter">{value}{suffix}</strong>;
+  return <CountUp value={value} suffix={suffix} />;
 }

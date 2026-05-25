@@ -1,31 +1,36 @@
-import { useLayoutEffect, useRef } from 'react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-gsap.registerPlugin(ScrollTrigger);
+import { useEffect, useRef } from 'react';
 
 export function useGsapReveal({ stagger = false } = {}) {
   const ref = useRef(null);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!ref.current) return;
 
-    const ctx = gsap.context(() => {
-      const target = stagger ? ref.current.children : ref.current;
-      gsap.fromTo(target, { autoAlpha: 0, y: 34 }, {
-        autoAlpha: 1,
-        y: 0,
-        duration: 0.75,
-        ease: 'power3.out',
-        stagger: stagger ? 0.09 : 0,
-        scrollTrigger: {
-          trigger: ref.current,
-          start: 'top 82%',
-        },
-      });
-    }, ref);
+    const target = ref.current;
+    const animatedNodes = stagger ? Array.from(target.children) : [target];
 
-    return () => ctx.revert();
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        animatedNodes.forEach((node, index) => {
+          node.style.transition = 'opacity 420ms ease, transform 420ms ease';
+          node.style.transitionDelay = stagger ? `${index * 60}ms` : '0ms';
+          node.style.opacity = '1';
+          node.style.transform = 'translateY(0)';
+        });
+        observer.disconnect();
+      },
+      { rootMargin: '0px 0px -12% 0px' },
+    );
+
+    animatedNodes.forEach((node) => {
+      node.style.opacity = '0';
+      node.style.transform = 'translateY(18px)';
+      node.style.willChange = 'opacity, transform';
+    });
+    observer.observe(target);
+
+    return () => observer.disconnect();
   }, [stagger]);
 
   return ref;

@@ -37,10 +37,8 @@ public class PerfilService {
     }
     // Metodo para registrar un nuevo perfil==============================================================================
     public PersonaModel registrarNuevoPerfil(PerfilRequestDTO dto) {
-        // Evitamos que alguien se registre dos veces
-        if (personaRepository.findByIdAuth(dto.getIdAuth()).isPresent()) {
-            throw new RuntimeException("El perfil ya existe en la base de datos.");
-        }
+        validarDatosObligatorios(dto, true);
+        validarDisponibilidad(dto, true);
          
 
         // Buscamos a la estrategia encargada
@@ -53,6 +51,57 @@ public class PerfilService {
         // Ejecutamos el guardado
         return estrategiaSeleccionada.crearPerfil(dto); }
 
+    public void validarDisponibilidadParaCreacion(PerfilRequestDTO dto) {
+        validarDatosObligatorios(dto, false);
+        validarDisponibilidad(dto, false);
+    }
+
+    private void validarDatosObligatorios(PerfilRequestDTO dto, boolean requiereIdAuth) {
+        if (dto == null) {
+            throw new IllegalArgumentException("Debes enviar los datos del usuario.");
+        }
+        if (requiereIdAuth && estaVacio(dto.getIdAuth())) {
+            throw new IllegalArgumentException("El idAuth es obligatorio.");
+        }
+        if (estaVacio(dto.getTipoPerfil())) {
+            throw new IllegalArgumentException("El tipo de perfil es obligatorio.");
+        }
+        if (estaVacio(dto.getRut())) {
+            throw new IllegalArgumentException("El RUT es obligatorio.");
+        }
+        if (estaVacio(dto.getNombre())) {
+            throw new IllegalArgumentException("El nombre es obligatorio.");
+        }
+        if (estaVacio(dto.getEmailContacto())) {
+            throw new IllegalArgumentException("El correo es obligatorio.");
+        }
+        if ("STAFF".equalsIgnoreCase(dto.getTipoPerfil()) && dto.getIdEspecialidad() == null) {
+            throw new IllegalArgumentException("La especialidad es obligatoria para el Staff.");
+        }
+
+        dto.setRut(dto.getRut().trim());
+        dto.setNombre(dto.getNombre().trim());
+        dto.setEmailContacto(dto.getEmailContacto().trim().toLowerCase());
+        dto.setTipoPerfil(dto.getTipoPerfil().trim().toUpperCase());
+        if (dto.getIdAuth() != null) dto.setIdAuth(dto.getIdAuth().trim());
+    }
+
+    private void validarDisponibilidad(PerfilRequestDTO dto, boolean validarIdAuth) {
+        if (validarIdAuth && personaRepository.existsByIdAuth(dto.getIdAuth())) {
+            throw new RuntimeException("Ya existe un perfil asociado a este usuario.");
+        }
+        if (personaRepository.existsByRutIgnoreCase(dto.getRut())) {
+            throw new RuntimeException("Ya existe un usuario con ese RUT.");
+        }
+        if (personaRepository.existsByEmailContactoIgnoreCase(dto.getEmailContacto())) {
+            throw new RuntimeException("Ya existe un usuario con ese correo.");
+        }
+    }
+
+    private boolean estaVacio(String valor) {
+        return valor == null || valor.isBlank();
+    }
+
         // 2. READ (Obtener Mi Perfil)
     public PersonaModel obtenerMiPerfil(String idAuth) {
         return personaRepository.findByIdAuth(idAuth)
@@ -64,9 +113,19 @@ public class PerfilService {
         return clienteRepository.findAll();
     }
 
+    public ClienteModel obtenerClientePorId(java.util.UUID idCliente) {
+        return clienteRepository.findById(idCliente)
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado."));
+    }
+
     // 2.2 READ (Listar Staff)
     public List<StaffModel> listarTodoElStaff() {
         return staffRepository.findAll();
+    }
+
+    public StaffModel obtenerStaffPorId(java.util.UUID idStaff) {
+        return staffRepository.findById(idStaff)
+                .orElseThrow(() -> new RuntimeException("Staff no encontrado."));
     }
 
     // 3. UPDATE (Actualizar datos del perfil)
@@ -78,6 +137,20 @@ public class PerfilService {
         if (dto.getApellidos() != null) persona.setApellidos(dto.getApellidos());
         if (dto.getTelefono() != null) persona.setTelefono(dto.getTelefono());
         if (dto.getEmailContacto() != null) persona.setEmailContacto(dto.getEmailContacto());
+        if (persona instanceof StaffModel staff) {
+            if (dto.getFotoUrl() != null) staff.setFotoUrl(dto.getFotoUrl());
+            if (dto.getCvUrl() != null) staff.setCvUrl(dto.getCvUrl());
+            if (dto.getDescripcionPerfil() != null) staff.setDescripcionPerfil(dto.getDescripcionPerfil());
+        }
+        
+        // Actualizamos la ficha técnica si es cliente
+        if (persona instanceof ClienteModel cliente) {
+            if (cliente.getFichaTecnica() != null) {
+                if (dto.getAlergias() != null) cliente.getFichaTecnica().setAlergias(dto.getAlergias());
+                if (dto.getMedicamentos() != null) cliente.getFichaTecnica().setMedicamentos(dto.getMedicamentos());
+                if (dto.getAfeccionesPiel() != null) cliente.getFichaTecnica().setAfeccionesPiel(dto.getAfeccionesPiel());
+            }
+        }
         
         // Guardamos los cambios
         return personaRepository.save(persona);

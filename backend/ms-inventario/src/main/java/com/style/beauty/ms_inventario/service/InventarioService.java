@@ -46,6 +46,7 @@ public class InventarioService {
                 .nombre(request.nombre())
                 .categoria(request.categoria())
                 .descripcion(request.descripcion())
+                .precio(request.precio())
                 .activo(true)
                 .build();
 
@@ -59,6 +60,7 @@ public class InventarioService {
         producto.setNombre(request.nombre());
         producto.setCategoria(request.categoria());
         producto.setDescripcion(request.descripcion());
+        producto.setPrecio(request.precio());
 
         return productoRepository.save(producto);
     }

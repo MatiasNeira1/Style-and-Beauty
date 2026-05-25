@@ -8,11 +8,14 @@ import {
 import { firebaseAuth } from './firebaseClient.js';
 
 function toSession(firebaseUser, tokenResult) {
+  const rol = tokenResult.claims?.rol || 'CLIENTE';
+
   return {
     user: {
       uid: firebaseUser.uid,
       email: firebaseUser.email,
-      rol: tokenResult.claims?.rol || null,
+      rol,
+      role: rol.toLowerCase(),
     },
     token: tokenResult.token,
     claims: tokenResult.claims || {},
@@ -33,6 +36,8 @@ export const firebaseAuthService = {
       user: {
         uid: credential.user.uid,
         email: credential.user.email,
+        rol: 'CLIENTE',
+        role: 'cliente',
       },
       token,
     };

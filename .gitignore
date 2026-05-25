@@ -3,5 +3,8 @@ serviceAccountKey.json
 target/
 node_modules/
 dist/
+frontend/.vite/
 .env.local
 .env
+Microsoft/
+.codex-run/

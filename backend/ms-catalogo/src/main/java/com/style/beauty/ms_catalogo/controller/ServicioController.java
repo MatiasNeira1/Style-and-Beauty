@@ -45,11 +45,8 @@ public class ServicioController {
     // PUT /api/servicio/{id} — Actualizar un servicio existente
     @PutMapping("/{id}")
     public ResponseEntity<Servicio> actualizar(@PathVariable UUID id, @RequestBody Servicio servicio) {
-        return service.buscarPorId(id)
-                .map(existente -> {
-                    servicio.setId_servicio(id);
-                    return ResponseEntity.ok(service.guardar(servicio));
-                })
+        return service.actualizar(id, servicio)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -63,4 +60,4 @@ public class ServicioController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
-}
+}

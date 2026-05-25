@@ -19,4 +19,12 @@ public class PerfilRequestDTO {
 
     // Solo obligatorio si el tipoPerfil es "STAFF"
     private Long idEspecialidad;
+    private String fotoUrl;
+    private String cvUrl;
+    private String descripcionPerfil;
+    
+    // Ficha Medica (Solo para clientes)
+    private String alergias;
+    private String medicamentos;
+    private String afeccionesPiel;
 }

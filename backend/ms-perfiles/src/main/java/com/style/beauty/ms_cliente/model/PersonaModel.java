@@ -36,7 +36,7 @@ public class PersonaModel {
     
     private String telefono;
 
-    @Column(name = "email_contacto")
+    @Column(name = "email_contacto", unique = true)
     private String emailContacto;
 
     @Column(name = "fecha_registro", updatable = false)
