@@ -19,6 +19,34 @@ export const router = createBrowserRouter([
     path: '/',
     element: <RootLayout />,
     children: [
+      { index: true, element: <HomePage /> },
+      { path: 'servicios', element: <ServicesPage /> },
+      { path: 'productos', element: <ProductsPage /> },
+      { path: 'nosotros', element: <AboutPage /> },
+      { path: 'contacto', element: <ContactPage /> },
+      { path: 'reservar', element: <BookingPage /> },
+      { path: 'checkout', element: <CheckoutPage /> },
+      { path: 'login', element: <LoginPage /> },
+      { path: 'registro', element: <RegisterPage /> },
+      { path: 'perfil', element: <ProfilePage /> },
+      { path: 'reserva-extraordinaria', element: <ExtraordinaryBookingPage /> },
+      {
+        path: 'admin',
+        element: (
+          <RequireAuth roles={['ADMIN', 'STAFF']}>
+            <AdminLayout />
+          </RequireAuth>
+        ),
+        children: [
+          { index: 'true', element: <AdminDashboard /> },
+          { path: 'agenda', element: <AgendaAdminPage /> },
+          { path: 'servicios', element: <ServicesAdminPage /> },
+          { path: 'inventario', element: <InventoryAdminPage /> },
+          { path: 'pagos', element: <PaymentsAdminPage /> },
+          { path: 'clientes', element: <ClientsAdminPage /> },
+          { path: 'staff', element: <StaffAdminPage /> }
+        ],
+      },
       { index: true, element: lazyRoute(() => import('../pages/public/HomePage.jsx'), 'HomePage') },
       { path: 'servicios', element: lazyRoute(() => import('../pages/public/ServicesPage.jsx'), 'ServicesPage') },
       { path: 'servicios/:categoria/:servicio', element: lazyRoute(() => import('../pages/public/ServiceDetailPage.jsx'), 'ServiceDetailPage') },

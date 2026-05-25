@@ -20,6 +20,26 @@ export function CartProvider({ children }) {
     setIsCartOpen(true);
   }, [setItems]);
 
+  const removeItem = (id) => setItems((current) => current.filter((item) => item.id !== id));
+  const updateQuantity = (id, delta) => {
+    setItems((current) =>
+      current
+        .map((item) => {
+          if (item.id === id) {
+            const nextQty = item.quantity + delta;
+            return nextQty > 0 ? { ...item, quantity: nextQty } : null;
+          }
+          return item;
+        })
+        .filter(Boolean)
+    );
+  };
+  const clearCart = () => setItems([]);
+  const total = items.reduce((sum, item) => sum + Number(item.price || item.precio || 0) * item.quantity, 0);
+
+  const value = useMemo(
+    () => ({ items, addItem, removeItem, updateQuantity, clearCart, total, isCartOpen, setIsCartOpen }),
+    [items, isCartOpen, total],
   const removeItem = useCallback((id) => setItems((current) => current.filter((item) => item.id !== id)), [setItems]);
   const clearCart = useCallback(() => setItems([]), [setItems]);
   const total = items.reduce((sum, item) => sum + Number(item.price || item.precio || 0) * item.quantity, 0);
