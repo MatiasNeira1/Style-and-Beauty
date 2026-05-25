@@ -4,6 +4,7 @@ import { Navbar } from './Navbar.jsx';
 import { PageTransition } from './PageTransition.jsx';
 import { CartDrawer } from '../shop/CartDrawer.jsx';
 import { VirtualTour } from '../animations/VirtualTour.jsx';
+import { ClientChatbot } from '../chat/ClientChatbot.jsx';
 
 export function RootLayout() {
   const location = useLocation();
@@ -18,6 +19,7 @@ export function RootLayout() {
       </PageTransition>
       <Footer />
       <CartDrawer />
+      <ClientChatbot />
     </div>
   );
 }

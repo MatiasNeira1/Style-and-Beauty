@@ -96,7 +96,7 @@ export function ProfilePage() {
               </div>
               <div className="field">
                 <label>Teléfono</label>
-                <Input {...register('telefono')} placeholder="+56 9 1234 5678" />
+                <Input {...register('telefono')} placeholder="+56 9 5861 2677" />
               </div>
               <div className="field">
                 <label>Email de Contacto</label>

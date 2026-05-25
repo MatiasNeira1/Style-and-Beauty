@@ -8,8 +8,8 @@ import { catalogService } from '../../services/catalogService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
 
 const fallbackServices = [
-  { id: 'color', nombre: 'Color premium', categoria: 'Color', descripcion: 'Coloracion, brillo y cuidado de fibra.', precio: 45990 },
-  { id: 'hair', nombre: 'Corte signature', categoria: 'Peluqueria', descripcion: 'Corte personalizado con styling final.', precio: 22990 },
+  { id: 'color', nombre: 'Color premium', categoria: 'Color', descripcion: 'Coloración, brillo y cuidado de fibra.', precio: 45990 },
+  { id: 'hair', nombre: 'Corte signature', categoria: 'Peluquería', descripcion: 'Corte personalizado con styling final.', precio: 22990 },
   { id: 'skin', nombre: 'Ritual facial', categoria: 'Facial', descripcion: 'Limpieza profunda y luminosidad inmediata.', precio: 34990 },
 ];
 
@@ -33,10 +33,10 @@ export function ServiceCategoryPage() {
     <section className="page-section">
       <Link className="text-link service-back-link" to="/servicios">
         <ArrowLeft size={16} />
-        Categorias
+        Categorías
       </Link>
 
-      <SectionTitle eyebrow="Categoria" title={category}>
+      <SectionTitle eyebrow="Categoría" title={category}>
         Elige un servicio para revisar su detalle y los profesionales disponibles.
       </SectionTitle>
 
@@ -54,7 +54,7 @@ export function ServiceCategoryPage() {
                 >
                   <span className="card-kicker">Servicio</span>
                   <h3>{service.nombre || service.name}</h3>
-                  <p>{service.descripcion || service.description || 'Atencion personalizada con acabado profesional.'}</p>
+                  <p>{service.descripcion || service.description || 'Atención personalizada con acabado profesional.'}</p>
                   <div className="category-service-meta">
                     <strong>{servicePrice(service)}</strong>
                     <span><Clock size={14} /> {service.duracion_minutos || service.duracion || 45} min</span>

@@ -83,7 +83,7 @@ export function StaffAdminPage() {
           <Input label="Nombre" id="staff-nombre" name="nombre" value={form.nombre} onChange={handleChange} required />
           <Input label="Apellidos" id="staff-apellidos" name="apellidos" value={form.apellidos} onChange={handleChange} />
           <Input label="Email" id="staff-email" name="emailContacto" type="email" value={form.emailContacto} onChange={handleChange} required />
-          <Input label="Contrasena temporal" id="staff-password" name="password" type="password" minLength="6" value={form.password} onChange={handleChange} required />
+          <Input label="Contraseña temporal" id="staff-password" name="password" type="password" minLength="6" value={form.password} onChange={handleChange} required />
           <Input label="Telefono" id="staff-telefono" name="telefono" value={form.telefono} onChange={handleChange} />
           <Input label="Fecha nacimiento" id="staff-fecha" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={handleChange} />
           <Input label="Genero" id="staff-genero" name="genero" value={form.genero} onChange={handleChange} />

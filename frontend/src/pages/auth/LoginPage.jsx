@@ -7,9 +7,9 @@ import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useAuth } from '../../store/AuthContext.jsx';
 
 const firebaseErrorMessages = {
-  'auth/invalid-credential': 'Correo o contrasena incorrectos.',
+  'auth/invalid-credential': 'Correo o contraseña incorrectos.',
   'auth/user-not-found': 'No existe una cuenta con ese correo.',
-  'auth/wrong-password': 'Contrasena incorrecta.',
+  'auth/wrong-password': 'Contraseña incorrecta.',
   'auth/too-many-requests': 'Demasiados intentos. Intenta nuevamente en unos minutos.',
 };
 
@@ -38,29 +38,41 @@ export function LoginPage() {
       const destination = session.user?.rol === 'ADMIN' ? '/admin' : redirectTo;
       navigate(destination, { replace: true });
     } catch (loginError) {
-      setError(firebaseErrorMessages[loginError.code] || loginError.message || 'No se pudo iniciar sesion.');
+      setError(firebaseErrorMessages[loginError.code] || loginError.message || 'No se pudo iniciar sesión.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <section className="page-section auth-section">
-      <div>
-        <SectionTitle eyebrow="Acceso" title="Iniciar sesion">
-          Entra con tu cuenta para sincronizar tu perfil y acceder al panel correspondiente.
-        </SectionTitle>
-      </div>
+    <>
+      <section className="page-hero page-hero-login">
+        <div className="page-hero-media" />
+        <div className="page-hero-overlay" />
+        <div className="page-hero-content">
+          <span className="card-kicker">Acceso privado</span>
+          <h1>Tu experiencia personalizada empieza aquí</h1>
+          <p>Ingresa para reservar, revisar tu perfil y acceder a tus servicios con seguimiento personalizado.</p>
+        </div>
+      </section>
 
-      <Card className="auth-card" as="form" onSubmit={handleSubmit}>
-        <Input label="Email" id="login-email" name="email" type="email" value={form.email} onChange={handleChange} required />
-        <Input label="Contrasena" id="login-password" name="password" type="password" value={form.password} onChange={handleChange} required />
-        {error && <p className="admin-alert">{error}</p>}
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Ingresando...' : 'Ingresar'}
-        </Button>
-        <NavLink className="text-link" to="/registro">Crear cuenta de cliente</NavLink>
-      </Card>
-    </section>
+      <section className="page-section auth-section">
+        <div>
+          <SectionTitle eyebrow="Acceso" title="Iniciar sesión">
+            Entra con tu cuenta para sincronizar tu perfil y acceder al panel correspondiente.
+          </SectionTitle>
+        </div>
+
+        <Card className="auth-card" as="form" onSubmit={handleSubmit}>
+          <Input label="Email" id="login-email" name="email" type="email" value={form.email} onChange={handleChange} required />
+          <Input label="Contraseña" id="login-password" name="password" type="password" value={form.password} onChange={handleChange} required />
+          {error && <p className="admin-alert">{error}</p>}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Ingresando...' : 'Ingresar'}
+          </Button>
+          <NavLink className="text-link" to="/registro">Crear cuenta de cliente</NavLink>
+        </Card>
+      </section>
+    </>
   );
 }

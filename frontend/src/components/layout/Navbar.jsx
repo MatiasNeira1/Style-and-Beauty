@@ -8,6 +8,7 @@ import { useAuth } from '../../store/AuthContext.jsx';
 const links = [
   ['/', 'Inicio'],
   ['/servicios', 'Servicios'],
+  ['/profesionales', 'Profesionales'],
   ['/productos', 'Productos'],
   ['/reservar', 'Reservar'],
   ['/contacto', 'Contacto'],
@@ -46,7 +47,7 @@ export function Navbar() {
           Style &amp; Beauty
         </NavLink>
 
-        <nav aria-label="Navegacion principal">
+        <nav aria-label="Navegación principal">
           {links.map(([to, label]) => (
             <NavLink key={to} to={to} end={to === '/'}>
               {label}
@@ -56,7 +57,7 @@ export function Navbar() {
 
         <div className="navbar-actions">
           {!isAuthenticated ? (
-            <NavLink to="/login" className="icon-link login-link" aria-label="Iniciar Sesion">
+            <NavLink to="/login" className="icon-link login-link" aria-label="Iniciar sesión">
               <LogIn size={16} />
               <span>Login</span>
             </NavLink>
@@ -99,7 +100,7 @@ export function Navbar() {
             ))}
             {!isAuthenticated ? (
               <NavLink to="/login" onClick={() => setMobileOpen(false)} className="mobile-menu-login">
-                Iniciar Sesion
+                Iniciar sesión
               </NavLink>
             ) : (
               <button onClick={handleProfileClick}>Mi Perfil</button>

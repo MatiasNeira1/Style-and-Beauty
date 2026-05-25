@@ -114,6 +114,7 @@ services:
     environment:
       SERVER_PORT: 8084
       MS_PERFILES_URL: http://ms-perfiles:8082
+      APP_AGENDA_DEFAULT_HOLGURA_MIN: 20
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres

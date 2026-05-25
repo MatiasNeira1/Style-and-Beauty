@@ -43,6 +43,9 @@ public class CitaService {
     @Value("${app.agenda.zone:America/Santiago}")
     private String agendaZone;
 
+    @Value("${app.agenda.default-holgura-min:20}")
+    private int defaultHolguraMin;
+
     public List<Cita> listar() {
         return citaRepository.findAll();
     }
@@ -55,7 +58,7 @@ public class CitaService {
     public List<DisponibilidadSlot> calcularDisponibilidad(DisponibilidadRequest request) {
         perfilClient.obtenerStaff(request.idStaff());
 
-        int holgura = request.holguraMin() != null ? request.holguraMin() : 20;
+        int holgura = normalizarHolgura(request.holguraMin());
         int duracion = request.duracionServicioMin();
 
         if (duracion <= 0) {
@@ -86,11 +89,13 @@ public class CitaService {
                     .atZone(zoneId())
                     .toOffsetDateTime();
 
+            OffsetDateTime ahora = OffsetDateTime.now(zoneId());
+
             while (!cursor.plusMinutes(duracion + holgura).isAfter(finJornada)) {
                 OffsetDateTime finServicio = cursor.plusMinutes(duracion);
                 OffsetDateTime finConHolgura = finServicio.plusMinutes(holgura);
 
-                if (!tieneChoque(cursor, finConHolgura, citas, bloqueos)) {
+                if (!cursor.isBefore(ahora) && !tieneChoque(cursor, finConHolgura, citas, bloqueos)) {
                     slots.add(new DisponibilidadSlot(cursor, finServicio, finConHolgura));
                 }
 
@@ -136,7 +141,10 @@ public class CitaService {
     public Cita crear(CrearCitaRequest request) {
         validarPerfiles(request.idCliente(), request.idStaff());
 
-        int holgura = request.holguraMin() != null ? request.holguraMin() : 20;
+        int holgura = normalizarHolgura(request.holguraMin());
+        if (request.duracionServicioMin() == null || request.duracionServicioMin() <= 0) {
+            throw new BusinessException("La duracion del servicio debe ser mayor a 0");
+        }
 
         OffsetDateTime inicio = request.fechaHoraInicio();
         OffsetDateTime fin = inicio.plusMinutes(request.duracionServicioMin());
@@ -176,6 +184,14 @@ public class CitaService {
     private void validarPerfiles(UUID idCliente, UUID idStaff) {
         perfilClient.obtenerCliente(idCliente);
         perfilClient.obtenerStaff(idStaff);
+    }
+
+    private int normalizarHolgura(Integer holguraMin) {
+        int holgura = holguraMin != null ? holguraMin : defaultHolguraMin;
+        if (holgura < 0) {
+            throw new BusinessException("La holgura no puede ser negativa");
+        }
+        return holgura;
     }
 
     @Transactional
