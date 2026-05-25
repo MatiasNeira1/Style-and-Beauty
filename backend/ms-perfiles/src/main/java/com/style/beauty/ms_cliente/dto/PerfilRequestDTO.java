@@ -22,4 +22,9 @@ public class PerfilRequestDTO {
     private String fotoUrl;
     private String cvUrl;
     private String descripcionPerfil;
+    
+    // Ficha Medica (Solo para clientes)
+    private String alergias;
+    private String medicamentos;
+    private String afeccionesPiel;
 }

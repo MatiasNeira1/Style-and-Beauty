@@ -42,7 +42,9 @@ export function StaffAdminPage() {
         rol: 'STAFF',
       });
 
-      const { password, ...profilePayload } = payload;
+      const profilePayload = { ...payload };
+      delete profilePayload.password;
+
       return profileService.createStaff({
         ...profilePayload,
         idAuth: user.uid,

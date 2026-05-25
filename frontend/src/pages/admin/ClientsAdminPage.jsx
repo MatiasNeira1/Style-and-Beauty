@@ -79,6 +79,10 @@ export function ClientsAdminPage() {
 
       const { password, ...profilePayload } = payload;
       const normalizedPayload = {
+      const profilePayload = { ...payload };
+      delete profilePayload.password;
+
+      return profileService.createClient({
         ...profilePayload,
         idAuth: user.uid,
       };
