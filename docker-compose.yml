@@ -92,6 +92,8 @@ services:
     build:
       context: ./backend/ms-catalogo
     container_name: style-beauty-ms-catalogo
+    ports:
+      - "8083:8083"
     environment:
       SERVER_PORT: 8083
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
@@ -107,8 +109,11 @@ services:
     build:
       context: ./backend/ms-agenda
     container_name: style-beauty-ms-agenda
+    ports:
+      - "8084:8084"
     environment:
       SERVER_PORT: 8084
+      MS_PERFILES_URL: http://ms-perfiles:8082
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
@@ -123,6 +128,8 @@ services:
     build:
       context: ./backend/ms-inventario
     container_name: style-beauty-ms-inventario
+    ports:
+      - "8085:8085"
     environment:
       SERVER_PORT: 8085
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty

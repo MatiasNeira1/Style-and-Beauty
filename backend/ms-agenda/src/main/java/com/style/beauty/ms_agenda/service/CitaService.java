@@ -2,8 +2,13 @@ package com.style.beauty.ms_agenda.service;
 
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.entity.HistorialCita;
+import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
+import com.style.beauty.ms_agenda.entity.JornadaStaff;
+import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.enums.AccionHistorial;
 import com.style.beauty.ms_agenda.enums.EstadoCita;
 import com.style.beauty.ms_agenda.enums.TipoCita;
@@ -14,12 +19,16 @@ import com.style.beauty.ms_agenda.repository.CitaRepository;
 import com.style.beauty.ms_agenda.repository.HistorialCitaRepository;
 import com.style.beauty.ms_agenda.repository.JornadaStaffRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
+import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +38,10 @@ public class CitaService {
     private final JornadaStaffRepository jornadaStaffRepository;
     private final BloqueoAgendaRepository bloqueoAgendaRepository;
     private final HistorialCitaRepository historialCitaRepository;
+    private final PerfilClient perfilClient;
+
+    @Value("${app.agenda.zone:America/Santiago}")
+    private String agendaZone;
 
     public List<Cita> listar() {
         return citaRepository.findAll();
@@ -39,8 +52,90 @@ public class CitaService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
     }
 
+    public List<DisponibilidadSlot> calcularDisponibilidad(DisponibilidadRequest request) {
+        perfilClient.obtenerStaff(request.idStaff());
+
+        int holgura = request.holguraMin() != null ? request.holguraMin() : 20;
+        int duracion = request.duracionServicioMin();
+
+        if (duracion <= 0) {
+            throw new BusinessException("La duracion del servicio debe ser mayor a 0");
+        }
+
+        List<JornadaStaff> jornadas = jornadaStaffRepository
+                .findByIdStaffAndDiaSemanaAndActivoTrue(request.idStaff(), request.fecha().getDayOfWeek().getValue());
+
+        if (jornadas.isEmpty()) {
+            return List.of();
+        }
+
+        OffsetDateTime inicioDia = atDateTime(request.fecha(), 0, 0);
+        OffsetDateTime finDia = inicioDia.plusDays(1);
+        List<EstadoCita> ignorados = estadosIgnoradosParaDisponibilidad();
+        List<Cita> citas = citaRepository.buscarCitasEnRango(request.idStaff(), inicioDia, finDia, ignorados);
+        List<BloqueoAgenda> bloqueos = bloqueoAgendaRepository.buscarBloqueosEnRango(request.idStaff(), inicioDia, finDia);
+        List<DisponibilidadSlot> slots = new ArrayList<>();
+
+        for (JornadaStaff jornada : jornadas) {
+            OffsetDateTime cursor = request.fecha()
+                    .atTime(jornada.getHoraInicio())
+                    .atZone(zoneId())
+                    .toOffsetDateTime();
+            OffsetDateTime finJornada = request.fecha()
+                    .atTime(jornada.getHoraFin())
+                    .atZone(zoneId())
+                    .toOffsetDateTime();
+
+            while (!cursor.plusMinutes(duracion + holgura).isAfter(finJornada)) {
+                OffsetDateTime finServicio = cursor.plusMinutes(duracion);
+                OffsetDateTime finConHolgura = finServicio.plusMinutes(holgura);
+
+                if (!tieneChoque(cursor, finConHolgura, citas, bloqueos)) {
+                    slots.add(new DisponibilidadSlot(cursor, finServicio, finConHolgura));
+                }
+
+                cursor = cursor.plusMinutes(15);
+            }
+        }
+
+        return slots;
+    }
+
+    private OffsetDateTime atDateTime(LocalDate date, int hour, int minute) {
+        return date.atTime(hour, minute).atZone(zoneId()).toOffsetDateTime();
+    }
+
+    private ZoneId zoneId() {
+        return ZoneId.of(agendaZone);
+    }
+
+    private boolean tieneChoque(
+            OffsetDateTime inicio,
+            OffsetDateTime finConHolgura,
+            List<Cita> citas,
+            List<BloqueoAgenda> bloqueos) {
+        boolean choqueCita = citas.stream()
+                .anyMatch(cita -> cita.getFechaHoraInicio().isBefore(finConHolgura)
+                        && cita.getFechaHoraFinHolgura().isAfter(inicio));
+
+        boolean choqueBloqueo = bloqueos.stream()
+                .anyMatch(bloqueo -> bloqueo.getFechaHoraInicio().isBefore(finConHolgura)
+                        && bloqueo.getFechaHoraFin().isAfter(inicio));
+
+        return choqueCita || choqueBloqueo;
+    }
+
+    private List<EstadoCita> estadosIgnoradosParaDisponibilidad() {
+        return List.of(
+                EstadoCita.CANCELADA,
+                EstadoCita.EXPIRADA,
+                EstadoCita.RECHAZADA);
+    }
+
     @Transactional
     public Cita crear(CrearCitaRequest request) {
+        validarPerfiles(request.idCliente(), request.idStaff());
+
         int holgura = request.holguraMin() != null ? request.holguraMin() : 20;
 
         OffsetDateTime inicio = request.fechaHoraInicio();
@@ -76,6 +171,11 @@ public class CitaService {
                 "Cita creada en estado pendiente de pago");
 
         return guardada;
+    }
+
+    private void validarPerfiles(UUID idCliente, UUID idStaff) {
+        perfilClient.obtenerCliente(idCliente);
+        perfilClient.obtenerStaff(idStaff);
     }
 
     @Transactional
@@ -139,10 +239,7 @@ public class CitaService {
     }
 
     private void validarChoqueCitas(UUID idStaff, OffsetDateTime inicio, OffsetDateTime finConHolgura) {
-        List<EstadoCita> ignorados = List.of(
-                EstadoCita.CANCELADA,
-                EstadoCita.EXPIRADA,
-                EstadoCita.RECHAZADA);
+        List<EstadoCita> ignorados = estadosIgnoradosParaDisponibilidad();
 
         boolean existeChoque = !citaRepository
                 .buscarChoquesAgenda(idStaff, inicio, finConHolgura, ignorados)

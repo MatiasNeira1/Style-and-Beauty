@@ -33,6 +33,9 @@ public class StaffStrategy implements PerfilStrategy{
         staff.setGenero(dto.getGenero());
         staff.setTelefono(dto.getTelefono());
         staff.setEmailContacto(dto.getEmailContacto());
+        staff.setFotoUrl(dto.getFotoUrl());
+        staff.setCvUrl(dto.getCvUrl());
+        staff.setDescripcionPerfil(dto.getDescripcionPerfil());
         
         staff.setHolguraCitaMinutos(20); // Regla de negocio
         

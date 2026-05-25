@@ -9,5 +9,8 @@ public interface PersonaRepository extends JpaRepository<PersonaModel, UUID> {
     //metodo para buscar por idAuth Firebase UID y por RUT
     Optional<PersonaModel> findByIdAuth(String idAuth);
     Optional<PersonaModel> findByRut(String rut);
+    boolean existsByIdAuth(String idAuth);
+    boolean existsByRutIgnoreCase(String rut);
+    boolean existsByEmailContactoIgnoreCase(String emailContacto);
 
 }

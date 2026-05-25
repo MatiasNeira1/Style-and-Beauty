@@ -1,5 +1,6 @@
 package com.style.beauty.ms_cliente.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -17,5 +18,6 @@ public class ClienteModel extends PersonaModel {
 
     // Si se borra un cliente, su ficha medica se borra automáticamente (CascadeType.ALL)
     @OneToOne(mappedBy = "cliente", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private FichaTecnicaModel fichaTecnica;
 }

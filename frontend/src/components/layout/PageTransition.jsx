@@ -1,7 +1,5 @@
-import { useLayoutEffect, useRef } from 'react';
-import gsap from 'gsap';
-
 export function PageTransition({ children, routeKey }) {
+  return <main key={routeKey} className="page-transition">{children}</main>;
   const ref = useRef(null);
 
   useLayoutEffect(() => {

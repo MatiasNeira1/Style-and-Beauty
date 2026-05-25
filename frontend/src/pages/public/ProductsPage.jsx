@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { ProductGrid } from '../../components/shop/ProductGrid.jsx';
-import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
 import { useCart } from '../../store/CartContext.jsx';
 import { inventoryService } from '../../services/inventoryService.js';
@@ -17,9 +16,20 @@ export function ProductsPage() {
   const catalog = Array.isArray(data) && data.length ? data : products;
 
   return (
-    <section className="page-section">
-      <SectionTitle eyebrow="Shop" title="Productos profesionales">Cuidado de salon para extender el resultado en casa.</SectionTitle>
-      {isLoading ? <Loader /> : <ProductGrid products={catalog} onAdd={addItem} />}
-    </section>
+    <>
+      <section className="products-hero">
+        <div className="products-hero-media" />
+        <div className="products-hero-overlay" />
+        <div className="products-hero-content">
+          <span className="card-kicker">Shop</span>
+          <h1>Productos profesionales</h1>
+          <p>Cuidado de salon para extender el resultado en casa.</p>
+        </div>
+      </section>
+
+      <section className="page-section products-section">
+        {isLoading ? <Loader /> : <ProductGrid products={catalog} onAdd={addItem} />}
+      </section>
+    </>
   );
 }

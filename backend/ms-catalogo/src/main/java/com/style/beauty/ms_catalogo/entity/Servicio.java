@@ -16,10 +16,15 @@ public class Servicio {
     @Column(nullable = false)
     private String nombre;
 
+    @Column(columnDefinition = "TEXT")
     private String descripcion;
 
+    @Column(columnDefinition = "TEXT")
+    private String detallerservicio;
+    
     private String categoria;
 
+    @Column(columnDefinition = "TEXT")
     private String manual_uso_url;
 
     @Column(nullable = false)
