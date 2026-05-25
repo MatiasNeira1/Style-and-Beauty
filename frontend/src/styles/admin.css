@@ -115,10 +115,34 @@
   }
 
   .admin-layout aside {
-    position: static;
+    position: sticky;
+    top: 5.25rem;
+    height: auto;
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 0.5rem;
+    padding: 0.65rem 0.85rem;
+    background: rgba(25, 20, 23, 0.95);
+    z-index: 20;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .admin-layout aside::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Webkit */
+  }
+
+  .admin-layout aside h2 {
+    display: none;
+  }
+
+  .admin-layout aside a {
+    flex-shrink: 0;
+    padding: 0.55rem 0.85rem;
+    font-size: 0.85rem;
   }
 
   .admin-content {
-    padding: 1.5rem 0 0;
+    padding: 1rem 0 0;
   }
 }

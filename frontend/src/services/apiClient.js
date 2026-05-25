@@ -3,6 +3,7 @@ import axios from 'axios';
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 export const AUTH_API_BASE_URL = import.meta.env.VITE_AUTH_API_BASE_URL || 'http://localhost:8081';
 export const PROFILES_API_BASE_URL = import.meta.env.VITE_PROFILES_API_BASE_URL || 'http://localhost:8082';
+export const STAFF_API_BASE_URL = import.meta.env.VITE_STAFF_API_BASE_URL || 'http://localhost:8083';
 export const TOKEN_KEY = 'style_beauty_token';
 
 export const apiClient = axios.create({

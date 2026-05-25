@@ -21,11 +21,24 @@ export function CartProvider({ children }) {
   };
 
   const removeItem = (id) => setItems((current) => current.filter((item) => item.id !== id));
+  const updateQuantity = (id, delta) => {
+    setItems((current) =>
+      current
+        .map((item) => {
+          if (item.id === id) {
+            const nextQty = item.quantity + delta;
+            return nextQty > 0 ? { ...item, quantity: nextQty } : null;
+          }
+          return item;
+        })
+        .filter(Boolean)
+    );
+  };
   const clearCart = () => setItems([]);
   const total = items.reduce((sum, item) => sum + Number(item.price || item.precio || 0) * item.quantity, 0);
 
   const value = useMemo(
-    () => ({ items, addItem, removeItem, clearCart, total, isCartOpen, setIsCartOpen }),
+    () => ({ items, addItem, removeItem, updateQuantity, clearCart, total, isCartOpen, setIsCartOpen }),
     [items, isCartOpen, total],
   );
 

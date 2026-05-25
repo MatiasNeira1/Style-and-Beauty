@@ -5,6 +5,7 @@ import './styles/tokens.css';
 import './styles/globals.css';
 import './styles/animations.css';
 import './styles/admin.css';
+import './styles/staff.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
