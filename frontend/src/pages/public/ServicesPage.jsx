@@ -1,30 +1,46 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import { Reveal } from '../../components/animations/Reveal.jsx';
-import { CategoryGrid } from '../../components/services/CategoryGrid.jsx';
-import { Loader } from '../../components/ui/Loader.jsx';
+import { ServicesByCategory } from '../../components/services/ServicesByCategory.jsx';
+import { ServicesCategories } from '../../components/services/ServicesCategories.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
-import { catalogService } from '../../services/catalogService.js';
-
-const fallbackServices = [
-  { id: 'color', nombre: 'Color premium', categoria: 'Color', descripcion: 'Coloracion, brillo y cuidado de fibra.', precio: 45990 },
-  { id: 'hair', nombre: 'Corte signature', categoria: 'Peluqueria', descripcion: 'Corte personalizado con styling final.', precio: 22990 },
-  { id: 'skin', nombre: 'Ritual facial', categoria: 'Facial', descripcion: 'Limpieza profunda y luminosidad inmediata.', precio: 34990 },
-];
+import { mockServices, serviceCategories } from '../../mocks/services.mock.js';
 
 export function ServicesPage() {
-  const { data, isLoading } = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
-  const services = Array.isArray(data) && data.length ? data : fallbackServices;
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const visibleServices = useMemo(() => (
+    selectedCategory ? mockServices.filter((service) => service.categoriaId === selectedCategory.id) : []
+  ), [selectedCategory]);
+  const heroTitle = selectedCategory?.heroTitle || 'Servicios de belleza y bienestar';
+  const heroSubtitle = selectedCategory?.heroSubtitle || 'Elige una especialidad y descubre nuestros tratamientos.';
 
   return (
-    <section className="page-section">
-      <SectionTitle eyebrow="Catalogo" title="Categorias de servicios">Elige un area para revisar servicios y profesionales especialistas.</SectionTitle>
-      {isLoading ? (
-        <Loader />
-      ) : (
-        <Reveal>
-          <CategoryGrid services={services} />
-        </Reveal>
-      )}
-    </section>
+    <>
+      <section className="page-hero page-hero-services">
+        <div className="page-hero-media" />
+        <div className="page-hero-overlay" />
+        <div className="page-hero-content">
+          <span className="card-kicker">Catálogo</span>
+          <h1>{heroTitle}</h1>
+          <p>{heroSubtitle}</p>
+        </div>
+      </section>
+
+      <section className="page-section catalog-page">
+        {!selectedCategory ? (
+          <>
+            <SectionTitle eyebrow="Categorías" title="Elige tu experiencia">
+              Primero selecciona una categoría para revisar los servicios disponibles.
+            </SectionTitle>
+            <Reveal>
+              <ServicesCategories categories={serviceCategories} services={mockServices} onSelect={setSelectedCategory} />
+            </Reveal>
+          </>
+        ) : (
+          <Reveal>
+            <ServicesByCategory category={selectedCategory} services={visibleServices} onBack={() => setSelectedCategory(null)} />
+          </Reveal>
+        )}
+      </section>
+    </>
   );
 }

@@ -5,6 +5,7 @@ import './styles/tokens.css';
 import './styles/globals.css';
 import './styles/animations.css';
 import './styles/admin.css';
+import './styles/client.css';
 
 /* ── Lenis Smooth Scroll ── */
 const lenis = new Lenis({

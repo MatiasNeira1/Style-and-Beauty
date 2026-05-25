@@ -9,8 +9,8 @@ import { profileService } from '../../services/profileService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory, normalizeCategory } from '../../utils/categoryUtils.js';
 
 const fallbackServices = [
-  { id: 'color', nombre: 'Color premium', categoria: 'Color', descripcion: 'Coloracion, brillo y cuidado de fibra.', precio: 45990 },
-  { id: 'hair', nombre: 'Corte signature', categoria: 'Peluqueria', descripcion: 'Corte personalizado con styling final.', precio: 22990 },
+  { id: 'color', nombre: 'Color premium', categoria: 'Color', descripcion: 'Coloración, brillo y cuidado de fibra.', precio: 45990 },
+  { id: 'hair', nombre: 'Corte signature', categoria: 'Peluquería', descripcion: 'Corte personalizado con styling final.', precio: 22990 },
   { id: 'skin', nombre: 'Ritual facial', categoria: 'Facial', descripcion: 'Limpieza profunda y luminosidad inmediata.', precio: 34990 },
 ];
 
@@ -28,7 +28,7 @@ const serviceImages = [
     url: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=1800&q=82',
   },
   {
-    match: ['masaje', 'masoterapia', 'spa', 'relajacion'],
+    match: ['masaje', 'masoterapia', 'spa', 'relajacion', 'relajación'],
     url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1800&q=82',
   },
   {
@@ -102,7 +102,7 @@ export function ServiceDetailPage() {
           </Link>
           <span className="card-kicker">{category}</span>
           <h1>{service?.nombre || service?.name || 'Servicio'}</h1>
-          <p>{service?.descripcion || service?.description || 'Atencion personalizada con tecnica profesional y seguimiento cercano.'}</p>
+          <p>{service?.descripcion || service?.description || 'Atención personalizada con técnica profesional y seguimiento cercano.'}</p>
           <div className="service-detail-meta">
             <strong>{servicePrice(service)}</strong>
             <span><Clock size={15} /> {serviceDuration(service)} min</span>
@@ -115,7 +115,7 @@ export function ServiceDetailPage() {
           <section className="service-description-panel">
             <span className="card-kicker">Detalle del servicio</span>
             <h2>{service?.nombre || service?.name || 'Servicio personalizado'}</h2>
-            <p>{service?.detallerservicio || service?.description || 'Este servicio se adapta al diagnostico del profesional y a tus preferencias.'}</p>
+            <p>{service?.detallerservicio || service?.description || 'Este servicio se adapta al diagnóstico del profesional y a tus preferencias.'}</p>
             <Link className="button button-sm" to="/reservar">
               <CalendarDays size={16} />
               Reservar

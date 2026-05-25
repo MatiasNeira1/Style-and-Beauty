@@ -9,7 +9,9 @@ import { GlowCard } from '../../components/animations/GlowCard.jsx';
 import { CountUp } from '../../components/animations/CountUp.jsx';
 import { MagneticButton } from '../../components/animations/MagneticButton.jsx';
 import { ParallaxSection } from '../../components/animations/ParallaxSection.jsx';
+import { ProfessionalsCarousel } from '../../components/professionals/ProfessionalsCarousel.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
+import { useProfessionals } from '../../hooks/useProfessionals.js';
 
 const features = [
   { icon: Sparkles, title: 'Diagnóstico experto', desc: 'Servicios seleccionados por necesidad, estilo y rutina personal.' },
@@ -37,6 +39,8 @@ const testimonials = [
 ];
 
 export function HomePage() {
+  const professionalsQuery = useProfessionals();
+
   return (
     <>
       {/* ═══ HERO ═══ */}
@@ -105,6 +109,12 @@ export function HomePage() {
               </motion.div>
             ))}
           </div>
+        </Reveal>
+      </section>
+
+      <section className="page-section">
+        <Reveal>
+          <ProfessionalsCarousel professionals={professionalsQuery.professionals} isLoading={professionalsQuery.isLoading} />
         </Reveal>
       </section>
 

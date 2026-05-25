@@ -48,37 +48,36 @@ export function AgendaAdminPage() {
   const clientsQuery = useQuery({ queryKey: ['profiles-clients'], queryFn: profileService.listClients });
   const staffQuery = useQuery({ queryKey: ['profiles-staff'], queryFn: profileService.listStaff });
 
-  const bookings = Array.isArray(bookingsQuery.data) ? bookingsQuery.data : [];
-  const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
-  const clients = Array.isArray(clientsQuery.data) ? clientsQuery.data : [];
-  const staff = Array.isArray(staffQuery.data) ? staffQuery.data : [];
-
   const servicesById = useMemo(() => {
+    const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
     return services.reduce((acc, service) => {
       acc[service.id_servicio || service.idServicio || service.id] = service;
       return acc;
     }, {});
-  }, [services]);
+  }, [servicesQuery.data]);
 
   const clientsById = useMemo(() => {
+    const clients = Array.isArray(clientsQuery.data) ? clientsQuery.data : [];
     return clients.reduce((acc, client) => {
       acc[client.idPersona || client.idCliente || client.id] = client;
       return acc;
     }, {});
-  }, [clients]);
+  }, [clientsQuery.data]);
 
   const staffById = useMemo(() => {
+    const staff = Array.isArray(staffQuery.data) ? staffQuery.data : [];
     return staff.reduce((acc, member) => {
       acc[member.idPersona || member.idStaff || member.id] = member;
       return acc;
     }, {});
-  }, [staff]);
+  }, [staffQuery.data]);
 
   const monthBookings = useMemo(() => {
+    const bookings = Array.isArray(bookingsQuery.data) ? bookingsQuery.data : [];
     return bookings
       .filter((booking) => sameLocalMonth(booking.fechaHoraInicio, selectedMonth))
       .sort((a, b) => new Date(a.fechaHoraInicio) - new Date(b.fechaHoraInicio));
-  }, [bookings, selectedMonth]);
+  }, [bookingsQuery.data, selectedMonth]);
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ idCita, estadoCita }) => agendaService.updateBookingStatus(idCita, { estadoCita }),

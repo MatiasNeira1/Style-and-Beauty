@@ -43,7 +43,7 @@ export function AuthProvider({ children }) {
         const session = await firebaseAuthService.refreshSession(firebaseUser);
         setSession(session);
       } catch (err) {
-        console.error("Auth Refresh Failed", err);
+        console.error('Auth refresh failed', err);
         setSession(null);
       } finally {
         setIsAuthReady(true);
@@ -57,10 +57,8 @@ export function AuthProvider({ children }) {
     return session;
   }, [setSession]);
 
-  const registerClient = async ({ email, password, profile }) => {
-    await profileService.validateAvailability({ ...profile, tipoPerfil: 'CLIENTE' });
-
   const registerClient = useCallback(async ({ email, password, profile }) => {
+    await profileService.validateAvailability({ ...profile, tipoPerfil: 'CLIENTE' });
     const created = await firebaseAuthService.register(email, password);
     await authService.registerClient({ uid: created.user.uid });
     const session = await firebaseAuthService.refreshSession();
@@ -76,7 +74,7 @@ export function AuthProvider({ children }) {
 
   const value = useMemo(
     () => ({ user, login, registerClient, setSession, logout, isAuthenticated: Boolean(user), isAuthReady }),
-    [user, login, registerClient, setSession, logout, isAuthReady]
+    [user, login, registerClient, setSession, logout, isAuthReady],
   );
 
   return <AuthContext.Provider value={value}>{isAuthReady ? children : null}</AuthContext.Provider>;

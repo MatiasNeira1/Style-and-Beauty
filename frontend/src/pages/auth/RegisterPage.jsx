@@ -19,8 +19,8 @@ const initialForm = {
 
 const firebaseErrorMessages = {
   'auth/email-already-in-use': 'Ya existe una cuenta con ese correo.',
-  'auth/invalid-email': 'El correo no es valido.',
-  'auth/weak-password': 'La contrasena debe tener al menos 6 caracteres.',
+  'auth/invalid-email': 'El correo no es válido.',
+  'auth/weak-password': 'La contraseña debe tener al menos 6 caracteres.',
 };
 
 export function RegisterPage() {
@@ -69,10 +69,10 @@ export function RegisterPage() {
           <Input label="Nombre" id="register-nombre" name="nombre" value={form.nombre} onChange={handleChange} required />
           <Input label="Apellidos" id="register-apellidos" name="apellidos" value={form.apellidos} onChange={handleChange} />
           <Input label="Email" id="register-email" name="emailContacto" type="email" value={form.emailContacto} onChange={handleChange} required />
-          <Input label="Contrasena" id="register-password" name="password" type="password" minLength="6" value={form.password} onChange={handleChange} required />
-          <Input label="Telefono" id="register-telefono" name="telefono" value={form.telefono} onChange={handleChange} />
+          <Input label="Contraseña" id="register-password" name="password" type="password" minLength="6" value={form.password} onChange={handleChange} required />
+          <Input label="Teléfono" id="register-telefono" name="telefono" value={form.telefono} onChange={handleChange} />
           <Input label="Fecha nacimiento" id="register-fecha" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={handleChange} />
-          <Input label="Genero" id="register-genero" name="genero" value={form.genero} onChange={handleChange} />
+          <Input label="Género" id="register-genero" name="genero" value={form.genero} onChange={handleChange} />
         </div>
         {error && <p className="admin-alert">{error}</p>}
         <Button type="submit" disabled={isSubmitting}>
