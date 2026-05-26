@@ -35,7 +35,12 @@ export function LoginPage() {
 
     try {
       const session = await login(form.email, form.password);
-      const destination = session.user?.rol === 'ADMIN' ? '/admin' : redirectTo;
+      let destination = redirectTo;
+      if (session.user?.rol === 'ADMIN') {
+        destination = '/admin';
+      } else if (session.user?.rol === 'STAFF') {
+        destination = '/staff';
+      }
       navigate(destination, { replace: true });
     } catch (loginError) {
       setError(firebaseErrorMessages[loginError.code] || loginError.message || 'No se pudo iniciar sesion.');

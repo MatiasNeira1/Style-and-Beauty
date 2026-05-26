@@ -16,7 +16,7 @@ const staffSchema = z.object({
   fechaNacimiento: z.string().optional(),
   genero: z.string().optional(),
   idEspecialidad: z.string().min(1, 'Selecciona una especialidad'),
-  biografia: z.string().optional(),
+  descripcionPerfil: z.string().optional(),
   experienciaAnios: z.string().optional(),
 });
 
@@ -30,7 +30,7 @@ const defaultValues = {
   fechaNacimiento: '',
   genero: '',
   idEspecialidad: '',
-  biografia: '',
+  descripcionPerfil: '',
   experienciaAnios: '',
 };
 
@@ -189,7 +189,7 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
             as="textarea"
             rows={3}
             placeholder="Describe la experiencia y habilidades del profesional..."
-            {...register('biografia')}
+            {...register('descripcionPerfil')}
           />
         </div>
 

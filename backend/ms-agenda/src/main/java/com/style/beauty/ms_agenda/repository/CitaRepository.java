@@ -25,4 +25,17 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
             OffsetDateTime inicio,
             OffsetDateTime finConHolgura,
             List<EstadoCita> estadosIgnorados);
+
+    @Query("""
+                SELECT c FROM Cita c
+                WHERE c.idStaff = :idStaff
+                AND c.estadoCita NOT IN :estadosIgnorados
+                AND c.fechaHoraInicio < :fin
+                AND c.fechaHoraFinHolgura > :inicio
+            """)
+    List<Cita> buscarCitasEnRango(
+            UUID idStaff,
+            OffsetDateTime inicio,
+            OffsetDateTime fin,
+            List<EstadoCita> estadosIgnorados);
 }

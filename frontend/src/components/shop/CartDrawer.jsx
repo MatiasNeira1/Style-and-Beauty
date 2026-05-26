@@ -1,27 +1,12 @@
-import { useLayoutEffect, useRef } from 'react';
 import { X } from 'lucide-react';
-import gsap from 'gsap';
 import { Button } from '../ui/Button.jsx';
 import { useCart } from '../../store/CartContext.jsx';
 
 export function CartDrawer() {
-  const ref = useRef(null);
   const { items, total, isCartOpen, setIsCartOpen, removeItem, updateQuantity } = useCart();
 
-  useLayoutEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.to(ref.current, {
-        x: isCartOpen ? 0 : '120%',
-        duration: 0.45,
-        ease: 'power3.out',
-      });
-    }, ref);
-
-    return () => ctx.revert();
-  }, [isCartOpen]);
-
   return (
-    <aside ref={ref} className="cart-drawer" aria-hidden={!isCartOpen}>
+    <aside className={`cart-drawer ${isCartOpen ? 'is-open' : ''}`} aria-hidden={!isCartOpen}>
       <header>
         <h2>Carrito</h2>
         <Button variant="ghost" onClick={() => setIsCartOpen(false)} aria-label="Cerrar carrito"><X size={18} /></Button>

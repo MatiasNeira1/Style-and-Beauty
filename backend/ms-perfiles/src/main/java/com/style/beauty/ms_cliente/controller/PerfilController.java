@@ -18,6 +18,18 @@ public class PerfilController {
     @Autowired
     private PerfilService perfilService;
 
+    @PostMapping("/validar-disponibilidad")
+    public ResponseEntity<?> validarDisponibilidad(@RequestBody PerfilRequestDTO requestDTO) {
+        try {
+            perfilService.validarDisponibilidadParaCreacion(requestDTO);
+            return ResponseEntity.ok("Usuario disponible.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error crítico: " + e.getMessage());
+        }
+    }
+
     @PostMapping("/crear")
     public ResponseEntity<?> crearNuevoPerfil(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
@@ -82,6 +94,10 @@ public class PerfilController {
     }
 
     // Listar Clientes (Endpoint Restringido)
+    @GetMapping("/staff")
+    public ResponseEntity<?> listarStaffPublico() {
+        return ResponseEntity.ok(perfilService.listarTodoElStaff());
+    }
 
     @GetMapping("/clientes")
     public ResponseEntity<?> listarClientes(@RequestHeader(value = "Authorization", required = false) String authHeader) {

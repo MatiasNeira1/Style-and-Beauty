@@ -2,6 +2,8 @@ package com.style.beauty.ms_agenda.controller;
 
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.service.CitaService;
 import jakarta.validation.Valid;
@@ -26,6 +28,11 @@ public class CitaController {
     @GetMapping("/{id}")
     public Cita buscarPorId(@PathVariable UUID id) {
         return citaService.buscarPorId(id);
+    }
+
+    @PostMapping("/disponibilidad")
+    public List<DisponibilidadSlot> disponibilidad(@Valid @RequestBody DisponibilidadRequest request) {
+        return citaService.calcularDisponibilidad(request);
     }
 
     @PostMapping

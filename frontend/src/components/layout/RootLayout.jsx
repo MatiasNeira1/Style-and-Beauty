@@ -8,11 +8,13 @@ export function RootLayout() {
   const location = useLocation();
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar />
-      <PageTransition routeKey={location.pathname}>
-        <Outlet />
-      </PageTransition>
+      <div style={{ flex: 1 }}>
+        <PageTransition routeKey={location.pathname}>
+          <Outlet />
+        </PageTransition>
+      </div>
       <Footer />
       <CartDrawer />
     </div>

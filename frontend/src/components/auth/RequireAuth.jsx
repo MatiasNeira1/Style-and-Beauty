@@ -19,7 +19,14 @@ export function RequireAuth({ children, roles }) {
   }
 
   if (roles?.length && !roles.includes(user?.rol)) {
-    return <Navigate to="/perfil" replace />;
+    const isLocalDev = window.location.hostname === 'localhost';
+    const isStaffOrAdminRoute = roles.includes('STAFF') || roles.includes('ADMIN');
+
+    if (isLocalDev && isStaffOrAdminRoute) {
+      console.warn("Desarrollo Local: Acceso temporal permitido para pruebas del Portal sin rol en Firebase:", user?.email);
+    } else {
+      return <Navigate to="/perfil" replace />;
+    }
   }
 
   return children;

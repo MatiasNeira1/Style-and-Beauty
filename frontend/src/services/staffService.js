@@ -3,7 +3,7 @@ import { PROFILES_API_BASE_URL, STAFF_API_BASE_URL, request } from './apiClient.
 export const staffService = {
   // ── Staff CRUD ──────────────────────────────────────
   listStaff: () =>
-    request({ baseURL: PROFILES_API_BASE_URL, url: '/api/admin/staff', method: 'GET' }),
+    request({ baseURL: PROFILES_API_BASE_URL, url: '/api/perfiles/staff', method: 'GET' }),
 
   getStaffById: (id) =>
     request({ baseURL: STAFF_API_BASE_URL, url: `/api/staff/${id}`, method: 'GET' }),
@@ -13,6 +13,9 @@ export const staffService = {
 
   updateStaff: (idAuth, payload) =>
     request({ baseURL: PROFILES_API_BASE_URL, url: `/api/admin/actualizar/${idAuth}`, method: 'PUT', data: payload }),
+
+  updateSelf: (payload) =>
+    request({ baseURL: PROFILES_API_BASE_URL, url: '/api/perfiles/actualizar', method: 'PUT', data: payload }),
 
   deleteStaff: (idAuth) =>
     request({ baseURL: PROFILES_API_BASE_URL, url: `/api/admin/eliminar/${idAuth}`, method: 'DELETE' }),
