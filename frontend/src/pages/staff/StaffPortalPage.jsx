@@ -91,6 +91,7 @@ export function StaffPortalPage() {
       staffService.updateSelf({
         ...data,
         idEspecialidad: Number(data.idEspecialidad),
+        experienciaAnios: data.experienciaAnios ? Number(data.experienciaAnios) : null,
       }),
     onSuccess: () => {
       setShowFormModal(false);

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -59,6 +60,24 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
         }
       : defaultValues,
   });
+
+  // Reset form values when initialData or open state changes
+  useEffect(() => {
+    if (open) {
+      if (initialData) {
+        reset({
+          ...defaultValues,
+          ...initialData,
+          idEspecialidad: String(initialData.idEspecialidad || initialData.especialidad?.idEspecialidad || ''),
+          experienciaAnios: initialData.experienciaAnios !== undefined && initialData.experienciaAnios !== null
+            ? String(initialData.experienciaAnios)
+            : '',
+        });
+      } else {
+        reset(defaultValues);
+      }
+    }
+  }, [open, initialData, reset]);
 
   const onFormSubmit = (data) => {
     onSubmit(data, isEditMode);

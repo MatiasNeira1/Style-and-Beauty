@@ -74,6 +74,7 @@ export function StaffAdminPage() {
         ...profilePayload,
         idAuth: user.uid,
         idEspecialidad: Number(profilePayload.idEspecialidad),
+        experienciaAnios: profilePayload.experienciaAnios ? Number(profilePayload.experienciaAnios) : null,
       });
     },
     onSuccess: () => {
@@ -87,6 +88,7 @@ export function StaffAdminPage() {
       staffService.updateStaff(idAuth, {
         ...data,
         idEspecialidad: Number(data.idEspecialidad),
+        experienciaAnios: data.experienciaAnios ? Number(data.experienciaAnios) : null,
       }),
     onSuccess: () => {
       setShowFormModal(false);

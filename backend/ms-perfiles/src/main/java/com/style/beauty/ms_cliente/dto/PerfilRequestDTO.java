@@ -22,4 +22,5 @@ public class PerfilRequestDTO {
     private String fotoUrl;
     private String cvUrl;
     private String descripcionPerfil;
+    private Integer experienciaAnios;
 }
