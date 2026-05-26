@@ -27,9 +27,33 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (!error.response || error.code === 'ERR_NETWORK') {
+      const networkError = new Error('No se pudo conectar con el servidor. Verifica que el backend esté iniciado.');
+      networkError.code = error.code || 'ERR_NETWORK';
+      throw networkError;
+    }
+
     const responseData = error.response?.data;
-    const message = responseData?.message || (typeof responseData === 'string' ? responseData : null) || error.message || 'Error de comunicacion con el servidor';
-    return Promise.reject(new Error(message));
+    const rawMessage =
+      responseData?.message ||
+      responseData?.error ||
+      (typeof responseData === 'string' ? responseData : null) ||
+      error.message ||
+      'Error de comunicación con el servidor';
+    const normalizedMessage = rawMessage.toLowerCase();
+    let message = rawMessage;
+
+    if (normalizedMessage.includes('correo') && (normalizedMessage.includes('existe') || normalizedMessage.includes('registrado'))) {
+      message = 'Este email ya está registrado.';
+    } else if (normalizedMessage.includes('obligatorio') || normalizedMessage.includes('requerido')) {
+      message = 'Completa todos los campos obligatorios.';
+    }
+
+    const apiError = new Error(message);
+    apiError.status = error.response.status;
+    apiError.code = error.code;
+    apiError.data = responseData;
+    throw apiError;
   },
 );
 

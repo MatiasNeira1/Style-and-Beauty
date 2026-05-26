@@ -11,12 +11,17 @@ import com.style.beauty.ms_cliente.model.ClienteModel;
 import com.style.beauty.ms_cliente.model.StaffModel;
 import com.style.beauty.ms_cliente.repository.ClienteRepository;
 import com.style.beauty.ms_cliente.repository.StaffRepository;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class PerfilService {
+    private static final int EDAD_MINIMA_CLIENTE = 15;
+    private static final Set<String> GENEROS_VALIDOS = Set.of("femenino", "masculino", "otro", "no_especifica");
+
     private final PersonaRepository personaRepository;
     private final ClienteRepository clienteRepository;
     private final StaffRepository staffRepository;
@@ -66,6 +71,8 @@ public class PerfilService {
         if (estaVacio(dto.getTipoPerfil())) {
             throw new IllegalArgumentException("El tipo de perfil es obligatorio.");
         }
+        dto.setTipoPerfil(dto.getTipoPerfil().trim().toUpperCase());
+
         if (estaVacio(dto.getRut())) {
             throw new IllegalArgumentException("El RUT es obligatorio.");
         }
@@ -78,12 +85,40 @@ public class PerfilService {
         if ("STAFF".equalsIgnoreCase(dto.getTipoPerfil()) && dto.getIdEspecialidad() == null) {
             throw new IllegalArgumentException("La especialidad es obligatoria para el Staff.");
         }
+        if ("CLIENTE".equalsIgnoreCase(dto.getTipoPerfil())) {
+            validarFechaNacimientoCliente(dto.getFechaNacimiento());
+            validarGeneroCliente(dto);
+        }
 
         dto.setRut(dto.getRut().trim());
         dto.setNombre(dto.getNombre().trim());
         dto.setEmailContacto(dto.getEmailContacto().trim().toLowerCase());
-        dto.setTipoPerfil(dto.getTipoPerfil().trim().toUpperCase());
         if (dto.getIdAuth() != null) dto.setIdAuth(dto.getIdAuth().trim());
+    }
+
+    private void validarFechaNacimientoCliente(LocalDate fechaNacimiento) {
+        if (fechaNacimiento == null) {
+            throw new IllegalArgumentException("La fecha de nacimiento es obligatoria.");
+        }
+        if (fechaNacimiento.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("La fecha de nacimiento no puede ser futura.");
+        }
+        if (fechaNacimiento.isAfter(LocalDate.now().minusYears(EDAD_MINIMA_CLIENTE))) {
+            throw new IllegalArgumentException("Debes tener al menos 15 años para crear una cuenta.");
+        }
+    }
+
+    private void validarGeneroCliente(PerfilRequestDTO dto) {
+        if (estaVacio(dto.getGenero())) {
+            throw new IllegalArgumentException("El género es obligatorio.");
+        }
+
+        String generoNormalizado = dto.getGenero().trim().toLowerCase();
+        if (!GENEROS_VALIDOS.contains(generoNormalizado)) {
+            throw new IllegalArgumentException("Selecciona una opción válida para género.");
+        }
+
+        dto.setGenero(generoNormalizado);
     }
 
     private void validarDisponibilidad(PerfilRequestDTO dto, boolean validarIdAuth) {

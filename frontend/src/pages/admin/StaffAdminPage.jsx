@@ -1,19 +1,17 @@
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Users, Plus, Eye, Pencil, Trash2, CalendarClock, Image,
-} from 'lucide-react';
+import { CalendarClock, Eye, Image, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
-import { Button } from '../../components/ui/Button.jsx';
-import { Badge } from '../../components/ui/Badge.jsx';
-import { Loader } from '../../components/ui/Loader.jsx';
+import { StaffDeleteDialog } from '../../components/admin/staff/StaffDeleteDialog.jsx';
 import { StaffFormModal } from '../../components/admin/staff/StaffFormModal.jsx';
+import { StaffPortfolioGallery } from '../../components/admin/staff/StaffPortfolioGallery.jsx';
 import { StaffProfileCard } from '../../components/admin/staff/StaffProfileCard.jsx';
 import { StaffWorkSchedule } from '../../components/admin/staff/StaffWorkSchedule.jsx';
-import { StaffPortfolioGallery } from '../../components/admin/staff/StaffPortfolioGallery.jsx';
-import { StaffDeleteDialog } from '../../components/admin/staff/StaffDeleteDialog.jsx';
-import { staffService } from '../../services/staffService.js';
+import { Badge } from '../../components/ui/Badge.jsx';
+import { Button } from '../../components/ui/Button.jsx';
+import { Loader } from '../../components/ui/Loader.jsx';
 import { authService } from '../../services/authService.js';
+import { staffService } from '../../services/staffService.js';
 
 const TABS = {
   PROFILE: 'profile',
@@ -21,63 +19,43 @@ const TABS = {
   PORTFOLIO: 'portfolio',
 };
 
+function getStaffId(staff) {
+  return staff?.idStaff || staff?.idPersona || staff?.id;
+}
+
 export function StaffAdminPage() {
   const queryClient = useQueryClient();
-
-  // ── UI State ──────────────────────────────────────
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingStaff, setEditingStaff] = useState(null);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [staffToDelete, setStaffToDelete] = useState(null);
   const [activeTab, setActiveTab] = useState(TABS.PROFILE);
 
-  // ── Data Queries ──────────────────────────────────
-  const {
-    data: staffData = [],
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
-    queryKey: ['staff-list'],
-    queryFn: staffService.listStaff,
+  const staffQuery = useQuery({ queryKey: ['staff-list'], queryFn: staffService.listStaff });
+  const specialtiesQuery = useQuery({ queryKey: ['staff-specialties'], queryFn: staffService.listSpecialties });
+  const scheduleQuery = useQuery({
+    queryKey: ['staff-schedules', getStaffId(selectedStaff)],
+    queryFn: () => staffService.listSchedules(getStaffId(selectedStaff)),
+    enabled: Boolean(getStaffId(selectedStaff)),
+  });
+  const portfolioQuery = useQuery({
+    queryKey: ['staff-portfolio', getStaffId(selectedStaff)],
+    queryFn: () => staffService.listPortfolio(getStaffId(selectedStaff)),
+    enabled: Boolean(getStaffId(selectedStaff)),
   });
 
-  const { data: specialtiesData = [] } = useQuery({
-    queryKey: ['staff-specialties'],
-    queryFn: staffService.listSpecialties,
-  });
-
-  const { data: scheduleData = [] } = useQuery({
-    queryKey: ['staff-schedules', selectedStaff?.idStaff],
-    queryFn: () => staffService.listSchedules(selectedStaff.idStaff),
-    enabled: Boolean(selectedStaff?.idStaff),
-  });
-
-  const { data: portfolioData = [] } = useQuery({
-    queryKey: ['staff-portfolio', selectedStaff?.idStaff],
-    queryFn: () => staffService.listPortfolio(selectedStaff.idStaff),
-    enabled: Boolean(selectedStaff?.idStaff),
-  });
-
-  // ── Mutations ─────────────────────────────────────
   const createMutation = useMutation({
     mutationFn: async (payload) => {
-      // 1. Create auth user
       const user = await authService.createUser({
         email: payload.emailContacto,
         password: payload.password,
         rol: 'STAFF',
       });
-      // 2. Create profile
-      const { password, ...profilePayload } = payload;
-      return staffService.createStaff({
-
       const profilePayload = { ...payload };
       delete profilePayload.password;
-
-      return profileService.createStaff({
+      return staffService.createStaff({
         ...profilePayload,
-        idAuth: user.uid,
+        idAuth: user.uid || user.idAuth || user.id,
         idEspecialidad: Number(profilePayload.idEspecialidad),
       });
     },
@@ -88,11 +66,10 @@ export function StaffAdminPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ idAuth, data }) =>
-      staffService.updateStaff(idAuth, {
-        ...data,
-        idEspecialidad: Number(data.idEspecialidad),
-      }),
+    mutationFn: ({ idAuth, data }) => staffService.updateStaff(idAuth, {
+      ...data,
+      idEspecialidad: Number(data.idEspecialidad),
+    }),
     onSuccess: () => {
       setShowFormModal(false);
       setEditingStaff(null);
@@ -104,44 +81,26 @@ export function StaffAdminPage() {
     mutationFn: (staff) => staffService.deleteStaff(staff.idAuth),
     onSuccess: () => {
       setStaffToDelete(null);
-      if (selectedStaff?.idAuth === staffToDelete?.idAuth) {
-        setSelectedStaff(null);
-      }
+      setSelectedStaff(null);
       queryClient.invalidateQueries({ queryKey: ['staff-list'] });
     },
   });
 
   const scheduleMutation = useMutation({
-    mutationFn: (jornadas) =>
-      staffService.saveSchedules(selectedStaff.idStaff, jornadas),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['staff-schedules', selectedStaff?.idStaff],
-      });
-    },
+    mutationFn: (jornadas) => staffService.saveSchedules(getStaffId(selectedStaff), jornadas),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-schedules', getStaffId(selectedStaff)] }),
   });
 
   const uploadImageMutation = useMutation({
-    mutationFn: (file) =>
-      staffService.uploadPortfolioImage(selectedStaff.idStaff, file),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['staff-portfolio', selectedStaff?.idStaff],
-      });
-    },
+    mutationFn: (file) => staffService.uploadPortfolioImage(getStaffId(selectedStaff), file),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-portfolio', getStaffId(selectedStaff)] }),
   });
 
   const deleteImageMutation = useMutation({
-    mutationFn: (imageId) =>
-      staffService.deletePortfolioImage(selectedStaff.idStaff, imageId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ['staff-portfolio', selectedStaff?.idStaff],
-      });
-    },
+    mutationFn: (imageId) => staffService.deletePortfolioImage(getStaffId(selectedStaff), imageId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-portfolio', getStaffId(selectedStaff)] }),
   });
 
-  // ── Handlers ──────────────────────────────────────
   const handleFormSubmit = (data, isEdit) => {
     if (isEdit && editingStaff) {
       updateMutation.mutate({ idAuth: editingStaff.idAuth, data });
@@ -150,39 +109,21 @@ export function StaffAdminPage() {
     }
   };
 
-  const handleEdit = (staff) => {
-    setEditingStaff(staff);
-    setShowFormModal(true);
-  };
+  const handleUpload = useCallback((file) => uploadImageMutation.mutateAsync(file), [uploadImageMutation]);
+  const handleDeleteImage = useCallback((imageId) => deleteImageMutation.mutate(imageId), [deleteImageMutation]);
 
-  const handleView = (staff) => {
-    setSelectedStaff(staff);
-    setActiveTab(TABS.PROFILE);
-  };
+  const staff = Array.isArray(staffQuery.data) ? staffQuery.data : [];
+  const specialties = Array.isArray(specialtiesQuery.data) ? specialtiesQuery.data : [];
+  const schedules = Array.isArray(scheduleQuery.data) ? scheduleQuery.data : [];
+  const portfolio = Array.isArray(portfolioQuery.data) ? portfolioQuery.data : [];
 
-  const handleUpload = useCallback(
-    (file) => uploadImageMutation.mutateAsync(file),
-    [uploadImageMutation]
-  );
-
-  const handleDeleteImage = useCallback(
-    (imageId) => deleteImageMutation.mutate(imageId),
-    [deleteImageMutation]
-  );
-
-  const staff = Array.isArray(staffData) ? staffData : [];
-  const specialties = Array.isArray(specialtiesData) ? specialtiesData : [];
-  const schedules = Array.isArray(scheduleData) ? scheduleData : [];
-  const portfolio = Array.isArray(portfolioData) ? portfolioData : [];
-
-  // ── Table Columns ─────────────────────────────────
   const columns = [
     {
       key: 'nombre',
       label: 'Profesional',
       render: (row) => {
         const name = `${row.nombre || ''} ${row.apellidos || ''}`.trim() || 'Sin nombre';
-        const initials = name.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+        const initials = name.split(' ').slice(0, 2).map((word) => word[0]).join('').toUpperCase();
         return (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div className="staff-avatar" style={{ width: '2.4rem', height: '2.4rem', fontSize: '0.82rem' }}>
@@ -190,54 +131,30 @@ export function StaffAdminPage() {
             </div>
             <div style={{ display: 'grid', gap: '0.1rem' }}>
               <span style={{ fontWeight: 700, color: 'var(--color-ink)' }}>{name}</span>
-              <span style={{ fontSize: '0.78rem', color: 'var(--color-muted)' }}>
-                {row.emailContacto || ''}
-              </span>
+              <span style={{ fontSize: '0.78rem', color: 'var(--color-muted)' }}>{row.emailContacto || ''}</span>
             </div>
           </div>
         );
       },
     },
-    {
-      key: 'telefono',
-      label: 'Teléfono',
-    },
+    { key: 'telefono', label: 'Teléfono' },
     {
       key: 'especialidad',
       label: 'Especialidad',
-      render: (row) => (
-        <Badge tone="primary">
-          {row.especialidad?.nombre || row.nombreEspecialidad || 'Sin asignar'}
-        </Badge>
-      ),
+      render: (row) => <Badge tone="primary">{row.especialidad?.nombre || row.nombreEspecialidad || 'Sin asignar'}</Badge>,
     },
     {
       key: 'acciones',
       label: 'Acciones',
       render: (row) => (
         <div className="staff-table-row-actions">
-          <button
-            className="staff-action-btn"
-            onClick={() => handleView(row)}
-            title="Ver perfil"
-            aria-label={`Ver perfil de ${row.nombre}`}
-          >
+          <button type="button" className="staff-action-btn" onClick={() => { setSelectedStaff(row); setActiveTab(TABS.PROFILE); }} aria-label={`Ver perfil de ${row.nombre}`}>
             <Eye size={15} />
           </button>
-          <button
-            className="staff-action-btn"
-            onClick={() => handleEdit(row)}
-            title="Editar"
-            aria-label={`Editar ${row.nombre}`}
-          >
+          <button type="button" className="staff-action-btn" onClick={() => { setEditingStaff(row); setShowFormModal(true); }} aria-label={`Editar ${row.nombre}`}>
             <Pencil size={15} />
           </button>
-          <button
-            className="staff-action-btn danger"
-            onClick={() => setStaffToDelete(row)}
-            title="Eliminar"
-            aria-label={`Eliminar ${row.nombre}`}
-          >
+          <button type="button" className="staff-action-btn danger" onClick={() => setStaffToDelete(row)} aria-label={`Eliminar ${row.nombre}`}>
             <Trash2 size={15} />
           </button>
         </div>
@@ -247,7 +164,6 @@ export function StaffAdminPage() {
 
   return (
     <div className="stack">
-      {/* ── Header ──────────────────────────────────── */}
       <div className="staff-header">
         <div className="staff-header-info">
           <span>MS02 · Staff Service</span>
@@ -265,30 +181,6 @@ export function StaffAdminPage() {
               setShowFormModal(true);
             }}
             size="sm"
-      <SectionTitle eyebrow="Admin" title="Staff">
-        Gestiona los perfiles del equipo desde ms-perfiles.
-      </SectionTitle>
-
-      <form className="card stack" onSubmit={handleSubmit}>
-        <h3>Crear staff</h3>
-        <div className="form-grid">
-          <Input label="RUT" id="staff-rut" name="rut" value={form.rut} onChange={handleChange} required />
-          <Input label="Nombre" id="staff-nombre" name="nombre" value={form.nombre} onChange={handleChange} required />
-          <Input label="Apellidos" id="staff-apellidos" name="apellidos" value={form.apellidos} onChange={handleChange} />
-          <Input label="Email" id="staff-email" name="emailContacto" type="email" value={form.emailContacto} onChange={handleChange} required />
-          <Input label="Contraseña temporal" id="staff-password" name="password" type="password" minLength="6" value={form.password} onChange={handleChange} required />
-          <Input label="Telefono" id="staff-telefono" name="telefono" value={form.telefono} onChange={handleChange} />
-          <Input label="Fecha nacimiento" id="staff-fecha" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={handleChange} />
-          <Input label="Genero" id="staff-genero" name="genero" value={form.genero} onChange={handleChange} />
-          <Input
-            as="select"
-            label="Especialidad"
-            id="staff-especialidad"
-            name="idEspecialidad"
-            value={form.idEspecialidad}
-            onChange={handleChange}
-            required
-            disabled={isLoadingSpecialties}
           >
             <Plus size={16} />
             Nuevo Profesional
@@ -296,58 +188,38 @@ export function StaffAdminPage() {
         </div>
       </div>
 
-      {/* ── Error Alert ─────────────────────────────── */}
       {(createMutation.isError || updateMutation.isError || deleteMutation.isError) && (
         <p className="admin-alert">
           {createMutation.error?.message || updateMutation.error?.message || deleteMutation.error?.message}
         </p>
       )}
 
-      {/* ── Content Area ────────────────────────────── */}
       <div className={`staff-admin-detail-layout ${selectedStaff ? 'has-drawer' : ''}`}>
-        {/* ── Table ──────────────────────────────── */}
         <div>
-          {isLoading ? (
+          {staffQuery.isLoading ? (
             <Loader />
-          ) : isError ? (
-            <p className="admin-alert">{error.message}</p>
+          ) : staffQuery.isError ? (
+            <p className="admin-alert">{staffQuery.error.message}</p>
           ) : (
             <DataTable columns={columns} rows={staff} />
           )}
         </div>
 
-        {/* ── Detail Panel ───────────────────────── */}
         {selectedStaff && (
           <div className="stack staff-profile-drawer">
-            {/* Tabs */}
             <div className="staff-tabs">
-              <button
-                className={`staff-tab ${activeTab === TABS.PROFILE ? 'active' : ''}`}
-                onClick={() => setActiveTab(TABS.PROFILE)}
-              >
-                <Eye size={13} style={{ marginRight: '0.35rem', verticalAlign: '-2px' }} />
-                Perfil
+              <button type="button" className={`staff-tab ${activeTab === TABS.PROFILE ? 'active' : ''}`} onClick={() => setActiveTab(TABS.PROFILE)}>
+                <Eye size={13} /> Perfil
               </button>
-              <button
-                className={`staff-tab ${activeTab === TABS.SCHEDULE ? 'active' : ''}`}
-                onClick={() => setActiveTab(TABS.SCHEDULE)}
-              >
-                <CalendarClock size={13} style={{ marginRight: '0.35rem', verticalAlign: '-2px' }} />
-                Jornada
+              <button type="button" className={`staff-tab ${activeTab === TABS.SCHEDULE ? 'active' : ''}`} onClick={() => setActiveTab(TABS.SCHEDULE)}>
+                <CalendarClock size={13} /> Jornada
               </button>
-              <button
-                className={`staff-tab ${activeTab === TABS.PORTFOLIO ? 'active' : ''}`}
-                onClick={() => setActiveTab(TABS.PORTFOLIO)}
-              >
-                <Image size={13} style={{ marginRight: '0.35rem', verticalAlign: '-2px' }} />
-                Portfolio
+              <button type="button" className={`staff-tab ${activeTab === TABS.PORTFOLIO ? 'active' : ''}`} onClick={() => setActiveTab(TABS.PORTFOLIO)}>
+                <Image size={13} /> Portfolio
               </button>
             </div>
 
-            {/* Tab content */}
-            {activeTab === TABS.PROFILE && (
-              <StaffProfileCard staff={selectedStaff} />
-            )}
+            {activeTab === TABS.PROFILE && <StaffProfileCard staff={selectedStaff} />}
             {activeTab === TABS.SCHEDULE && (
               <StaffWorkSchedule
                 schedules={schedules}
@@ -364,20 +236,13 @@ export function StaffAdminPage() {
               />
             )}
 
-            {/* Close detail panel */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedStaff(null)}
-              style={{ justifySelf: 'center' }}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setSelectedStaff(null)} style={{ justifySelf: 'center' }}>
               Cerrar panel
             </Button>
           </div>
         )}
       </div>
 
-      {/* ── Modals ──────────────────────────────────── */}
       <StaffFormModal
         open={showFormModal}
         onClose={() => {
@@ -393,7 +258,7 @@ export function StaffAdminPage() {
       <StaffDeleteDialog
         open={Boolean(staffToDelete)}
         staff={staffToDelete}
-        onConfirm={(s) => deleteMutation.mutate(s)}
+        onConfirm={(staffMember) => deleteMutation.mutate(staffMember)}
         onClose={() => setStaffToDelete(null)}
         isDeleting={deleteMutation.isPending}
       />

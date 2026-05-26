@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { CalendarDays, Menu, X, ShoppingBag, UserRound } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { CalendarDays, LogIn, Menu, ShoppingBag, UserRound, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useCart } from '../../store/CartContext.jsx';
+import { CalendarDays, LogIn, Menu, ShoppingBag, UserRound, X } from 'lucide-react';
 import { useAuth } from '../../store/AuthContext.jsx';
+import { useCart } from '../../store/CartContext.jsx';
 
 const links = [
   ['/', 'Inicio'],
@@ -18,15 +16,13 @@ const links = [
 
 export function Navbar() {
   const { items, setIsCartOpen } = useCart();
-  const { isAuthenticated } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const count = items.reduce((sum, item) => sum + item.quantity, 0);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const count = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  const handleProfileClick = (e) => {
-    e.preventDefault();
+  const handleProfileClick = (event) => {
+    event.preventDefault();
     setMobileOpen(false);
     if (!isAuthenticated) {
       navigate('/login');
@@ -40,36 +36,6 @@ export function Navbar() {
   };
 
   return (
-    <header className={`navbar ${isOpen ? 'navbar-open' : ''}`}>
-      <NavLink to="/" className="brand" onClick={() => setIsOpen(false)}>Style & Beauty</NavLink>
-      <nav>
-        {links.map(([to, label]) => (
-          <NavLink key={to} to={to}>{label}</NavLink>
-        ))}
-      </nav>
-      <div className="navbar-actions">
-        <NavLink to={isAuthenticated ? '/perfil' : '/login'} className="icon-link" aria-label={isAuthenticated ? 'Perfil' : 'Iniciar sesion'} onClick={() => setIsOpen(false)}>
-          <UserRound size={20} />
-        </NavLink>
-        <NavLink to="/reservar" className="icon-link" aria-label="Reservar" onClick={() => setIsOpen(false)}>
-          <CalendarDays size={20} />
-        </NavLink>
-        <button className="icon-link cart-button" onClick={() => { setIsCartOpen(true); setIsOpen(false); }} aria-label="Abrir carrito">
-          <ShoppingBag size={20} />
-          {count > 0 && <span>{count}</span>}
-        </button>
-        <button className="icon-link mobile-only" onClick={() => setIsOpen(!isOpen)} aria-label="Menu">
-          {isOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </div>
-      {isOpen && (
-        <nav className="mobile-nav animate-fade-in">
-          {links.map(([to, label]) => (
-            <NavLink key={to} to={to} onClick={() => setIsOpen(false)}>{label}</NavLink>
-          ))}
-        </nav>
-      )}
-    </header>
     <>
       <motion.header
         className="navbar"
@@ -96,21 +62,22 @@ export function Navbar() {
               <span>Login</span>
             </NavLink>
           ) : (
-            <button onClick={handleProfileClick} className="icon-link profile-link" aria-label="Perfil">
+            <button type="button" onClick={handleProfileClick} className="icon-link profile-link" aria-label="Perfil">
               <UserRound size={20} />
             </button>
           )}
           <NavLink to="/reservar" className="icon-link" aria-label="Reservar">
             <CalendarDays size={20} />
           </NavLink>
-          <button className="icon-link cart-button" onClick={() => setIsCartOpen(true)} aria-label="Abrir carrito">
+          <button type="button" className="icon-link cart-button" onClick={() => setIsCartOpen(true)} aria-label="Abrir carrito">
             <ShoppingBag size={20} />
             {count > 0 && <span>{count}</span>}
           </button>
           <button
+            type="button"
             className="icon-link mobile-only"
             onClick={() => setMobileOpen((prev) => !prev)}
-            aria-label={mobileOpen ? 'Cerrar menu' : 'Abrir menu'}
+            aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
             aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
@@ -137,7 +104,7 @@ export function Navbar() {
                 Iniciar sesión
               </NavLink>
             ) : (
-              <button onClick={handleProfileClick}>Mi Perfil</button>
+              <button type="button" onClick={handleProfileClick}>Mi Perfil</button>
             )}
           </motion.nav>
         )}
