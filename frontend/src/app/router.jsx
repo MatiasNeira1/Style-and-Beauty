@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
-import { RootLayout } from '../components/layout/RootLayout.jsx';
-import { AdminLayout } from '../components/layout/AdminLayout.jsx';
 import { RequireAuth } from '../components/auth/RequireAuth.jsx';
+import { AdminLayout } from '../components/layout/AdminLayout.jsx';
+import { RootLayout } from '../components/layout/RootLayout.jsx';
 import { Loader } from '../components/ui/Loader.jsx';
 
 function lazyRoute(load, exportName) {
@@ -19,34 +19,6 @@ export const router = createBrowserRouter([
     path: '/',
     element: <RootLayout />,
     children: [
-      { index: true, element: <HomePage /> },
-      { path: 'servicios', element: <ServicesPage /> },
-      { path: 'productos', element: <ProductsPage /> },
-      { path: 'nosotros', element: <AboutPage /> },
-      { path: 'contacto', element: <ContactPage /> },
-      { path: 'reservar', element: <BookingPage /> },
-      { path: 'checkout', element: <CheckoutPage /> },
-      { path: 'login', element: <LoginPage /> },
-      { path: 'registro', element: <RegisterPage /> },
-      { path: 'perfil', element: <ProfilePage /> },
-      { path: 'reserva-extraordinaria', element: <ExtraordinaryBookingPage /> },
-      {
-        path: 'admin',
-        element: (
-          <RequireAuth roles={['ADMIN', 'STAFF']}>
-            <AdminLayout />
-          </RequireAuth>
-        ),
-        children: [
-          { index: 'true', element: <AdminDashboard /> },
-          { path: 'agenda', element: <AgendaAdminPage /> },
-          { path: 'servicios', element: <ServicesAdminPage /> },
-          { path: 'inventario', element: <InventoryAdminPage /> },
-          { path: 'pagos', element: <PaymentsAdminPage /> },
-          { path: 'clientes', element: <ClientsAdminPage /> },
-          { path: 'staff', element: <StaffAdminPage /> }
-        ],
-      },
       { index: true, element: lazyRoute(() => import('../pages/public/HomePage.jsx'), 'HomePage') },
       { path: 'servicios', element: lazyRoute(() => import('../pages/public/ServicesPage.jsx'), 'ServicesPage') },
       { path: 'servicios/:categoria/:servicio', element: lazyRoute(() => import('../pages/public/ServiceDetailPage.jsx'), 'ServiceDetailPage') },
@@ -66,7 +38,7 @@ export const router = createBrowserRouter([
   {
     path: '/admin',
     element: (
-      <RequireAuth roles={['ADMIN']}>
+      <RequireAuth roles={['ADMIN', 'STAFF']}>
         <AdminLayout />
       </RequireAuth>
     ),
@@ -82,6 +54,6 @@ export const router = createBrowserRouter([
   },
   {
     path: '/employee',
-    element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Portal de Empleado</h2><p>Modulo administrado externamente.</p></div>,
+    element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Portal de Empleado</h2><p>Módulo administrado externamente.</p></div>,
   },
 ]);

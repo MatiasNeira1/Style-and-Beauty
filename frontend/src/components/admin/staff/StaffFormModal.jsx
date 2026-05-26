@@ -1,7 +1,7 @@
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User, Mail, Phone, Briefcase, Shield } from 'lucide-react';
+import { Briefcase, Mail, User } from 'lucide-react';
 import { Modal } from '../../ui/Modal.jsx';
 import { Button } from '../../ui/Button.jsx';
 import { Input } from '../../ui/Input.jsx';

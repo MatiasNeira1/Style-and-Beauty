@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { Upload, Trash2, Image as ImageIcon } from 'lucide-react';
 
-export function StaffPortfolioGallery({ images = [], onUpload, onDelete, isUploading }) {
+export function StaffPortfolioGallery({ images = [], onUpload, onDelete }) {
   const [dragOver, setDragOver] = useState(false);
   const [previews, setPreviews] = useState([]);
   const fileInputRef = useRef(null);

@@ -1,7 +1,7 @@
 import { User, Mail, Phone, Calendar, Briefcase, Star } from 'lucide-react';
 import { Badge } from '../../ui/Badge.jsx';
 
-export function StaffProfileCard({ staff, onClose }) {
+export function StaffProfileCard({ staff }) {
   if (!staff) return null;
 
   const fullName = `${staff.nombre || ''} ${staff.apellidos || ''}`.trim() || 'Sin nombre';
