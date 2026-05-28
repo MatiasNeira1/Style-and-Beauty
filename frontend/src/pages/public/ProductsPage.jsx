@@ -1,19 +1,27 @@
-import { useQuery } from '@tanstack/react-query';
-import { ProductGrid } from '../../components/shop/ProductGrid.jsx';
-import { Loader } from '../../components/ui/Loader.jsx';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Reveal } from '../../components/animations/Reveal.jsx';
+import { ProductsBrands } from '../../components/shop/ProductsBrands.jsx';
+import { ProductsByBrand } from '../../components/shop/ProductsByBrand.jsx';
+import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
+import { mockProducts, productBrands } from '../../mocks/products.mock.js';
 import { useCart } from '../../store/CartContext.jsx';
-import { inventoryService } from '../../services/inventoryService.js';
-
-const products = [
-  { id: 1, nombre: 'Shampoo nutritivo', descripcion: 'Cuidado profesional para uso diario.', precio: 12990 },
-  { id: 2, nombre: 'Mascara capilar', descripcion: 'Tratamiento intensivo de hidratacion.', precio: 18990 },
-  { id: 3, nombre: 'Serum glow', descripcion: 'Brillo liviano y terminacion pulida.', precio: 15990 },
-];
 
 export function ProductsPage() {
   const { addItem } = useCart();
-  const { data, isLoading } = useQuery({ queryKey: ['inventory-products'], queryFn: inventoryService.listProducts });
-  const catalog = Array.isArray(data) && data.length ? data : products;
+  const location = useLocation();
+  const [selectedBrand, setSelectedBrand] = useState(null);
+  const visibleProducts = useMemo(() => (
+    selectedBrand ? mockProducts.filter((product) => product.marcaId === selectedBrand.id) : []
+  ), [selectedBrand]);
+  const heroTitle = selectedBrand?.nombre || 'Productos profesionales';
+  const heroSubtitle = selectedBrand?.descripcion || 'Primero elige una marca y luego revisa productos recomendados.';
+
+  useEffect(() => {
+    if (location.state?.showProductsHome) {
+      setSelectedBrand(null);
+    }
+  }, [location.state?.showProductsHome]);
 
   return (
     <>
@@ -22,13 +30,26 @@ export function ProductsPage() {
         <div className="products-hero-overlay" />
         <div className="products-hero-content">
           <span className="card-kicker">Shop</span>
-          <h1>Productos profesionales</h1>
-          <p>Cuidado de salon para extender el resultado en casa.</p>
+          <h1>{heroTitle}</h1>
+          <p>{heroSubtitle}</p>
         </div>
       </section>
 
-      <section className="page-section products-section">
-        {isLoading ? <Loader /> : <ProductGrid products={catalog} onAdd={addItem} />}
+      <section className="page-section products-section catalog-page">
+        {!selectedBrand ? (
+          <>
+            <SectionTitle eyebrow="Marcas" title="Catálogo por marcas">
+              Productos profesionales seleccionados para cabello, piel, nails y rutinas de cuidado.
+            </SectionTitle>
+            <Reveal>
+              <ProductsBrands brands={productBrands} products={mockProducts} onSelect={setSelectedBrand} />
+            </Reveal>
+          </>
+        ) : (
+          <Reveal>
+            <ProductsByBrand brand={selectedBrand} products={visibleProducts} onAdd={addItem} onBack={() => setSelectedBrand(null)} />
+          </Reveal>
+        )}
       </section>
     </>
   );

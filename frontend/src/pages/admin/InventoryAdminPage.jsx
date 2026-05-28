@@ -42,14 +42,13 @@ export function InventoryAdminPage() {
   const stockQuery = useQuery({ queryKey: ['inventory-stock'], queryFn: inventoryService.listStock });
 
   const products = Array.isArray(productsQuery.data) ? productsQuery.data : [];
-  const stockRows = Array.isArray(stockQuery.data) ? stockQuery.data : [];
-
   const stockByProduct = useMemo(() => {
+    const stockRows = Array.isArray(stockQuery.data) ? stockQuery.data : [];
     return stockRows.reduce((acc, stock) => {
       acc[stock.idProducto] = stock;
       return acc;
     }, {});
-  }, [stockRows]);
+  }, [stockQuery.data]);
 
   const invalidateInventory = () => {
     queryClient.invalidateQueries({ queryKey: ['inventory-admin'] });
