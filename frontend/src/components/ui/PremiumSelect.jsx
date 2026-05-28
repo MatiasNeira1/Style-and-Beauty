@@ -2,6 +2,10 @@ import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headless
 import { Check, ChevronDown } from 'lucide-react';
 
 export function PremiumSelect({ id, label, value, options = [], onChange }) {
+  const normalizedOptions = options.map((option) => (
+    typeof option === 'string' ? { label: option, value: option, disabled: false } : option
+  ));
+
   return (
     <Listbox value={value} onChange={onChange}>
       {({ open }) => (
@@ -21,11 +25,17 @@ export function PremiumSelect({ id, label, value, options = [], onChange }) {
             transition
             className="premium-select-options"
           >
-            {options.map((option) => (
-              <ListboxOption key={option} value={option} className="premium-select-option">
-                {({ selected }) => (
+            {normalizedOptions.map((option) => (
+              <ListboxOption
+                key={option.value}
+                value={option.value}
+                disabled={option.disabled}
+                className="premium-select-option"
+              >
+                {({ selected, disabled }) => (
                   <>
-                    <span>{option}</span>
+                    <span>{option.label}</span>
+                    {disabled && <small>Próximamente</small>}
                     {selected && <Check size={16} aria-hidden="true" />}
                   </>
                 )}
