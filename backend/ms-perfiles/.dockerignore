@@ -1,5 +1,6 @@
 target
-.mvn
-*.iml
-.idea
-.vscode
+.env
+*.log
+serviceAccountKey.json
+*.pem
+*.key
