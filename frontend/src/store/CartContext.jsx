@@ -20,13 +20,28 @@ export function CartProvider({ children }) {
     setIsCartOpen(true);
   }, [setItems]);
 
-  const removeItem = useCallback((id) => setItems((current) => current.filter((item) => item.id !== id)), [setItems]);
+  const removeItem = useCallback((id) => {
+    setItems((current) => current.filter((item) => item.id !== id));
+  }, [setItems]);
+
+  const updateQuantity = useCallback((id, delta) => {
+    setItems((current) => (
+      current
+        .map((item) => {
+          if (item.id !== id) return item;
+          const nextQuantity = item.quantity + delta;
+          return nextQuantity > 0 ? { ...item, quantity: nextQuantity } : null;
+        })
+        .filter(Boolean)
+    ));
+  }, [setItems]);
+
   const clearCart = useCallback(() => setItems([]), [setItems]);
   const total = items.reduce((sum, item) => sum + Number(item.price || item.precio || 0) * item.quantity, 0);
 
   const value = useMemo(
-    () => ({ items, addItem, removeItem, clearCart, total, isCartOpen, setIsCartOpen }),
-    [items, addItem, removeItem, clearCart, total, isCartOpen],
+    () => ({ items, addItem, removeItem, updateQuantity, clearCart, total, isCartOpen, setIsCartOpen }),
+    [items, addItem, removeItem, updateQuantity, clearCart, total, isCartOpen],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

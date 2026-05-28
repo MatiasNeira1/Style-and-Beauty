@@ -1,37 +1,47 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CalendarClock, Eye, Image, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
-import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
+import { StaffDeleteDialog } from '../../components/admin/staff/StaffDeleteDialog.jsx';
+import { StaffFormModal } from '../../components/admin/staff/StaffFormModal.jsx';
+import { StaffPortfolioGallery } from '../../components/admin/staff/StaffPortfolioGallery.jsx';
+import { StaffProfileCard } from '../../components/admin/staff/StaffProfileCard.jsx';
+import { StaffWorkSchedule } from '../../components/admin/staff/StaffWorkSchedule.jsx';
+import { Badge } from '../../components/ui/Badge.jsx';
 import { Button } from '../../components/ui/Button.jsx';
-import { Input } from '../../components/ui/Input.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
 import { authService } from '../../services/authService.js';
-import { profileService } from '../../services/profileService.js';
+import { staffService } from '../../services/staffService.js';
 
-const initialForm = {
-  rut: '',
-  nombre: '',
-  apellidos: '',
-  fechaNacimiento: '',
-  genero: '',
-  telefono: '',
-  emailContacto: '',
-  password: '',
-  idEspecialidad: '',
+const TABS = {
+  PROFILE: 'profile',
+  SCHEDULE: 'schedule',
+  PORTFOLIO: 'portfolio',
 };
+
+function getStaffId(staff) {
+  return staff?.idStaff || staff?.idPersona || staff?.id;
+}
 
 export function StaffAdminPage() {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState(initialForm);
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [staffToDelete, setStaffToDelete] = useState(null);
+  const [activeTab, setActiveTab] = useState(TABS.PROFILE);
 
-  const { data = [], isLoading, isError, error } = useQuery({
-    queryKey: ['profiles-staff'],
-    queryFn: profileService.listStaff,
+  const staffQuery = useQuery({ queryKey: ['staff-list'], queryFn: staffService.listStaff });
+  const specialtiesQuery = useQuery({ queryKey: ['staff-specialties'], queryFn: staffService.listSpecialties });
+  const scheduleQuery = useQuery({
+    queryKey: ['staff-schedules', getStaffId(selectedStaff)],
+    queryFn: () => staffService.listSchedules(getStaffId(selectedStaff)),
+    enabled: Boolean(getStaffId(selectedStaff)),
   });
-
-  const { data: specialtiesData = [], isLoading: isLoadingSpecialties } = useQuery({
-    queryKey: ['profiles-specialties'],
-    queryFn: profileService.listSpecialties,
+  const portfolioQuery = useQuery({
+    queryKey: ['staff-portfolio', getStaffId(selectedStaff)],
+    queryFn: () => staffService.listPortfolio(getStaffId(selectedStaff)),
+    enabled: Boolean(getStaffId(selectedStaff)),
   });
 
   const createMutation = useMutation({
@@ -41,94 +51,217 @@ export function StaffAdminPage() {
         password: payload.password,
         rol: 'STAFF',
       });
-
       const profilePayload = { ...payload };
       delete profilePayload.password;
-
-      return profileService.createStaff({
+      return staffService.createStaff({
         ...profilePayload,
-        idAuth: user.uid,
+        idAuth: user.uid || user.idAuth || user.id,
         idEspecialidad: Number(profilePayload.idEspecialidad),
       });
     },
     onSuccess: () => {
-      setForm(initialForm);
-      queryClient.invalidateQueries({ queryKey: ['profiles-staff'] });
+      setShowFormModal(false);
+      queryClient.invalidateQueries({ queryKey: ['staff-list'] });
     },
   });
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+  const updateMutation = useMutation({
+    mutationFn: ({ idAuth, data }) => staffService.updateStaff(idAuth, {
+      ...data,
+      idEspecialidad: Number(data.idEspecialidad),
+    }),
+    onSuccess: () => {
+      setShowFormModal(false);
+      setEditingStaff(null);
+      queryClient.invalidateQueries({ queryKey: ['staff-list'] });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (staff) => staffService.deleteStaff(staff.idAuth),
+    onSuccess: () => {
+      setStaffToDelete(null);
+      setSelectedStaff(null);
+      queryClient.invalidateQueries({ queryKey: ['staff-list'] });
+    },
+  });
+
+  const scheduleMutation = useMutation({
+    mutationFn: (jornadas) => staffService.saveSchedules(getStaffId(selectedStaff), jornadas),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-schedules', getStaffId(selectedStaff)] }),
+  });
+
+  const uploadImageMutation = useMutation({
+    mutationFn: (file) => staffService.uploadPortfolioImage(getStaffId(selectedStaff), file),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-portfolio', getStaffId(selectedStaff)] }),
+  });
+
+  const deleteImageMutation = useMutation({
+    mutationFn: (imageId) => staffService.deletePortfolioImage(getStaffId(selectedStaff), imageId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-portfolio', getStaffId(selectedStaff)] }),
+  });
+
+  const handleFormSubmit = (data, isEdit) => {
+    if (isEdit && editingStaff) {
+      updateMutation.mutate({ idAuth: editingStaff.idAuth, data });
+    } else {
+      createMutation.mutate(data);
+    }
   };
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
-    createMutation.mutate(form);
-  };
+  const handleUpload = useCallback((file) => uploadImageMutation.mutateAsync(file), [uploadImageMutation]);
+  const handleDeleteImage = useCallback((imageId) => deleteImageMutation.mutate(imageId), [deleteImageMutation]);
 
-  const staff = Array.isArray(data) ? data : [];
-  const specialties = Array.isArray(specialtiesData) ? specialtiesData : [];
+  const staff = Array.isArray(staffQuery.data) ? staffQuery.data : [];
+  const specialties = Array.isArray(specialtiesQuery.data) ? specialtiesQuery.data : [];
+  const schedules = Array.isArray(scheduleQuery.data) ? scheduleQuery.data : [];
+  const portfolio = Array.isArray(portfolioQuery.data) ? portfolioQuery.data : [];
+
+  const columns = [
+    {
+      key: 'nombre',
+      label: 'Profesional',
+      render: (row) => {
+        const name = `${row.nombre || ''} ${row.apellidos || ''}`.trim() || 'Sin nombre';
+        const initials = name.split(' ').slice(0, 2).map((word) => word[0]).join('').toUpperCase();
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div className="staff-avatar" style={{ width: '2.4rem', height: '2.4rem', fontSize: '0.82rem' }}>
+              {initials}
+            </div>
+            <div style={{ display: 'grid', gap: '0.1rem' }}>
+              <span style={{ fontWeight: 700, color: 'var(--color-ink)' }}>{name}</span>
+              <span style={{ fontSize: '0.78rem', color: 'var(--color-muted)' }}>{row.emailContacto || ''}</span>
+            </div>
+          </div>
+        );
+      },
+    },
+    { key: 'telefono', label: 'Teléfono' },
+    {
+      key: 'especialidad',
+      label: 'Especialidad',
+      render: (row) => <Badge tone="primary">{row.especialidad?.nombre || row.nombreEspecialidad || 'Sin asignar'}</Badge>,
+    },
+    {
+      key: 'acciones',
+      label: 'Acciones',
+      render: (row) => (
+        <div className="staff-table-row-actions">
+          <button type="button" className="staff-action-btn" onClick={() => { setSelectedStaff(row); setActiveTab(TABS.PROFILE); }} aria-label={`Ver perfil de ${row.nombre}`}>
+            <Eye size={15} />
+          </button>
+          <button type="button" className="staff-action-btn" onClick={() => { setEditingStaff(row); setShowFormModal(true); }} aria-label={`Editar ${row.nombre}`}>
+            <Pencil size={15} />
+          </button>
+          <button type="button" className="staff-action-btn danger" onClick={() => setStaffToDelete(row)} aria-label={`Eliminar ${row.nombre}`}>
+            <Trash2 size={15} />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="stack">
-      <SectionTitle eyebrow="Admin" title="Staff">
-        Gestiona los perfiles del equipo desde ms-perfiles.
-      </SectionTitle>
-
-      <form className="card stack" onSubmit={handleSubmit}>
-        <h3>Crear staff</h3>
-        <div className="form-grid">
-          <Input label="RUT" id="staff-rut" name="rut" value={form.rut} onChange={handleChange} required />
-          <Input label="Nombre" id="staff-nombre" name="nombre" value={form.nombre} onChange={handleChange} required />
-          <Input label="Apellidos" id="staff-apellidos" name="apellidos" value={form.apellidos} onChange={handleChange} />
-          <Input label="Email" id="staff-email" name="emailContacto" type="email" value={form.emailContacto} onChange={handleChange} required />
-          <Input label="Contrasena temporal" id="staff-password" name="password" type="password" minLength="6" value={form.password} onChange={handleChange} required />
-          <Input label="Telefono" id="staff-telefono" name="telefono" value={form.telefono} onChange={handleChange} />
-          <Input label="Fecha nacimiento" id="staff-fecha" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={handleChange} />
-          <Input label="Genero" id="staff-genero" name="genero" value={form.genero} onChange={handleChange} />
-          <Input
-            as="select"
-            label="Especialidad"
-            id="staff-especialidad"
-            name="idEspecialidad"
-            value={form.idEspecialidad}
-            onChange={handleChange}
-            required
-            disabled={isLoadingSpecialties}
-          >
-            <option value="">{isLoadingSpecialties ? 'Cargando especialidades...' : 'Seleccionar especialidad'}</option>
-            {specialties.map((specialty) => (
-              <option key={specialty.idEspecialidad} value={specialty.idEspecialidad}>
-                {specialty.nombre}
-              </option>
-            ))}
-          </Input>
+      <div className="staff-header">
+        <div className="staff-header-info">
+          <span>MS02 · Staff Service</span>
+          <h1>Equipo Profesional</h1>
+          <p>Gestiona perfiles, jornadas laborales y portfolio de trabajos realizados.</p>
         </div>
-        {!isLoadingSpecialties && specialties.length === 0 && (
-          <p className="admin-alert">No hay especialidades disponibles para asignar staff.</p>
-        )}
-        {createMutation.isError && <p className="admin-alert">{createMutation.error.message}</p>}
-        <Button type="submit" disabled={createMutation.isPending || isLoadingSpecialties || specialties.length === 0}>
-          {createMutation.isPending ? 'Creando...' : 'Crear staff'}
-        </Button>
-      </form>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <div className="staff-stat-pill">
+            <Users size={16} />
+            {staff.length} Profesionales
+          </div>
+          <Button
+            onClick={() => {
+              setEditingStaff(null);
+              setShowFormModal(true);
+            }}
+            size="sm"
+          >
+            <Plus size={16} />
+            Nuevo Profesional
+          </Button>
+        </div>
+      </div>
 
-      {isLoading ? (
-        <Loader />
-      ) : isError ? (
-        <p className="admin-alert">{error.message}</p>
-      ) : (
-        <DataTable
-          columns={[
-            { key: 'nombre', label: 'Nombre', render: (row) => `${row.nombre || ''} ${row.apellidos || ''}`.trim() || 'Sin nombre' },
-            { key: 'emailContacto', label: 'Email' },
-            { key: 'telefono', label: 'Telefono' },
-            { key: 'especialidad', label: 'Especialidad', render: (row) => row.especialidad?.nombre || row.idEspecialidad || 'Sin especialidad' },
-          ]}
-          rows={staff}
-        />
+      {(createMutation.isError || updateMutation.isError || deleteMutation.isError) && (
+        <p className="admin-alert">
+          {createMutation.error?.message || updateMutation.error?.message || deleteMutation.error?.message}
+        </p>
       )}
+
+      <div className={`staff-admin-detail-layout ${selectedStaff ? 'has-drawer' : ''}`}>
+        <div>
+          {staffQuery.isLoading ? (
+            <Loader />
+          ) : staffQuery.isError ? (
+            <p className="admin-alert">{staffQuery.error.message}</p>
+          ) : (
+            <DataTable columns={columns} rows={staff} />
+          )}
+        </div>
+
+        {selectedStaff && (
+          <div className="stack staff-profile-drawer">
+            <div className="staff-tabs">
+              <button type="button" className={`staff-tab ${activeTab === TABS.PROFILE ? 'active' : ''}`} onClick={() => setActiveTab(TABS.PROFILE)}>
+                <Eye size={13} /> Perfil
+              </button>
+              <button type="button" className={`staff-tab ${activeTab === TABS.SCHEDULE ? 'active' : ''}`} onClick={() => setActiveTab(TABS.SCHEDULE)}>
+                <CalendarClock size={13} /> Jornada
+              </button>
+              <button type="button" className={`staff-tab ${activeTab === TABS.PORTFOLIO ? 'active' : ''}`} onClick={() => setActiveTab(TABS.PORTFOLIO)}>
+                <Image size={13} /> Portfolio
+              </button>
+            </div>
+
+            {activeTab === TABS.PROFILE && <StaffProfileCard staff={selectedStaff} />}
+            {activeTab === TABS.SCHEDULE && (
+              <StaffWorkSchedule
+                schedules={schedules}
+                onSave={(jornadas) => scheduleMutation.mutate(jornadas)}
+                isSaving={scheduleMutation.isPending}
+              />
+            )}
+            {activeTab === TABS.PORTFOLIO && (
+              <StaffPortfolioGallery
+                images={portfolio}
+                onUpload={handleUpload}
+                onDelete={handleDeleteImage}
+                isUploading={uploadImageMutation.isPending}
+              />
+            )}
+
+            <Button variant="ghost" size="sm" onClick={() => setSelectedStaff(null)} style={{ justifySelf: 'center' }}>
+              Cerrar panel
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <StaffFormModal
+        open={showFormModal}
+        onClose={() => {
+          setShowFormModal(false);
+          setEditingStaff(null);
+        }}
+        onSubmit={handleFormSubmit}
+        initialData={editingStaff}
+        specialties={specialties}
+        isLoading={createMutation.isPending || updateMutation.isPending}
+      />
+
+      <StaffDeleteDialog
+        open={Boolean(staffToDelete)}
+        staff={staffToDelete}
+        onConfirm={(staffMember) => deleteMutation.mutate(staffMember)}
+        onClose={() => setStaffToDelete(null)}
+        isDeleting={deleteMutation.isPending}
+      />
     </div>
   );
 }

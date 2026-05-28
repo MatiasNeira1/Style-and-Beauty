@@ -1,60 +1,56 @@
+import { UserRound } from 'lucide-react';
 import { Card } from '../ui/Card.jsx';
 import { Button } from '../ui/Button.jsx';
-import { UserRound } from 'lucide-react';
+
+function getStaffId(member) {
+  return member.idPersona || member.idStaff || member.id || member.nombre;
+}
 
 export function StaffSelector({ staff = [], selectedId, onSelect }) {
+  if (!staff.length) {
+    return (
+      <Card className="client-empty-state">
+        <h3>No hay profesionales disponibles</h3>
+        <p>Selecciona otro servicio o revisa nuevamente mas tarde.</p>
+      </Card>
+    );
+  }
+
   return (
     <div className="grid-list">
-      {staff.map((member) => (
-        <button
-          key={member.idPersona || member.idStaff || member.id || member.nombre}
-          className={(member.idPersona || member.idStaff || member.id || member.nombre) === selectedId ? 'chip active' : 'chip'}
-          onClick={() => onSelect?.(member)}
-        >
-          {`${member.nombre || member.name || 'Profesional'} ${member.apellidos || ''}`.trim()}
-        </button>
-        <Card key={member.id || member.nombre} className={(member.id || member.nombre) === selectedId ? 'active-staff-card' : ''}>
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-            <div style={{ 
-              width: '4rem', 
-              height: '4rem', 
-              borderRadius: '50%', 
-              overflow: 'hidden',
-              background: 'rgba(255,255,255,0.05)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              {member.foto ? (
-                <img src={member.foto} alt={member.nombre} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <UserRound size={28} color="var(--color-ink-soft)" />
-              )}
+      {staff.map((member) => {
+        const id = getStaffId(member);
+        const isSelected = id === selectedId;
+        const fullName = `${member.nombre || member.name || 'Profesional'} ${member.apellidos || ''}`.trim();
+        return (
+          <Card key={id} className={`staff-card ${isSelected ? 'active-staff-card' : ''}`}>
+            <div className="staff-card-header">
+              <div className="staff-avatar">
+                {member.foto || member.fotoUrl ? (
+                  <img src={member.foto || member.fotoUrl} alt={fullName} />
+                ) : (
+                  <UserRound size={28} />
+                )}
+              </div>
+              <div>
+                <h3>{fullName}</h3>
+                <span className="card-kicker">{member.especialidad?.nombre || member.rol || 'Especialista'}</span>
+              </div>
             </div>
-            <div>
-              <h3 style={{ margin: '0.2rem 0 0.1rem' }}>{member.nombre || member.name}</h3>
-              <span className="card-kicker">{member.rol || 'Especialista'}</span>
-            </div>
-          </div>
-          
-          <p style={{ fontSize: '0.9rem', marginBottom: '1.2rem', minHeight: '2.7rem' }}>
-            {member.bio || 'Profesional dedicado a brindarte la mejor experiencia y resultados excepcionales.'}
-          </p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-            <Button variant="ghost" size="sm" onClick={() => alert(`Conoce más sobre ${member.nombre}`)}>
-              Saber más
-            </Button>
-            <Button 
-              size="sm" 
+            <p>{member.descripcionPerfil || member.bio || 'Profesional dedicado a entregarte una experiencia segura y personalizada.'}</p>
+
+            <Button
+              type="button"
+              size="sm"
+              variant={isSelected ? 'primary' : 'ghost'}
               onClick={() => onSelect?.(member)}
-              style={(member.id || member.nombre) === selectedId ? { background: 'var(--color-champagne)' } : {}}
             >
-              {(member.id || member.nombre) === selectedId ? 'Seleccionado' : 'Agendar'}
+              {isSelected ? 'Seleccionado' : 'Elegir profesional'}
             </Button>
-          </div>
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
     </div>
   );
 }

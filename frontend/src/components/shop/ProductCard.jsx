@@ -3,7 +3,7 @@ import { Button } from '../ui/Button.jsx';
 
 export function ProductCard({ product, onAdd }) {
   const name = product.nombre || product.name || product.nombreProducto || 'Producto profesional';
-  const description = product.descripcion || product.description || product.detalle || 'Producto profesional recomendado por el salon.';
+  const description = product.descripcion || product.description || product.detalle || 'Producto profesional recomendado por el salón.';
   const category = product.categoria || 'Cuidado profesional';
   const price = product.precio || product.price || product.precio_total || 0;
   const imageUrl = product.imagenUrl || product.imagen_url || product.imageUrl || product.image;
@@ -21,6 +21,7 @@ export function ProductCard({ product, onAdd }) {
         <strong>{formattedPrice}</strong>
         <Button size="sm" onClick={() => onAdd?.({ ...product, id: product.id || product.idProducto || name, name, price })} aria-label={`Agregar ${name}`}>
           <ShoppingCart size={16} />
+          <span>Agregar</span>
         </Button>
       </div>
     </article>

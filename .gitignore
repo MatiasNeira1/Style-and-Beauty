@@ -17,3 +17,5 @@ frontend/.vite/
 !frontend/.env.example
 Microsoft/
 .codex-run/
+*.log
+hs_err_pid*.log

@@ -1,0 +1,469 @@
+/* ═══════════════════════════════════════════════════
+   MS02 – Staff Profile Module Styles
+   ═══════════════════════════════════════════════════ */
+
+/* ── Staff Header ──────────────────────────────────── */
+.staff-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.staff-header-info span {
+  color: var(--color-primary);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.staff-header-info h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  margin: 0.3rem 0 0.2rem;
+}
+
+.staff-header-info p {
+  color: var(--color-muted);
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.staff-stat-pill {
+  align-items: center;
+  background: rgba(169, 52, 84, 0.09);
+  border-radius: 999px;
+  color: var(--color-primary);
+  display: flex;
+  font-size: 0.88rem;
+  font-weight: 800;
+  gap: 0.45rem;
+  padding: 0.55rem 1rem;
+}
+
+/* ── Staff Table Enhanced ──────────────────────────── */
+.staff-table-row-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.staff-action-btn {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  padding: 0.45rem;
+  transition: all 180ms ease;
+}
+
+.staff-action-btn:hover {
+  background: rgba(169, 52, 84, 0.08);
+  border-color: rgba(169, 52, 84, 0.3);
+  color: var(--color-primary);
+}
+
+.staff-action-btn.danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+}
+
+/* ── Staff Modal Form ──────────────────────────────── */
+.staff-modal-form {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1rem 0;
+}
+
+.staff-form-section {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.staff-form-section-title {
+  align-items: center;
+  color: var(--color-ink);
+  display: flex;
+  font-size: 0.82rem;
+  font-weight: 800;
+  gap: 0.4rem;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+}
+
+.staff-form-section-title svg {
+  color: var(--color-primary);
+}
+
+.staff-form-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.staff-form-footer {
+  align-items: center;
+  border-top: 1px solid var(--color-line);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+}
+
+/* ── Staff Profile Card (Expanded View) ────────────── */
+.staff-profile-drawer {
+  animation: staffSlideIn 350ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes staffSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.staff-profile-header {
+  align-items: center;
+  display: flex;
+  gap: 1.2rem;
+}
+
+.staff-avatar {
+  align-items: center;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-champagne));
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  flex-shrink: 0;
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+  height: 3.6rem;
+  justify-content: center;
+  width: 3.6rem;
+}
+
+.staff-profile-meta {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.staff-profile-meta h3 {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.staff-profile-meta span {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+}
+
+.staff-info-grid {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: 1fr 1fr;
+  margin-top: 0.5rem;
+}
+
+.staff-info-item {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.staff-info-item label {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.staff-info-item span {
+  color: var(--color-ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+/* ── Work Schedule ─────────────────────────────────── */
+.schedule-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.schedule-day {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 7rem 1fr 1fr auto;
+  padding: 0.75rem 1rem;
+  transition: border-color 200ms ease, background 200ms ease;
+}
+
+.schedule-day:hover {
+  border-color: rgba(169, 52, 84, 0.2);
+}
+
+.schedule-day.inactive {
+  background: rgba(0, 0, 0, 0.02);
+  opacity: 0.55;
+}
+
+.schedule-day-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.schedule-time-input {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  min-height: 2.4rem;
+  outline: none;
+  padding: 0.4rem 0.65rem;
+  text-align: center;
+}
+
+.schedule-time-input:focus {
+  border-color: rgba(169, 52, 84, 0.55);
+  box-shadow: 0 0 0 3px rgba(169, 52, 84, 0.08);
+}
+
+.schedule-toggle {
+  appearance: none;
+  background: #ddd;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  height: 1.5rem;
+  position: relative;
+  transition: background 200ms ease;
+  width: 2.75rem;
+}
+
+.schedule-toggle::after {
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  content: "";
+  height: 1.15rem;
+  left: 0.18rem;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: left 200ms ease;
+  width: 1.15rem;
+}
+
+.schedule-toggle:checked {
+  background: var(--color-primary);
+}
+
+.schedule-toggle:checked::after {
+  left: calc(100% - 1.15rem - 0.18rem);
+}
+
+/* ── Portfolio / Gallery ───────────────────────────── */
+.portfolio-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.portfolio-item {
+  aspect-ratio: 1;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  position: relative;
+}
+
+.portfolio-item img {
+  height: 100%;
+  object-fit: cover;
+  transition: transform 300ms ease;
+  width: 100%;
+}
+
+.portfolio-item:hover img {
+  transform: scale(1.06);
+}
+
+.portfolio-item-overlay {
+  align-items: flex-end;
+  background: linear-gradient(180deg, transparent 40%, rgba(25, 20, 23, 0.65));
+  display: flex;
+  inset: 0;
+  justify-content: flex-end;
+  opacity: 0;
+  padding: 0.5rem;
+  position: absolute;
+  transition: opacity 200ms ease;
+}
+
+.portfolio-item:hover .portfolio-item-overlay {
+  opacity: 1;
+}
+
+.portfolio-delete-btn {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  border: 0;
+  border-radius: 50%;
+  color: #dc2626;
+  cursor: pointer;
+  display: flex;
+  height: 1.8rem;
+  justify-content: center;
+  transition: transform 150ms ease;
+  width: 1.8rem;
+}
+
+.portfolio-delete-btn:hover {
+  transform: scale(1.12);
+}
+
+/* ── Dropzone ──────────────────────────────────────── */
+.staff-dropzone {
+  align-items: center;
+  background: rgba(169, 52, 84, 0.03);
+  border: 2px dashed rgba(169, 52, 84, 0.2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+  min-height: 140px;
+  padding: 1.5rem;
+  text-align: center;
+  transition: border-color 200ms ease, background 200ms ease;
+}
+
+.staff-dropzone:hover,
+.staff-dropzone.dragover {
+  background: rgba(169, 52, 84, 0.07);
+  border-color: rgba(169, 52, 84, 0.45);
+}
+
+.staff-dropzone svg {
+  color: var(--color-primary);
+}
+
+.staff-dropzone p {
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.staff-dropzone span {
+  color: var(--color-primary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* ── Delete Confirmation Dialog ────────────────────── */
+.staff-delete-dialog {
+  padding: 1rem 0;
+  text-align: center;
+}
+
+.staff-delete-dialog p {
+  color: var(--color-ink-soft);
+  font-size: 0.95rem;
+  margin: 0 0 0.5rem;
+}
+
+.staff-delete-dialog strong {
+  color: var(--color-ink);
+}
+
+.staff-delete-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+/* ── Tabs ──────────────────────────────────────────── */
+.staff-tabs {
+  border-bottom: 1px solid var(--color-line);
+  display: flex;
+  gap: 0;
+}
+
+.staff-tab {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 700;
+  padding: 0.75rem 1.2rem;
+  transition: all 200ms ease;
+}
+
+.staff-tab:hover {
+  color: var(--color-ink-soft);
+}
+
+.staff-tab.active {
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.staff-admin-detail-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  transition: grid-template-columns 300ms ease;
+}
+
+@media (min-width: 990px) {
+  .staff-admin-detail-layout.has-drawer {
+    grid-template-columns: 1fr minmax(320px, 420px);
+  }
+}
+
+/* ── Responsive ────────────────────────────────────── */
+@media (max-width: 640px) {
+  .schedule-day {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .schedule-day-name {
+    grid-column: 1 / -1;
+  }
+
+  .staff-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .staff-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .portfolio-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  }
+}

@@ -77,12 +77,9 @@ export function ClientsAdminPage() {
         rol: selectedType,
       });
 
-      const { password, ...profilePayload } = payload;
-      const normalizedPayload = {
       const profilePayload = { ...payload };
       delete profilePayload.password;
-
-      return profileService.createClient({
+      const normalizedPayload = {
         ...profilePayload,
         idAuth: user.uid,
       };
@@ -91,6 +88,9 @@ export function ClientsAdminPage() {
         normalizedPayload.idEspecialidad = Number(profilePayload.idEspecialidad);
       } else {
         delete normalizedPayload.idEspecialidad;
+        delete normalizedPayload.fotoUrl;
+        delete normalizedPayload.cvUrl;
+        delete normalizedPayload.descripcionPerfil;
       }
 
       return selectedTypeConfig.createProfile(normalizedPayload);
@@ -144,7 +144,7 @@ export function ClientsAdminPage() {
           <Input label="Nombre" id="user-nombre" name="nombre" value={form.nombre} onChange={handleChange} required />
           <Input label="Apellidos" id="user-apellidos" name="apellidos" value={form.apellidos} onChange={handleChange} />
           <Input label="Email" id="user-email" name="emailContacto" type="email" value={form.emailContacto} onChange={handleChange} required />
-          <Input label="Contrasena temporal" id="user-password" name="password" type="password" minLength="6" value={form.password} onChange={handleChange} required />
+          <Input label="Contraseña temporal" id="user-password" name="password" type="password" minLength="6" value={form.password} onChange={handleChange} required />
           <Input label="Telefono" id="user-telefono" name="telefono" value={form.telefono} onChange={handleChange} />
           <Input label="Fecha nacimiento" id="user-fecha" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={handleChange} />
           <Input label="Genero" id="user-genero" name="genero" value={form.genero} onChange={handleChange} />
@@ -185,7 +185,7 @@ export function ClientsAdminPage() {
       </form>
 
       {!hasToken ? (
-        <p className="admin-alert">Necesitas iniciar sesion con un usuario ADMIN para listar usuarios.</p>
+        <p className="admin-alert">Necesitas iniciar sesión con un usuario ADMIN para listar usuarios.</p>
       ) : selectedQuery.isLoading ? (
         <Loader />
       ) : selectedQuery.isError ? (
