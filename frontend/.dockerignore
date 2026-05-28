@@ -1,5 +1,9 @@
 node_modules
 dist
-.git
-.DS_Store
+.vite
+.env
+.env.*
+!.env.example
 npm-debug.log*
+Dockerfile
+nginx.conf

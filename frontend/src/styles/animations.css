@@ -2,6 +2,8 @@
   animation: page-enter 220ms ease-out;
   min-height: 76vh;
   will-change: opacity, transform;
+}
+
 /* ═══════════════════════════════════════════
    ANIMATIONS — Style & Beauty Bright Executive Theme
    ═══════════════════════════════════════════ */
@@ -98,6 +100,8 @@ html.lenis, html.lenis body { height: auto; }
 .magnetic-button {
   transition: transform 160ms ease, background 180ms ease, opacity 180ms ease;
   will-change: transform;
+}
+
 .loader-ring {
   animation: orbit 1.4s cubic-bezier(0.5, 0, 0.5, 1) infinite;
   border: 2.5px solid transparent;
@@ -276,6 +280,8 @@ html.lenis, html.lenis body { height: auto; }
     opacity: 1;
     transform: translateY(0);
   }
+}
+
 @keyframes gradient-shift {
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }
