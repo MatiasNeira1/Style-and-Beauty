@@ -1,12 +1,12 @@
 import axios from 'axios';
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
-export const AUTH_API_BASE_URL = import.meta.env.VITE_AUTH_API_BASE_URL || API_BASE_URL;
-export const PROFILES_API_BASE_URL = import.meta.env.VITE_PROFILES_API_BASE_URL || API_BASE_URL;
-export const STAFF_API_BASE_URL = import.meta.env.VITE_STAFF_API_BASE_URL || API_BASE_URL;
-export const CATALOG_API_BASE_URL = import.meta.env.VITE_CATALOG_API_BASE_URL || API_BASE_URL;
-export const AGENDA_API_BASE_URL = import.meta.env.VITE_AGENDA_API_BASE_URL || API_BASE_URL;
-export const INVENTORY_API_BASE_URL = import.meta.env.VITE_INVENTORY_API_BASE_URL || API_BASE_URL;
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+export const AUTH_API_BASE_URL = API_BASE_URL;
+export const PROFILES_API_BASE_URL = API_BASE_URL;
+export const STAFF_API_BASE_URL = API_BASE_URL;
+export const CATALOG_API_BASE_URL = API_BASE_URL;
+export const AGENDA_API_BASE_URL = API_BASE_URL;
+export const INVENTORY_API_BASE_URL = API_BASE_URL;
 export const TOKEN_KEY = 'style_beauty_token';
 
 export const apiClient = axios.create({

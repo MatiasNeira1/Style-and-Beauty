@@ -15,7 +15,7 @@ public class PerfilClient {
 
     public PerfilClient(
             RestClient.Builder builder,
-            @Value("${app.ms-perfiles.base-url:http://localhost:8082}") String perfilesBaseUrl) {
+            @Value("${app.ms-perfiles.base-url:http://ms-perfiles:8082}") String perfilesBaseUrl) {
         this.restClient = builder.baseUrl(perfilesBaseUrl).build();
     }
 

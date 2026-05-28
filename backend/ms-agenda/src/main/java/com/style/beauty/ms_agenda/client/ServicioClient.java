@@ -15,7 +15,7 @@ public class ServicioClient {
 
     public ServicioClient(
             RestClient.Builder builder,
-            @Value("${app.ms-catalogo.base-url:http://localhost:8083}") String catalogoBaseUrl) {
+            @Value("${app.ms-catalogo.base-url:http://ms-catalogo:8083}") String catalogoBaseUrl) {
         this.restClient = builder.baseUrl(catalogoBaseUrl).build();
     }
 

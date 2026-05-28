@@ -1,11 +1,20 @@
 serviceAccountKey.json
+**/serviceAccountKey.json
+*.pem
+*.key
+*.p12
+*.jks
 
 target/
 node_modules/
 dist/
 frontend/.vite/
+.vite/
 .env.local
 .env
+.env.*
+!.env.example
+!frontend/.env.example
 Microsoft/
 .codex-run/
 *.log

@@ -1,114 +1,103 @@
 # Style-and-Beauty
 
-Sistema de salon con microservicios Spring Boot, frontend React/Vite, PostgreSQL con replica y MongoDB para auditoria/notificaciones.
+Monorepo con frontend React/Vite y backend Spring Boot por microservicios.
 
-## Ejecucion local
+## Arquitectura de produccion
 
-Frontend:
+- Frontend: Cloudflare Pages desde `frontend/`
+- API publica: `https://api.midominio.com`
+- Backend: DigitalOcean Ubuntu + Docker Compose + Nginx reverse proxy
+- DNS/SSL: Cloudflare DNS y SSL/TLS
+- Base de datos: PostgreSQL master/replica y MongoDB en red Docker privada
 
-```bash
-cd frontend
-npm install
-npm run dev
+## Frontend en Cloudflare Pages
+
+Configuracion del proyecto:
+
+- Root directory: `frontend`
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Node version: `22`
+
+Variables de entorno en Cloudflare Pages:
+
+```env
+VITE_API_URL=https://api.midominio.com
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
 ```
 
-Backend agenda con Java 21:
+El archivo `frontend/public/_redirects` habilita rutas SPA de React Router. El archivo `frontend/public/_headers` agrega headers basicos de seguridad y cache immutable para assets.
 
-```powershell
-cd backend/ms-agenda
-$env:JAVA_HOME='C:\Program Files\Amazon Corretto\jdk21.0.11_10'
-$env:Path="$env:JAVA_HOME\bin;$env:Path"
-./mvnw.cmd test
-./mvnw.cmd spring-boot:run
+## Backend en DigitalOcean
+
+1. Instalar Docker Engine, Docker Compose plugin y Nginx en Ubuntu.
+2. Copiar `.env.example` a `.env` en la raiz del repo y reemplazar todos los valores `replace_with...`.
+3. Configurar dominios reales:
+
+```env
+API_GATEWAY_PORT=8080
+APP_CORS_ALLOWED_ORIGINS=https://midominio.com,https://www.midominio.com
+FIREBASE_SERVICE_ACCOUNT_PATH=/run/secrets/firebase-service-account.json
 ```
 
-En Linux/macOS:
-
-```bash
-cd backend/ms-agenda
-export JAVA_HOME=/path/to/jdk-21
-./mvnw test
-./mvnw spring-boot:run
-```
-
-## Despliegue Docker en Ubuntu
-
-1. Instalar Docker Engine y el plugin Compose.
-2. Copiar `.env.example` a `.env` y reemplazar todas las contrasenas `replace_with...`.
-3. Levantar el stack:
+4. Levantar el backend:
 
 ```bash
 docker compose --env-file .env up -d --build
+docker compose ps
+docker compose logs -f api-gateway
 ```
 
-Servicios publicados por defecto:
+El gateway queda publicado solo en `127.0.0.1:8080`; PostgreSQL y MongoDB no se exponen al exterior.
 
-- Frontend Nginx: `http://SERVIDOR/`
-- API Gateway: `http://SERVIDOR:8080`
-- PostgreSQL master: `SERVIDOR:5432`
-- PostgreSQL replica: `SERVIDOR:5433`
-- MongoDB: `SERVIDOR:27017`
+## Nginx reverse proxy
 
-Comandos operativos:
+Usar `deploy/nginx/api.style-beauty.conf` como base:
 
 ```bash
-docker compose ps
+sudo cp deploy/nginx/api.style-beauty.conf /etc/nginx/sites-available/api.style-beauty.conf
+sudo ln -s /etc/nginx/sites-available/api.style-beauty.conf /etc/nginx/sites-enabled/api.style-beauty.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Cloudflare debe apuntar `api.midominio.com` al droplet. En SSL/TLS usar `Full` o `Full (strict)` si instalas un Origin Certificate en Nginx.
+
+## DNS recomendado
+
+- `midominio.com` CNAME hacia el host asignado por Cloudflare Pages.
+- `www.midominio.com` CNAME hacia el mismo proyecto de Cloudflare Pages.
+- `api.midominio.com` A hacia la IP publica del droplet DigitalOcean, con proxy naranja activado en Cloudflare.
+
+## Operacion
+
+```bash
+docker compose config
+docker compose up -d --build
+docker compose logs -f api-gateway
 docker compose logs -f ms-agenda
 docker compose down
-docker compose up -d --build
-docker compose build --no-cache ms-agenda frontend
 ```
 
-## PostgreSQL master-replica
-
-El `docker-compose.yml` usa `postgres-master` y `postgres-replica` con volumen persistente separado y usuario de replicacion por variables de entorno.
-
-Validar replicacion:
+Para validar API:
 
 ```bash
-docker compose exec postgres-master psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE TABLE IF NOT EXISTS replication_check(id serial primary key, created_at timestamptz default now()); INSERT INTO replication_check DEFAULT VALUES;"
-docker compose exec postgres-replica psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT * FROM replication_check ORDER BY id DESC LIMIT 5;"
-docker compose exec postgres-master psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT client_addr, state, sync_state FROM pg_stat_replication;"
-docker compose exec postgres-replica psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT pg_is_in_recovery();"
+curl -I http://127.0.0.1:8080/swagger-ui.html
+curl -I https://api.midominio.com/swagger-ui.html
 ```
 
-La replica debe devolver `pg_is_in_recovery = t` y ver la fila insertada en el master.
+## Seguridad
 
-## Guard de solapamientos en agenda
+- No commitear `.env`, `.env.local`, service accounts, llaves privadas ni builds.
+- Rotar cualquier secreto que haya sido committeado antes de esta limpieza.
+- Mantener `APP_CORS_ALLOWED_ORIGINS` solo con dominios HTTPS productivos en el servidor.
+- Evitar publicar puertos de base de datos; el compose productivo usa red Docker privada.
 
-Despues de que Hibernate cree/actualice la tabla `citas`, ejecutar una vez en PostgreSQL productivo:
+## Notas
 
-```bash
-docker compose exec -T postgres-master psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < backend/ms-agenda/src/main/resources/db/manual/V20260527__agenda_holgura_overlap_guard.sql
-```
-
-Ese script agrega extension `btree_gist`, columnas faltantes si existieran datos antiguos, indice y restriccion exclusion para impedir solapamientos activos por staff a nivel base de datos.
-
-## Validaciones de agenda
-
-La disponibilidad y la creacion de citas consultan `ms-catalogo` para obtener la duracion real del servicio y calcular la holgura en backend. El frontend no decide la holgura.
-
-Reglas aplicadas:
-
-- Manicure/manicura: 15 min.
-- Mechas, botox, alisado y tinturas: 30 min.
-- Corte de pelo, peinados e hidratacion capilar: 10 min.
-- Cuidados de la piel/faciales/estetica: 10 min.
-- Masajes: 20 min.
-- Maquillajes: 15 min.
-- Maquillaje de novia: 30 min.
-
-Pruebas ejecutadas:
-
-```powershell
-cd backend/ms-agenda
-$env:JAVA_HOME='C:\Program Files\Amazon Corretto\jdk21.0.11_10'
-$env:Path="$env:JAVA_HOME\bin;$env:Path"
-./mvnw.cmd test
-
-cd ../../frontend
-npm run build
-
-cd ..
-docker compose config
-```
+El frontend usa una unica variable `VITE_API_URL`. Si agregas nuevos servicios, enruta por el API Gateway y no agregues URLs publicas por microservicio al navegador.

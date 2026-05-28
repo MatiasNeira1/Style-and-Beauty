@@ -1,17 +1,4 @@
 services:
-  frontend:
-    build:
-      context: ./frontend
-    container_name: style-beauty-frontend
-    restart: unless-stopped
-    ports:
-      - "${FRONTEND_PORT:-80}:80"
-    depends_on:
-      api-gateway:
-        condition: service_healthy
-    networks:
-      - style-beauty-net
-
   postgres-master:
     image: bitnami/postgresql:16
     container_name: style-beauty-postgres-master
@@ -25,8 +12,8 @@ services:
       POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
       POSTGRESQL_POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-change_me_admin}
       POSTGRESQL_TIMEZONE: ${TZ:-America/Santiago}
-    ports:
-      - "${POSTGRES_MASTER_PORT:-5432}:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres-master-data:/bitnami/postgresql
     healthcheck:
@@ -50,8 +37,8 @@ services:
       POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
       POSTGRESQL_POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-change_me_admin}
       POSTGRESQL_TIMEZONE: ${TZ:-America/Santiago}
-    ports:
-      - "${POSTGRES_REPLICA_PORT:-5433}:5432"
+    expose:
+      - "5432"
     volumes:
       - postgres-replica-data:/bitnami/postgresql
     depends_on:
@@ -69,8 +56,8 @@ services:
     image: mongo:7
     container_name: style-beauty-mongo
     restart: unless-stopped
-    ports:
-      - "${MONGO_PORT:-27017}:27017"
+    expose:
+      - "27017"
     volumes:
       - mongo-data:/data/db
     healthcheck:
@@ -88,6 +75,8 @@ services:
     restart: unless-stopped
     environment:
       SERVER_PORT: 8080
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
       MS_AUTH_URI: http://ms-auth:8081
       MS_PERFILES_URI: http://ms-perfiles:8082
       MS_CATALOGO_URI: http://ms-catalogo:8083
@@ -97,7 +86,7 @@ services:
       MS_EXTRA_URI: http://ms-extra:8087
       MS_NOTIFICACION_AUDIT_URI: http://ms-notificacion-audit:8088
     ports:
-      - "${API_GATEWAY_PORT:-8080}:8080"
+      - "127.0.0.1:${API_GATEWAY_PORT:-8080}:8080"
     depends_on:
       ms-auth:
         condition: service_healthy
@@ -130,6 +119,8 @@ services:
     restart: unless-stopped
     environment:
       SERVER_PORT: 8081
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
+      FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8081/ >/dev/null || exit 1"]
       interval: 20s
@@ -150,6 +141,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
+      FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -173,6 +166,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
+      SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -200,6 +195,8 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_SQL_INIT_MODE: ${SPRING_SQL_INIT_MODE:-always}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
+      SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -227,6 +224,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
+      SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -250,6 +249,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
+      SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -273,6 +274,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
+      SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -292,6 +295,7 @@ services:
     environment:
       SERVER_PORT: 8088
       SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/${MONGO_DB:-style_beauty_audit}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     depends_on:
       mongo:
         condition: service_healthy
