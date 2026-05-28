@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Reveal } from '../../components/animations/Reveal.jsx';
 import { ProductsBrands } from '../../components/shop/ProductsBrands.jsx';
 import { ProductsByBrand } from '../../components/shop/ProductsByBrand.jsx';
@@ -8,12 +9,19 @@ import { useCart } from '../../store/CartContext.jsx';
 
 export function ProductsPage() {
   const { addItem } = useCart();
+  const location = useLocation();
   const [selectedBrand, setSelectedBrand] = useState(null);
   const visibleProducts = useMemo(() => (
     selectedBrand ? mockProducts.filter((product) => product.marcaId === selectedBrand.id) : []
   ), [selectedBrand]);
   const heroTitle = selectedBrand?.nombre || 'Productos profesionales';
   const heroSubtitle = selectedBrand?.descripcion || 'Primero elige una marca y luego revisa productos recomendados.';
+
+  useEffect(() => {
+    if (location.state?.showProductsHome) {
+      setSelectedBrand(null);
+    }
+  }, [location.state?.showProductsHome]);
 
   return (
     <>

@@ -35,6 +35,15 @@ export function Navbar() {
     }
   };
 
+  const handleNavClick = (event, to) => {
+    setMobileOpen(false);
+
+    if (to === '/productos') {
+      event.preventDefault();
+      navigate('/productos', { state: { showProductsHome: Date.now() } });
+    }
+  };
+
   return (
     <>
       <motion.header
@@ -49,7 +58,7 @@ export function Navbar() {
 
         <nav aria-label="Navegación principal">
           {links.map(([to, label]) => (
-            <NavLink key={to} to={to} end={to === '/'}>
+            <NavLink key={to} to={to} end={to === '/'} onClick={(event) => handleNavClick(event, to)}>
               {label}
             </NavLink>
           ))}
@@ -95,7 +104,7 @@ export function Navbar() {
             transition={{ duration: 0.25 }}
           >
             {links.map(([to, label]) => (
-              <NavLink key={to} to={to} end={to === '/'} onClick={() => setMobileOpen(false)}>
+              <NavLink key={to} to={to} end={to === '/'} onClick={(event) => handleNavClick(event, to)}>
                 {label}
               </NavLink>
             ))}

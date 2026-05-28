@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Search, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ProfessionalCard } from '../../components/professionals/ProfessionalCard.jsx';
+import { ProfessionalProfileModal } from '../../components/professionals/ProfessionalProfileModal.jsx';
 import { ProfessionalSkeleton } from '../../components/professionals/ProfessionalsCarousel.jsx';
 import { PremiumSelect } from '../../components/ui/PremiumSelect.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
@@ -15,22 +16,56 @@ function matches(value, filter) {
   return filter === 'Todos' || value === filter;
 }
 
+const availabilityOptions = ['Todos', 'Disponible hoy', 'Mañana', 'Esta Semana', 'Hora más próxima'];
+const branchOptions = [
+  { label: 'Providencia', value: 'Providencia' },
+  { label: 'Vitacura', value: 'Vitacura', disabled: true },
+];
+
+function normalizeText(value = '') {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function hasTomorrowSlot(professional) {
+  return (professional.proximasHoras || []).some((hour) => normalizeText(hour).includes('manana'));
+}
+
+function hasAnySlot(professional) {
+  return Boolean(professional.proximaHora || professional.proximasHoras?.length);
+}
+
+function matchesPublicAvailability(professional, filter) {
+  if (filter === 'Todos') return true;
+  if (filter === 'Disponible hoy') return hasAnySlot(professional) && !hasTomorrowSlot(professional);
+  if (filter === 'Mañana') return hasTomorrowSlot(professional);
+  if (filter === 'Esta Semana') return hasAnySlot(professional);
+  if (filter === 'Hora más próxima') return hasAnySlot(professional);
+  return true;
+}
+
+function slotWeight(professional) {
+  const slot = normalizeText(professional.proximaHora || professional.proximasHoras?.[0] || '');
+  const match = slot.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  const minutes = Number(match[1]) * 60 + Number(match[2]);
+  return slot.includes('manana') ? minutes + 24 * 60 : minutes;
+}
+
 export function ProfessionalsPage() {
   const { professionals, isLoading } = useProfessionals();
   const [search, setSearch] = useState('');
   const [specialty, setSpecialty] = useState('Todos');
   const [availability, setAvailability] = useState('Todos');
-  const [branch, setBranch] = useState('Todos');
+  const [branch, setBranch] = useState('Providencia');
+  const [selectedProfessional, setSelectedProfessional] = useState(null);
 
   const filters = useMemo(() => ({
     specialties: unique(professionals.map((item) => item.especialidad)),
-    availability: unique(professionals.map((item) => item.estado)),
-    branches: unique(professionals.map((item) => item.sucursal)),
   }), [professionals]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return professionals.filter((professional) => {
+    const result = professionals.filter((professional) => {
       const haystack = [
         professional.fullName,
         professional.especialidad,
@@ -40,9 +75,15 @@ export function ProfessionalsPage() {
 
       return (!query || haystack.includes(query))
         && matches(professional.especialidad, specialty)
-        && matches(professional.estado, availability)
+        && matchesPublicAvailability(professional, availability)
         && matches(professional.sucursal, branch);
     });
+
+    if (availability === 'Hora más próxima') {
+      return [...result].sort((a, b) => slotWeight(a) - slotWeight(b));
+    }
+
+    return result;
   }, [professionals, search, specialty, availability, branch]);
 
   return (
@@ -70,8 +111,8 @@ export function ProfessionalsPage() {
 
           <div className="professionals-filter-grid">
             <PremiumSelect id="filter-specialty" label="Especialidad" value={specialty} options={filters.specialties} onChange={setSpecialty} />
-            <PremiumSelect id="filter-availability" label="Disponibilidad" value={availability} options={filters.availability} onChange={setAvailability} />
-            <PremiumSelect id="filter-branch" label="Sucursal" value={branch} options={filters.branches} onChange={setBranch} />
+            <PremiumSelect id="filter-availability" label="Disponibilidad" value={availability} options={availabilityOptions} onChange={setAvailability} />
+            <PremiumSelect id="filter-branch" label="Sucursal" value={branch} options={branchOptions} onChange={setBranch} />
           </div>
         </div>
 
@@ -93,7 +134,7 @@ export function ProfessionalsPage() {
                 variants={{ hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0 } }}
                 transition={{ delay: index * 0.04, duration: 0.35 }}
               >
-                <ProfessionalCard professional={professional} />
+                <ProfessionalCard professional={professional} onViewProfile={setSelectedProfessional} />
               </motion.div>
             ))}
           </motion.div>
@@ -104,6 +145,8 @@ export function ProfessionalsPage() {
           <span>Las horas visibles corresponden a proximos espacios de reserva por especialista y cabina.</span>
         </div>
       </section>
+
+      <ProfessionalProfileModal professional={selectedProfessional} onClose={() => setSelectedProfessional(null)} />
     </>
   );
 }
