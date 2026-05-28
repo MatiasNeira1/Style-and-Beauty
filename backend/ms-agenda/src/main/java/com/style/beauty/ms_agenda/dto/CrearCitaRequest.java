@@ -10,7 +10,7 @@ public record CrearCitaRequest(
         @NotNull UUID idStaff,
         @NotNull UUID idServicio,
         @NotNull OffsetDateTime fechaHoraInicio,
-        @NotNull Integer duracionServicioMin,
+        Integer duracionServicioMin,
         Integer holguraMin,
         String observacionCliente) {
 }

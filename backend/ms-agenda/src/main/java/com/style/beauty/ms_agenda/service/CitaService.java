@@ -9,6 +9,8 @@ import com.style.beauty.ms_agenda.entity.HistorialCita;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.JornadaStaff;
 import com.style.beauty.ms_agenda.client.PerfilClient;
+import com.style.beauty.ms_agenda.client.ServicioClient;
+import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.enums.AccionHistorial;
 import com.style.beauty.ms_agenda.enums.EstadoCita;
 import com.style.beauty.ms_agenda.enums.TipoCita;
@@ -39,12 +41,11 @@ public class CitaService {
     private final BloqueoAgendaRepository bloqueoAgendaRepository;
     private final HistorialCitaRepository historialCitaRepository;
     private final PerfilClient perfilClient;
+    private final ServicioClient servicioClient;
+    private final HolguraService holguraService;
 
     @Value("${app.agenda.zone:America/Santiago}")
     private String agendaZone;
-
-    @Value("${app.agenda.default-holgura-min:20}")
-    private int defaultHolguraMin;
 
     public List<Cita> listar() {
         return citaRepository.findAll();
@@ -58,12 +59,9 @@ public class CitaService {
     public List<DisponibilidadSlot> calcularDisponibilidad(DisponibilidadRequest request) {
         perfilClient.obtenerStaff(request.idStaff());
 
-        int holgura = normalizarHolgura(request.holguraMin());
-        int duracion = request.duracionServicioMin();
-
-        if (duracion <= 0) {
-            throw new BusinessException("La duracion del servicio debe ser mayor a 0");
-        }
+        ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
+        int duracion = servicio.duracionMinutos();
+        int holgura = holguraService.calcularHolguraMin(servicio);
 
         List<JornadaStaff> jornadas = jornadaStaffRepository
                 .findByIdStaffAndDiaSemanaAndActivoTrue(request.idStaff(), request.fecha().getDayOfWeek().getValue());
@@ -141,16 +139,15 @@ public class CitaService {
     public Cita crear(CrearCitaRequest request) {
         validarPerfiles(request.idCliente(), request.idStaff());
 
-        int holgura = normalizarHolgura(request.holguraMin());
-        if (request.duracionServicioMin() == null || request.duracionServicioMin() <= 0) {
-            throw new BusinessException("La duracion del servicio debe ser mayor a 0");
-        }
+        ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
+        int duracion = servicio.duracionMinutos();
+        int holgura = holguraService.calcularHolguraMin(servicio);
 
         OffsetDateTime inicio = request.fechaHoraInicio();
-        OffsetDateTime fin = inicio.plusMinutes(request.duracionServicioMin());
+        OffsetDateTime fin = inicio.plusMinutes(duracion);
         OffsetDateTime finConHolgura = fin.plusMinutes(holgura);
 
-        validarJornada(request.idStaff(), inicio, fin);
+        validarJornada(request.idStaff(), inicio, finConHolgura);
         validarBloqueos(request.idStaff(), inicio, finConHolgura);
         validarChoqueCitas(request.idStaff(), inicio, finConHolgura);
 
@@ -161,7 +158,7 @@ public class CitaService {
                 .fechaHoraInicio(inicio)
                 .fechaHoraFin(fin)
                 .fechaHoraFinHolgura(finConHolgura)
-                .duracionServicioMin(request.duracionServicioMin())
+                .duracionServicioMin(duracion)
                 .holguraMin(holgura)
                 .estadoCita(EstadoCita.PENDIENTE_PAGO)
                 .tipoCita(TipoCita.NORMAL)
@@ -184,14 +181,6 @@ public class CitaService {
     private void validarPerfiles(UUID idCliente, UUID idStaff) {
         perfilClient.obtenerCliente(idCliente);
         perfilClient.obtenerStaff(idStaff);
-    }
-
-    private int normalizarHolgura(Integer holguraMin) {
-        int holgura = holguraMin != null ? holguraMin : defaultHolguraMin;
-        if (holgura < 0) {
-            throw new BusinessException("La holgura no puede ser negativa");
-        }
-        return holgura;
     }
 
     @Transactional
@@ -240,7 +229,7 @@ public class CitaService {
                         && !fin.toLocalTime().isAfter(j.getHoraFin()));
 
         if (!dentroDeJornada) {
-            throw new BusinessException("El staff no tiene jornada disponible para ese horario");
+            throw new BusinessException("El horario solicitado no cumple la jornada del staff incluyendo la holgura del servicio");
         }
     }
 
@@ -250,7 +239,7 @@ public class CitaService {
                 .isEmpty();
 
         if (existeBloqueo) {
-            throw new BusinessException("Existe un bloqueo de agenda para ese horario");
+            throw new BusinessException("El horario solicitado no esta disponible por un bloqueo de agenda");
         }
     }
 
@@ -262,7 +251,7 @@ public class CitaService {
                 .isEmpty();
 
         if (existeChoque) {
-            throw new BusinessException("Ya existe una cita en ese horario");
+            throw new BusinessException("El horario solicitado se solapa con otra cita o su holgura operativa");
         }
     }
 

@@ -3,7 +3,7 @@ import { Search, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ProfessionalCard } from '../../components/professionals/ProfessionalCard.jsx';
 import { ProfessionalSkeleton } from '../../components/professionals/ProfessionalsCarousel.jsx';
-import { Input } from '../../components/ui/Input.jsx';
+import { PremiumSelect } from '../../components/ui/PremiumSelect.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useProfessionals } from '../../hooks/useProfessionals.js';
 
@@ -69,15 +69,9 @@ export function ProfessionalsPage() {
           </label>
 
           <div className="professionals-filter-grid">
-            <Input as="select" id="filter-specialty" label="Especialidad" value={specialty} onChange={(event) => setSpecialty(event.target.value)}>
-              {filters.specialties.map((item) => <option key={item}>{item}</option>)}
-            </Input>
-            <Input as="select" id="filter-availability" label="Disponibilidad" value={availability} onChange={(event) => setAvailability(event.target.value)}>
-              {filters.availability.map((item) => <option key={item}>{item}</option>)}
-            </Input>
-            <Input as="select" id="filter-branch" label="Sucursal" value={branch} onChange={(event) => setBranch(event.target.value)}>
-              {filters.branches.map((item) => <option key={item}>{item}</option>)}
-            </Input>
+            <PremiumSelect id="filter-specialty" label="Especialidad" value={specialty} options={filters.specialties} onChange={setSpecialty} />
+            <PremiumSelect id="filter-availability" label="Disponibilidad" value={availability} options={filters.availability} onChange={setAvailability} />
+            <PremiumSelect id="filter-branch" label="Sucursal" value={branch} options={filters.branches} onChange={setBranch} />
           </div>
         </div>
 
