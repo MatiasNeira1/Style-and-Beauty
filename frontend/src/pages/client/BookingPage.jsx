@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Lock } from 'lucide-react';
 import { BookingSummary } from '../../components/booking/BookingSummary.jsx';
 import { DateTimePicker } from '../../components/booking/DateTimePicker.jsx';
 import { ServiceSelector } from '../../components/booking/ServiceSelector.jsx';
@@ -13,9 +12,10 @@ import { Card } from '../../components/ui/Card.jsx';
 import { catalogService } from '../../services/catalogService.js';
 import { agendaService } from '../../services/agendaService.js';
 import { profileService } from '../../services/profileService.js';
-import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
 import { normalizeCategory } from '../../utils/categoryUtils.js';
+
+const fallbackServices = [{ id: 1, nombre: 'Corte y brushing', precio: 24990 }];
 
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
@@ -28,6 +28,8 @@ function staffId(member) {
 function serviceDuration(service) {
   return service?.duracion_minutos || service?.duracion || 45;
 }
+import { useAuth } from '../../store/AuthContext.jsx';
+import { Lock } from 'lucide-react';
 
 const fallbackServices = [
   { id: 1, nombre: 'Corte Signature', categoria: 'Peluquería', precio: 22990, descripcion: 'Corte personalizado con styling final.' },

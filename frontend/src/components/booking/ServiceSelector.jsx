@@ -26,6 +26,21 @@ export function ServiceSelector({ services = [], selectedId, onSelect }) {
   }, [services, activeCategory]);
 
   return (
+    <div className="grid-list stagger-grid">
+      {services.map((service) => (
+        <button
+          key={getServiceId(service)}
+          className={getServiceId(service) === selectedId ? 'select-card active' : 'select-card'}
+          onClick={() => onSelect?.(service)}
+        >
+          <Card>
+            <span className="card-kicker">{service.categoria || 'Servicio'}</span>
+            <h3>{service.nombre || service.name}</h3>
+            <p>{service.descripcion || service.description || 'Atencion personalizada con acabado profesional.'}</p>
+            <strong>{servicePrice(service)}</strong>
+          </Card>
+        </button>
+      ))}
     <div className="stack">
       {categories.length > 1 && (
         <div className="chip-group" style={{ marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>

@@ -57,8 +57,10 @@ export function AuthProvider({ children }) {
     return session;
   }, [setSession]);
 
-  const registerClient = useCallback(async ({ email, password, profile }) => {
+  const registerClient = async ({ email, password, profile }) => {
     await profileService.validateAvailability({ ...profile, tipoPerfil: 'CLIENTE' });
+
+  const registerClient = useCallback(async ({ email, password, profile }) => {
     const created = await firebaseAuthService.register(email, password);
     await authService.registerClient({ uid: created.user.uid });
     const session = await firebaseAuthService.refreshSession();
