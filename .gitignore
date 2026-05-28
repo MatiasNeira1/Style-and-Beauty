@@ -8,3 +8,5 @@ frontend/.vite/
 .env
 Microsoft/
 .codex-run/
+*.log
+hs_err_pid*.log

@@ -7,7 +7,8 @@ import java.util.UUID;
 
 public record DisponibilidadRequest(
         @NotNull UUID idStaff,
+        @NotNull UUID idServicio,
         @NotNull LocalDate fecha,
-        @NotNull Integer duracionServicioMin,
+        Integer duracionServicioMin,
         Integer holguraMin) {
 }

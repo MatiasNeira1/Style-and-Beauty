@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Lock, Settings2 } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
-import { Input } from '../../components/ui/Input.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { BookingSummary } from '../../components/booking/BookingSummary.jsx';
 import { DateTimePicker } from '../../components/booking/DateTimePicker.jsx';
@@ -41,13 +40,13 @@ export function BookingPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { updateBooking } = useBooking();
+  const queryClient = useQueryClient();
 
   const [step, setStep] = useState(1);
   const [service, setService] = useState(null);
   const [member, setMember] = useState(null);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
-  const [bufferMinutes, setBufferMinutes] = useState(20);
 
   const { data: serviceData } = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
   const { data: staffData = [] } = useQuery({ queryKey: ['public-staff'], queryFn: profileService.listPublicStaff });
@@ -61,17 +60,21 @@ export function BookingPage() {
   }, [staffData, service]);
 
   const availabilityQuery = useQuery({
-    queryKey: ['availability', staffId(member), date, serviceDuration(service), bufferMinutes],
+    queryKey: ['availability', staffId(member), serviceId(service), date],
     queryFn: () => agendaService.getAvailability({
       idStaff: staffId(member),
+      idServicio: serviceId(service),
       fecha: date,
-      duracionServicioMin: serviceDuration(service),
-      holguraMin: Number(bufferMinutes),
     }),
     enabled: Boolean(member && date && service),
   });
 
   const bookingMutation = useMutation({ mutationFn: agendaService.createBooking });
+
+  const selectedSlot = useMemo(() => {
+    const slots = Array.isArray(availabilityQuery.data) ? availabilityQuery.data : [];
+    return slots.find((slot) => slot.inicio === time);
+  }, [availabilityQuery.data, time]);
 
   const confirm = async () => {
     const payload = {
@@ -80,10 +83,10 @@ export function BookingPage() {
       idServicio: serviceId(service),
       fechaHoraInicio: time,
       duracionServicioMin: serviceDuration(service),
-      holguraMin: Number(bufferMinutes),
     };
-    updateBooking({ service, staff: member, date, time, holguraMin: Number(bufferMinutes) });
-    await bookingMutation.mutateAsync(payload);
+    const created = await bookingMutation.mutateAsync(payload);
+    updateBooking({ service, staff: member, date, time, holguraMin: created?.holguraMin });
+    await queryClient.invalidateQueries({ queryKey: ['availability', staffId(member), serviceId(service), date] });
     navigate('/checkout');
   };
 
@@ -147,32 +150,12 @@ export function BookingPage() {
 
         {step === 3 && (
           <div className="stack">
-            <Card className="booking-buffer-card">
-              <div>
-                <span className="card-kicker"><Settings2 size={14} /> Holgura entre atenciones</span>
-                <p>Tiempo reservado después del servicio para limpieza, preparación y retrasos menores.</p>
-              </div>
-              <Input
-                id="booking-buffer"
-                as="select"
-                label="Minutos de holgura"
-                value={bufferMinutes}
-                onChange={(event) => {
-                  setBufferMinutes(Number(event.target.value));
-                  setTime('');
-                }}
-              >
-                <option value={10}>10 minutos</option>
-                <option value={15}>15 minutos</option>
-                <option value={20}>20 minutos</option>
-                <option value={30}>30 minutos</option>
-              </Input>
-            </Card>
             <DateTimePicker
               date={date}
               time={time}
               slots={Array.isArray(availabilityQuery.data) ? availabilityQuery.data : []}
               isLoading={availabilityQuery.isLoading}
+              error={availabilityQuery.error?.message}
               onDateChange={(value) => { setDate(value); setTime(''); }}
               onTimeChange={setTime}
             />
@@ -196,7 +179,7 @@ export function BookingPage() {
         {bookingMutation.isError && <p className="admin-alert">{bookingMutation.error.message}</p>}
         </div>
 
-        <BookingSummary service={service} staff={member} date={date} time={time} />
+        <BookingSummary service={service} staff={member} date={date} time={time} slot={selectedSlot} />
       </section>
     </>
   );

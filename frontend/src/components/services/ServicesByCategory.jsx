@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarDays } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button.jsx';
 
@@ -18,16 +18,21 @@ export function ServicesByCategory({ category, services = [], onBack }) {
         </div>
       </div>
 
-      <div className="catalog-item-grid">
-        {services.map((service) => (
-          <article key={service.id} className="catalog-item-card">
+      <div className="catalog-item-grid service-showcase-grid">
+        {services.map((service, index) => (
+          <article key={service.id} className="catalog-item-card service-showcase-card">
             <div className="catalog-item-media" style={{ backgroundImage: `url("${service.imagen}")` }} />
+            <div className="service-showcase-overlay" />
+            <span className="service-showcase-index">{String(index + 1).padStart(2, '0')}</span>
             <div className="catalog-item-body">
-              <span className="card-kicker">{service.duracion}</span>
+              <span className="card-kicker"><Sparkles size={13} /> {category.nombre}</span>
               <h3>{service.nombre}</h3>
               <p>{service.descripcion}</p>
-              <div className="catalog-item-footer">
+              <div className="service-showcase-meta">
+                <span>{service.duracion}</span>
                 <strong>{currency.format(service.precio)}</strong>
+              </div>
+              <div className="catalog-item-footer">
                 <Link to="/reservar">
                   <Button size="sm"><CalendarDays size={15} /> Reservar</Button>
                 </Link>
