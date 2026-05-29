@@ -6,7 +6,8 @@ CREATE EXTENSION IF NOT EXISTS btree_gist;
 ALTER TABLE citas
     ADD COLUMN IF NOT EXISTS fecha_hora_fin_holgura timestamptz,
     ADD COLUMN IF NOT EXISTS duracion_servicio_min integer,
-    ADD COLUMN IF NOT EXISTS holgura_min integer;
+    ADD COLUMN IF NOT EXISTS holgura_min integer,
+    ADD COLUMN IF NOT EXISTS google_calendar_event_id varchar(255);
 
 UPDATE citas
 SET fecha_hora_fin_holgura = COALESCE(fecha_hora_fin_holgura, fecha_hora_fin),

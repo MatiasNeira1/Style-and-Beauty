@@ -9,6 +9,7 @@ import com.style.beauty.ms_agenda.entity.HistorialCita;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.JornadaStaff;
 import com.style.beauty.ms_agenda.client.PerfilClient;
+import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.enums.AccionHistorial;
@@ -22,6 +23,7 @@ import com.style.beauty.ms_agenda.repository.HistorialCitaRepository;
 import com.style.beauty.ms_agenda.repository.JornadaStaffRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +45,7 @@ public class CitaService {
     private final PerfilClient perfilClient;
     private final ServicioClient servicioClient;
     private final HolguraService holguraService;
+    private final GoogleCalendarService googleCalendarService;
 
     @Value("${app.agenda.zone:America/Santiago}")
     private String agendaZone;
@@ -57,15 +60,11 @@ public class CitaService {
     }
 
     public List<DisponibilidadSlot> calcularDisponibilidad(DisponibilidadRequest request) {
-        perfilClient.obtenerStaff(request.idStaff());
+        PerfilResumen staff = perfilClient.obtenerStaff(request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
-        int duracion = servicio.duracionMinutos();
+        int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio);
-
-        if (duracion <= 0) {
-            throw new BusinessException("La duracion del servicio debe ser mayor a 0");
-        }
 
         List<JornadaStaff> jornadas = jornadaStaffRepository
                 .findByIdStaffAndDiaSemanaAndActivoTrue(request.idStaff(), request.fecha().getDayOfWeek().getValue());
@@ -79,6 +78,8 @@ public class CitaService {
         List<EstadoCita> ignorados = estadosIgnoradosParaDisponibilidad();
         List<Cita> citas = citaRepository.buscarCitasEnRango(request.idStaff(), inicioDia, finDia, ignorados);
         List<BloqueoAgenda> bloqueos = bloqueoAgendaRepository.buscarBloqueosEnRango(request.idStaff(), inicioDia, finDia);
+        List<GoogleCalendarService.CalendarBusyBlock> calendarBusyBlocks =
+                googleCalendarService.obtenerBloquesOcupados(staff, inicioDia, finDia);
         List<DisponibilidadSlot> slots = new ArrayList<>();
 
         for (JornadaStaff jornada : jornadas) {
@@ -97,7 +98,7 @@ public class CitaService {
                 OffsetDateTime finServicio = cursor.plusMinutes(duracion);
                 OffsetDateTime finConHolgura = finServicio.plusMinutes(holgura);
 
-                if (!cursor.isBefore(ahora) && !tieneChoque(cursor, finConHolgura, citas, bloqueos)) {
+                if (!cursor.isBefore(ahora) && !tieneChoque(cursor, finConHolgura, citas, bloqueos, calendarBusyBlocks)) {
                     slots.add(new DisponibilidadSlot(cursor, finServicio, finConHolgura));
                 }
 
@@ -120,16 +121,26 @@ public class CitaService {
             OffsetDateTime inicio,
             OffsetDateTime finConHolgura,
             List<Cita> citas,
-            List<BloqueoAgenda> bloqueos) {
+            List<BloqueoAgenda> bloqueos,
+            List<GoogleCalendarService.CalendarBusyBlock> calendarBusyBlocks) {
         boolean choqueCita = citas.stream()
-                .anyMatch(cita -> cita.getFechaHoraInicio().isBefore(finConHolgura)
-                        && cita.getFechaHoraFinHolgura().isAfter(inicio));
+                .anyMatch(cita -> haySolape(cita.getFechaHoraInicio(), cita.getFechaHoraFinHolgura(), inicio, finConHolgura));
 
         boolean choqueBloqueo = bloqueos.stream()
-                .anyMatch(bloqueo -> bloqueo.getFechaHoraInicio().isBefore(finConHolgura)
-                        && bloqueo.getFechaHoraFin().isAfter(inicio));
+                .anyMatch(bloqueo -> haySolape(bloqueo.getFechaHoraInicio(), bloqueo.getFechaHoraFin(), inicio, finConHolgura));
 
-        return choqueCita || choqueBloqueo;
+        boolean choqueCalendar = calendarBusyBlocks.stream()
+                .anyMatch(block -> haySolape(block.inicio(), block.fin(), inicio, finConHolgura));
+
+        return choqueCita || choqueBloqueo || choqueCalendar;
+    }
+
+    private boolean haySolape(
+            OffsetDateTime inicioExistente,
+            OffsetDateTime finExistente,
+            OffsetDateTime inicioNuevo,
+            OffsetDateTime finNuevo) {
+        return inicioExistente.isBefore(finNuevo) && finExistente.isAfter(inicioNuevo);
     }
 
     private List<EstadoCita> estadosIgnoradosParaDisponibilidad() {
@@ -141,10 +152,11 @@ public class CitaService {
 
     @Transactional
     public Cita crear(CrearCitaRequest request) {
-        validarPerfiles(request.idCliente(), request.idStaff());
+        PerfilResumen cliente = perfilClient.obtenerCliente(request.idCliente());
+        PerfilResumen staff = perfilClient.obtenerStaff(request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
-        int duracion = servicio.duracionMinutos();
+        int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio);
 
         OffsetDateTime inicio = request.fechaHoraInicio();
@@ -154,6 +166,7 @@ public class CitaService {
         validarJornada(request.idStaff(), inicio, finConHolgura);
         validarBloqueos(request.idStaff(), inicio, finConHolgura);
         validarChoqueCitas(request.idStaff(), inicio, finConHolgura);
+        validarBloqueosGoogleCalendar(staff, inicio, finConHolgura);
 
         Cita cita = Cita.builder()
                 .idCliente(request.idCliente())
@@ -170,7 +183,13 @@ public class CitaService {
                 .observacionCliente(request.observacionCliente())
                 .build();
 
-        Cita guardada = citaRepository.save(cita);
+        Cita guardada = guardarSinSolape(cita);
+
+        String googleEventId = googleCalendarService.crearEvento(guardada, cliente, staff, servicio);
+        if (googleEventId != null) {
+            guardada.setGoogleCalendarEventId(googleEventId);
+            guardada = citaRepository.saveAndFlush(guardada);
+        }
 
         registrarHistorial(
                 guardada.getIdCita(),
@@ -182,9 +201,29 @@ public class CitaService {
         return guardada;
     }
 
-    private void validarPerfiles(UUID idCliente, UUID idStaff) {
-        perfilClient.obtenerCliente(idCliente);
-        perfilClient.obtenerStaff(idStaff);
+    private int duracionServicio(ServicioResumen servicio) {
+        if (servicio.duracionMinutos() == null || servicio.duracionMinutos() <= 0) {
+            throw new BusinessException("La duracion del servicio debe ser mayor a 0");
+        }
+        return servicio.duracionMinutos();
+    }
+
+    private Cita guardarSinSolape(Cita cita) {
+        try {
+            return citaRepository.saveAndFlush(cita);
+        } catch (DataIntegrityViolationException e) {
+            throw new DataIntegrityViolationException("El horario seleccionado ya no esta disponible. Elige otra hora.", e);
+        }
+    }
+
+    private void validarBloqueosGoogleCalendar(PerfilResumen staff, OffsetDateTime inicio, OffsetDateTime finConHolgura) {
+        boolean existeChoque = googleCalendarService.obtenerBloquesOcupados(staff, inicio, finConHolgura)
+                .stream()
+                .anyMatch(block -> haySolape(block.inicio(), block.fin(), inicio, finConHolgura));
+
+        if (existeChoque) {
+            throw new BusinessException("El horario solicitado se solapa con un evento de Google Calendar del staff");
+        }
     }
 
     @Transactional

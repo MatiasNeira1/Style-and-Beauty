@@ -43,6 +43,7 @@ export function BookingPage() {
   const [member, setMember] = useState(null);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [confirmError, setConfirmError] = useState('');
 
   const { data: serviceData } = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
   const { data: staffData = [] } = useQuery({ queryKey: ['public-staff'], queryFn: profileService.listPublicStaff });
@@ -73,6 +74,22 @@ export function BookingPage() {
   }, [availabilityQuery.data, time]);
 
   const confirm = async () => {
+    setConfirmError('');
+    const freshAvailability = await availabilityQuery.refetch();
+    if (freshAvailability.isError) {
+      setConfirmError(freshAvailability.error?.message || 'No fue posible validar disponibilidad. Intenta nuevamente.');
+      return;
+    }
+
+    const freshSlots = Array.isArray(freshAvailability.data) ? freshAvailability.data : [];
+    const stillAvailable = freshSlots.some((slot) => slot.inicio === time);
+
+    if (!stillAvailable) {
+      setTime('');
+      setConfirmError('El horario seleccionado ya no esta disponible. Elige otra hora.');
+      return;
+    }
+
     const payload = {
       idCliente: myProfile?.idPersona,
       idStaff: staffId(member),
@@ -82,6 +99,7 @@ export function BookingPage() {
     const created = await bookingMutation.mutateAsync(payload);
     updateBooking({ service, staff: member, date, time, holguraMin: created?.holguraMin });
     await queryClient.invalidateQueries({ queryKey: ['availability', staffId(member), serviceId(service), date] });
+    await queryClient.invalidateQueries({ queryKey: ['admin-bookings'] });
     navigate('/checkout');
   };
 
@@ -125,6 +143,7 @@ export function BookingPage() {
               setMember(null);
               setDate('');
               setTime('');
+              setConfirmError('');
               setStep(2);
             }}
           />
@@ -138,6 +157,7 @@ export function BookingPage() {
               setMember(value);
               setDate('');
               setTime('');
+              setConfirmError('');
               setStep(3);
             }}
           />
@@ -151,8 +171,8 @@ export function BookingPage() {
               slots={Array.isArray(availabilityQuery.data) ? availabilityQuery.data : []}
               isLoading={availabilityQuery.isLoading}
               error={availabilityQuery.error?.message}
-              onDateChange={(value) => { setDate(value); setTime(''); }}
-              onTimeChange={setTime}
+              onDateChange={(value) => { setDate(value); setTime(''); setConfirmError(''); }}
+              onTimeChange={(value) => { setTime(value); setConfirmError(''); }}
             />
           </div>
         )}
@@ -163,14 +183,15 @@ export function BookingPage() {
           {step === 3 && (
             <Button
               onClick={confirm}
-              disabled={!myProfile?.idPersona || !service || !member || !date || !time || bookingMutation.isPending}
+              disabled={!myProfile?.idPersona || !service || !member || !date || !time || !selectedSlot || bookingMutation.isPending || availabilityQuery.isFetching}
             >
-              {bookingMutation.isPending ? 'Confirmando...' : 'Confirmar reserva'}
+              {bookingMutation.isPending || availabilityQuery.isFetching ? 'Confirmando...' : 'Confirmar reserva'}
             </Button>
           )}
         </div>
 
         {step === 3 && !myProfile?.idPersona && <p className="admin-alert">Tu perfil de cliente debe estar completo para confirmar la reserva.</p>}
+        {confirmError && <p className="admin-alert">{confirmError}</p>}
         {bookingMutation.isError && <p className="admin-alert">{bookingMutation.error.message}</p>}
         </div>
 
