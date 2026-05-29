@@ -7,15 +7,18 @@ import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
+import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.entity.JornadaStaff;
 import com.style.beauty.ms_agenda.enums.EstadoCita;
+import com.style.beauty.ms_agenda.enums.TipoBloqueo;
 import com.style.beauty.ms_agenda.enums.TipoCita;
 import com.style.beauty.ms_agenda.exception.BusinessException;
 import com.style.beauty.ms_agenda.repository.BloqueoAgendaRepository;
 import com.style.beauty.ms_agenda.repository.CitaRepository;
 import com.style.beauty.ms_agenda.repository.HistorialCitaRepository;
 import com.style.beauty.ms_agenda.repository.JornadaStaffRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -90,6 +93,19 @@ class CitaServiceTest {
     }
 
     @Test
+    void calculaDisponibilidadSinCitasPreviasDentroDeJornada() {
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
+
+        List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null));
+
+        assertThat(slots).extracting(DisponibilidadSlot::inicio)
+                .contains(at(8, 0), at(9, 0), at(11, 30))
+                .doesNotContain(at(11, 45));
+        assertThat(slots).extracting(DisponibilidadSlot::finConHolgura)
+                .allMatch(fin -> !fin.isAfter(at(13, 0)));
+    }
+
+    @Test
     void calculaDisponibilidadConDuracionYHolguraContraCitasExistentes() {
         Cita citaExistente = cita(at(10, 0), at(11, 0), at(11, 30));
         when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of(citaExistente));
@@ -98,6 +114,66 @@ class CitaServiceTest {
 
         assertThat(slots).extracting(DisponibilidadSlot::inicio).contains(at(8, 30), at(11, 30));
         assertThat(slots).extracting(DisponibilidadSlot::inicio).doesNotContain(at(8, 45), at(10, 0), at(10, 30), at(11, 15));
+    }
+
+    @Test
+    void excluyeSlotsQueSolapanBloqueosLocales() {
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
+        when(bloqueoAgendaRepository.buscarBloqueosEnRango(any(), any(), any()))
+                .thenReturn(List.of(bloqueo(at(9, 30), at(10, 30))));
+
+        List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null));
+
+        assertThat(slots).extracting(DisponibilidadSlot::inicio)
+                .doesNotContain(at(8, 0), at(8, 30), at(9, 0), at(9, 30), at(10, 0), at(10, 15))
+                .contains(at(10, 30));
+    }
+
+    @Test
+    void excluyeSlotsQueSolapanBloquesOcupadosDeGoogleCalendar() {
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
+        when(googleCalendarService.obtenerBloquesOcupados(any(), any(), any()))
+                .thenReturn(List.of(new GoogleCalendarService.CalendarBusyBlock(at(9, 30), at(10, 30))));
+
+        List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null));
+
+        assertThat(slots).extracting(DisponibilidadSlot::inicio)
+                .doesNotContain(at(8, 0), at(8, 30), at(9, 0), at(9, 30), at(10, 0), at(10, 15))
+                .contains(at(10, 30));
+    }
+
+    @Test
+    void rechazaCrearCitaDentroDeHolguraExistente() {
+        Cita citaExistente = cita(at(9, 0), at(10, 0), at(10, 30));
+        when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of(citaExistente));
+
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(10, 15), null, null, null);
+
+        assertThatThrownBy(() -> citaService.crear(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("solapa");
+    }
+
+    @Test
+    void permiteCrearCitaExactamenteDespuesDeDuracionMasHolgura() {
+        when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
+
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(10, 30), null, null, null));
+
+        assertThat(creada.getFechaHoraInicio()).isEqualTo(at(10, 30));
+        assertThat(creada.getFechaHoraFinHolgura()).isEqualTo(at(12, 0));
+    }
+
+    @Test
+    void propagaConflictoDeBaseDeDatosParaReservasSimultaneas() {
+        when(citaRepository.saveAndFlush(any(Cita.class)))
+                .thenThrow(new DataIntegrityViolationException("overlap"));
+
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 0), null, null, null);
+
+        assertThatThrownBy(() -> citaService.crear(request))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("horario seleccionado ya no esta disponible");
     }
 
     @Test
@@ -138,6 +214,16 @@ class CitaServiceTest {
                 .horaInicio(inicio)
                 .horaFin(fin)
                 .activo(true)
+                .build();
+    }
+
+    private BloqueoAgenda bloqueo(OffsetDateTime inicio, OffsetDateTime fin) {
+        return BloqueoAgenda.builder()
+                .idStaff(ID_STAFF)
+                .fechaHoraInicio(inicio)
+                .fechaHoraFin(fin)
+                .motivo("Prueba")
+                .tipoBloqueo(TipoBloqueo.STAFF)
                 .build();
     }
 

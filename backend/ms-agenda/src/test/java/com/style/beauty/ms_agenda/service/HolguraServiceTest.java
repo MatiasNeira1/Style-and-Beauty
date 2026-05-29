@@ -14,6 +14,7 @@ class HolguraServiceTest {
     @Test
     void aplicaHolguraPorTipoDeServicio() {
         assertThat(holgura("Manicure permanente", "Manicure")).isEqualTo(15);
+        assertThat(holgura("Uñas acrilicas", "Nails")).isEqualTo(15);
         assertThat(holgura("Mechas balayage", "Cabello")).isEqualTo(30);
         assertThat(holgura("Botox capilar", "Cabello")).isEqualTo(30);
         assertThat(holgura("Alisado organico", "Peluqueria")).isEqualTo(30);
@@ -21,8 +22,10 @@ class HolguraServiceTest {
         assertThat(holgura("Corte de pelo", "Cabello")).isEqualTo(30);
         assertThat(holgura("Limpieza facial profunda", "Cuidados de la piel")).isEqualTo(20);
         assertThat(holgura("Masaje descontracturante", "Spa")).isEqualTo(30);
+        assertThat(holgura("Ritual relajacion", "Spa")).isEqualTo(30);
         assertThat(holgura("Maquillaje social", "Maquillaje")).isEqualTo(15);
         assertThat(holgura("Maquillaje de novia", "Maquillaje")).isEqualTo(15);
+        assertThat(holgura("Servicio personalizado", "Otra categoria")).isEqualTo(15);
     }
 
     private int holgura(String nombre, String categoria) {
