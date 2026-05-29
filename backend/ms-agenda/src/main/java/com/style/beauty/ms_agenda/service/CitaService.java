@@ -127,10 +127,10 @@ public class CitaService {
                 .anyMatch(cita -> haySolape(cita.getFechaHoraInicio(), cita.getFechaHoraFinHolgura(), inicio, finConHolgura));
 
         boolean choqueBloqueo = bloqueos.stream()
-                .anyMatch(bloqueo -> haySolape(bloqueo.getFechaHoraInicio(), bloqueo.getFechaHoraFin(), inicio, finConHolgura));
+                .anyMatch(bloqueo -> haySolapeConInicioReservado(bloqueo.getFechaHoraInicio(), bloqueo.getFechaHoraFin(), inicio, finConHolgura));
 
         boolean choqueCalendar = calendarBusyBlocks.stream()
-                .anyMatch(block -> haySolape(block.inicio(), block.fin(), inicio, finConHolgura));
+                .anyMatch(block -> haySolapeConInicioReservado(block.inicio(), block.fin(), inicio, finConHolgura));
 
         return choqueCita || choqueBloqueo || choqueCalendar;
     }
@@ -141,6 +141,14 @@ public class CitaService {
             OffsetDateTime inicioNuevo,
             OffsetDateTime finNuevo) {
         return inicioExistente.isBefore(finNuevo) && finExistente.isAfter(inicioNuevo);
+    }
+
+    private boolean haySolapeConInicioReservado(
+            OffsetDateTime inicioExistente,
+            OffsetDateTime finExistente,
+            OffsetDateTime inicioNuevo,
+            OffsetDateTime finNuevo) {
+        return !inicioExistente.isAfter(finNuevo) && finExistente.isAfter(inicioNuevo);
     }
 
     private List<EstadoCita> estadosIgnoradosParaDisponibilidad() {
@@ -219,7 +227,7 @@ public class CitaService {
     private void validarBloqueosGoogleCalendar(PerfilResumen staff, OffsetDateTime inicio, OffsetDateTime finConHolgura) {
         boolean existeChoque = googleCalendarService.obtenerBloquesOcupados(staff, inicio, finConHolgura)
                 .stream()
-                .anyMatch(block -> haySolape(block.inicio(), block.fin(), inicio, finConHolgura));
+                .anyMatch(block -> haySolapeConInicioReservado(block.inicio(), block.fin(), inicio, finConHolgura));
 
         if (existeChoque) {
             throw new BusinessException("El horario solicitado se solapa con un evento de Google Calendar del staff");

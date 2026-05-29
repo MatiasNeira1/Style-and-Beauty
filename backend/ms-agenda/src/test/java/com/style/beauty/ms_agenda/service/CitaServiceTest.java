@@ -34,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -177,6 +178,15 @@ class CitaServiceTest {
     }
 
     @Test
+    void rechazaCrearCitaFueraDeJornadaConsiderandoHolgura() {
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(12, 0), null, null, null);
+
+        assertThatThrownBy(() -> citaService.crear(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("jornada");
+    }
+
+    @Test
     void rechazaCrearCitaSiGoogleCalendarTieneBloqueOcupado() {
         when(googleCalendarService.obtenerBloquesOcupados(any(), any(), any()))
                 .thenReturn(List.of(new GoogleCalendarService.CalendarBusyBlock(at(9, 30), at(10, 30))));
@@ -201,6 +211,20 @@ class CitaServiceTest {
         assertThat(creada.getHolguraMin()).isEqualTo(30);
         assertThat(creada.getGoogleCalendarEventId()).isEqualTo("calendar-event-123");
         verify(googleCalendarService).crearEvento(any(), any(), any(), any());
+    }
+
+    @Test
+    void propagaErrorDeGoogleCalendarAntesDeRegistrarHistorial() {
+        when(googleCalendarService.crearEvento(any(), any(), any(), any()))
+                .thenThrow(new BusinessException("No fue posible crear el evento en Google Calendar"));
+
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 0), null, null, null);
+
+        assertThatThrownBy(() -> citaService.crear(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Google Calendar");
+        verify(citaRepository).saveAndFlush(any(Cita.class));
+        verify(historialCitaRepository, never()).save(any());
     }
 
     private PerfilResumen perfil(UUID id, String nombre, String apellidos, String email) {
