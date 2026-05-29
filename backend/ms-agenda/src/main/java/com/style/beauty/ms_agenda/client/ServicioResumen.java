@@ -9,6 +9,6 @@ public record ServicioResumen(
         UUID idServicio,
         String nombre,
         String categoria,
-        @JsonAlias({"duracion_minutos", "duracionServicioMin"})
+        @JsonAlias({"duracion_minutos", "duracionServicioMin", "duracion"})
         Integer duracionMinutos) {
 }

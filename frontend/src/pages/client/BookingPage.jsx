@@ -31,10 +31,6 @@ function staffId(member) {
   return member?.idPersona || member?.idStaff || member?.id;
 }
 
-function serviceDuration(service) {
-  return Number(service?.duracion_minutos || service?.duracion || service?.duration || 45);
-}
-
 export function BookingPage() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -82,7 +78,6 @@ export function BookingPage() {
       idStaff: staffId(member),
       idServicio: serviceId(service),
       fechaHoraInicio: time,
-      duracionServicioMin: serviceDuration(service),
     };
     const created = await bookingMutation.mutateAsync(payload);
     updateBooking({ service, staff: member, date, time, holguraMin: created?.holguraMin });

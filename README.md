@@ -4,9 +4,9 @@ Monorepo con frontend React/Vite y backend Spring Boot por microservicios.
 
 ## Arquitectura de produccion
 
-- Frontend: Cloudflare Pages desde `frontend/`
+- Frontend: Docker/Nginx desde `frontend/` o Cloudflare Pages
 - API publica: `https://api.midominio.com`
-- Backend: DigitalOcean Ubuntu + Docker Compose + Nginx reverse proxy
+- Backend: Ubuntu + Docker Compose + Nginx reverse proxy opcional
 - DNS/SSL: Cloudflare DNS y SSL/TLS
 - Base de datos: PostgreSQL master/replica y MongoDB en red Docker privada
 
@@ -33,19 +33,31 @@ VITE_FIREBASE_APP_ID=
 
 El archivo `frontend/public/_redirects` habilita rutas SPA de React Router. El archivo `frontend/public/_headers` agrega headers basicos de seguridad y cache immutable para assets.
 
-## Backend en DigitalOcean
+## Ejecucion local
 
-1. Instalar Docker Engine, Docker Compose plugin y Nginx en Ubuntu.
+```bash
+cp .env.example .env
+docker compose --env-file .env up -d --build
+docker compose ps
+docker compose logs -f ms-agenda
+```
+
+Con `FRONTEND_PORT=80`, el frontend queda en `http://localhost/` y usa el proxy Nginx interno hacia `api-gateway:8080`.
+
+## Despliegue en Ubuntu
+
+1. Instalar Docker Engine y Docker Compose plugin. Instalar Nginx solo si necesitas TLS/reverse proxy externo.
 2. Copiar `.env.example` a `.env` en la raiz del repo y reemplazar todos los valores `replace_with...`.
 3. Configurar dominios reales:
 
 ```env
 API_GATEWAY_PORT=8080
+FRONTEND_PORT=80
 APP_CORS_ALLOWED_ORIGINS=https://midominio.com,https://www.midominio.com
 FIREBASE_SERVICE_ACCOUNT_PATH=/run/secrets/firebase-service-account.json
 ```
 
-4. Levantar el backend:
+4. Levantar el sistema completo:
 
 ```bash
 docker compose --env-file .env up -d --build
@@ -53,7 +65,7 @@ docker compose ps
 docker compose logs -f api-gateway
 ```
 
-El gateway queda publicado solo en `127.0.0.1:8080`; PostgreSQL y MongoDB no se exponen al exterior.
+PostgreSQL y MongoDB no se exponen al exterior. El gateway queda publicado solo en `127.0.0.1:8080`; el frontend publica `FRONTEND_PORT`.
 
 ## Nginx reverse proxy
 
@@ -79,9 +91,10 @@ Cloudflare debe apuntar `api.midominio.com` al droplet. En SSL/TLS usar `Full` o
 ```bash
 docker compose config
 docker compose up -d --build
+docker compose down
+docker compose up -d --build --force-recreate ms-agenda frontend
 docker compose logs -f api-gateway
 docker compose logs -f ms-agenda
-docker compose down
 ```
 
 Para validar API:
@@ -90,6 +103,20 @@ Para validar API:
 curl -I http://127.0.0.1:8080/swagger-ui.html
 curl -I https://api.midominio.com/swagger-ui.html
 ```
+
+## PostgreSQL master-replica
+
+El compose usa `postgres-master` y `postgres-replica` con volumen persistente y usuario de replicacion por variables de entorno. El script `deploy/postgres/master/init/02-agenda-overlap-constraints.sql` agrega restricciones para impedir dos citas simultaneas o solapadas por staff en bases nuevas.
+
+Validacion rapida:
+
+```bash
+docker compose exec postgres-master psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "create table if not exists replication_check(id bigserial primary key, created_at timestamptz default now()); insert into replication_check default values;"
+docker compose exec postgres-replica psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select * from replication_check order by id desc limit 5;"
+docker compose exec postgres-master psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "select application_name, state, sync_state from pg_stat_replication;"
+```
+
+Si la base ya existia antes de este cambio, aplica manualmente el SQL de `deploy/postgres/master/init/02-agenda-overlap-constraints.sql` en el master durante una ventana controlada.
 
 ## Seguridad
 
