@@ -2124,8 +2124,29 @@ img { max-width: 100%; display: block; }
 .cart-items {
   display: grid;
   gap: 0.9rem;
-  overflow: auto;
-  padding: 1rem 0;
+  overflow-y: auto;
+  padding: 1rem 0.35rem 1rem 0;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Custom premium scrollbar for cart items */
+.cart-items::-webkit-scrollbar {
+  width: 5px;
+}
+
+.cart-items::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cart-items::-webkit-scrollbar-thumb {
+  background: rgba(25, 20, 23, 0.1);
+  border-radius: 99px;
+  transition: background 200ms ease;
+}
+
+.cart-items::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-strong);
 }
 
 .cart-line-enhanced {
@@ -2135,6 +2156,37 @@ img { max-width: 100%; display: block; }
   gap: 0.75rem;
   border-bottom: 1px solid rgba(25, 20, 23, 0.05);
   padding-bottom: 0.75rem;
+}
+
+.cart-line-item-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.cart-item-image {
+  width: 3.5rem;
+  height: 3.5rem;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid rgba(25, 20, 23, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+  transition: transform 200ms ease;
+}
+
+.cart-item-image:hover {
+  transform: scale(1.05);
+}
+
+.cart-line-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .cart-line-enhanced:last-child {
