@@ -14,33 +14,69 @@ public class HolguraService {
         String categoria = normalizar(servicio.categoria());
         String texto = (nombre + " " + categoria).trim();
 
-        if (texto.contains("maquillaje") && texto.contains("novia")) {
+        if (esCabello(texto)) {
             return 30;
         }
-        if (texto.contains("mecha") || texto.contains("botox") || texto.contains("alisado")
-                || texto.contains("tintura") || texto.contains("coloracion")) {
+        if (esSpaOMasaje(texto)) {
             return 30;
         }
-        if (texto.contains("masaje")) {
+        if (esCuidadoPiel(texto)) {
             return 20;
         }
-        if (texto.contains("manicure") || texto.contains("manicura")) {
+        if (esMaquillaje(texto)) {
             return 15;
         }
-        if (texto.contains("maquillaje")) {
+        if (esNails(texto)) {
             return 15;
-        }
-        if (texto.contains("corte de pelo") || texto.contains("corte") || texto.contains("peinado")
-                || texto.contains("hidratacion capilar") || texto.contains("hidratacion")) {
-            return 10;
-        }
-        if (texto.contains("piel") || texto.contains("facial") || texto.contains("dermo")
-                || texto.contains("limpieza facial") || texto.contains("estetica")
-                || texto.contains("cuidado de la piel")) {
-            return 10;
         }
 
-        return 10;
+        return 15;
+    }
+
+    private boolean esCabello(String texto) {
+        return texto.contains("cabello")
+                || texto.contains("peluqueria")
+                || texto.contains("pelo")
+                || texto.contains("capilar")
+                || texto.contains("corte")
+                || texto.contains("peinado")
+                || texto.contains("mecha")
+                || texto.contains("botox")
+                || texto.contains("alisado")
+                || texto.contains("tintura")
+                || texto.contains("coloracion");
+    }
+
+    private boolean esMaquillaje(String texto) {
+        return texto.contains("maquillaje");
+    }
+
+    private boolean esNails(String texto) {
+        return texto.contains("nails")
+                || texto.contains("unas")
+                || texto.contains("uñas")
+                || texto.contains("manicure")
+                || texto.contains("manicura")
+                || texto.contains("pedicure")
+                || texto.contains("pedicura");
+    }
+
+    private boolean esCuidadoPiel(String texto) {
+        return texto.contains("cuidado de la piel")
+                || texto.contains("cuidados de la piel")
+                || texto.contains("piel")
+                || texto.contains("facial")
+                || texto.contains("dermo")
+                || texto.contains("limpieza facial")
+                || texto.contains("estetica");
+    }
+
+    private boolean esSpaOMasaje(String texto) {
+        return texto.contains("spa")
+                || texto.contains("masaje")
+                || texto.contains("masoterapia")
+                || texto.contains("relajacion")
+                || texto.contains("descontracturante");
     }
 
     private String normalizar(String value) {
