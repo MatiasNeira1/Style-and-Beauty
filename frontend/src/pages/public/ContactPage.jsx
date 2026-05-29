@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarDays, Clock, ExternalLink, Instagram, Mail, MapPin, MessageCircle, Phone, Send } from 'lucide-react';
 import { Button } from '../../components/ui/Button.jsx';
-import { Card } from '../../components/ui/Card.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 
@@ -48,7 +47,7 @@ export function ContactPage() {
         </SectionTitle>
 
         <div className="contact-layout">
-          <Card className="contact-form-card">
+          <section className="contact-form-card" aria-label="Formulario de contacto">
             <form className="stack" onSubmit={handleSubmit}>
               <div className="form-grid">
                 <Input id="contact-name" name="name" label="Nombre" required />
@@ -60,19 +59,21 @@ export function ContactPage() {
               {sent && <p className="success-alert">Mensaje preparado. El equipo te contactara a la brevedad.</p>}
               <Button type="submit"><Send size={18} /> Enviar mensaje</Button>
             </form>
-          </Card>
+          </section>
 
           <aside className="contact-side">
-            <Card className="contact-highlight">
-              <CalendarDays size={28} />
-              <h3>Reserva con disponibilidad real</h3>
-              <p>Si ya sabes que servicio necesitas, agenda directamente con el profesional disponible.</p>
-              <Link to="/reservar"><Button type="button">Reservar ahora</Button></Link>
-            </Card>
+            <div className="contact-highlight">
+              <div className="contact-highlight-icon"><CalendarDays size={18} /></div>
+              <div>
+                <h3>Agenda online</h3>
+                <p>Elige servicio, profesional y horario disponible.</p>
+              </div>
+              <Link to="/reservar" className="contact-reserve-link">Reservar</Link>
+            </div>
 
             <div className="contact-info-grid">
               {contactItems.map(({ icon: Icon, label, value, href, external }) => (
-                <Card
+                <ComponentContactItem
                   key={label}
                   as={href ? 'a' : 'article'}
                   href={href}
@@ -80,10 +81,12 @@ export function ContactPage() {
                   rel={external ? 'noreferrer' : undefined}
                   className="contact-info-card"
                 >
-                  <Icon size={20} />
-                  <span>{label}</span>
-                  <strong>{value}</strong>
-                </Card>
+                  <span className="contact-info-icon"><Icon size={17} /></span>
+                  <span className="contact-info-text">
+                    <span>{label}</span>
+                    <strong>{value}</strong>
+                  </span>
+                </ComponentContactItem>
               ))}
             </div>
           </aside>
@@ -91,4 +94,8 @@ export function ContactPage() {
       </section>
     </>
   );
+}
+
+function ComponentContactItem({ as: Component = 'article', children, ...props }) {
+  return <Component {...props}>{children}</Component>;
 }
