@@ -17,7 +17,8 @@ public class HolguraService {
         if (texto.contains("maquillaje") && texto.contains("novia")) {
             return 30;
         }
-        if (texto.contains("mecha") || texto.contains("botox") || texto.contains("alisado") || texto.contains("tintura")) {
+        if (texto.contains("mecha") || texto.contains("botox") || texto.contains("alisado")
+                || texto.contains("tintura") || texto.contains("coloracion")) {
             return 30;
         }
         if (texto.contains("masaje")) {
@@ -34,11 +35,12 @@ public class HolguraService {
             return 10;
         }
         if (texto.contains("piel") || texto.contains("facial") || texto.contains("dermo")
-                || texto.contains("limpieza facial") || texto.contains("estetica")) {
+                || texto.contains("limpieza facial") || texto.contains("estetica")
+                || texto.contains("cuidado de la piel")) {
             return 10;
         }
 
-        return 20;
+        return 10;
     }
 
     private String normalizar(String value) {
@@ -47,6 +49,6 @@ public class HolguraService {
         }
         String normalized = Normalizer.normalize(value, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "");
-        return normalized.toLowerCase(Locale.ROOT);
+        return normalized.toLowerCase(Locale.ROOT).trim();
     }
 }

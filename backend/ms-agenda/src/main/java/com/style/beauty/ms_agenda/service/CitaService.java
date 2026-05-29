@@ -63,6 +63,10 @@ public class CitaService {
         int duracion = servicio.duracionMinutos();
         int holgura = holguraService.calcularHolguraMin(servicio);
 
+        if (duracion <= 0) {
+            throw new BusinessException("La duracion del servicio debe ser mayor a 0");
+        }
+
         List<JornadaStaff> jornadas = jornadaStaffRepository
                 .findByIdStaffAndDiaSemanaAndActivoTrue(request.idStaff(), request.fecha().getDayOfWeek().getValue());
 
