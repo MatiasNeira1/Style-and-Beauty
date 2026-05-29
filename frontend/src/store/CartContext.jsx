@@ -26,13 +26,11 @@ export function CartProvider({ children }) {
 
   const updateQuantity = useCallback((id, delta) => {
     setItems((current) => (
-      current
-        .map((item) => {
-          if (item.id !== id) return item;
-          const nextQuantity = item.quantity + delta;
-          return nextQuantity > 0 ? { ...item, quantity: nextQuantity } : null;
-        })
-        .filter(Boolean)
+      current.map((item) => {
+        if (item.id !== id) return item;
+        const nextQuantity = item.quantity + delta;
+        return { ...item, quantity: Math.max(1, nextQuantity) };
+      })
     ));
   }, [setItems]);
 
