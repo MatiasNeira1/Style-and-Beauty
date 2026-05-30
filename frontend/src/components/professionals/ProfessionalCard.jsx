@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { professionalTheme, statusTone } from '../../utils/professionalTheme.js';
 
-export function ProfessionalCard({ professional, compact = false }) {
+export function ProfessionalCard({ professional, compact = false, onViewProfile }) {
   const theme = professionalTheme(professional.especialidad);
   const tone = statusTone(professional.estado);
   const color = professional.colorEspecialidad || theme.color;
@@ -48,7 +48,11 @@ export function ProfessionalCard({ professional, compact = false }) {
         </div>
 
         <div className="professional-actions">
-          {!compact && <Link to={`/profesionales?id=${professional.id}`} className="text-link">Ver perfil</Link>}
+          {!compact && (
+            <button type="button" className="text-link" onClick={() => onViewProfile?.(professional)}>
+              Ver perfil
+            </button>
+          )}
           <Link to="/reservar" className="professional-booking-link">
             <CalendarDays size={15} /> Reservar hora
           </Link>

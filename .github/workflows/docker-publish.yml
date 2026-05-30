@@ -1,0 +1,81 @@
+name: Publish Docker Images
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+env:
+  DOCKERHUB_USER: watoncitoxx
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: gateway
+            context: backend/Api-gateway
+            image: style-and-beauty-gateway
+          - service: auth
+            context: backend/ms-auth
+            image: style-and-beauty-auth
+          - service: perfiles
+            context: backend/ms-perfiles
+            image: style-and-beauty-perfiles
+          - service: catalogo
+            context: backend/ms-catalogo
+            image: style-and-beauty-catalogo
+          - service: agenda
+            context: backend/ms-agenda
+            image: style-and-beauty-agenda
+          - service: inventario
+            context: backend/ms-inventario
+            image: style-and-beauty-inventario
+          - service: pagos
+            context: backend/ms-pagos
+            image: style-and-beauty-pagos
+          - service: extra
+            context: backend/ms-extra
+            image: style-and-beauty-extra
+          - service: notificacion-audit
+            context: backend/ms-notificacion-audit
+            image: style-and-beauty-notificacion-audit
+          - service: frontend
+            context: frontend
+            image: style-and-beauty-frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKERHUB_USER }}/${{ matrix.image }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=tag
+            type=sha,prefix=sha-
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

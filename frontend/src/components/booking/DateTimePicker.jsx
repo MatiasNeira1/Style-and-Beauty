@@ -133,7 +133,9 @@ export function DateTimePicker({ date, time, slots = [], isLoading = false, erro
               <h3><Clock size={20} /> {selectedDateLabel(date)}</h3>
             </div>
 
-            {isLoading ? (
+            {error ? (
+              <p className="admin-alert">{error}</p>
+            ) : isLoading ? (
               <p className="admin-alert">Calculando disponibilidad con jornada, citas, bloqueos y holgura...</p>
             ) : error ? (
               <p className="admin-alert">{error}</p>

@@ -57,6 +57,8 @@ public class Cita {
 
     private UUID idTransaccionPago;
 
+    private String googleCalendarEventId;
+
     @Column(columnDefinition = "TEXT")
     private String observacionCliente;
 
