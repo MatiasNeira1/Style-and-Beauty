@@ -1,17 +1,17 @@
 package com.style.beauty.ms_agenda.service;
 
-import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
-import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
-import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
-import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
-import com.style.beauty.ms_agenda.entity.Cita;
-import com.style.beauty.ms_agenda.entity.HistorialCita;
-import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
-import com.style.beauty.ms_agenda.entity.JornadaStaff;
 import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
+import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
+import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
+import com.style.beauty.ms_agenda.entity.Cita;
+import com.style.beauty.ms_agenda.entity.HistorialCita;
+import com.style.beauty.ms_agenda.entity.JornadaStaff;
 import com.style.beauty.ms_agenda.enums.AccionHistorial;
 import com.style.beauty.ms_agenda.enums.EstadoCita;
 import com.style.beauty.ms_agenda.enums.TipoCita;
@@ -25,14 +25,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.ArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -61,7 +62,6 @@ public class CitaService {
 
     public List<DisponibilidadSlot> calcularDisponibilidad(DisponibilidadRequest request) {
         PerfilResumen staff = perfilClient.obtenerStaff(request.idStaff());
-
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
         int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio);
@@ -158,7 +158,7 @@ public class CitaService {
                 EstadoCita.RECHAZADA);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public Cita crear(CrearCitaRequest request) {
         PerfilResumen cliente = perfilClient.obtenerCliente(request.idCliente());
         PerfilResumen staff = perfilClient.obtenerStaff(request.idStaff());
@@ -211,7 +211,7 @@ public class CitaService {
 
     private int duracionServicio(ServicioResumen servicio) {
         if (servicio.duracionMinutos() == null || servicio.duracionMinutos() <= 0) {
-            throw new BusinessException("La duracion del servicio debe ser mayor a 0");
+            throw new BusinessException("La duracion del servicio debe estar configurada en ms-catalogo");
         }
         return servicio.duracionMinutos();
     }
@@ -270,14 +270,18 @@ public class CitaService {
                 "Cita cancelada");
     }
 
-    private void validarJornada(UUID idStaff, OffsetDateTime inicio, OffsetDateTime fin) {
+    private void validarJornada(UUID idStaff, OffsetDateTime inicio, OffsetDateTime finConHolgura) {
+        if (!inicio.toLocalDate().equals(finConHolgura.toLocalDate())) {
+            throw new BusinessException("El horario debe caber dentro de la jornada del staff incluyendo holgura");
+        }
+
         int diaSemana = inicio.getDayOfWeek().getValue();
 
         boolean dentroDeJornada = jornadaStaffRepository
                 .findByIdStaffAndDiaSemanaAndActivoTrue(idStaff, diaSemana)
                 .stream()
                 .anyMatch(j -> !inicio.toLocalTime().isBefore(j.getHoraInicio())
-                        && !fin.toLocalTime().isAfter(j.getHoraFin()));
+                        && !finConHolgura.toLocalTime().isAfter(j.getHoraFin()));
 
         if (!dentroDeJornada) {
             throw new BusinessException("El horario solicitado no cumple la jornada del staff incluyendo la holgura del servicio");

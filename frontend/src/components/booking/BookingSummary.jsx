@@ -25,7 +25,7 @@ export function BookingSummary({ service, staff, date, time, slot }) {
       <p>Profesional: {staff?.nombre || staff?.name || 'Pendiente'}</p>
       <p>Fecha: {date ? formatDate(`${date}T00:00:00`) : 'Pendiente'}</p>
       <p>Hora: {formatTime(time)}</p>
-      <p>Preparación interna: {holgura === null ? 'Segun servicio' : `${holgura} min posteriores`}</p>
+      <p>Preparacion interna: {holgura === null ? 'Segun servicio' : `${holgura} min posteriores`}</p>
       <strong>Total estimado: ${service?.precio || service?.price || 0}</strong>
     </Card>
   );

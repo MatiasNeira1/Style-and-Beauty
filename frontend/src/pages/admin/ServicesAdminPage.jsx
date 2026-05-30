@@ -13,6 +13,7 @@ const initialForm = {
   categoria: '',
   manual_uso_url: '',
   duracion_minutos: '',
+  holgura_minutos: '',
   precio_total: '',
   monto_fianza: '',
   activo: 'true',
@@ -31,6 +32,7 @@ function toServicePayload(form) {
     categoria: form.categoria,
     manual_uso_url: form.manual_uso_url,
     duracion_minutos: Number(form.duracion_minutos),
+    holgura_minutos: form.holgura_minutos === '' ? null : Number(form.holgura_minutos),
     precio_total: Number(form.precio_total),
     monto_fianza: Number(form.monto_fianza),
     activo: form.activo === 'true',
@@ -88,6 +90,7 @@ export function ServicesAdminPage() {
       categoria: service.categoria || '',
       manual_uso_url: service.manual_uso_url || '',
       duracion_minutos: service.duracion_minutos ?? '',
+      holgura_minutos: service.holgura_minutos ?? '',
       precio_total: service.precio_total ?? '',
       monto_fianza: service.monto_fianza ?? '',
       activo: String(service.activo ?? true),
@@ -119,6 +122,7 @@ export function ServicesAdminPage() {
           <Input label="Nombre" id="service-name" name="nombre" value={form.nombre} onChange={handleChange} required />
           <Input label="Categoria" id="service-category" name="categoria" value={form.categoria} onChange={handleChange} />
           <Input label="Duracion minutos" id="service-duration" name="duracion_minutos" type="number" min="1" value={form.duracion_minutos} onChange={handleChange} required />
+          <Input label="Holgura minutos" id="service-buffer" name="holgura_minutos" type="number" min="0" value={form.holgura_minutos} onChange={handleChange} />
           <Input label="Precio total" id="service-price" name="precio_total" type="number" min="0" step="100" value={form.precio_total} onChange={handleChange} required />
           <Input label="Monto fianza" id="service-deposit" name="monto_fianza" type="number" min="0" step="100" value={form.monto_fianza} onChange={handleChange} required />
           <Input as="select" label="Estado" id="service-active" name="activo" value={form.activo} onChange={handleChange}>
@@ -194,6 +198,16 @@ export function ServicesAdminPage() {
                 <div className="flex items-center gap-1.5 text-xs text-ink-soft font-bold">
                   <Clock size={14} className="text-primary" />
                   <span>{row.duracion_minutos || 0} mins</span>
+                </div>
+              ),
+            },
+            {
+              key: 'holgura_minutos',
+              label: 'Holgura',
+              render: (row) => (
+                <div className="flex items-center gap-1.5 text-xs text-ink-soft font-bold">
+                  <Clock size={14} className="text-primary" />
+                  <span>{row.holgura_minutos ?? 0} mins</span>
                 </div>
               ),
             },

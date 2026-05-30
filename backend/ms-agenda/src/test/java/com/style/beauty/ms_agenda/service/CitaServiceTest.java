@@ -18,9 +18,9 @@ import com.style.beauty.ms_agenda.repository.BloqueoAgendaRepository;
 import com.style.beauty.ms_agenda.repository.CitaRepository;
 import com.style.beauty.ms_agenda.repository.HistorialCitaRepository;
 import com.style.beauty.ms_agenda.repository.JornadaStaffRepository;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -78,7 +78,7 @@ class CitaServiceTest {
 
         when(perfilClient.obtenerCliente(ID_CLIENTE)).thenReturn(perfil(ID_CLIENTE, "Cliente", "Demo", "cliente@example.com"));
         when(perfilClient.obtenerStaff(ID_STAFF)).thenReturn(perfil(ID_STAFF, "Staff", "Demo", "staff@example.com"));
-        when(servicioClient.obtenerServicio(ID_SERVICIO)).thenReturn(new ServicioResumen(ID_SERVICIO, "Corte", "Cabello", 60));
+        when(servicioClient.obtenerServicio(ID_SERVICIO)).thenReturn(new ServicioResumen(ID_SERVICIO, "Corte", "Cabello", 60, 30));
         when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(ID_STAFF, FECHA.getDayOfWeek().getValue()))
                 .thenReturn(List.of(jornada(LocalTime.of(8, 0), LocalTime.of(13, 0))));
         when(bloqueoAgendaRepository.buscarBloqueosEnRango(any(), any(), any())).thenReturn(List.of());
@@ -104,6 +104,20 @@ class CitaServiceTest {
                 .doesNotContain(at(11, 45));
         assertThat(slots).extracting(DisponibilidadSlot::finConHolgura)
                 .allMatch(fin -> !fin.isAfter(at(13, 0)));
+    }
+
+    @Test
+    void disponibilidadUsaDuracionYHolguraDelCatalogoAunqueElRequestVengaManipulado() {
+        when(servicioClient.obtenerServicio(ID_SERVICIO))
+                .thenReturn(new ServicioResumen(ID_SERVICIO, "Tratamiento capilar", "Peluqueria", 20, 30));
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
+
+        List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(
+                new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, 999, 0));
+
+        assertThat(slots).isNotEmpty();
+        assertThat(slots.get(0).fin()).isEqualTo(slots.get(0).inicio().plusMinutes(20));
+        assertThat(slots.get(0).finConHolgura()).isEqualTo(slots.get(0).inicio().plusMinutes(50));
     }
 
     @Test
@@ -163,6 +177,19 @@ class CitaServiceTest {
 
         assertThat(creada.getFechaHoraInicio()).isEqualTo(at(10, 30));
         assertThat(creada.getFechaHoraFinHolgura()).isEqualTo(at(12, 0));
+    }
+
+    @Test
+    void crearGuardaDuracionYHolguraCalculadasPorServicio() {
+        when(servicioClient.obtenerServicio(ID_SERVICIO))
+                .thenReturn(new ServicioResumen(ID_SERVICIO, "Tratamiento capilar", "Peluqueria", 20, 30));
+
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 0), 999, 0, null));
+
+        assertThat(creada.getDuracionServicioMin()).isEqualTo(20);
+        assertThat(creada.getHolguraMin()).isEqualTo(30);
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(9, 20));
+        assertThat(creada.getFechaHoraFinHolgura()).isEqualTo(at(9, 50));
     }
 
     @Test

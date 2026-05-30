@@ -29,6 +29,6 @@ class HolguraServiceTest {
     }
 
     private int holgura(String nombre, String categoria) {
-        return holguraService.calcularHolguraMin(new ServicioResumen(UUID.randomUUID(), nombre, categoria, 60));
+        return holguraService.calcularHolguraMin(new ServicioResumen(UUID.randomUUID(), nombre, categoria, 60, null));
     }
 }

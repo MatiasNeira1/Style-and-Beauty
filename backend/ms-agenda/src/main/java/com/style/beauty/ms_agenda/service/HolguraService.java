@@ -10,6 +10,10 @@ import java.util.Locale;
 public class HolguraService {
 
     public int calcularHolguraMin(ServicioResumen servicio) {
+        if (servicio.holguraMinutos() != null && servicio.holguraMinutos() >= 0) {
+            return servicio.holguraMinutos();
+        }
+
         String nombre = normalizar(servicio.nombre());
         String categoria = normalizar(servicio.categoria());
         String texto = (nombre + " " + categoria).trim();

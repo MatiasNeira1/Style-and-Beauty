@@ -7,12 +7,6 @@ import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { catalogService } from '../../services/catalogService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
 
-const fallbackServices = [
-  { id: 'color', nombre: 'Color premium', categoria: 'Color', descripcion: 'Coloración, brillo y cuidado de fibra.', precio: 45990 },
-  { id: 'hair', nombre: 'Corte signature', categoria: 'Peluquería', descripcion: 'Corte personalizado con styling final.', precio: 22990 },
-  { id: 'skin', nombre: 'Ritual facial', categoria: 'Facial', descripcion: 'Limpieza profunda y luminosidad inmediata.', precio: 34990 },
-];
-
 function servicePrice(service) {
   const value = service.precio_total ?? service.precio ?? service.price;
   if (value === undefined || value === null || value === '') return 'Consultar';
@@ -23,25 +17,29 @@ export function ServiceCategoryPage() {
   const { categoria } = useParams();
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
 
-  const services = Array.isArray(servicesQuery.data) && servicesQuery.data.length ? servicesQuery.data : fallbackServices;
-  const categories = Object.keys(groupByCategory(services));
+  const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
+  const grouped = groupByCategory(services);
+  const categories = Object.keys(grouped);
   const category = findCategoryBySlug(categories, categoria) || categories[0] || 'General';
-  const categoryServices = groupByCategory(services)[category] || [];
-  const isLoading = servicesQuery.isLoading;
+  const categoryServices = grouped[category] || [];
 
   return (
     <section className="page-section">
       <Link className="text-link service-back-link" to="/servicios">
         <ArrowLeft size={16} />
-        Categorías
+        Categorias
       </Link>
 
-      <SectionTitle eyebrow="Categoría" title={category}>
+      <SectionTitle eyebrow="Categoria" title={category}>
         Elige un servicio para revisar su detalle y los profesionales disponibles.
       </SectionTitle>
 
-      {isLoading ? (
+      {servicesQuery.isLoading ? (
         <Loader />
+      ) : servicesQuery.isError ? (
+        <p className="admin-alert">{servicesQuery.error.message}</p>
+      ) : categoryServices.length === 0 ? (
+        <p className="admin-alert">No hay servicios cargados para esta categoria.</p>
       ) : (
         <Reveal>
           <div className="category-detail-layout">
@@ -54,7 +52,7 @@ export function ServiceCategoryPage() {
                 >
                   <span className="card-kicker">Servicio</span>
                   <h3>{service.nombre || service.name}</h3>
-                  <p>{service.descripcion || service.description || 'Atención personalizada con acabado profesional.'}</p>
+                  <p>{service.descripcion || service.description || 'Atencion personalizada con acabado profesional.'}</p>
                   <div className="category-service-meta">
                     <strong>{servicePrice(service)}</strong>
                     <span><Clock size={14} /> {service.duracion_minutos || service.duracion || 45} min</span>

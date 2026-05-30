@@ -8,12 +8,6 @@ import { catalogService } from '../../services/catalogService.js';
 import { profileService } from '../../services/profileService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory, normalizeCategory } from '../../utils/categoryUtils.js';
 
-const fallbackServices = [
-  { id: 'color', nombre: 'Color premium', categoria: 'Color', descripcion: 'Coloración, brillo y cuidado de fibra.', precio: 45990 },
-  { id: 'hair', nombre: 'Corte signature', categoria: 'Peluquería', descripcion: 'Corte personalizado con styling final.', precio: 22990 },
-  { id: 'skin', nombre: 'Ritual facial', categoria: 'Facial', descripcion: 'Limpieza profunda y luminosidad inmediata.', precio: 34990 },
-];
-
 const serviceImages = [
   {
     match: ['peluqueria', 'pelo', 'cabello', 'corte', 'color'],
@@ -28,7 +22,7 @@ const serviceImages = [
     url: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=1800&q=82',
   },
   {
-    match: ['masaje', 'masoterapia', 'spa', 'relajacion', 'relajación'],
+    match: ['masaje', 'masoterapia', 'spa', 'relajacion'],
     url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1800&q=82',
   },
   {
@@ -71,13 +65,13 @@ export function ServiceDetailPage() {
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
   const staffQuery = useQuery({ queryKey: ['public-staff'], queryFn: profileService.listPublicStaff });
 
-  const services = Array.isArray(servicesQuery.data) && servicesQuery.data.length ? servicesQuery.data : fallbackServices;
+  const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
   const staff = Array.isArray(staffQuery.data) ? staffQuery.data : [];
   const grouped = groupByCategory(services);
   const categories = Object.keys(grouped);
   const category = findCategoryBySlug(categories, categoria) || categories[0] || 'General';
   const categoryServices = grouped[category] || [];
-  const service = categoryServices.find((item) => serviceMatchesSlug(item, servicio)) || categoryServices[0];
+  const service = categoryServices.find((item) => serviceMatchesSlug(item, servicio));
   const specialists = staff.filter((member) => normalizeCategory(member.especialidad?.nombre) === normalizeCategory(category));
   const isLoading = servicesQuery.isLoading || staffQuery.isLoading;
 
@@ -85,6 +79,26 @@ export function ServiceDetailPage() {
     return (
       <section className="page-section">
         <Loader />
+      </section>
+    );
+  }
+
+  if (servicesQuery.isError || staffQuery.isError) {
+    return (
+      <section className="page-section">
+        <p className="admin-alert">{servicesQuery.error?.message || staffQuery.error?.message}</p>
+      </section>
+    );
+  }
+
+  if (!service) {
+    return (
+      <section className="page-section">
+        <Link className="text-link service-back-link" to="/servicios">
+          <ArrowLeft size={16} />
+          Servicios
+        </Link>
+        <p className="admin-alert">El servicio solicitado no existe en el catalogo.</p>
       </section>
     );
   }
@@ -101,8 +115,8 @@ export function ServiceDetailPage() {
             {category}
           </Link>
           <span className="card-kicker">{category}</span>
-          <h1>{service?.nombre || service?.name || 'Servicio'}</h1>
-          <p>{service?.descripcion || service?.description || 'Atención personalizada con técnica profesional y seguimiento cercano.'}</p>
+          <h1>{service.nombre || service.name || 'Servicio'}</h1>
+          <p>{service.descripcion || service.description || 'Atencion personalizada con tecnica profesional y seguimiento cercano.'}</p>
           <div className="service-detail-meta">
             <strong>{servicePrice(service)}</strong>
             <span><Clock size={15} /> {serviceDuration(service)} min</span>
@@ -114,8 +128,8 @@ export function ServiceDetailPage() {
         <div className="service-detail-content">
           <section className="service-description-panel">
             <span className="card-kicker">Detalle del servicio</span>
-            <h2>{service?.nombre || service?.name || 'Servicio personalizado'}</h2>
-            <p>{service?.detallerservicio || service?.description || 'Este servicio se adapta al diagnóstico del profesional y a tus preferencias.'}</p>
+            <h2>{service.nombre || service.name || 'Servicio personalizado'}</h2>
+            <p>{service.detallerservicio || service.description || 'Este servicio se adapta al diagnostico del profesional y a tus preferencias.'}</p>
             <Link className="button button-sm" to="/reservar">
               <CalendarDays size={16} />
               Reservar
