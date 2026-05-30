@@ -37,7 +37,7 @@ const BLOCKS = [
   { key: 'Noche', label: 'Noche', icon: Moon },
 ];
 
-export function DateTimePicker({ date, time, slots = [], isLoading = false, onDateChange, onTimeChange }) {
+export function DateTimePicker({ date, time, slots = [], isLoading = false, error = '', onDateChange, onTimeChange }) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const base = date ? new Date(`${date}T12:00:00`) : new Date();
     return new Date(base.getFullYear(), base.getMonth(), 1);
@@ -135,6 +135,8 @@ export function DateTimePicker({ date, time, slots = [], isLoading = false, onDa
 
             {isLoading ? (
               <p className="admin-alert">Calculando disponibilidad con jornada, citas, bloqueos y holgura...</p>
+            ) : error ? (
+              <p className="admin-alert">{error}</p>
             ) : slots.length === 0 ? (
               <p className="admin-alert">No hay horarios disponibles para este profesional en la fecha seleccionada.</p>
             ) : (

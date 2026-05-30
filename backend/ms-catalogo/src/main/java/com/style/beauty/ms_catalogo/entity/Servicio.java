@@ -30,6 +30,8 @@ public class Servicio {
     @Column(nullable = false)
     private Integer duracion_minutos;
 
+    private Integer holgura_minutos;
+
     @Column(nullable = false)
     private Double precio_total;
 

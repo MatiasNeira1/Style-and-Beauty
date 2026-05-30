@@ -8,6 +8,10 @@ import { profileService } from '../services/profileService.js';
 
 const AuthContext = createContext(null);
 const USER_KEY = 'style_beauty_user';
+const ROLE_CLAIM_RETRIES = 6;
+const ROLE_CLAIM_RETRY_DELAY_MS = 700;
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function AuthProvider({ children }) {
   const [isAuthReady, setIsAuthReady] = useState(false);
@@ -61,7 +65,18 @@ export function AuthProvider({ children }) {
     await profileService.validateAvailability({ ...profile, tipoPerfil: 'CLIENTE' });
     const created = await firebaseAuthService.register(email, password);
     await authService.registerClient({ uid: created.user.uid });
-    const session = await firebaseAuthService.refreshSession();
+
+    let session = null;
+    for (let attempt = 1; attempt <= ROLE_CLAIM_RETRIES; attempt += 1) {
+      session = await firebaseAuthService.refreshSession();
+      if (session?.user?.rol === 'CLIENTE') break;
+      await wait(ROLE_CLAIM_RETRY_DELAY_MS);
+    }
+
+    if (session?.user?.rol !== 'CLIENTE') {
+      throw new Error('La cuenta se creó, pero el rol CLIENTE aún no está disponible. Intenta iniciar sesión nuevamente.');
+    }
+
     setSession(session);
     await profileService.createProfile(profile);
     return session;

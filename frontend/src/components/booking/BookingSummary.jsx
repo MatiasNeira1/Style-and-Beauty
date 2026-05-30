@@ -10,7 +10,7 @@ function formatTime(value) {
   return new Intl.DateTimeFormat('es-CL', { hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 }
 
-export function BookingSummary({ service, staff, date, time }) {
+export function BookingSummary({ service, staff, date, time, holguraMin }) {
   return (
     <Card className="summary-card">
       <h3>Resumen</h3>
@@ -18,7 +18,7 @@ export function BookingSummary({ service, staff, date, time }) {
       <p>Profesional: {staff?.nombre || staff?.name || 'Pendiente'}</p>
       <p>Fecha: {date ? formatDate(`${date}T00:00:00`) : 'Pendiente'}</p>
       <p>Hora: {formatTime(time)}</p>
-      <p>Preparación interna: 20 min posteriores</p>
+      <p>Preparacion interna: {holguraMin ?? 'Pendiente'} min posteriores</p>
       <strong>Total estimado: ${service?.precio || service?.price || 0}</strong>
     </Card>
   );

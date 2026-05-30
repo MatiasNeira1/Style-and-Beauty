@@ -7,6 +7,9 @@ services:
       VITE_API_BASE_URL: http://localhost:8080
       VITE_AUTH_API_BASE_URL: http://localhost:8081
       VITE_PROFILES_API_BASE_URL: http://localhost:8082
+      VITE_CATALOG_API_BASE_URL: http://localhost:8083
+      VITE_AGENDA_API_BASE_URL: http://localhost:8084
+      VITE_INVENTORY_API_BASE_URL: http://localhost:8085
     ports:
       - "5173:5173"
 
@@ -70,6 +73,8 @@ services:
     build:
       context: ./backend/ms-auth
     container_name: style-beauty-ms-auth
+    ports:
+      - "8081:8081"
     environment:
       SERVER_PORT: 8081
 
@@ -79,9 +84,9 @@ services:
     container_name: style-beauty-ms-perfiles
     environment:
       SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/style_beauty}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-postgres}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_SHOW_SQL: "true"
     depends_on:
@@ -96,9 +101,9 @@ services:
       - "8083:8083"
     environment:
       SERVER_PORT: 8083
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_URL: ${CATALOGO_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/style_beauty}
+      SPRING_DATASOURCE_USERNAME: ${CATALOGO_DATASOURCE_USERNAME:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${CATALOGO_DATASOURCE_PASSWORD:-${SPRING_DATASOURCE_PASSWORD:-postgres}}
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_JPA_SHOW_SQL: "true"
     depends_on:
@@ -114,6 +119,7 @@ services:
     environment:
       SERVER_PORT: 8084
       MS_PERFILES_URL: http://ms-perfiles:8082
+      MS_CATALOGO_URL: http://ms-catalogo:8083
       APP_AGENDA_DEFAULT_HOLGURA_MIN: 20
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/style_beauty
       SPRING_DATASOURCE_USERNAME: postgres
@@ -124,6 +130,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      ms-perfiles:
+        condition: service_started
+      ms-catalogo:
+        condition: service_started
 
   ms-inventario:
     build:
@@ -182,6 +192,21 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: style-beauty-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      GENERIC_TIMEZONE: America/Santiago
+      TZ: America/Santiago
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: admin
+      N8N_BASIC_AUTH_PASSWORD: Admin123.
+    volumes:
+      - ./n8n/n8n_data:/home/node/.n8n
+    restart: unless-stopped
 
 volumes:
   postgres-data:
