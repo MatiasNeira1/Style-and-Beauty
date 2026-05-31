@@ -162,17 +162,15 @@ services:
       GOOGLE_CALENDAR_FAIL_ON_ERROR: ${GOOGLE_CALENDAR_FAIL_ON_ERROR:-true}
       GOOGLE_CALENDAR_CREDENTIALS_PATH: ${GOOGLE_CALENDAR_CREDENTIALS_PATH:-}
       GOOGLE_CALENDAR_DEFAULT_CALENDAR_ID: ${GOOGLE_CALENDAR_DEFAULT_CALENDAR_ID:-}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-style_beauty_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
+      SPRING_DATASOURCE_URL: ${MS_AGENDA_DATASOURCE_URL:-}
+      SPRING_DATASOURCE_USERNAME: ${MS_AGENDA_DATASOURCE_USERNAME:-}
+      SPRING_DATASOURCE_PASSWORD: ${MS_AGENDA_DATASOURCE_PASSWORD:-}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_SQL_INIT_MODE: ${SPRING_SQL_INIT_MODE:-always}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     depends_on:
-      postgres-master:
-        condition: service_healthy
       ms-perfiles:
         condition: service_healthy
       ms-catalogo:
@@ -215,16 +213,13 @@ services:
     restart: unless-stopped
     environment:
       SERVER_PORT: 8086
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-style_beauty_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
+      SPRING_DATASOURCE_URL: ${MS_PAGOS_DATASOURCE_URL:-}
+      SPRING_DATASOURCE_USERNAME: ${MS_PAGOS_DATASOURCE_USERNAME:-}
+      SPRING_DATASOURCE_PASSWORD: ${MS_PAGOS_DATASOURCE_PASSWORD:-}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
-    depends_on:
-      postgres-master:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8086/ >/dev/null || exit 1"]
       interval: 20s
@@ -239,16 +234,13 @@ services:
     restart: unless-stopped
     environment:
       SERVER_PORT: 8087
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-style_beauty_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
+      SPRING_DATASOURCE_URL: ${MS_EXTRA_DATASOURCE_URL:-}
+      SPRING_DATASOURCE_USERNAME: ${MS_EXTRA_DATASOURCE_USERNAME:-}
+      SPRING_DATASOURCE_PASSWORD: ${MS_EXTRA_DATASOURCE_PASSWORD:-}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
-    depends_on:
-      postgres-master:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8087/ >/dev/null || exit 1"]
       interval: 20s
