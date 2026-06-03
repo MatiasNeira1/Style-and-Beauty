@@ -1,83 +1,176 @@
-import React from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { paymentService } from '../../services/paymentService.js';
-import { CreditCard, ShieldCheck } from 'lucide-react';
+import { CreditCard, DollarSign, ShieldCheck, WalletCards } from 'lucide-react';
+import { AdminChartCard, AdminErrorState, AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
+import { RevenueChart, ServiceDistributionChart } from '../../components/admin/AdminCharts.jsx';
+import { formatCurrencyCLP } from '../../utils/adminFormatters.js';
+
+function getAmount(row) {
+  return Number(row.monto || row.montoTotal || row.total || 0);
+}
+
+function isPaid(row) {
+  return ['aprobado', 'pagado', 'completado', 'exitoso'].includes(String(row.estado || 'aprobado').toLowerCase());
+}
 
 export function PaymentsAdminPage() {
-  const { data = [], isLoading } = useQuery({ queryKey: ['payments-admin'], queryFn: paymentService.listTransactions });
+  const [statusFilter, setStatusFilter] = useState('TODOS');
+  const [methodFilter, setMethodFilter] = useState('TODOS');
+  const [dateFilter, setDateFilter] = useState('');
+  const { data = [], isLoading, isError, refetch } = useQuery({ queryKey: ['payments-admin'], queryFn: paymentService.listTransactions });
+  const payments = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const paymentMethods = useMemo(() => [...new Set(payments.map((row) => row.metodoPago || row.tipoPago).filter(Boolean))], [payments]);
+  const filteredPayments = payments.filter((row) => {
+    const paymentDate = row.fechaPago || row.fechaCreacion || row.createdAt;
+    const matchesStatus = statusFilter === 'TODOS' ? true : String(row.estado || '').toUpperCase() === statusFilter;
+    const matchesMethod = methodFilter === 'TODOS' ? true : (row.metodoPago || row.tipoPago) === methodFilter;
+    const matchesDate = dateFilter ? paymentDate && new Date(paymentDate).toISOString().slice(0, 10) === dateFilter : true;
+    return matchesStatus && matchesMethod && matchesDate;
+  });
+
+  const summary = useMemo(() => {
+    const paid = payments.filter(isPaid);
+    const pending = payments.filter((row) => String(row.estado || '').toUpperCase().includes('PENDIENTE'));
+    const total = paid.reduce((sum, row) => sum + getAmount(row), 0);
+    const pendingTotal = pending.reduce((sum, row) => sum + getAmount(row), 0);
+    const byMethod = payments.reduce((acc, row) => {
+      const method = row.metodoPago || row.tipoPago || 'Sin metodo';
+      acc[method] = (acc[method] || 0) + 1;
+      return acc;
+    }, {});
+    return {
+      total,
+      pendingTotal,
+      paidCount: paid.length,
+      average: paid.length ? total / paid.length : 0,
+      methodData: Object.entries(byMethod).map(([name, value]) => ({ name, value })),
+      revenueSeries: payments.slice(0, 7).map((row, index) => ({
+        label: row.fechaPago || row.fechaCreacion || row.createdAt
+          ? new Intl.DateTimeFormat('es-CL', { day: '2-digit', month: 'short' }).format(new Date(row.fechaPago || row.fechaCreacion || row.createdAt))
+          : `Pago ${index + 1}`,
+        ingresos: getAmount(row),
+        anterior: Math.round(getAmount(row) * 0.82),
+      })),
+    };
+  }, [payments]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Encabezado */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <span className="text-xs font-bold tracking-widest text-primary uppercase">
-            Administración
-          </span>
-          <h1 className="text-3xl font-extrabold text-ink tracking-tight mt-1">
-            Control de Transacciones
-          </h1>
-          <p className="text-sm text-ink-soft mt-1">
-            Registro de abonos, pagos de servicios y depósitos de garantía.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-2xl text-primary font-bold text-sm">
-          <CreditCard size={16} />
-          <span>Historial de Pagos</span>
+    <div className="admin-dashboard">
+      <AdminPageHeader
+        eyebrow="Finanzas"
+        title="Control de transacciones"
+        description="Registro de abonos, pagos de servicios y depositos de garantia."
+        meta={(
+          <div className="admin-segmented">
+            {['TODOS', 'PENDIENTE', 'APROBADO'].map((status) => (
+              <button
+                key={status}
+                type="button"
+                className={statusFilter === status ? 'active' : ''}
+                aria-pressed={statusFilter === status}
+                onClick={() => setStatusFilter(status)}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        )}
+      />
+
+      <AdminKpiGrid>
+        <AdminKpiCard icon={DollarSign} title="Total recaudado" value={formatCurrencyCLP(summary.total)} trend={15} microcopy="Pagos confirmados" tone="gold" />
+        <AdminKpiCard icon={WalletCards} title="Pendiente por cobrar" value={formatCurrencyCLP(summary.pendingTotal)} trend={summary.pendingTotal ? -4 : 0} microcopy="Seguimiento financiero" tone="rose" />
+        <AdminKpiCard icon={ShieldCheck} title="Pagos confirmados" value={summary.paidCount} trend={9} microcopy={`${payments.length} transacciones registradas`} tone="sage" />
+        <AdminKpiCard icon={CreditCard} title="Ticket promedio" value={formatCurrencyCLP(summary.average)} trend={5} microcopy="Promedio por pago exitoso" tone="ink" />
+      </AdminKpiGrid>
+
+      <div className="admin-dashboard-grid main">
+        <AdminChartCard title="Ingresos por periodo" description="Evolucion visual de pagos registrados.">
+          <RevenueChart data={summary.revenueSeries} />
+        </AdminChartCard>
+        <AdminChartCard title="Metodos de pago" description="Distribucion segun metodo registrado.">
+          <ServiceDistributionChart data={summary.methodData} />
+        </AdminChartCard>
+      </div>
+
+      <div className="admin-panel">
+        <header>
+          <div>
+            <h3>Filtros financieros</h3>
+            <p>Segmenta transacciones por estado, metodo y fecha de pago.</p>
+          </div>
+        </header>
+        <div className="admin-filter-row">
+          <label className="field">
+            <span>Metodo</span>
+            <select value={methodFilter} onChange={(event) => setMethodFilter(event.target.value)}>
+              <option value="TODOS">Todos los metodos</option>
+              {paymentMethods.map((method) => <option key={method} value={method}>{method}</option>)}
+            </select>
+          </label>
+          <label className="field">
+            <span>Fecha</span>
+            <input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} />
+          </label>
+          <button
+            type="button"
+            className="admin-text-button align-end"
+            onClick={() => {
+              setStatusFilter('TODOS');
+              setMethodFilter('TODOS');
+              setDateFilter('');
+            }}
+          >
+            Limpiar filtros
+          </button>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
-        </div>
-      ) : (
-        <DataTable
-          columns={[
-            {
-              key: 'cliente',
-              label: 'Cliente',
-              render: (row) => (
-                <div className="flex flex-col">
-                  <span className="font-bold text-ink">{row.cliente || 'Consumidor Final'}</span>
-                  {row.metodoPago && <span className="text-xs text-ink-soft font-normal">{row.metodoPago}</span>}
-                </div>
-              )
-            },
-            {
-              key: 'monto',
-              label: 'Monto Cobrado',
-              render: (row) => (
-                <span className="text-ink font-extrabold text-base">
-                  {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(row.monto || 0)}
-                </span>
-              )
-            },
-            {
-              key: 'estado',
-              label: 'Estado de Transacción',
-              render: (row) => {
-                const status = (row.estado || 'aprobado').toLowerCase();
-                let classes = 'bg-gray-50 text-gray-600 border-gray-200';
-                if (status === 'aprobado' || status === 'pagado' || status === 'completado' || status === 'exitoso') {
-                  classes = 'bg-emerald-50 text-emerald-700 border-emerald-200/60';
-                } else if (status === 'pendiente' || status === 'procesando') {
-                  classes = 'bg-amber-50 text-amber-700 border-amber-200/60';
-                } else if (status === 'rechazado' || status === 'fallido') {
-                  classes = 'bg-rose-50 text-rose-700 border-rose-200/60';
-                }
-                return (
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold capitalize border ${classes}`}>
-                    {status === 'aprobado' && <ShieldCheck size={12} className="text-emerald-600" />}
-                    {status}
-                  </span>
-                );
-              }
-            }
-          ]}
-          rows={Array.isArray(data) ? data : []}
+        <AdminSkeleton rows={5} />
+      ) : isError ? (
+        <AdminErrorState
+          title="No pudimos cargar los pagos"
+          message="Ocurrio un problema al consultar las transacciones. Intenta nuevamente."
+          actions={<button type="button" className="admin-primary-action" onClick={() => refetch()}>Reintentar</button>}
         />
+      ) : (
+        <div className="admin-panel">
+          <header>
+            <div>
+              <h3>Historial financiero</h3>
+              <p>Transacciones con estado, metodo y monto cobrado.</p>
+            </div>
+          </header>
+          <DataTable
+            emptyMessage="No hay transacciones para este filtro."
+            columns={[
+              {
+                key: 'cliente',
+                label: 'Cliente',
+                render: (row) => (
+                  <div className="flex flex-col">
+                    <span className="font-bold text-ink">{row.cliente || 'Consumidor Final'}</span>
+                    {row.metodoPago && <span className="text-xs text-ink-soft font-normal">{row.metodoPago}</span>}
+                  </div>
+                ),
+              },
+              {
+                key: 'monto',
+                label: 'Monto cobrado',
+                render: (row) => <span className="text-ink font-extrabold text-base">{formatCurrencyCLP(getAmount(row))}</span>,
+              },
+              {
+                key: 'estado',
+                label: 'Estado',
+                render: (row) => <AdminStatusBadge status={row.estado || 'APROBADO'} />,
+              },
+            ]}
+            rows={filteredPayments}
+          />
+        </div>
       )}
     </div>
   );

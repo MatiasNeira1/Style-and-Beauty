@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Edit3, Package, PackagePlus, PowerOff, Save, Trash2, X } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
+import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { inventoryService } from '../../services/inventoryService.js';
+import { formatCurrencyCLP } from '../../utils/adminFormatters.js';
 
 const initialProductForm = {
   nombre: '',
@@ -155,22 +157,30 @@ export function InventoryAdminPage() {
   const isLoading = productsQuery.isLoading || stockQuery.isLoading;
   const isError = productsQuery.isError || stockQuery.isError;
   const error = productsQuery.error || stockQuery.error;
+  const stockRows = Array.isArray(stockQuery.data) ? stockQuery.data : [];
+  const lowStock = stockRows.filter((stock) => Number(stock.cantidadActual || 0) <= Number(stock.stockMinimo || 0));
+  const outStock = stockRows.filter((stock) => Number(stock.cantidadActual || 0) === 0);
+  const estimatedValue = products.reduce((sum, product) => {
+    const qty = stockByProduct[getProductId(product)]?.cantidadActual || 0;
+    return sum + Number(product.precio || 0) * Number(qty);
+  }, 0);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <span className="text-xs font-bold tracking-widest text-primary uppercase">Administracion</span>
-          <h1 className="text-3xl font-extrabold text-ink tracking-tight mt-1">Inventario de Productos</h1>
-          <p className="text-sm text-ink-soft mt-1">Control de productos, existencias y movimientos de stock.</p>
-        </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-2xl text-primary font-bold text-sm">
-          <Package size={16} />
-          <span>{products.length} Productos</span>
-        </div>
-      </div>
+    <div className="admin-dashboard">
+      <AdminPageHeader
+        eyebrow="Gestion"
+        title="Inventario de productos"
+        description="Control de productos, existencias, alertas de bajo stock y movimientos."
+      />
 
-      <form className="card stack" onSubmit={handleProductSubmit}>
+      <AdminKpiGrid>
+        <AdminKpiCard icon={Package} title="Total productos" value={products.length} trend={6} microcopy="Productos registrados" tone="rose" />
+        <AdminKpiCard icon={AlertCircle} title="Bajo stock" value={lowStock.length} trend={lowStock.length ? -8 : 0} microcopy="Reponer con prioridad" tone="gold" />
+        <AdminKpiCard icon={PowerOff} title="Sin stock" value={outStock.length} trend={outStock.length ? -12 : 0} microcopy="Stock en cero" tone="ink" />
+        <AdminKpiCard icon={PackagePlus} title="Valor estimado" value={formatCurrencyCLP(estimatedValue)} trend={4} microcopy="Precio x cantidad actual" tone="sage" />
+      </AdminKpiGrid>
+
+      <form className="admin-panel" onSubmit={handleProductSubmit}>
         <h3>{editingProductId ? 'Editar producto' : 'Crear producto'}</h3>
         <div className="form-grid">
           <Input label="Nombre" id="inventory-name" name="nombre" value={productForm.nombre} onChange={handleProductChange} required />
@@ -194,7 +204,7 @@ export function InventoryAdminPage() {
       </form>
 
       <div className="grid-list">
-        <form className="card stack" onSubmit={handleStockSubmit}>
+        <form className="admin-panel" onSubmit={handleStockSubmit}>
           <h3>Registrar stock inicial</h3>
           <div className="form-grid">
             <Input as="select" label="Producto" id="stock-product" name="idProducto" value={stockForm.idProducto} onChange={handleStockChange} required>
@@ -216,7 +226,7 @@ export function InventoryAdminPage() {
           </Button>
         </form>
 
-        <form className="card stack" onSubmit={handleMovementSubmit}>
+        <form className="admin-panel" onSubmit={handleMovementSubmit}>
           <h3>Movimiento de stock</h3>
           <div className="form-grid">
             <Input as="select" label="Producto" id="movement-product" name="idProducto" value={movementForm.idProducto} onChange={handleMovementChange} required>
@@ -244,9 +254,7 @@ export function InventoryAdminPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
-        </div>
+        <AdminSkeleton rows={5} />
       ) : isError ? (
         <p className="admin-alert">{error.message}</p>
       ) : (
@@ -276,7 +284,7 @@ export function InventoryAdminPage() {
               label: 'Precio',
               render: (row) => (
                 <span className="text-ink font-bold">
-                  {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(row.precio || 0)}
+                  {formatCurrencyCLP(row.precio || 0)}
                 </span>
               ),
             },
@@ -302,11 +310,7 @@ export function InventoryAdminPage() {
                 );
               },
             },
-            {
-              key: 'activo',
-              label: 'Estado',
-              render: (row) => (row.activo ? 'Activo' : 'Inactivo'),
-            },
+            { key: 'activo', label: 'Estado', render: (row) => <AdminStatusBadge status={row.activo ? 'ACTIVO' : 'INACTIVO'} /> },
             {
               key: 'acciones',
               label: 'Acciones',
@@ -334,6 +338,7 @@ export function InventoryAdminPage() {
             },
           ]}
           rows={products}
+          emptyMessage="No hay productos registrados. Crea un producto para comenzar a controlar inventario."
         />
       )}
     </div>
