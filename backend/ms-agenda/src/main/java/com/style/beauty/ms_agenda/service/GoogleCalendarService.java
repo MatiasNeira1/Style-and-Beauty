@@ -54,37 +54,7 @@ public class GoogleCalendarService {
         this.agendaZone = agendaZone;
     }
 
-    public List<CalendarBusyBlock> obtenerBloquesOcupados(PerfilResumen staff, OffsetDateTime inicio, OffsetDateTime fin) {
-        if (!enabled) {
-            return List.of();
-        }
-
-        String calendarId = calendarId(staff);
-        if (!StringUtils.hasText(calendarId)) {
-            manejarError("El staff no tiene calendarId/emailContacto para Google Calendar", null);
-            return List.of();
-        }
-
-        try {
-            Map<String, Object> body = Map.of(
-                    "timeMin", inicio.toString(),
-                    "timeMax", fin.toString(),
-                    "timeZone", agendaZone,
-                    "items", List.of(Map.of("id", calendarId)));
-
-            Map<?, ?> response = restClient.post()
-                    .uri("/freeBusy")
-                    .header("Authorization", "Bearer " + accessToken())
-                    .body(body)
-                    .retrieve()
-                    .body(Map.class);
-
-            return parseBusyBlocks(response, calendarId);
-        } catch (RestClientException | IOException e) {
-            manejarError("No fue posible consultar Google Calendar para validar disponibilidad", e);
-            return List.of();
-        }
-    }
+    
 
     public String crearEvento(Cita cita, PerfilResumen cliente, PerfilResumen staff, ServicioResumen servicio) {
         if (!enabled) {
@@ -106,7 +76,7 @@ public class GoogleCalendarService {
                     "summary", "Style & Beauty - " + servicioNombre,
                     "description", "Cliente: " + clienteNombre + "\nProfesional: " + staffNombre,
                     "start", Map.of("dateTime", cita.getFechaHoraInicio().toString(), "timeZone", agendaZone),
-                    "end", Map.of("dateTime", cita.getFechaHoraFinHolgura().toString(), "timeZone", agendaZone));
+                    "end", Map.of("dateTime", cita.getFechaHoraFin().toString(), "timeZone", agendaZone));
 
             Map<?, ?> response = restClient.post()
                     .uri("/calendars/{calendarId}/events", calendarId)

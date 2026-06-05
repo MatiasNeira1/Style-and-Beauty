@@ -9,6 +9,10 @@ import java.util.UUID;
 
 @Repository
 public interface ServicioRepository extends JpaRepository<Servicio, UUID> {
-    // Aquí ya tienes heredados métodos como save(), findAll(), findById(), etc.
-    List<Servicio> findByCategoria(String categoria);
-}
+
+    List<Servicio> findByCategoriaIgnoreCase(String categoria);
+
+    List<Servicio> findByActivoTrue();
+
+    List<Servicio> findByCategoriaIgnoreCaseAndActivoTrue(String categoria);
+}
