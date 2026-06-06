@@ -29,7 +29,7 @@ function specialtyName(member, index) {
 
 export function normalizeProfessional(member, index = 0) {
   const specialty = specialtyName(member, index);
-  const rawCargo = member.cargo || member.rol || member.descripcionPerfil || specialty;
+  const rawCargo = member.cargo || member.rol || specialty;
   const fallbackProfessional = fallback(index);
   const proximasHoras = member.proximasHoras || member.horasDisponibles || fallbackProfessional.proximasHoras;
 
@@ -40,7 +40,8 @@ export function normalizeProfessional(member, index = 0) {
     fullName: `${member.nombre || member.name || fallbackProfessional.nombre} ${member.apellidos || fallbackProfessional.apellidos}`.trim(),
     cargo: hasMedicalTerm(rawCargo) ? specialty : rawCargo,
     especialidad: specialty,
-    descripcion: member.descripcion || member.bio || member.resumen || fallbackProfessional.descripcion,
+    descripcion: member.descripcionPerfil || member.descripcion || member.bio || member.resumen || fallbackProfessional.descripcion,
+    trayectoria: member.descripcionPerfil || member.trayectoria || fallbackProfessional.trayectoria,
     sucursal: member.sucursal || member.sede || fallbackProfessional.sucursal,
     modalidad: member.modalidad || fallbackProfessional.modalidad,
     estado: hasMedicalTerm(member.estado) ? fallbackProfessional.estado : member.estado || fallbackProfessional.estado,

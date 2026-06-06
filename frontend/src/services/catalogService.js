@@ -5,4 +5,5 @@ export const catalogService = {
   createService: (payload) => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: payload }),
   updateService: (idServicio, payload) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${idServicio}`, method: 'PUT', data: payload }),
   deleteService: (idServicio) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${idServicio}`, method: 'DELETE' }),
+  listProfessionalsByService: (idServicio) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${idServicio}/profesionales` }),
 };

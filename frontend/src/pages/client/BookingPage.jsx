@@ -25,6 +25,30 @@ function staffId(member) {
   return member?.idPersona || member?.idStaff || member?.id;
 }
 
+function isStaffCompatible(specialtyName = '', serviceCategory = '') {
+  const spec = normalizeCategory(specialtyName);
+  const cat = normalizeCategory(serviceCategory);
+  if (spec === cat) return true;
+  
+  const mapping = {
+    'cosmetologa': ['cuidados de la piel', 'spa'],
+    'esteticista integral': ['cuidados de la piel', 'spa'],
+    'kinesiologa estetica': ['cuidados de la piel', 'spa'],
+    'masoterapeuta': ['spa'],
+    'manicurista': ['nails'],
+    'especialista en depilacion laser': ['cuidados de la piel'],
+    'especialista facial': ['cuidados de la piel'],
+    'especialista corporal': ['spa', 'cuidados de la piel'],
+    'maquilladora profesional': ['maquillaje'],
+    'estilista capilar': ['cabello', 'peluqueria'],
+    'colorista': ['cabello', 'peluqueria'],
+    'lashista': ['maquillaje', 'cuidados de la piel'],
+    'brow artist': ['maquillaje', 'cuidados de la piel']
+  };
+  
+  return mapping[spec]?.includes(cat) || false;
+}
+
 export function BookingPage() {
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
@@ -32,11 +56,20 @@ export function BookingPage() {
   const location = useLocation();
   const { updateBooking } = useBooking();
 
-  const [step, setStep] = useState(1);
-  const [service, setService] = useState(null);
-  const [member, setMember] = useState(null);
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const initialService = location.state?.service || null;
+  const initialProfessional = location.state?.professional || null;
+  const initialHour = location.state?.selectedHour || '';
+  const initialDate = location.state?.selectedDate || '';
+
+  const [service, setService] = useState(initialService);
+  const [member, setMember] = useState(initialProfessional);
+  const [date, setDate] = useState(initialDate);
+  const [time, setTime] = useState(initialHour);
+  const [step, setStep] = useState(() => {
+    if (initialService && initialProfessional) return 3;
+    if (initialService) return 2;
+    return 1;
+  });
   const [confirmError, setConfirmError] = useState('');
 
   const { data: serviceData } = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
@@ -47,7 +80,10 @@ export function BookingPage() {
   const filteredStaff = useMemo(() => {
     if (!Array.isArray(staffData)) return [];
     if (!service?.categoria) return staffData;
-    return staffData.filter((item) => normalizeCategory(item.especialidad?.nombre) === normalizeCategory(service.categoria));
+    return staffData.filter((item) => {
+      const specName = item.especialidad?.nombre || item.especialidad || '';
+      return isStaffCompatible(specName, service.categoria);
+    });
   }, [staffData, service]);
 
   const availabilityQuery = useQuery({
@@ -136,7 +172,7 @@ export function BookingPage() {
 
           <div className="wizard-steps">
             {[['1', 'Servicio'], ['2', 'Staff'], ['3', 'Horario']].map(([value, label]) => (
-              <Badge key={value} tone={step === Number(value) ? 'primary' : 'neutral'}>{label}</Badge>
+              <Badge key={value} tone={step >= Number(value) ? 'primary' : 'neutral'}>{label}</Badge>
             ))}
           </div>
 
@@ -146,11 +182,21 @@ export function BookingPage() {
               selectedId={serviceId(service)}
               onSelect={(value) => {
                 setService(value);
-                setMember(null);
-                setDate('');
-                setTime('');
+                const specName = member?.especialidad?.nombre || member?.especialidad || '';
+                const isCompatible = member && isStaffCompatible(specName, value.categoria);
+                if (isCompatible) {
+                  if (!initialHour) {
+                    setDate('');
+                    setTime('');
+                  }
+                  setStep(3);
+                } else {
+                  setMember(null);
+                  setDate('');
+                  setTime('');
+                  setStep(2);
+                }
                 setConfirmError('');
-                setStep(2);
               }}
             />
           )}
