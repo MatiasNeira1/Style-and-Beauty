@@ -39,6 +39,7 @@ services:
       - style-beauty-net
 
   api-gateway:
+    build: ./backend/Api-gateway
     image: watoncitoxx/style-and-beauty-gateway:latest
     container_name: style-beauty-api-gateway
     restart: unless-stopped
@@ -165,6 +166,12 @@ services:
       MS_AGENDA_DATASOURCE_URL: ${MS_AGENDA_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
       MS_AGENDA_DATASOURCE_USERNAME: ${MS_AGENDA_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
       MS_AGENDA_DATASOURCE_PASSWORD: ${MS_AGENDA_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
+      MS_AGENDA_DATASOURCE_URL: jdbc:postgresql://aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require
+      MS_AGENDA_DATASOURCE_USERNAME: postgres.bvdgtbtgradefnukvldx
+      MS_AGENDA_DATASOURCE_PASSWORD: "BBBmcrojas2209@"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://aws-1-us-west-2.pooler.supabase.com:5432/postgres?sslmode=require
+      SPRING_DATASOURCE_USERNAME: postgres.bvdgtbtgradefnukvldx
+      SPRING_DATASOURCE_PASSWORD: "BBBmcrojas2209@"
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_SQL_INIT_MODE: ${SPRING_SQL_INIT_MODE:-always}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
@@ -184,6 +191,7 @@ services:
       - style-beauty-net
 
   ms-inventario:
+    build: ./backend/ms-inventario
     image: watoncitoxx/style-and-beauty-inventario:latest
     container_name: style-beauty-ms-inventario
     restart: unless-stopped
@@ -216,6 +224,8 @@ services:
       SPRING_DATASOURCE_URL: ${MS_PAGOS_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
       SPRING_DATASOURCE_USERNAME: ${MS_PAGOS_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
       SPRING_DATASOURCE_PASSWORD: ${MS_PAGOS_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
+      SPRING_SECURITY_USER_NAME: admin
+      SPRING_SECURITY_USER_PASSWORD: admin123
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
@@ -256,6 +266,8 @@ services:
     environment:
       SERVER_PORT: 8088
       SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/${MONGO_DB:-style_beauty_audit}
+      SPRING_SECURITY_USER_NAME: admin
+      SPRING_SECURITY_USER_PASSWORD: admin123
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     depends_on:
       mongo:

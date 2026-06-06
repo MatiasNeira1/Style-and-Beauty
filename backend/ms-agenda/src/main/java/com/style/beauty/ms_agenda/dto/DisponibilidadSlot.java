@@ -4,6 +4,9 @@ import java.time.OffsetDateTime;
 
 public record DisponibilidadSlot(
         OffsetDateTime inicio,
-        OffsetDateTime fin,
-        OffsetDateTime finConHolgura) {
+        OffsetDateTime finVisible,
+        OffsetDateTime finAtencion,
+        Integer duracionServicioMin,
+        Integer holguraMin
+) {
 }
