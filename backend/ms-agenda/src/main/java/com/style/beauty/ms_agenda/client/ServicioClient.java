@@ -1,11 +1,13 @@
 package com.style.beauty.ms_agenda.client;
 
 import com.style.beauty.ms_agenda.exception.BusinessException;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -33,6 +35,35 @@ public class ServicioClient {
 
         } catch (RestClientException e) {
             throw new BusinessException("No se pudo obtener el servicio desde ms-catalogo");
+        }
+    }
+
+    public boolean staffRealizaServicio(UUID idServicio, UUID idStaff) {
+        try {
+            Boolean realizaServicio = restClient.get()
+                    .uri("/api/servicio/{idServicio}/staff/{idStaff}/validar", idServicio, idStaff)
+                    .retrieve()
+                    .body(Boolean.class);
+
+            return Boolean.TRUE.equals(realizaServicio);
+
+        } catch (RestClientException e) {
+            throw new BusinessException("No se pudo validar si el profesional realiza el servicio desde ms-catalogo");
+        }
+    }
+
+    public List<ServicioStaffResumen> obtenerStaffPorServicio(UUID idServicio) {
+        try {
+            List<ServicioStaffResumen> staff = restClient.get()
+                    .uri("/api/servicio/{idServicio}/staff", idServicio)
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<ServicioStaffResumen>>() {
+                    });
+
+            return staff == null ? List.of() : staff;
+
+        } catch (RestClientException e) {
+            throw new BusinessException("No se pudo obtener el staff asociado al servicio desde ms-catalogo");
         }
     }
 

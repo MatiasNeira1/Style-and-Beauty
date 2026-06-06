@@ -79,6 +79,7 @@ class CitaServiceTest {
         when(perfilClient.obtenerCliente(ID_CLIENTE)).thenReturn(perfil(ID_CLIENTE, "Cliente", "Demo", "cliente@example.com"));
         when(perfilClient.obtenerStaff(ID_STAFF)).thenReturn(perfil(ID_STAFF, "Staff", "Demo", "staff@example.com"));
         when(servicioClient.obtenerServicio(ID_SERVICIO)).thenReturn(new ServicioResumen(ID_SERVICIO, "Corte", "Cabello", 60, 30));
+        when(servicioClient.staffRealizaServicio(ID_SERVICIO, ID_STAFF)).thenReturn(true);
         when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(ID_STAFF, FECHA.getDayOfWeek().getValue()))
                 .thenReturn(List.of(jornada(LocalTime.of(8, 0), LocalTime.of(13, 0))));
         when(bloqueoAgendaRepository.buscarBloqueosEnRango(any(), any(), any())).thenReturn(List.of());
@@ -102,6 +103,17 @@ class CitaServiceTest {
                 .contains(at(8, 0), at(9, 0), at(11, 30), at(11, 45), at(12, 0));
         assertThat(slots).extracting(DisponibilidadSlot::finVisible)
                 .allMatch(fin -> !fin.isAfter(at(13, 0)));
+    }
+
+    @Test
+    void rechazaDisponibilidadSiStaffNoRealizaServicio() {
+        when(servicioClient.staffRealizaServicio(ID_SERVICIO, ID_STAFF)).thenReturn(false);
+
+        assertThatThrownBy(() -> citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("El profesional no realiza el servicio seleccionado");
+
+        verify(jornadaStaffRepository, never()).findByIdStaffAndDiaSemanaAndActivoTrue(any(), any());
     }
 
     @Test
@@ -152,6 +164,19 @@ class CitaServiceTest {
         assertThatThrownBy(() -> citaService.crear(request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("solapa");
+    }
+
+    @Test
+    void rechazaCrearCitaSiStaffNoRealizaServicio() {
+        when(servicioClient.staffRealizaServicio(ID_SERVICIO, ID_STAFF)).thenReturn(false);
+
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 0), null, null, null);
+
+        assertThatThrownBy(() -> citaService.crear(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("El profesional no realiza el servicio seleccionado");
+
+        verify(citaRepository, never()).saveAndFlush(any(Cita.class));
     }
 
     @Test
@@ -230,7 +255,7 @@ class CitaServiceTest {
     }
 
     private PerfilResumen perfil(UUID id, String nombre, String apellidos, String email) {
-        return new PerfilResumen(id, "auth-" + id, "1-9", nombre, apellidos, email);
+        return new PerfilResumen(id, "auth-" + id, "1-9", nombre, apellidos, email, true);
     }
 
     private JornadaStaff jornada(LocalTime inicio, LocalTime fin) {

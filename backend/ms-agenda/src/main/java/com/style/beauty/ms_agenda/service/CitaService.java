@@ -69,6 +69,7 @@ public class CitaService {
         perfilClient.obtenerStaff(request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
+        validarStaffRealizaServicio(request.idServicio(), request.idStaff());
 
         int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio);
@@ -150,6 +151,7 @@ public class CitaService {
         PerfilResumen staff = perfilClient.obtenerStaff(request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
+        validarStaffRealizaServicio(request.idServicio(), request.idStaff());
 
         int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio);
@@ -299,6 +301,12 @@ public class CitaService {
 
         if (holgura >= duracion) {
             throw new BusinessException("La holgura no puede ser igual o mayor a la duración del servicio");
+        }
+    }
+
+    private void validarStaffRealizaServicio(UUID idServicio, UUID idStaff) {
+        if (!servicioClient.staffRealizaServicio(idServicio, idStaff)) {
+            throw new BusinessException("El profesional no realiza el servicio seleccionado");
         }
     }
 
