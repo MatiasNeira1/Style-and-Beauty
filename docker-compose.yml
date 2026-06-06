@@ -1,3 +1,10 @@
+x-hikari-env: &hikari-env
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:-2}
+  SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:-0}
+  SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:-30000}
+  SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT: ${SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT:-30000}
+  SPRING_DATASOURCE_HIKARI_MAX_LIFETIME: ${SPRING_DATASOURCE_HIKARI_MAX_LIFETIME:-300000}
+
 services:
   postgres-master:
     image: postgres:16-alpine
@@ -46,6 +53,7 @@ services:
     environment:
       SERVER_PORT: 8080
       SERVER_FORWARD_HEADERS_STRATEGY: framework
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
       MS_AUTH_URI: http://ms-auth:8081
       MS_PERFILES_URI: http://ms-perfiles:8082
@@ -83,15 +91,17 @@ services:
       - style-beauty-net
 
   ms-auth:
+    build: ./backend/ms-auth
     image: watoncitoxx/style-and-beauty-auth:latest
     container_name: style-beauty-ms-auth
-    restart: unless-stopped
+    
     environment:
       SERVER_PORT: 8081
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
-    volumes:
-      - ./backend/ms-auth/src/main/resources/serviceAccountKey.json:/run/secrets/firebase-service-account.json:ro
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8081/ >/dev/null || exit 1"]
       interval: 20s
@@ -101,20 +111,23 @@ services:
       - style-beauty-net
 
   ms-perfiles:
+    build: ./backend/ms-perfiles
     image: watoncitoxx/style-and-beauty-perfiles:latest
     container_name: style-beauty-ms-perfiles
-    restart: unless-stopped
+   
     environment:
+      <<: *hikari-env
       SERVER_PORT: 8082
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
       SPRING_DATASOURCE_URL: ${MS_PERFILES_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
       SPRING_DATASOURCE_USERNAME: ${MS_PERFILES_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
       SPRING_DATASOURCE_PASSWORD: ${MS_PERFILES_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
-    volumes:
-      - ./backend/ms-perfiles/src/main/resources/serviceAccountKey.json:/run/secrets/firebase-service-account.json:ro
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -127,11 +140,16 @@ services:
       - style-beauty-net
 
   ms-catalogo:
+    build:
+      context: ./backend/ms-catalogo
     image: watoncitoxx/style-and-beauty-catalogo:latest
     container_name: style-beauty-ms-catalogo
-    restart: unless-stopped
+   
     environment:
+      <<: *hikari-env
       SERVER_PORT: 8083
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
+      MS_PERFILES_URL: http://ms-perfiles:8082
       SPRING_DATASOURCE_URL: ${MS_CATALOGO_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
       SPRING_DATASOURCE_USERNAME: ${MS_CATALOGO_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
       SPRING_DATASOURCE_PASSWORD: ${MS_CATALOGO_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
@@ -139,6 +157,8 @@ services:
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
+    ports:
+      - "127.0.0.1:${MS_CATALOGO_PORT:-8083}:8083"
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -150,12 +170,17 @@ services:
     networks:
       - style-beauty-net
 
+
   ms-agenda:
+    build:
+      context: ./backend/ms-agenda
     image: watoncitoxx/style-and-beauty-agenda:latest
     container_name: style-beauty-ms-agenda
-    restart: unless-stopped
+    
     environment:
+      <<: *hikari-env
       SERVER_PORT: 8084
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
       MS_PERFILES_URL: http://ms-perfiles:8082
       MS_CATALOGO_URL: http://ms-catalogo:8083
       APP_AGENDA_ZONE: ${APP_AGENDA_ZONE:-America/Santiago}
@@ -177,9 +202,9 @@ services:
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
+    ports:
+      - "127.0.0.1:${MS_AGENDA_PORT:-8084}:8084"
     depends_on:
-      ms-perfiles:
-        condition: service_healthy
       ms-catalogo:
         condition: service_healthy
     healthcheck:
@@ -194,9 +219,11 @@ services:
     build: ./backend/ms-inventario
     image: watoncitoxx/style-and-beauty-inventario:latest
     container_name: style-beauty-ms-inventario
-    restart: unless-stopped
+    
     environment:
+      <<: *hikari-env
       SERVER_PORT: 8085
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
       SPRING_DATASOURCE_URL: ${MS_INVENTARIO_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
       SPRING_DATASOURCE_USERNAME: ${MS_INVENTARIO_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
       SPRING_DATASOURCE_PASSWORD: ${MS_INVENTARIO_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
@@ -216,16 +243,19 @@ services:
       - style-beauty-net
 
   ms-pagos:
+    build: ./backend/ms-pagos
     image: watoncitoxx/style-and-beauty-pagos:latest
     container_name: style-beauty-ms-pagos
-    restart: unless-stopped
+    
     environment:
+      <<: *hikari-env
       SERVER_PORT: 8086
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
       SPRING_DATASOURCE_URL: ${MS_PAGOS_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
       SPRING_DATASOURCE_USERNAME: ${MS_PAGOS_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
       SPRING_DATASOURCE_PASSWORD: ${MS_PAGOS_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
-      SPRING_SECURITY_USER_NAME: admin
-      SPRING_SECURITY_USER_PASSWORD: admin123
+      SPRING_SECURITY_USER_NAME: ${SPRING_SECURITY_USER_NAME:-admin}
+      SPRING_SECURITY_USER_PASSWORD: ${SPRING_SECURITY_USER_PASSWORD:-admin123}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
@@ -243,7 +273,9 @@ services:
     container_name: style-beauty-ms-extra
     restart: unless-stopped
     environment:
+      <<: *hikari-env
       SERVER_PORT: 8087
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
       SPRING_DATASOURCE_URL: ${MS_EXTRA_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
       SPRING_DATASOURCE_USERNAME: ${MS_EXTRA_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
       SPRING_DATASOURCE_PASSWORD: ${MS_EXTRA_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
@@ -265,6 +297,7 @@ services:
     restart: unless-stopped
     environment:
       SERVER_PORT: 8088
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
       SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/${MONGO_DB:-style_beauty_audit}
       SPRING_SECURITY_USER_NAME: admin
       SPRING_SECURITY_USER_PASSWORD: admin123
@@ -284,7 +317,8 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost/api}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_API_URL: ${VITE_API_URL:-http://localhost}
         VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
         VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-}
         VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}

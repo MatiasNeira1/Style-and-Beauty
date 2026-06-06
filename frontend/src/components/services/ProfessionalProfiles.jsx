@@ -17,11 +17,23 @@ export function ProfessionalProfiles({ professionals = [], emptyText = 'Pronto a
               <h3>{fullName(member)}</h3>
               <span>{member.especialidad?.nombre || 'Especialista'}</span>
               <p>{member.descripcionPerfil || member.especialidad?.descripcion || 'Especialista certificado del equipo Style & Beauty.'}</p>
-              {member.cvUrl && (
-                <a className="text-link" href={member.cvUrl} target="_blank" rel="noreferrer">
-                  Ver CV
-                </a>
-              )}
+
+              <div style={{ marginTop: '0.8rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                {member.cvUrl && (
+                  <a className="text-link" href={member.cvUrl} target="_blank" rel="noreferrer">
+                    Ver CV
+                  </a>
+                )}
+                {onSelect && (
+                  <button
+                    onClick={() => onSelect(member)}
+                    className="button button-sm"
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    Ver horarios
+                  </button>
+                )}
+              </div>
             </div>
           </article>
         ))

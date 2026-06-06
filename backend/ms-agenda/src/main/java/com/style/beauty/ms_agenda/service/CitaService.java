@@ -69,6 +69,7 @@ public class CitaService {
         perfilClient.obtenerStaff(request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
+        validarStaffRealizaServicio(request.idServicio(), request.idStaff());
 
         int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio);
@@ -153,6 +154,7 @@ public class CitaService {
         PerfilResumen staff = perfilClient.obtenerStaff(request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
+        validarStaffRealizaServicio(request.idServicio(), request.idStaff());
 
         int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio);
@@ -274,6 +276,17 @@ public class CitaService {
         return cita;
     }
 
+    private Cita guardarSinSolape(Cita cita) {
+        try {
+            return citaRepository.saveAndFlush(cita);
+        } catch (DataIntegrityViolationException e) {
+            throw new DataIntegrityViolationException(
+                    "El horario seleccionado ya no esta disponible",
+                    e
+            );
+        }
+    }
+
     private int duracionServicio(ServicioResumen servicio) {
 
         if (servicio.duracionMinutos() == null || servicio.duracionMinutos() <= 0) {
@@ -291,6 +304,12 @@ public class CitaService {
 
         if (holgura >= duracion) {
             throw new BusinessException("La holgura no puede ser igual o mayor a la duración del servicio");
+        }
+    }
+
+    private void validarStaffRealizaServicio(UUID idServicio, UUID idStaff) {
+        if (!servicioClient.staffRealizaServicio(idServicio, idStaff)) {
+            throw new BusinessException("El profesional no realiza el servicio seleccionado");
         }
     }
 

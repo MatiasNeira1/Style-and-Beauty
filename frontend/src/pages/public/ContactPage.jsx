@@ -15,13 +15,13 @@ const facebookUrl = 'https://www.facebook.com/drhiaishna.martinez.1';
 const contactEmail = 'drhiaishna@styleandbeauty.com';
 
 const contactItems = [
-  { icon: Phone, label: 'Telefono', value: '+56 9 5861 2677', href: 'tel:+56958612677' },
+  { icon: Phone, label: 'Teléfono', value: '+56 9 5861 2677', href: 'tel:+56958612677' },
   { icon: MessageCircle, label: 'WhatsApp', value: '+56 9 5861 2677', href: whatsappUrl, external: true },
   { icon: Mail, label: 'Correo', value: contactEmail, href: `mailto:${contactEmail}` },
   { icon: Instagram, label: 'Instagram', value: '@dri.glow_', href: instagramUrl, external: true },
   { icon: ExternalLink, label: 'Facebook', value: 'Dra. Hiaishna Martinez', href: facebookUrl, external: true },
-  { icon: MapPin, label: 'Direccion', value: 'Av. Providencia 1234, Santiago' },
-  { icon: Clock, label: 'Horario', value: 'Lun a Sab, 09:00 a 19:30' },
+  { icon: MapPin, label: 'Dirección', value: 'Av. Providencia 1234, Santiago' },
+  { icon: Clock, label: 'Horario', value: 'Lun a Sáb, 09:00 a 19:30' },
 ];
 
 export function ContactPage() {
@@ -67,13 +67,13 @@ export function ContactPage() {
         <div className="page-hero-content">
           <span className="card-kicker">Contacto</span>
           <h1>Estamos cerca para cuidar cada detalle</h1>
-          <p>Escribenos para dudas, cambios de agenda, tratamientos especiales o acompanamiento antes de reservar.</p>
+          <p>Escríbenos para dudas, cambios de agenda, tratamientos especiales o acompañamiento antes de reservar.</p>
         </div>
       </section>
 
       <section className="page-section contact-page client-view">
-        <SectionTitle eyebrow="Hablanos" title="Conversemos sobre tu proxima visita">
-          Dejanos tus datos y el equipo coordinara la mejor alternativa para ti.
+        <SectionTitle eyebrow="Háblanos" title="Conversemos sobre tu próxima visita">
+          Déjanos tus datos y el equipo coordinará la mejor alternativa para ti.
         </SectionTitle>
 
         <div className="contact-layout">

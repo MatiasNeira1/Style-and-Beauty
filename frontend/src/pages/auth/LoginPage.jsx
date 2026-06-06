@@ -75,6 +75,7 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const redirectTo = location.state?.from?.pathname || '/perfil';
+  const redirectState = location.state?.from?.state;
 
   const handleChange = (event) => {
     const { name, value } = event.target;

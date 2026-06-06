@@ -179,6 +179,15 @@ export function AdminLayout() {
               <Plus size={17} />
               Nueva reserva
             </NavLink>
+            <button
+              type="button"
+              className="admin-icon-button admin-logout-topbar"
+              onClick={handleLogout}
+              aria-label="Cerrar sesion"
+              title="Cerrar sesion"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
 
