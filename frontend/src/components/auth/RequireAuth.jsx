@@ -1,10 +1,30 @@
 import { Navigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Loader } from '../ui/Loader.jsx';
 import { useAuth } from '../../store/AuthContext.jsx';
+import { profileService } from '../../services/profileService.js';
+
+function AccessDenied() {
+  return (
+    <section className="page-section">
+      <div className="auth-guard-card" role="alert">
+        <strong>Acceso denegado</strong>
+        <p>No tienes permisos para ingresar a esta sección.</p>
+      </div>
+    </section>
+  );
+}
 
 export function RequireAuth({ children, roles }) {
   const location = useLocation();
   const { user, isAuthenticated, isAuthReady } = useAuth();
+  const sessionQuery = useQuery({
+    queryKey: ['auth-session', user?.uid],
+    queryFn: profileService.getMyProfile,
+    enabled: isAuthReady && isAuthenticated,
+    retry: false,
+    staleTime: 1000 * 60,
+  });
 
   if (!isAuthReady) {
     return (
@@ -16,6 +36,14 @@ export function RequireAuth({ children, roles }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (sessionQuery.error?.status === 401) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (sessionQuery.error?.status === 403) {
+    return <AccessDenied />;
   }
 
   if (roles?.length && !roles.includes(user?.rol)) {
