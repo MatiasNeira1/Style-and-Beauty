@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { CheckCircle2, ShoppingBag, Sparkles } from 'lucide-react';
 import { Button } from '../ui/Button.jsx';
+import { SafeImage } from '../ui/SafeImage.jsx';
 
 const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' });
 
@@ -64,7 +65,7 @@ export function ProductEditorialShowcase({ products = [], onAdd }) {
               whileHover={{ scale: 1.015 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
             >
-              {image && <img src={image} alt={name} loading="lazy" />}
+              <SafeImage src={image} alt={name} />
             </motion.div>
 
             <div className="product-editorial-copy">

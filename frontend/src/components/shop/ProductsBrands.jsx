@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { SafeImage } from '../ui/SafeImage.jsx';
 
 function slugify(value) {
   return String(value || 'sin-categoria')
@@ -26,7 +27,7 @@ export function ProductsBrands({ brands = [], products = [], onSelect }) {
             whileHover={{ y: -6 }}
             transition={{ duration: 0.2 }}
           >
-            <img src={brand.logo} alt={brand.nombre} loading="lazy" />
+            <SafeImage src={brand.logo} alt={brand.nombre} />
             <span className="card-kicker">{count} productos</span>
             <h3>{brand.nombre}</h3>
             <p>{brand.descripcion}</p>

@@ -4,6 +4,7 @@ import com.style.beauty.ms_catalogo.entity.Servicio;
 import com.style.beauty.ms_catalogo.repository.CategoriaRepository;
 import com.style.beauty.ms_catalogo.repository.ServicioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -126,5 +127,67 @@ public class ServicioService {
         if (servicio.getMonto_fianza() == null || servicio.getMonto_fianza() < 0) {
             throw new RuntimeException("El monto de fianza debe ser válido");
         }
+    }
+
+    @Autowired
+    private com.style.beauty.ms_catalogo.repository.ServicioStaffRepository servicioStaffRepository;
+
+    @Value("${app.ms-perfiles.base-url:http://ms-perfiles:8082}")
+    private String perfilesBaseUrl;
+
+    public List<Object> obtenerProfesionalesPorServicio(UUID idServicio) {
+        List<UUID> idStaffs = servicioStaffRepository.findByIdServicioAndActivoTrue(idServicio).stream()
+                .map(com.style.beauty.ms_catalogo.entity.ServicioStaff::getIdStaff)
+                .toList();
+
+        if (idStaffs.isEmpty()) {
+            return List.of();
+        }
+
+        try {
+            org.springframework.web.client.RestClient restClient = org.springframework.web.client.RestClient.create(perfilesBaseUrl);
+            List<?> allStaff = restClient.get()
+                    .uri("/api/perfiles/staff")
+                    .retrieve()
+                    .body(List.class);
+
+            if (allStaff == null) {
+                return List.of();
+            }
+
+            return allStaff.stream()
+                    .filter(member -> {
+                        if (member instanceof java.util.Map) {
+                            java.util.Map<?, ?> map = (java.util.Map<?, ?>) member;
+                            Object idVal = map.get("idPersona");
+                            if (idVal == null) idVal = map.get("idStaff");
+                            if (idVal == null) idVal = map.get("id");
+                            if (idVal != null) {
+                                try {
+                                    UUID uuid = UUID.fromString(idVal.toString());
+                                    return idStaffs.contains(uuid);
+                                } catch (Exception e) {
+                                    return false;
+                                }
+                            }
+                        }
+                        return false;
+                    })
+                    .map(member -> (Object) member)
+                    .toList();
+        } catch (Exception e) {
+            System.err.println("Error calling ms-perfiles: " + e.getMessage());
+            return List.of();
+        }
+    }
+
+    public List<Object> obtenerProfesionalesPorNombreServicio(String nombre) {
+        Optional<Servicio> servicioOpt = repository.findAll().stream()
+                .filter(s -> s.getNombre().equalsIgnoreCase(nombre.trim()))
+                .findFirst();
+        if (servicioOpt.isPresent()) {
+            return obtenerProfesionalesPorServicio(servicioOpt.get().getId_servicio());
+        }
+        return List.of();
     }
 }

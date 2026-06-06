@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { useCart } from '../../store/CartContext.jsx';
 import { Button } from '../ui/Button.jsx';
+import { SafeImage } from '../ui/SafeImage.jsx';
 
 export function CartDrawer() {
   const { items, total, isCartOpen, setIsCartOpen, removeItem, updateQuantity } = useCart();
@@ -19,13 +20,11 @@ export function CartDrawer() {
         {items.map((item) => (
           <div key={item.id} className="cart-line-enhanced">
             <div className="cart-line-item-wrapper">
-              {(item.imagenUrl || item.imagen || item.image) && (
-                <img
-                  src={item.imagenUrl || item.imagen || item.image}
-                  alt={item.name || item.nombre}
-                  className="cart-item-image"
-                />
-              )}
+              <SafeImage
+                src={item.imagenUrl || item.imagen || item.image}
+                alt={item.name || item.nombre}
+                className="cart-item-image"
+              />
               <div className="cart-line-details">
                 <div className="cart-line-info">
                   <span className="cart-item-name">{item.name || item.nombre}</span>

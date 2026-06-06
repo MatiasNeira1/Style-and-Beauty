@@ -1,34 +1,37 @@
 package com.style.beauty.ms_agenda.service;
 
 import com.style.beauty.ms_agenda.client.ServicioResumen;
+import com.style.beauty.ms_agenda.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class HolguraServiceTest {
 
     private final HolguraService holguraService = new HolguraService();
 
     @Test
-    void aplicaHolguraPorTipoDeServicio() {
-        assertThat(holgura("Manicure permanente", "Manicure")).isEqualTo(15);
-        assertThat(holgura("Uñas acrilicas", "Nails")).isEqualTo(15);
-        assertThat(holgura("Mechas balayage", "Cabello")).isEqualTo(30);
-        assertThat(holgura("Botox capilar", "Cabello")).isEqualTo(30);
-        assertThat(holgura("Alisado organico", "Peluqueria")).isEqualTo(30);
-        assertThat(holgura("Tintura global", "Cabello")).isEqualTo(30);
-        assertThat(holgura("Corte de pelo", "Cabello")).isEqualTo(30);
-        assertThat(holgura("Limpieza facial profunda", "Cuidados de la piel")).isEqualTo(20);
-        assertThat(holgura("Masaje descontracturante", "Spa")).isEqualTo(30);
-        assertThat(holgura("Ritual relajacion", "Spa")).isEqualTo(30);
-        assertThat(holgura("Maquillaje social", "Maquillaje")).isEqualTo(15);
-        assertThat(holgura("Maquillaje de novia", "Maquillaje")).isEqualTo(15);
-        assertThat(holgura("Servicio personalizado", "Otra categoria")).isEqualTo(15);
+    void usaHolguraConfiguradaEnCatalogo() {
+        assertThat(holgura("Manicure permanente", "Manicure", 15)).isEqualTo(15);
+        assertThat(holgura("Mechas balayage", "Cabello", 30)).isEqualTo(30);
+        assertThat(holgura("Limpieza facial profunda", "Cuidados de la piel", 20)).isEqualTo(20);
     }
 
-    private int holgura(String nombre, String categoria) {
-        return holguraService.calcularHolguraMin(new ServicioResumen(UUID.randomUUID(), nombre, categoria, 60, null));
+    @Test
+    void rechazaServicioSinHolguraConfigurada() {
+        ServicioResumen servicio = new ServicioResumen(UUID.randomUUID(), "Servicio", "Categoria", 60, null);
+
+        assertThatThrownBy(() -> holguraService.calcularHolguraMin(servicio))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("holgura");
+    }
+
+    private int holgura(String nombre, String categoria, Integer holguraMinutos) {
+        return holguraService.calcularHolguraMin(
+                new ServicioResumen(UUID.randomUUID(), nombre, categoria, 60, holguraMinutos)
+        );
     }
 }

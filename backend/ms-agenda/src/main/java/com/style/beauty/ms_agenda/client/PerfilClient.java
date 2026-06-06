@@ -23,11 +23,15 @@ public class PerfilClient {
         return obtenerPerfil("/api/internal/perfiles/clientes/{idCliente}", idCliente, "Cliente no encontrado en ms-perfiles");
     }
 
+    public PerfilResumen obtenerClientePorAuthId(String idAuth) {
+        return obtenerPerfil("/api/internal/perfiles/clientes/auth/{idAuth}", idAuth, "Cliente autenticado no encontrado en ms-perfiles");
+    }
+
     public PerfilResumen obtenerStaff(UUID idStaff) {
         return obtenerPerfil("/api/internal/perfiles/staff/{idStaff}", idStaff, "Staff no encontrado en ms-perfiles");
     }
 
-    private PerfilResumen obtenerPerfil(String path, UUID id, String mensajeError) {
+    private PerfilResumen obtenerPerfil(String path, Object id, String mensajeError) {
         try {
             PerfilResumen perfil = restClient.get()
                     .uri(path, id)

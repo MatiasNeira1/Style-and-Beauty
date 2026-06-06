@@ -24,7 +24,7 @@ function categoryCard(category, count) {
     id: slugify(name),
     nombre: name,
     descripcion: `${count} productos disponibles en inventario.`,
-    logo: `https://placehold.co/420x420/f5e8dc/3f342e?text=${encodeURIComponent(name)}`,
+    logo: '/logo.jpg',
   };
 }
 
@@ -88,15 +88,29 @@ export function ProductsPage() {
               Productos profesionales cargados desde inventario.
             </SectionTitle>
             {productsQuery.isLoading ? (
-              <p className="admin-alert">Cargando productos...</p>
+              <div className="client-empty-state" style={{ padding: '3rem 1rem' }}>
+                <p style={{ color: 'var(--color-muted)' }}>Cargando catálogo...</p>
+              </div>
             ) : productsQuery.isError ? (
-              <p className="admin-alert">{productsQuery.error.message}</p>
+              <div className="client-empty-state" style={{ padding: '4rem 1rem', background: 'var(--color-surface-glass)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-line)' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '4rem', height: '4rem', borderRadius: '50%', background: 'rgba(212, 122, 158, 0.1)', color: 'var(--color-primary-strong)', marginBottom: '1rem' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <h3>Catálogo no disponible</h3>
+                <p style={{ color: 'var(--color-muted)', marginTop: '0.5rem', maxWidth: '400px', marginInline: 'auto' }}>No pudimos cargar los productos en este momento. Por favor, intenta de nuevo más tarde.</p>
+              </div>
             ) : productBrands.length ? (
               <Reveal>
                 <ProductsBrands brands={productBrands} products={products} onSelect={setSelectedBrand} />
               </Reveal>
             ) : (
-              <p className="admin-alert">No hay productos disponibles en inventario.</p>
+              <div className="client-empty-state" style={{ padding: '4rem 1rem', background: 'var(--color-surface-glass)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-line)' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '4rem', height: '4rem', borderRadius: '50%', background: 'rgba(212, 122, 158, 0.1)', color: 'var(--color-primary-strong)', marginBottom: '1rem' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                </div>
+                <h3>Sin productos</h3>
+                <p style={{ color: 'var(--color-muted)', marginTop: '0.5rem', maxWidth: '400px', marginInline: 'auto' }}>Actualmente no hay productos disponibles en el inventario.</p>
+              </div>
             )}
           </>
         ) : (

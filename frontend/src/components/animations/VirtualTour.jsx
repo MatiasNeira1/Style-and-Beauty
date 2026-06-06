@@ -1,9 +1,9 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
 
 const tourImages = [
-  'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=2200&q=80', // Reception
-  'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=2200&q=80', // Salon
-  'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=2200&q=80'  // Spa
+  '/hero-salon.png',
+  '/jefes.png',
+  '/logo.jpg',
 ];
 
 export function VirtualTour() {

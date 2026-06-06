@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarCheck, CreditCard, Package, Scissors, TrendingUp, Users } from 'lucide-react';
-import { adminDashboardMock } from '../../mocks/adminDashboardMock.js';
 import { adminDashboardService } from '../../services/adminDashboardService.js';
 import { formatCurrencyCLP, fullName } from '../../utils/adminFormatters.js';
+
+const MOCKS_ENABLED = import.meta.env.DEV && String(import.meta.env.VITE_USE_MOCKS || '').toLowerCase() === 'true';
 
 function isToday(value) {
   if (!value) return false;
@@ -39,13 +40,61 @@ function getStaffId(staff) {
   return staff.idPersona || staff.idStaff || staff.id;
 }
 
+function buildRevenueSeries(payments) {
+  const paidPayments = payments.filter(paidStatus);
+  const totalsByDay = paidPayments.reduce((acc, payment) => {
+    const dateValue = payment.fechaCreacion || payment.fechaPago || payment.createdAt;
+    if (!dateValue) return acc;
+    const day = new Date(dateValue).toLocaleDateString('es-CL', { day: '2-digit', month: 'short' });
+    acc[day] = (acc[day] || 0) + getAmount(payment);
+    return acc;
+  }, {});
+
+  return Object.entries(totalsByDay).map(([label, ingresos]) => ({ label, ingresos, anterior: 0 }));
+}
+
+function buildWeeklyOccupancy(bookings) {
+  if (!bookings.length) return [];
+
+  const days = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+  const slots = [9, 11, 14, 16, 18];
+  const counts = bookings.reduce((acc, booking) => {
+    if (!booking.fechaHoraInicio) return acc;
+    const date = new Date(booking.fechaHoraInicio);
+    const day = date.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '').toLowerCase();
+    const hour = date.getHours();
+    const slot = slots.reduce((closest, current) => (
+      Math.abs(current - hour) < Math.abs(closest - hour) ? current : closest
+    ), slots[0]);
+    const key = `${day}-${slot}`;
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+
+  return days.map((day) => ({
+    day,
+    values: slots.map((slot) => Math.min((counts[`${day}-${slot}`] || 0) * 20, 100)),
+  }));
+}
+
 export function useAdminDashboardMetrics() {
   const query = useQuery({
     queryKey: ['admin-dashboard-snapshot'],
     queryFn: adminDashboardService.getSnapshot,
   });
+  const mockQuery = useQuery({
+    queryKey: ['admin-dashboard-mock'],
+    queryFn: async () => {
+      if (!MOCKS_ENABLED) return null;
+      const module = await import('../../mocks/adminDashboardMock.js');
+      return module.adminDashboardMock;
+    },
+    enabled: MOCKS_ENABLED,
+    staleTime: Infinity,
+  });
 
   const metrics = useMemo(() => {
+    const dashboardMock = mockQuery.data;
     const snapshot = query.data || {};
     const bookings = snapshot.bookings || [];
     const services = snapshot.services || [];
@@ -110,8 +159,8 @@ export function useAdminDashboardMetrics() {
         { icon: Scissors, title: 'Servicios vendidos', value: bookings.length, trend: 9, microcopy: `${services.length} servicios administrables`, tone: 'rose' },
         { icon: Package, title: 'Bajo stock', value: lowStock.length, trend: lowStock.length ? -8 : 0, microcopy: `${products.length} productos en catalogo`, tone: 'gold' },
       ],
-      revenueSeries: adminDashboardMock.revenueSeries,
-      weeklyOccupancy: adminDashboardMock.weeklyOccupancy,
+      revenueSeries: MOCKS_ENABLED && dashboardMock ? dashboardMock.revenueSeries : buildRevenueSeries(payments),
+      weeklyOccupancy: MOCKS_ENABLED && dashboardMock ? dashboardMock.weeklyOccupancy : buildWeeklyOccupancy(bookings),
       serviceDistribution: Object.entries(serviceDistribution).map(([name, value]) => ({ name, value })).slice(0, 6),
       staffPerformance: staffPerformance.slice(0, 5),
       professionalsToday: staffPerformance.slice(0, 6),
@@ -133,7 +182,7 @@ export function useAdminDashboardMetrics() {
       ],
       raw: { bookings, services, payments, products, stock, clients, staff },
     };
-  }, [query.data]);
+  }, [mockQuery.data, query.data]);
 
   return { ...query, metrics };
 }

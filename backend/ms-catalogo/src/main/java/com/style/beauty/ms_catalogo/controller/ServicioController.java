@@ -60,4 +60,16 @@ public class ServicioController {
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    // GET /api/servicio/{id}/profesionales
+    @GetMapping("/{id}/profesionales")
+    public List<Object> obtenerProfesionales(@PathVariable UUID id) {
+        return service.obtenerProfesionalesPorServicio(id);
+    }
+
+    // GET /api/servicio/nombre/{nombre}/profesionales
+    @GetMapping("/nombre/{nombre}/profesionales")
+    public List<Object> obtenerProfesionalesPorNombre(@PathVariable String nombre) {
+        return service.obtenerProfesionalesPorNombreServicio(nombre);
+    }
 }
