@@ -64,6 +64,25 @@ function redirectToLoginAfterAuthFailure() {
   return window.localStorage.getItem(TOKEN_KEY);
 }
 
+export function clearStoredSession() {
+  if (typeof window === 'undefined') return;
+
+  [window.localStorage, window.sessionStorage].forEach((storage) => {
+    AUTH_STORAGE_KEYS.forEach((key) => storage.removeItem(key));
+  });
+}
+
+function redirectToLoginAfterAuthFailure() {
+  if (typeof window === 'undefined') return;
+
+  const currentPath = window.location.pathname;
+  if (currentPath === '/login' || currentPath === '/registro') return;
+
+  window.setTimeout(() => {
+    window.location.replace('/login');
+  }, 0);
+}
+
 export function resolveAssetUrl(src, fallback = '') {
   const value = String(src || '').trim();
   if (!value) return fallback;
@@ -109,6 +128,7 @@ apiClient.interceptors.response.use(
       redirectToLoginAfterAuthFailure();
       window.localStorage.removeItem(TOKEN_KEY);
       window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+      redirectToLoginAfterAuthFailure();
     }
 
     const responseData = error.response?.data;

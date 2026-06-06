@@ -227,6 +227,7 @@ export function BookingPage() {
                     setStep(2);
                   }
                   setConfirmError('');
+                  setStep(2);
                 }}
               />
             )
