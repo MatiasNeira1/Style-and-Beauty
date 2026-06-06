@@ -186,11 +186,73 @@
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 18px;
+  display: grid;
   gap: 0.75rem;
   min-width: 0;
   padding: 0.78rem;
 }
 
+.admin-user-card {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  color: white;
+  display: flex;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.35rem;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.admin-user-card:hover,
+.admin-user-card.active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.admin-user-card > svg {
+  color: rgba(255, 255, 255, 0.54);
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.admin-user-copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.admin-user-copy strong,
+.admin-user-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-logout-button {
+  align-items: center;
+  background: rgba(190, 18, 60, 0.12);
+  border: 1px solid rgba(251, 113, 133, 0.18);
+  border-radius: 14px;
+  color: #fecdd3;
+  display: inline-flex;
+  font-size: 0.86rem;
+  font-weight: 900;
+  gap: 0.5rem;
+  justify-content: center;
+  min-height: 2.45rem;
+  padding: 0 0.75rem;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+  width: 100%;
+}
+
+.admin-logout-button:hover {
+  background: rgba(190, 18, 60, 0.2);
+  border-color: rgba(251, 113, 133, 0.28);
+  color: white;
+  transform: translateY(-1px);
+}
 /* ── Logout button (sidebar footer) ── */
 .admin-logout-btn {
   align-items: center;
@@ -1282,6 +1344,189 @@
   height: 4.5rem;
 }
 
+.admin-profile-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-profile-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
+}
+
+.admin-profile-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76)),
+    rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 24px;
+  box-shadow: 0 18px 42px rgba(84, 50, 62, 0.08);
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: clamp(1rem, 2vw, 1.35rem);
+}
+
+.admin-profile-summary {
+  align-content: start;
+}
+
+.admin-profile-avatar-large {
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(191, 91, 132, 0.16), rgba(226, 180, 126, 0.16)),
+    white;
+  border: 1px solid rgba(191, 91, 132, 0.16);
+  border-radius: 22px;
+  color: var(--color-primary-strong);
+  display: grid;
+  font-size: 1.4rem;
+  font-weight: 950;
+  height: 5rem;
+  place-items: center;
+  width: 5rem;
+}
+
+.admin-profile-summary h3 {
+  color: var(--color-ink);
+  font-size: clamp(1.2rem, 2vw, 1.6rem);
+  line-height: 1.05;
+  margin: 0 0 0.35rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-profile-summary p {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-profile-role {
+  align-items: center;
+  background: rgba(115, 139, 112, 0.12);
+  border: 1px solid rgba(115, 139, 112, 0.18);
+  border-radius: 999px;
+  color: #3f6212;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 950;
+  gap: 0.4rem;
+  justify-self: start;
+  padding: 0.45rem 0.65rem;
+  text-transform: uppercase;
+}
+
+.admin-profile-card-header {
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(25, 20, 23, 0.08);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding-bottom: 1rem;
+}
+
+.admin-profile-card-header span {
+  color: var(--color-primary-strong);
+  font-size: 0.73rem;
+  font-weight: 950;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.admin-profile-card-header h3 {
+  color: var(--color-ink);
+  font-size: 1.18rem;
+  margin: 0.1rem 0 0.25rem;
+}
+
+.admin-profile-card-header p {
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.admin-profile-card-header svg {
+  color: var(--color-primary);
+  flex: 0 0 auto;
+}
+
+.admin-profile-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-profile-field-grid,
+.admin-readonly-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-readonly-grid.compact {
+  grid-template-columns: 1fr;
+}
+
+.admin-readonly-item {
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(25, 20, 23, 0.06);
+  border-radius: 16px;
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.85rem;
+}
+
+.admin-readonly-item span {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-readonly-item strong {
+  color: var(--color-ink);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-profile-actions {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.admin-profile-actions > span {
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.admin-profile-logout {
+  color: #9f1239;
+}
+
+.admin-profile-logout-button {
+  color: #9f1239;
+  justify-self: stretch;
+}
+
+.admin-success-alert {
+  align-items: center;
+  background: rgba(4, 120, 87, 0.08);
+  border: 1px solid rgba(4, 120, 87, 0.16);
+  border-radius: 16px;
+  color: #047857;
+  display: flex;
+  font-weight: 900;
+  gap: 0.55rem;
+  padding: 0.9rem 1rem;
+}
+
 .admin-scrim {
   display: none;
 }
@@ -1373,7 +1618,8 @@
   .admin-dashboard-grid.main,
   .admin-dashboard-grid.secondary,
   .admin-dashboard-grid.operations,
-  .admin-agenda-workspace {
+  .admin-agenda-workspace,
+  .admin-profile-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1417,6 +1663,22 @@
   .admin-segmented {
     justify-content: flex-start;
     overflow-x: auto;
+  }
+
+  .admin-profile-field-grid,
+  .admin-readonly-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-profile-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-profile-actions .button,
+  .admin-profile-logout {
+    justify-content: center;
+    width: 100%;
   }
 
   .admin-kpi-grid {

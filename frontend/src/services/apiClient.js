@@ -2,6 +2,7 @@ import axios from 'axios';
 
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
 
+export const API_BASE_URL = rawApiBaseUrl.replace(/\/$/, '');
 export const API_BASE_URL = rawApiBaseUrl.replace(/\/$/, '').replace(/\/api$/i, '');
 export const AUTH_API_BASE_URL = API_BASE_URL;
 export const PROFILES_API_BASE_URL = API_BASE_URL;
@@ -10,10 +11,22 @@ export const CATALOG_API_BASE_URL = API_BASE_URL;
 export const AGENDA_API_BASE_URL = API_BASE_URL;
 export const INVENTORY_API_BASE_URL = API_BASE_URL;
 export const TOKEN_KEY = 'style_beauty_token';
+export const SESSION_USER_KEY = 'style_beauty_user';
 export const AUTH_EXPIRED_EVENT = 'style-beauty:auth-expired';
 export const ASSETS_BASE_URL = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
 export const USE_MOCKS = import.meta.env.DEV && String(import.meta.env.VITE_USE_MOCKS || '').toLowerCase() === 'true';
 export const DEFAULT_IMAGE_FALLBACK = '/logo.jpg';
+
+const AUTH_STORAGE_KEYS = [
+  TOKEN_KEY,
+  SESSION_USER_KEY,
+  'style_beauty_access_token',
+  'style_beauty_refresh_token',
+  'accessToken',
+  'refreshToken',
+  'authToken',
+  'token',
+];
 
 export class AuthRequiredError extends Error {
   constructor(message = 'Debes iniciar sesión para continuar.') {
@@ -25,6 +38,29 @@ export class AuthRequiredError extends Error {
 }
 
 export function getAuthToken() {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(TOKEN_KEY);
+}
+
+export function clearStoredSession() {
+  if (typeof window === 'undefined') return;
+
+  [window.localStorage, window.sessionStorage].forEach((storage) => {
+    AUTH_STORAGE_KEYS.forEach((key) => storage.removeItem(key));
+  });
+}
+
+function redirectToLoginAfterAuthFailure() {
+  if (typeof window === 'undefined') return;
+
+  const currentPath = window.location.pathname;
+  if (currentPath === '/login' || currentPath === '/registro') return;
+
+  window.setTimeout(() => {
+    window.location.replace('/login');
+  }, 0);
+}
+
   return window.localStorage.getItem(TOKEN_KEY);
 }
 
@@ -68,6 +104,9 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response.status === 401) {
+      clearStoredSession();
+      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+      redirectToLoginAfterAuthFailure();
       window.localStorage.removeItem(TOKEN_KEY);
       window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
     }

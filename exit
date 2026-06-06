@@ -1,0 +1,12 @@
+  Nueva-arquitectura                      [m ebb52bb [[34morigin/Nueva-arquitectura[m: gone] Reorganize backend and add frontend scaffold
+  develop                                 [m ad45478 [[34morigin/develop[m] Merge pull request #34 from MatiasNeira1/feature/carrito-mejoras
+  feature/agenda-frontend-sync            [m 6a11c62 [[34morigin/feature/agenda-frontend-sync[m] test: document java unit test run
+* [32mfeature/auth-api-images-admin-fix       [m eb38964 [[34mwatoncitox/feature/auth-api-images-admin-fix[m: ahead 1] add: cerrar sesion
+  feature/devops/style-beauty-ui-dashboard[m fae159d [[34morigin/feature/devops/style-beauty-ui-dashboard[m] add: Modal profecionales
+  feature/java21-validaciones-tests       [m b6b0ad0 [[34morigin/feature/java21-validaciones-tests[m] Elimina artefactos target del indice
+  feature/ms-agenda                       [m 5ae6512 [[34morigin/feature/ms-agenda[m: gone] feat(ms-agenda): implementar microservicio de agenda
+  feature/ms-extra                        [m c7109a4 [[34morigin/feature/ms-extra[m] feat(ms-extra): implementar citas extraordinarias
+  feature/ms-inventario                   [m 60a5eb2 [[34morigin/feature/ms-inventario[m: gone] feat(ms-inventario): implementar gestion de inventario
+  feature/ms-pagos                        [m ae1df24 [[34morigin/feature/ms-pagos[m: gone] Merge pull request #16 from MatiasNeira1/develop
+  frontend-bosquejo-premium               [m bbdba9e [[34morigin/frontend-bosquejo-premium[m: gone] Merge pull request #24 from MatiasNeira1/frontend-bosquejo-premium
+  master                                  [m 6458616 [[34morigin/master[m: behind 5] Mejora panel administrador
