@@ -207,21 +207,11 @@ export function BookingPage() {
                 selectedId={serviceId(service)}
                 onSelect={(value) => {
                   setService(value);
-                  const specName = member?.especialidad?.nombre || member?.especialidad || '';
-                  const isCompatible = member && isStaffCompatible(specName, value.categoria);
-                  if (isCompatible) {
-                    if (!initialHour) {
-                      setDate('');
-                      setTime('');
-                    }
-                    setStep(3);
-                  } else {
-                    setMember(null);
-                    setDate('');
-                    setTime('');
-                    setStep(2);
-                  }
+                  setMember(null);
+                  setDate('');
+                  setTime('');
                   setConfirmError('');
+                  setStep(2);
                 }}
               />
             )

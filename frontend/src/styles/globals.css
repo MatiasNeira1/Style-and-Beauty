@@ -614,6 +614,32 @@ img { max-width: 100%; display: block; }
   width: 100%;
 }
 
+.auth-guard-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.78)),
+    rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(190, 18, 60, 0.14);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  color: #9f1239;
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  margin-inline: auto;
+  max-width: 28rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.auth-guard-card strong {
+  color: #881337;
+  font-size: 1.2rem;
+}
+
+.auth-guard-card p {
+  margin: 0;
+}
+
 .stack {
   display: grid;
   gap: 1.2rem;
