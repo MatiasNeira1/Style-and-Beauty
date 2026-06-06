@@ -4,6 +4,7 @@ import com.style.beauty.ms_catalogo.entity.Servicio;
 import com.style.beauty.ms_catalogo.repository.CategoriaRepository;
 import com.style.beauty.ms_catalogo.repository.ServicioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -131,8 +132,11 @@ public class ServicioService {
     @Autowired
     private com.style.beauty.ms_catalogo.repository.ServicioStaffRepository servicioStaffRepository;
 
+    @Value("${app.ms-perfiles.base-url:http://ms-perfiles:8082}")
+    private String perfilesBaseUrl;
+
     public List<Object> obtenerProfesionalesPorServicio(UUID idServicio) {
-        List<UUID> idStaffs = servicioStaffRepository.findByIdServicio(idServicio).stream()
+        List<UUID> idStaffs = servicioStaffRepository.findByIdServicioAndActivoTrue(idServicio).stream()
                 .map(com.style.beauty.ms_catalogo.entity.ServicioStaff::getIdStaff)
                 .toList();
 
@@ -141,9 +145,9 @@ public class ServicioService {
         }
 
         try {
-            org.springframework.web.client.RestClient restClient = org.springframework.web.client.RestClient.create();
+            org.springframework.web.client.RestClient restClient = org.springframework.web.client.RestClient.create(perfilesBaseUrl);
             List<?> allStaff = restClient.get()
-                    .uri("http://ms-perfiles:8082/api/perfiles/staff")
+                    .uri("/api/perfiles/staff")
                     .retrieve()
                     .body(List.class);
 

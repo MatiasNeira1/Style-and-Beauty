@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
 
-export const API_BASE_URL = rawApiBaseUrl.replace(/\/$/, '');
+export const API_BASE_URL = rawApiBaseUrl.replace(/\/$/, '').replace(/\/api$/i, '');
 export const AUTH_API_BASE_URL = API_BASE_URL;
 export const PROFILES_API_BASE_URL = API_BASE_URL;
 export const STAFF_API_BASE_URL = API_BASE_URL;
