@@ -91,6 +91,7 @@ export function ContactPage() {
                   <Input id="contact-name" name="name" label="Nombre" required />
                   <Input id="contact-email" name="email" label="Email" type="email" required />
                   <Input id="contact-phone" name="phone" label="Telefono" />
+                  <Input id="contact-phone" name="phone" label="Teléfono" />
                   <Input id="contact-subject" name="subject" label="Motivo" />
                 </div>
                 <Input id="contact-message" name="message" as="textarea" label="Mensaje" rows={6} required />

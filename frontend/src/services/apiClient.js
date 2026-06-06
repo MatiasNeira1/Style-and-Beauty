@@ -3,6 +3,7 @@ import axios from 'axios';
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
 
 export const API_BASE_URL = rawApiBaseUrl.replace(/\/$/, '');
+export const API_BASE_URL = rawApiBaseUrl.replace(/\/$/, '').replace(/\/api$/i, '');
 export const AUTH_API_BASE_URL = API_BASE_URL;
 export const PROFILES_API_BASE_URL = API_BASE_URL;
 export const STAFF_API_BASE_URL = API_BASE_URL;
@@ -38,6 +39,28 @@ export class AuthRequiredError extends Error {
 
 export function getAuthToken() {
   if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(TOKEN_KEY);
+}
+
+export function clearStoredSession() {
+  if (typeof window === 'undefined') return;
+
+  [window.localStorage, window.sessionStorage].forEach((storage) => {
+    AUTH_STORAGE_KEYS.forEach((key) => storage.removeItem(key));
+  });
+}
+
+function redirectToLoginAfterAuthFailure() {
+  if (typeof window === 'undefined') return;
+
+  const currentPath = window.location.pathname;
+  if (currentPath === '/login' || currentPath === '/registro') return;
+
+  window.setTimeout(() => {
+    window.location.replace('/login');
+  }, 0);
+}
+
   return window.localStorage.getItem(TOKEN_KEY);
 }
 
@@ -101,6 +124,9 @@ apiClient.interceptors.response.use(
 
     if (error.response.status === 401) {
       clearStoredSession();
+      window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+      redirectToLoginAfterAuthFailure();
+      window.localStorage.removeItem(TOKEN_KEY);
       window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
       redirectToLoginAfterAuthFailure();
     }

@@ -212,6 +212,22 @@ export function BookingPage() {
                   setTime('');
                   setConfirmError('');
                   setStep(2);
+                  const specName = member?.especialidad?.nombre || member?.especialidad || '';
+                  const isCompatible = member && isStaffCompatible(specName, value.categoria);
+                  if (isCompatible) {
+                    if (!initialHour) {
+                      setDate('');
+                      setTime('');
+                    }
+                    setStep(3);
+                  } else {
+                    setMember(null);
+                    setDate('');
+                    setTime('');
+                    setStep(2);
+                  }
+                  setConfirmError('');
+                  setStep(2);
                 }}
               />
             )
