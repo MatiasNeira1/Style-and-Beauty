@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Clock, Edit3, Save, Scissors, Trash2, X } from 'lucide-react';
+import { Clock, Edit3, Save, Scissors, Tag, Trash2, X } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
+import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { catalogService } from '../../services/catalogService.js';
+import { formatCurrencyCLP } from '../../utils/adminFormatters.js';
 
 const initialForm = {
   nombre: '',
@@ -13,6 +15,7 @@ const initialForm = {
   categoria: '',
   manual_uso_url: '',
   duracion_minutos: '',
+  holgura_minutos: '',
   precio_total: '',
   monto_fianza: '',
   activo: 'true',
@@ -31,6 +34,7 @@ function toServicePayload(form) {
     categoria: form.categoria,
     manual_uso_url: form.manual_uso_url,
     duracion_minutos: Number(form.duracion_minutos),
+    holgura_minutos: form.holgura_minutos === '' ? null : Number(form.holgura_minutos),
     precio_total: Number(form.precio_total),
     monto_fianza: Number(form.monto_fianza),
     activo: form.activo === 'true',
@@ -48,6 +52,9 @@ export function ServicesAdminPage() {
   });
 
   const services = Array.isArray(data) ? data : [];
+  const activeServices = services.filter((service) => service.activo !== false);
+  const categories = new Set(services.map((service) => service.categoria).filter(Boolean));
+  const averagePrice = services.length ? services.reduce((sum, service) => sum + Number(service.precio_total || 0), 0) / services.length : 0;
 
   const saveMutation = useMutation({
     mutationFn: (payload) => {
@@ -88,6 +95,7 @@ export function ServicesAdminPage() {
       categoria: service.categoria || '',
       manual_uso_url: service.manual_uso_url || '',
       duracion_minutos: service.duracion_minutos ?? '',
+      holgura_minutos: service.holgura_minutos ?? '',
       precio_total: service.precio_total ?? '',
       monto_fianza: service.monto_fianza ?? '',
       activo: String(service.activo ?? true),
@@ -100,25 +108,27 @@ export function ServicesAdminPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <span className="text-xs font-bold tracking-widest text-primary uppercase">Administracion</span>
-          <h1 className="text-3xl font-extrabold text-ink tracking-tight mt-1">Catalogo de Servicios</h1>
-          <p className="text-sm text-ink-soft mt-1">Visualiza, crea y edita la oferta de tratamientos disponibles.</p>
-        </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-2xl text-primary font-bold text-sm">
-          <Scissors size={16} />
-          <span>{services.length} Servicios</span>
-        </div>
-      </div>
+    <div className="admin-dashboard">
+      <AdminPageHeader
+        eyebrow="Gestion"
+        title="Catalogo de servicios"
+        description="Visualiza, crea y edita la oferta de tratamientos disponibles."
+      />
 
-      <form className="card stack" onSubmit={handleSubmit}>
+      <AdminKpiGrid>
+        <AdminKpiCard icon={Scissors} title="Servicios" value={services.length} trend={7} microcopy={`${activeServices.length} activos`} tone="rose" />
+        <AdminKpiCard icon={Tag} title="Categorias" value={categories.size} trend={3} microcopy="Oferta segmentada" tone="gold" />
+        <AdminKpiCard icon={Clock} title="Duracion media" value={`${Math.round(services.reduce((sum, item) => sum + Number(item.duracion_minutos || 0), 0) / Math.max(services.length, 1))} min`} trend={0} microcopy="Base para agenda" tone="sage" />
+        <AdminKpiCard icon={Save} title="Precio promedio" value={formatCurrencyCLP(averagePrice)} trend={5} microcopy="Ticket potencial" tone="ink" />
+      </AdminKpiGrid>
+
+      <form className="admin-panel" onSubmit={handleSubmit}>
         <h3>{editingServiceId ? 'Editar servicio' : 'Crear servicio'}</h3>
         <div className="form-grid">
           <Input label="Nombre" id="service-name" name="nombre" value={form.nombre} onChange={handleChange} required />
           <Input label="Categoria" id="service-category" name="categoria" value={form.categoria} onChange={handleChange} />
           <Input label="Duracion minutos" id="service-duration" name="duracion_minutos" type="number" min="1" value={form.duracion_minutos} onChange={handleChange} required />
+          <Input label="Holgura minutos" id="service-buffer" name="holgura_minutos" type="number" min="0" value={form.holgura_minutos} onChange={handleChange} />
           <Input label="Precio total" id="service-price" name="precio_total" type="number" min="0" step="100" value={form.precio_total} onChange={handleChange} required />
           <Input label="Monto fianza" id="service-deposit" name="monto_fianza" type="number" min="0" step="100" value={form.monto_fianza} onChange={handleChange} required />
           <Input as="select" label="Estado" id="service-active" name="activo" value={form.activo} onChange={handleChange}>
@@ -145,9 +155,7 @@ export function ServicesAdminPage() {
       </form>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
-        </div>
+        <AdminSkeleton rows={5} />
       ) : isError ? (
         <p className="admin-alert">{error.message}</p>
       ) : (
@@ -176,7 +184,7 @@ export function ServicesAdminPage() {
             {
               key: 'monto_fianza',
               label: 'Fianza',
-              render: (row) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(row.monto_fianza || 0),
+              render: (row) => formatCurrencyCLP(row.monto_fianza || 0),
             },
             {
               key: 'detallerservicio',
@@ -197,7 +205,17 @@ export function ServicesAdminPage() {
                 </div>
               ),
             },
-            { key: 'activo', label: 'Estado', render: (row) => (row.activo ? 'Activo' : 'Inactivo') },
+            {
+              key: 'holgura_minutos',
+              label: 'Holgura',
+              render: (row) => (
+                <div className="flex items-center gap-1.5 text-xs text-ink-soft font-bold">
+                  <Clock size={14} className="text-primary" />
+                  <span>{row.holgura_minutos ?? 0} mins</span>
+                </div>
+              ),
+            },
+            { key: 'activo', label: 'Estado', render: (row) => <AdminStatusBadge status={row.activo ? 'ACTIVO' : 'INACTIVO'} /> },
             {
               key: 'acciones',
               label: 'Acciones',
@@ -219,6 +237,7 @@ export function ServicesAdminPage() {
             },
           ]}
           rows={services}
+          emptyMessage="No hay servicios registrados. Crea el primer tratamiento para habilitar la agenda."
         />
       )}
     </div>

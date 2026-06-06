@@ -26,6 +26,15 @@ public class InternalPerfilController {
         }
     }
 
+    @GetMapping("/clientes/auth/{idAuth}")
+    public ResponseEntity<?> obtenerClientePorAuthId(@PathVariable String idAuth) {
+        try {
+            return ResponseEntity.ok(perfilService.obtenerClientePorAuthId(idAuth));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @GetMapping("/staff/{idStaff}")
     public ResponseEntity<?> obtenerStaff(@PathVariable UUID idStaff) {
         try {

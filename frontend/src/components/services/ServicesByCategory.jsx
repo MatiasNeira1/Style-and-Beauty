@@ -1,6 +1,7 @@
 import { ArrowLeft, CalendarDays, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button.jsx';
+import { SafeImage } from '../ui/SafeImage.jsx';
 
 const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' });
 
@@ -21,7 +22,9 @@ export function ServicesByCategory({ category, services = [], onBack }) {
       <div className="catalog-item-grid service-showcase-grid">
         {services.map((service, index) => (
           <article key={service.id} className="catalog-item-card service-showcase-card">
-            <div className="catalog-item-media" style={{ backgroundImage: `url("${service.imagen}")` }} />
+            <div className="catalog-item-media">
+              <SafeImage src={service.imageUrl || service.imagenUrl || service.imagen} alt={service.nombre} />
+            </div>
             <div className="service-showcase-overlay" />
             <span className="service-showcase-index">{String(index + 1).padStart(2, '0')}</span>
             <div className="catalog-item-body">

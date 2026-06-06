@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Sparkles, Star, Timer, Scissors, Heart, Award, ArrowRight, Quote } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Reveal } from '../../components/animations/Reveal.jsx';
@@ -12,17 +13,12 @@ import { ParallaxSection } from '../../components/animations/ParallaxSection.jsx
 import { ProfessionalsCarousel } from '../../components/professionals/ProfessionalsCarousel.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useProfessionals } from '../../hooks/useProfessionals.js';
+import { catalogService } from '../../services/catalogService.js';
 
 const features = [
   { icon: Sparkles, title: 'Diagnóstico experto', desc: 'Servicios seleccionados por necesidad, estilo y rutina personal.' },
   { icon: Timer, title: 'Agenda precisa', desc: 'Reserva en pasos claros con confirmación y resumen inmediato.' },
   { icon: Star, title: 'Acabado premium', desc: 'Una experiencia visual limpia, rápida y sofisticada.' },
-];
-
-const services = [
-  { icon: Scissors, name: 'Corte Signature', desc: 'Corte personalizado con styling final de salón.', price: '$22.990' },
-  { icon: Heart, name: 'Ritual Facial', desc: 'Limpieza profunda y luminosidad inmediata.', price: '$34.990' },
-  { icon: Star, name: 'Color Premium', desc: 'Coloración profesional, brillo y cuidado de fibra.', price: '$45.990' },
 ];
 
 const stats = [
@@ -38,8 +34,18 @@ const testimonials = [
   { quote: 'El ritual facial transformó mi piel. El ambiente es súper relajante y el trato personalizado marca la diferencia.', author: 'Francisca L.', role: 'Cliente desde 2023' },
 ];
 
+const serviceIcons = [Scissors, Heart, Star];
+
+function servicePrice(service) {
+  const value = service?.precio_total ?? service?.precio ?? service?.price;
+  if (value === undefined || value === null || value === '') return 'Consultar';
+  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
+}
+
 export function HomePage() {
   const professionalsQuery = useProfessionals();
+  const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
+  const services = Array.isArray(servicesQuery.data) ? servicesQuery.data.slice(0, 3) : [];
 
   return (
     <>
@@ -127,19 +133,26 @@ export function HomePage() {
           </SectionTitle>
         </Reveal>
         <Reveal stagger className="premium-grid">
-          {services.map(({ icon: Icon, name, desc, price }) => (
-            <GlowCard key={name} className="service-preview-card">
+          {services.map((service, index) => {
+            const Icon = serviceIcons[index % serviceIcons.length];
+            const name = service.nombre || service.name || 'Servicio';
+            return (
+            <GlowCard key={service.id_servicio || service.idServicio || service.id || name} className="service-preview-card">
               <div className="feature-icon"><Icon size={22} /></div>
               <h3>{name}</h3>
-              <p>{desc}</p>
+              <p>{service.descripcion || service.description || 'Atencion personalizada con tecnica profesional.'}</p>
               <div style={{ marginTop: 'auto', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="service-price">{price}</span>
+                <span className="service-price">{servicePrice(service)}</span>
                 <Link to="/reservar" className="text-link" style={{ fontSize: '0.88rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
                   Reservar <ArrowRight size={14} />
                 </Link>
               </div>
             </GlowCard>
-          ))}
+          );
+          })}
+          {!servicesQuery.isLoading && services.length === 0 && (
+            <p className="admin-alert">No hay servicios cargados en el catalogo.</p>
+          )}
         </Reveal>
       </ParallaxSection>
 

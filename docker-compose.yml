@@ -1,49 +1,19 @@
 services:
   postgres-master:
-    image: bitnami/postgresql:16
+    image: postgres:16-alpine
     container_name: style-beauty-postgres-master
     restart: unless-stopped
     environment:
-      POSTGRESQL_REPLICATION_MODE: master
-      POSTGRESQL_REPLICATION_USER: ${POSTGRES_REPLICATION_USER:-replicator}
-      POSTGRESQL_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-change_me_replication}
-      POSTGRESQL_DATABASE: ${POSTGRES_DB:-style_beauty}
-      POSTGRESQL_USERNAME: ${POSTGRES_USER:-style_beauty_app}
-      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
-      POSTGRESQL_POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-change_me_admin}
-      POSTGRESQL_TIMEZONE: ${TZ:-America/Santiago}
+      POSTGRES_DB: ${POSTGRES_DB:-style_beauty}
+      POSTGRES_USER: ${POSTGRES_USER:-style_beauty_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
+      TZ: ${TZ:-America/Santiago}
+      PGTZ: ${TZ:-America/Santiago}
     expose:
       - "5432"
     volumes:
-      - postgres-master-data:/bitnami/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-style_beauty_app} -d ${POSTGRES_DB:-style_beauty} -h 127.0.0.1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - style-beauty-net
-
-  postgres-replica:
-    image: bitnami/postgresql:16
-    container_name: style-beauty-postgres-replica
-    restart: unless-stopped
-    environment:
-      POSTGRESQL_REPLICATION_MODE: slave
-      POSTGRESQL_MASTER_HOST: postgres-master
-      POSTGRESQL_MASTER_PORT_NUMBER: 5432
-      POSTGRESQL_REPLICATION_USER: ${POSTGRES_REPLICATION_USER:-replicator}
-      POSTGRESQL_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-change_me_replication}
-      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
-      POSTGRESQL_POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-change_me_admin}
-      POSTGRESQL_TIMEZONE: ${TZ:-America/Santiago}
-    expose:
-      - "5432"
-    volumes:
-      - postgres-replica-data:/bitnami/postgresql
-    depends_on:
-      postgres-master:
-        condition: service_healthy
+      - postgres-master-data:/var/lib/postgresql/data
+      - ./deploy/postgres/master/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-style_beauty_app} -d ${POSTGRES_DB:-style_beauty} -h 127.0.0.1"]
       interval: 10s
@@ -69,8 +39,7 @@ services:
       - style-beauty-net
 
   api-gateway:
-    build:
-      context: ./backend/Api-gateway
+    image: watoncitoxx/style-and-beauty-gateway:latest
     container_name: style-beauty-api-gateway
     restart: unless-stopped
     environment:
@@ -89,21 +58,21 @@ services:
       - "127.0.0.1:${API_GATEWAY_PORT:-8080}:8080"
     depends_on:
       ms-auth:
-        condition: service_healthy
+        condition: service_started
       ms-perfiles:
-        condition: service_healthy
+        condition: service_started
       ms-catalogo:
-        condition: service_healthy
+        condition: service_started
       ms-agenda:
-        condition: service_healthy
+        condition: service_started
       ms-inventario:
-        condition: service_healthy
+        condition: service_started
       ms-pagos:
-        condition: service_healthy
+        condition: service_started
       ms-extra:
-        condition: service_healthy
+        condition: service_started
       ms-notificacion-audit:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8080/ >/dev/null || exit 1"]
       interval: 20s
@@ -113,14 +82,15 @@ services:
       - style-beauty-net
 
   ms-auth:
-    build:
-      context: ./backend/ms-auth
+    image: watoncitoxx/style-and-beauty-auth:latest
     container_name: style-beauty-ms-auth
     restart: unless-stopped
     environment:
       SERVER_PORT: 8081
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
       FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
+    volumes:
+      - ./backend/ms-auth/src/main/resources/serviceAccountKey.json:/run/secrets/firebase-service-account.json:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8081/ >/dev/null || exit 1"]
       interval: 20s
@@ -130,19 +100,20 @@ services:
       - style-beauty-net
 
   ms-perfiles:
-    build:
-      context: ./backend/ms-perfiles
+    image: watoncitoxx/style-and-beauty-perfiles:latest
     container_name: style-beauty-ms-perfiles
     restart: unless-stopped
     environment:
       SERVER_PORT: 8082
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-style_beauty_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
+      SPRING_DATASOURCE_URL: ${MS_PERFILES_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
+      SPRING_DATASOURCE_USERNAME: ${MS_PERFILES_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
+      SPRING_DATASOURCE_PASSWORD: ${MS_PERFILES_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
       FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
+    volumes:
+      - ./backend/ms-perfiles/src/main/resources/serviceAccountKey.json:/run/secrets/firebase-service-account.json:ro
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -155,15 +126,14 @@ services:
       - style-beauty-net
 
   ms-catalogo:
-    build:
-      context: ./backend/ms-catalogo
+    image: watoncitoxx/style-and-beauty-catalogo:latest
     container_name: style-beauty-ms-catalogo
     restart: unless-stopped
     environment:
       SERVER_PORT: 8083
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-style_beauty_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
+      SPRING_DATASOURCE_URL: ${MS_CATALOGO_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
+      SPRING_DATASOURCE_USERNAME: ${MS_CATALOGO_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
+      SPRING_DATASOURCE_PASSWORD: ${MS_CATALOGO_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
@@ -180,8 +150,7 @@ services:
       - style-beauty-net
 
   ms-agenda:
-    build:
-      context: ./backend/ms-agenda
+    image: watoncitoxx/style-and-beauty-agenda:latest
     container_name: style-beauty-ms-agenda
     restart: unless-stopped
     environment:
@@ -189,17 +158,19 @@ services:
       MS_PERFILES_URL: http://ms-perfiles:8082
       MS_CATALOGO_URL: http://ms-catalogo:8083
       APP_AGENDA_ZONE: ${APP_AGENDA_ZONE:-America/Santiago}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-style_beauty_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
+      GOOGLE_CALENDAR_ENABLED: ${GOOGLE_CALENDAR_ENABLED:-false}
+      GOOGLE_CALENDAR_FAIL_ON_ERROR: ${GOOGLE_CALENDAR_FAIL_ON_ERROR:-true}
+      GOOGLE_CALENDAR_CREDENTIALS_PATH: ${GOOGLE_CALENDAR_CREDENTIALS_PATH:-}
+      GOOGLE_CALENDAR_DEFAULT_CALENDAR_ID: ${GOOGLE_CALENDAR_DEFAULT_CALENDAR_ID:-}
+      MS_AGENDA_DATASOURCE_URL: ${MS_AGENDA_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
+      MS_AGENDA_DATASOURCE_USERNAME: ${MS_AGENDA_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
+      MS_AGENDA_DATASOURCE_PASSWORD: ${MS_AGENDA_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_SQL_INIT_MODE: ${SPRING_SQL_INIT_MODE:-always}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     depends_on:
-      postgres-master:
-        condition: service_healthy
       ms-perfiles:
         condition: service_healthy
       ms-catalogo:
@@ -213,15 +184,14 @@ services:
       - style-beauty-net
 
   ms-inventario:
-    build:
-      context: ./backend/ms-inventario
+    image: watoncitoxx/style-and-beauty-inventario:latest
     container_name: style-beauty-ms-inventario
     restart: unless-stopped
     environment:
       SERVER_PORT: 8085
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-style_beauty_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
+      SPRING_DATASOURCE_URL: ${MS_INVENTARIO_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
+      SPRING_DATASOURCE_USERNAME: ${MS_INVENTARIO_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
+      SPRING_DATASOURCE_PASSWORD: ${MS_INVENTARIO_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
@@ -238,22 +208,18 @@ services:
       - style-beauty-net
 
   ms-pagos:
-    build:
-      context: ./backend/ms-pagos
+    image: watoncitoxx/style-and-beauty-pagos:latest
     container_name: style-beauty-ms-pagos
     restart: unless-stopped
     environment:
       SERVER_PORT: 8086
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-style_beauty_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
+      SPRING_DATASOURCE_URL: ${MS_PAGOS_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
+      SPRING_DATASOURCE_USERNAME: ${MS_PAGOS_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
+      SPRING_DATASOURCE_PASSWORD: ${MS_PAGOS_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
-    depends_on:
-      postgres-master:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8086/ >/dev/null || exit 1"]
       interval: 20s
@@ -263,22 +229,18 @@ services:
       - style-beauty-net
 
   ms-extra:
-    build:
-      context: ./backend/ms-extra
+    image: watoncitoxx/style-and-beauty-extra:latest
     container_name: style-beauty-ms-extra
     restart: unless-stopped
     environment:
       SERVER_PORT: 8087
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-style_beauty_app}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-change_me_app}
+      SPRING_DATASOURCE_URL: ${MS_EXTRA_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
+      SPRING_DATASOURCE_USERNAME: ${MS_EXTRA_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
+      SPRING_DATASOURCE_PASSWORD: ${MS_EXTRA_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
-    depends_on:
-      postgres-master:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8087/ >/dev/null || exit 1"]
       interval: 20s
@@ -288,8 +250,7 @@ services:
       - style-beauty-net
 
   ms-notificacion-audit:
-    build:
-      context: ./backend/ms-notificacion-audit
+    image: watoncitoxx/style-and-beauty-notificacion-audit:latest
     container_name: style-beauty-ms-notificacion-audit
     restart: unless-stopped
     environment:
@@ -307,9 +268,51 @@ services:
     networks:
       - style-beauty-net
 
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost/api}
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET:-}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID:-}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-}
+    container_name: style-beauty-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    networks:
+      - style-beauty-net
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    container_name: style-beauty-n8n
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      GENERIC_TIMEZONE: ${TZ:-America/Santiago}
+      TZ: ${TZ:-America/Santiago}
+      N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE:-true}
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD:-Admin123.}
+    volumes:
+      - ./n8n/n8n_data:/home/node/.n8n
+    networks:
+      - style-beauty-net
+
 volumes:
   postgres-master-data:
-  postgres-replica-data:
   mongo-data:
 
 networks:

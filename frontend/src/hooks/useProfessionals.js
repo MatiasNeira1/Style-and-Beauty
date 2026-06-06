@@ -1,7 +1,21 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { mockProfessionals } from '../mocks/professionals.mock.js';
-import { profileService } from '../services/profileService.js';
+import { staffService } from '../services/staffService.js';
+
+const MOCKS_ENABLED = import.meta.env.DEV && String(import.meta.env.VITE_USE_MOCKS || '').toLowerCase() === 'true';
+
+const emptyProfessional = {
+  nombre: 'Profesional',
+  apellidos: '',
+  especialidad: 'Especialista',
+  descripcion: 'Perfil profesional pendiente de completar.',
+  sucursal: 'Providencia',
+  modalidad: 'Presencial',
+  estado: 'Consultar disponibilidad',
+  proximasHoras: [],
+  fotoUrl: null,
+  colorEspecialidad: undefined,
+};
 
 function getProfessionalId(member) {
   return member.idPersona || member.idStaff || member.id || member.idAuth || `${member.nombre}-${member.apellidos}`;
@@ -18,8 +32,8 @@ function hasMedicalTerm(value = '') {
   return medicalTerms.some((term) => normalized.includes(term));
 }
 
-function fallback(index) {
-  return mockProfessionals[index % mockProfessionals.length];
+function fallback() {
+  return emptyProfessional;
 }
 
 function specialtyName(member, index) {
@@ -55,18 +69,31 @@ export function normalizeProfessional(member, index = 0) {
 export function useProfessionals() {
   const query = useQuery({
     queryKey: ['professionals-public'],
-    queryFn: profileService.listPublicStaff,
+    queryFn: staffService.listPublicStaff,
     staleTime: 1000 * 60 * 5,
+  });
+  const mockQuery = useQuery({
+    queryKey: ['professionals-public-mock'],
+    queryFn: async () => {
+      if (!MOCKS_ENABLED) return [];
+      const module = await import('../mocks/professionals.mock.js');
+      return module.mockProfessionals;
+    },
+    enabled: MOCKS_ENABLED && !(Array.isArray(query.data) && query.data.length),
+    staleTime: Infinity,
   });
 
   const professionals = useMemo(() => {
-    const source = Array.isArray(query.data) && query.data.length ? query.data : mockProfessionals;
+    const source = Array.isArray(query.data) && query.data.length
+      ? query.data
+      : MOCKS_ENABLED && Array.isArray(mockQuery.data) ? mockQuery.data : [];
     return source.map(normalizeProfessional);
-  }, [query.data]);
+  }, [mockQuery.data, query.data]);
 
   return {
     ...query,
+    isLoading: query.isLoading || (MOCKS_ENABLED && mockQuery.isLoading && !(Array.isArray(query.data) && query.data.length)),
     professionals,
-    isFallback: !(Array.isArray(query.data) && query.data.length),
+    isFallback: MOCKS_ENABLED && Array.isArray(mockQuery.data) && !(Array.isArray(query.data) && query.data.length),
   };
 }

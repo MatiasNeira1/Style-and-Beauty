@@ -5,23 +5,18 @@ import { Lock } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
+import { Loader } from '../../components/ui/Loader.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { BookingSummary } from '../../components/booking/BookingSummary.jsx';
 import { DateTimePicker } from '../../components/booking/DateTimePicker.jsx';
 import { ServiceSelector } from '../../components/booking/ServiceSelector.jsx';
 import { StaffSelector } from '../../components/booking/StaffSelector.jsx';
-import { agendaService } from '../../services/agendaService.js';
-import { catalogService } from '../../services/catalogService.js';
-import { profileService } from '../../services/profileService.js';
+import { reservationService } from '../../services/reservationService.js';
+import { serviceCatalogService } from '../../services/serviceCatalogService.js';
+import { staffService } from '../../services/staffService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
 import { normalizeCategory } from '../../utils/categoryUtils.js';
-
-const fallbackServices = [
-  { id: 1, nombre: 'Corte Signature', categoria: 'Peluquería', precio: 22990, duracion: 45, descripcion: 'Corte personalizado con styling final.' },
-  { id: 2, nombre: 'Ritual Facial', categoria: 'Estética', precio: 34990, duracion: 60, descripcion: 'Limpieza profunda y luminosidad.' },
-  { id: 3, nombre: 'Color Premium', categoria: 'Peluquería', precio: 45990, duracion: 90, descripcion: 'Coloración profesional y cuidado de fibra.' },
-];
 
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
@@ -31,28 +26,30 @@ function staffId(member) {
   return member?.idPersona || member?.idStaff || member?.id;
 }
 
-function serviceDuration(service) {
-  return Number(service?.duracion_minutos || service?.duracion || service?.duration || 45);
-}
-
 export function BookingPage() {
   const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
   const { updateBooking } = useBooking();
-  const queryClient = useQueryClient();
 
   const [step, setStep] = useState(1);
   const [service, setService] = useState(null);
   const [member, setMember] = useState(null);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [confirmError, setConfirmError] = useState('');
 
-  const { data: serviceData } = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
-  const { data: staffData = [] } = useQuery({ queryKey: ['public-staff'], queryFn: profileService.listPublicStaff });
-  const { data: myProfile } = useQuery({ queryKey: ['my-profile'], queryFn: profileService.getMyProfile, enabled: isAuthenticated });
+  const servicesQuery = useQuery({ queryKey: ['services'], queryFn: serviceCatalogService.listServices });
+  const staffQuery = useQuery({ queryKey: ['public-staff'], queryFn: staffService.listPublicStaff });
+  const { data: myProfile, isError: isProfileError, error: profileError } = useQuery({
+    queryKey: ['my-profile'],
+    queryFn: reservationService.getMe,
+    enabled: isAuthenticated,
+  });
 
-  const services = Array.isArray(serviceData) && serviceData.length ? serviceData : fallbackServices;
+  const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
+  const staffData = useMemo(() => (Array.isArray(staffQuery.data) ? staffQuery.data : []), [staffQuery.data]);
   const filteredStaff = useMemo(() => {
     if (!Array.isArray(staffData)) return [];
     if (!service?.categoria) return staffData;
@@ -61,32 +58,74 @@ export function BookingPage() {
 
   const availabilityQuery = useQuery({
     queryKey: ['availability', staffId(member), serviceId(service), date],
-    queryFn: () => agendaService.getAvailability({
-      idStaff: staffId(member),
-      idServicio: serviceId(service),
-      fecha: date,
+    queryFn: () => reservationService.getAvailability({
+      professionalId: staffId(member),
+      serviceId: serviceId(service),
+      date,
     }),
     enabled: Boolean(member && date && service),
   });
-
-  const bookingMutation = useMutation({ mutationFn: agendaService.createBooking });
 
   const selectedSlot = useMemo(() => {
     const slots = Array.isArray(availabilityQuery.data) ? availabilityQuery.data : [];
     return slots.find((slot) => slot.inicio === time);
   }, [availabilityQuery.data, time]);
 
+  const bookingMutation = useMutation({
+    mutationFn: reservationService.createReservation,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['availability', staffId(member), serviceId(service), date] });
+      await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-bookings'] });
+    },
+  });
+
   const confirm = async () => {
-    const payload = {
-      idCliente: myProfile?.idPersona,
-      idStaff: staffId(member),
-      idServicio: serviceId(service),
-      fechaHoraInicio: time,
-      duracionServicioMin: serviceDuration(service),
-    };
-    const created = await bookingMutation.mutateAsync(payload);
-    updateBooking({ service, staff: member, date, time, holguraMin: created?.holguraMin });
-    await queryClient.invalidateQueries({ queryKey: ['availability', staffId(member), serviceId(service), date] });
+    setConfirmError('');
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+
+    if (!service || !member || !date || !time) {
+      setConfirmError('Selecciona servicio, profesional, fecha y horario para continuar.');
+      return;
+    }
+
+    const freshAvailability = await availabilityQuery.refetch();
+    if (freshAvailability.isError) {
+      setConfirmError(freshAvailability.error?.message || 'No fue posible validar disponibilidad. Intenta nuevamente.');
+      return;
+    }
+
+    const freshSlots = Array.isArray(freshAvailability.data) ? freshAvailability.data : [];
+    const stillAvailable = freshSlots.some((slot) => slot.inicio === time);
+
+    if (!stillAvailable) {
+      setTime('');
+      setConfirmError('El horario seleccionado ya no esta disponible. Elige otra hora.');
+      return;
+    }
+
+    let created = null;
+    try {
+      created = await bookingMutation.mutateAsync({
+        professionalId: staffId(member),
+        serviceId: serviceId(service),
+        startsAt: time,
+      });
+    } catch {
+      return;
+    }
+
+    updateBooking({
+      service,
+      staff: member,
+      date,
+      time,
+      holguraMin: created?.holguraMin,
+      duracionServicioMin: created?.duracionServicioMin,
+    });
     navigate('/checkout');
   };
 
@@ -97,9 +136,9 @@ export function BookingPage() {
         <section className="page-section client-auth-gate">
           <Card className="client-auth-card">
             <div className="client-auth-icon"><Lock size={32} /></div>
-            <h2>Inicia sesión para reservar</h2>
+            <h2>Inicia sesion para reservar</h2>
             <p>Necesitamos asociar tu cita a tu perfil para confirmar horarios, notificaciones y pagos.</p>
-            <Button onClick={() => navigate('/login', { state: { from: location } })}>Ir a iniciar sesión</Button>
+            <Button onClick={() => navigate('/login', { state: { from: location } })}>Ir a iniciar sesion</Button>
           </Card>
         </section>
       </>
@@ -115,68 +154,89 @@ export function BookingPage() {
             El sistema calcula horarios usando jornada del staff, citas existentes, bloqueos y holgura operativa.
           </SectionTitle>
 
-        <div className="wizard-steps">
-          {[['1', 'Servicio'], ['2', 'Staff'], ['3', 'Horario']].map(([value, label]) => (
-            <Badge key={value} tone={step === Number(value) ? 'primary' : 'neutral'}>{label}</Badge>
-          ))}
-        </div>
-
-        {step === 1 && (
-          <ServiceSelector
-            services={services}
-            selectedId={serviceId(service)}
-            onSelect={(value) => {
-              setService(value);
-              setMember(null);
-              setDate('');
-              setTime('');
-              setStep(2);
-            }}
-          />
-        )}
-
-        {step === 2 && (
-          <StaffSelector
-            staff={filteredStaff}
-            selectedId={staffId(member)}
-            onSelect={(value) => {
-              setMember(value);
-              setDate('');
-              setTime('');
-              setStep(3);
-            }}
-          />
-        )}
-
-        {step === 3 && (
-          <div className="stack">
-            <DateTimePicker
-              date={date}
-              time={time}
-              slots={Array.isArray(availabilityQuery.data) ? availabilityQuery.data : []}
-              isLoading={availabilityQuery.isLoading}
-              error={availabilityQuery.error?.message}
-              onDateChange={(value) => { setDate(value); setTime(''); }}
-              onTimeChange={setTime}
-            />
+          <div className="wizard-steps">
+            {[['1', 'Servicio'], ['2', 'Staff'], ['3', 'Horario']].map(([value, label]) => (
+              <Badge key={value} tone={step === Number(value) ? 'primary' : 'neutral'}>{label}</Badge>
+            ))}
           </div>
-        )}
 
-        <div className="wizard-actions">
-          <Button variant="ghost" disabled={step === 1} onClick={() => setStep((current) => Math.max(1, current - 1))}>Volver</Button>
-          {step < 3 && <Button disabled={(step === 1 && !service) || (step === 2 && !member)} onClick={() => setStep((current) => Math.min(3, current + 1))}>Continuar</Button>}
-          {step === 3 && (
-            <Button
-              onClick={confirm}
-              disabled={!myProfile?.idPersona || !service || !member || !date || !time || bookingMutation.isPending}
-            >
-              {bookingMutation.isPending ? 'Confirmando...' : 'Confirmar reserva'}
-            </Button>
+          {step === 1 && (
+            servicesQuery.isLoading ? (
+              <Loader />
+            ) : servicesQuery.isError ? (
+              <p className="admin-alert">Servicio temporalmente no disponible.</p>
+            ) : services.length === 0 ? (
+              <p className="admin-alert">No hay servicios disponibles para reservar.</p>
+            ) : (
+              <ServiceSelector
+                services={services}
+                selectedId={serviceId(service)}
+                onSelect={(value) => {
+                  setService(value);
+                  setMember(null);
+                  setDate('');
+                  setTime('');
+                  setConfirmError('');
+                  setStep(2);
+                }}
+              />
+            )
           )}
-        </div>
 
-        {step === 3 && !myProfile?.idPersona && <p className="admin-alert">Tu perfil de cliente debe estar completo para confirmar la reserva.</p>}
-        {bookingMutation.isError && <p className="admin-alert">{bookingMutation.error.message}</p>}
+          {step === 2 && (
+            staffQuery.isLoading ? (
+              <Loader />
+            ) : staffQuery.isError ? (
+              <p className="admin-alert">No fue posible cargar profesionales.</p>
+            ) : (
+              <StaffSelector
+                staff={filteredStaff}
+                selectedId={staffId(member)}
+                onSelect={(value) => {
+                  setMember(value);
+                  setDate('');
+                  setTime('');
+                  setConfirmError('');
+                  setStep(3);
+                }}
+              />
+            )
+          )}
+
+          {step === 3 && (
+            <div className="stack">
+              <DateTimePicker
+                date={date}
+                time={time}
+                slots={Array.isArray(availabilityQuery.data) ? availabilityQuery.data : []}
+                isLoading={availabilityQuery.isLoading}
+                error={availabilityQuery.error ? availabilityQuery.error.message || 'No fue posible cargar horarios.' : ''}
+                onDateChange={(value) => { setDate(value); setTime(''); setConfirmError(''); }}
+                onTimeChange={(value) => { setTime(value); setConfirmError(''); }}
+              />
+            </div>
+          )}
+
+          <div className="wizard-actions">
+            <Button variant="ghost" disabled={step === 1} onClick={() => setStep((current) => Math.max(1, current - 1))}>Volver</Button>
+            {step < 3 && <Button disabled={(step === 1 && !service) || (step === 2 && !member)} onClick={() => setStep((current) => Math.min(3, current + 1))}>Continuar</Button>}
+            {step === 3 && (
+              <Button
+                onClick={confirm}
+                disabled={!myProfile?.idPersona || !service || !member || !date || !time || !selectedSlot || bookingMutation.isPending || availabilityQuery.isFetching}
+              >
+                {bookingMutation.isPending || availabilityQuery.isFetching ? 'Confirmando...' : 'Confirmar reserva'}
+              </Button>
+            )}
+          </div>
+
+          {step === 3 && !myProfile?.idPersona && (
+            <p className="admin-alert">
+              {isProfileError ? profileError?.message || 'No fue posible cargar tu perfil.' : 'Tu perfil de cliente debe estar completo para confirmar la reserva.'}
+            </p>
+          )}
+          {confirmError && <p className="admin-alert">{confirmError}</p>}
+          {bookingMutation.isError && <p className="admin-alert">{bookingMutation.error.message}</p>}
         </div>
 
         <BookingSummary service={service} staff={member} date={date} time={time} slot={selectedSlot} />
@@ -193,7 +253,7 @@ function BookingHero() {
       <div className="page-hero-content">
         <span className="card-kicker">Reserva online</span>
         <h1>Agenda tu momento con disponibilidad real</h1>
-        <p>Elige servicio, profesional y horario disponible con tiempos de holgura pensados para una atención impecable.</p>
+        <p>Elige servicio, profesional y horario disponible con tiempos de holgura pensados para una atencion impecable.</p>
       </div>
     </section>
   );

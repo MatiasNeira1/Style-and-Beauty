@@ -33,6 +33,22 @@
   width: 100%;
 }
 
+.booking-shell {
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+}
+
+.booking-shell .wizard-panel,
+.booking-shell .summary-card {
+  min-width: 0;
+  width: 100%;
+}
+
+.booking-shell .summary-card {
+  position: sticky;
+  top: 6.25rem;
+}
+
 .horizontal-scroll {
   max-width: 100%;
   overflow-x: auto;
@@ -46,6 +62,13 @@
   gap: 0.75rem;
   height: 100%;
   min-width: 0;
+}
+
+.service-choice-image {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-xs);
+  object-fit: cover;
+  width: 100%;
 }
 
 .choice-card-header,
@@ -1491,6 +1514,13 @@ a.contact-info-card:hover {
   aspect-ratio: 16 / 10;
   background-position: center;
   background-size: cover;
+  overflow: hidden;
+}
+
+.catalog-item-media img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .catalog-item-body {
@@ -1778,6 +1808,12 @@ a.contact-info-card:hover {
   transition: transform 320ms ease, filter 320ms ease;
   width: 100%;
   z-index: 0;
+}
+
+.service-showcase-card .catalog-item-media img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .service-showcase-card:hover .catalog-item-media {
@@ -2280,6 +2316,15 @@ a.contact-info-card:hover {
 }
 
 @media (max-width: 820px) {
+  .booking-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .booking-shell .summary-card {
+    order: -1;
+    position: static;
+  }
+
   .contact-layout,
   .booking-buffer-card {
     grid-template-columns: 1fr;
@@ -2436,6 +2481,12 @@ a.contact-info-card:hover {
 }
 
 @media (max-width: 620px) {
+  .datetime-picker,
+  .calendar-card,
+  .availability-panel {
+    overflow-x: clip;
+  }
+
   .calendar-card,
   .availability-panel,
   .summary-card,
@@ -2455,6 +2506,10 @@ a.contact-info-card:hover {
 
   .slot-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .slot-button {
+    padding-inline: 0.5rem;
   }
 
   .staff-card .button {

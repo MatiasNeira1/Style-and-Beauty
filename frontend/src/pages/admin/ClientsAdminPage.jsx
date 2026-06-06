@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DataTable } from '../../components/admin/DataTable.jsx';
-import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
+import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
-import { Loader } from '../../components/ui/Loader.jsx';
 import { authService } from '../../services/authService.js';
 import { TOKEN_KEY } from '../../services/apiClient.js';
 import { profileService } from '../../services/profileService.js';
+import { ShieldCheck, UserPlus, Users } from 'lucide-react';
 
 const initialForm = {
   rut: '',
@@ -123,14 +123,24 @@ export function ClientsAdminPage() {
     hasToken &&
     !createMutation.isPending &&
     (selectedType === 'CLIENTE' || (!isLoadingSpecialties && specialties.length > 0));
+  const clients = Array.isArray(clientsQuery.data) ? clientsQuery.data : [];
+  const staff = Array.isArray(staffQuery.data) ? staffQuery.data : [];
 
   return (
-    <div className="stack">
-      <SectionTitle eyebrow="Admin" title="Clientes y staff">
-        Gestiona usuarios desde una sola vista y selecciona el tipo de perfil que necesitas visualizar.
-      </SectionTitle>
+    <div className="admin-dashboard">
+      <AdminPageHeader
+        eyebrow="Gestion"
+        title="Clientes y profesionales"
+        description="Gestiona perfiles desde una sola vista y separa clientes, staff y administracion operativa."
+      />
 
-      <form className="card stack" onSubmit={handleSubmit}>
+      <AdminKpiGrid>
+        <AdminKpiCard icon={Users} title="Clientes" value={clients.length} trend={11} microcopy="Base de atencion" tone="rose" />
+        <AdminKpiCard icon={ShieldCheck} title="Profesionales" value={staff.length} trend={5} microcopy="Equipo activo" tone="sage" />
+        <AdminKpiCard icon={UserPlus} title="Vista actual" value={selectedTypeConfig.label} trend={0} microcopy={`${users.length} registros visibles`} tone="gold" />
+      </AdminKpiGrid>
+
+      <form className="admin-panel" onSubmit={handleSubmit}>
         <h3>Crear {selectedTypeConfig.label.toLowerCase()}</h3>
         <div className="form-grid">
           <Input as="select" label="Tipo de usuario" id="user-type" name="tipoPerfil" value={selectedType} onChange={handleTypeChange}>
@@ -187,13 +197,13 @@ export function ClientsAdminPage() {
       {!hasToken ? (
         <p className="admin-alert">Necesitas iniciar sesión con un usuario ADMIN para listar usuarios.</p>
       ) : selectedQuery.isLoading ? (
-        <Loader />
+        <AdminSkeleton rows={5} />
       ) : selectedQuery.isError ? (
         <p className="admin-alert">{selectedQuery.error.message}</p>
       ) : (
         <DataTable
           columns={[
-            { key: 'tipoPerfil', label: 'Tipo', render: () => selectedTypeConfig.label },
+            { key: 'tipoPerfil', label: 'Tipo', render: () => <AdminStatusBadge status={selectedType}>{selectedTypeConfig.label}</AdminStatusBadge> },
             { key: 'nombre', label: 'Nombre', render: (row) => `${row.nombre || ''} ${row.apellidos || ''}`.trim() || 'Sin nombre' },
             { key: 'emailContacto', label: 'Email' },
             { key: 'telefono', label: 'Telefono' },
@@ -202,6 +212,7 @@ export function ClientsAdminPage() {
               : { key: 'puntosFidelidad', label: 'Puntos', render: (row) => row.puntosFidelidad ?? 0 },
           ]}
           rows={users}
+          emptyMessage="No hay usuarios para este filtro."
         />
       )}
     </div>

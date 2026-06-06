@@ -15,6 +15,11 @@ function bufferMinutes(slot) {
   return Math.max(0, Math.round((new Date(slot.finConHolgura) - new Date(slot.fin)) / 60000));
 }
 
+function servicePrice(service) {
+  const value = service?.precio_total ?? service?.precioTotal ?? service?.precio ?? service?.price ?? 0;
+  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
+}
+
 export function BookingSummary({ service, staff, date, time, slot }) {
   const holgura = bufferMinutes(slot);
 
@@ -25,8 +30,8 @@ export function BookingSummary({ service, staff, date, time, slot }) {
       <p>Profesional: {staff?.nombre || staff?.name || 'Pendiente'}</p>
       <p>Fecha: {date ? formatDate(`${date}T00:00:00`) : 'Pendiente'}</p>
       <p>Hora: {formatTime(time)}</p>
-      <p>Preparación interna: {holgura === null ? 'Segun servicio' : `${holgura} min posteriores`}</p>
-      <strong>Total estimado: ${service?.precio || service?.price || 0}</strong>
+      <p>Preparacion interna: {holgura === null ? 'Segun servicio' : `${holgura} min posteriores`}</p>
+      <strong>Total estimado: {servicePrice(service)}</strong>
     </Card>
   );
 }
