@@ -1,5 +1,6 @@
 import { ArrowLeft } from 'lucide-react';
 import { ProductEditorialShowcase } from './ProductEditorialShowcase.jsx';
+import { SafeImage } from '../ui/SafeImage.jsx';
 
 export function ProductsByBrand({ brand, products = [], onBack, onAdd }) {
   return (
@@ -9,7 +10,7 @@ export function ProductsByBrand({ brand, products = [], onBack, onAdd }) {
           <ArrowLeft size={16} /> Volver a marcas
         </button>
         <div className="product-brand-header-copy">
-          <img src={brand.logo} alt={brand.nombre} loading="lazy" />
+          <SafeImage src={brand.logo} alt={brand.nombre} />
           <div>
             <span className="card-kicker">Marca profesional</span>
             <h2>{brand.nombre}</h2>

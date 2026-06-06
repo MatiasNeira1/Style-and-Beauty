@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '../ui/Card.jsx';
+import { SafeImage } from '../ui/SafeImage.jsx';
 
 function getServiceId(service) {
   return service.id_servicio || service.idServicio || service.id || service.nombre;
@@ -15,6 +16,10 @@ function servicePrice(service) {
 function serviceDuration(service) {
   const duration = service.duracion_minutos ?? service.duracion ?? service.duration;
   return duration ? `${duration} min` : 'Duración por confirmar';
+}
+
+function serviceImage(service) {
+  return service.imageUrl || service.imagenUrl || service.imagen_url || service.imagen || service.fotoUrl;
 }
 
 export function ServiceSelector({ services = [], selectedId, onSelect }) {
@@ -62,6 +67,7 @@ export function ServiceSelector({ services = [], selectedId, onSelect }) {
               transition={{ delay: index * 0.035 }}
             >
               <Card className="service-choice-card">
+                <SafeImage className="service-choice-image" src={serviceImage(service)} alt={service.nombre || service.name || 'Servicio'} />
                 <div className="choice-card-header">
                   <span className="card-kicker">{service.categoria || 'Servicio'}</span>
                   <strong>{servicePrice(service)}</strong>

@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.lang.RuntimeException;
+import java.util.UUID;
 @RestController
 @RequestMapping("/api/perfiles")
 public class PerfilController {
@@ -97,6 +98,15 @@ public class PerfilController {
     @GetMapping("/staff")
     public ResponseEntity<?> listarStaffPublico() {
         return ResponseEntity.ok(perfilService.listarTodoElStaff());
+    }
+
+    @GetMapping("/staff/{idStaff}")
+    public ResponseEntity<?> obtenerStaffPublico(@PathVariable UUID idStaff) {
+        try {
+            return ResponseEntity.ok(perfilService.obtenerStaffPorId(idStaff));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/clientes")

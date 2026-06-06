@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { TOKEN_KEY } from '../services/apiClient.js';
+import { AUTH_EXPIRED_EVENT, TOKEN_KEY } from '../services/apiClient.js';
 import { authService } from '../services/authService.js';
 import { firebaseAuth } from '../services/firebaseClient.js';
 import { firebaseAuthService } from '../services/firebaseAuthService.js';
@@ -53,6 +53,12 @@ export function AuthProvider({ children }) {
         setIsAuthReady(true);
       }
     });
+  }, [setSession]);
+
+  useEffect(() => {
+    const handleAuthExpired = () => setSession(null);
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
   }, [setSession]);
 
   const login = useCallback(async (email, password) => {

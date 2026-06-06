@@ -2,56 +2,19 @@ import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CalendarDays, Clock, MapPin, Signal, Sparkles, X } from 'lucide-react';
+import { SafeImage } from '../ui/SafeImage.jsx';
 import { professionalTheme, statusTone } from '../../utils/professionalTheme.js';
-
-const portfolioImages = {
-  maquillaje: [
-    'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=700&q=80',
-    'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=700&q=80',
-    'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?auto=format&fit=crop&w=700&q=80',
-  ],
-  manicure: [
-    'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=700&q=80',
-    'https://images.unsplash.com/photo-1610992015732-2449b76344bc?auto=format&fit=crop&w=700&q=80',
-    'https://images.unsplash.com/photo-1607779097040-26e80aa78e66?auto=format&fit=crop&w=700&q=80',
-  ],
-  cabello: [
-    'https://images.unsplash.com/photo-1522337660859-02fbefca4702?auto=format&fit=crop&w=700&q=80',
-    'https://images.unsplash.com/photo-1560869713-7d0a29430803?auto=format&fit=crop&w=700&q=80',
-    'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=700&q=80',
-  ],
-  skin: [
-    'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=700&q=80',
-    'https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?auto=format&fit=crop&w=700&q=80',
-    'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=700&q=80',
-  ],
-  spa: [
-    'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=700&q=80',
-    'https://images.unsplash.com/photo-1519823551278-64ac92734fb1?auto=format&fit=crop&w=700&q=80',
-    'https://images.unsplash.com/photo-1600334089648-b0d9d3028eb2?auto=format&fit=crop&w=700&q=80',
-  ],
-};
 
 function normalize(value = '') {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-function initials(professional) {
-  return [professional?.nombre, professional?.apellidos]
-    .filter(Boolean)
-    .map((part) => part.charAt(0))
-    .join('')
-    || professional?.fullName?.split(' ').slice(0, 2).map((part) => part.charAt(0)).join('')
-    || 'SB';
-}
-
 function portfolioFor(professional) {
-  const text = normalize(`${professional?.especialidad || ''} ${professional?.cargo || ''}`);
-  if (text.includes('maquill')) return portfolioImages.maquillaje;
-  if (text.includes('manicur') || text.includes('nail')) return portfolioImages.manicure;
-  if (text.includes('capilar') || text.includes('color') || text.includes('estilista')) return portfolioImages.cabello;
-  if (text.includes('maso') || text.includes('corporal') || text.includes('kines')) return portfolioImages.spa;
-  return portfolioImages.skin;
+  const images = professional?.portfolioImages || professional?.portfolio || professional?.trabajos || professional?.galeria || [];
+  const normalized = Array.isArray(images) ? images : [];
+  return normalized
+    .map((image) => (typeof image === 'string' ? image : image?.url || image?.imageUrl || image?.src))
+    .filter(Boolean);
 }
 
 function servicesFor(professional) {
@@ -132,11 +95,7 @@ export function ProfessionalProfileModal({ professional, onClose }) {
 
             <div className="professional-modal-hero">
               <div className="professional-modal-photo">
-                {professional.fotoUrl ? (
-                  <img src={professional.fotoUrl} alt={professional.fullName} />
-                ) : (
-                  <span>{initials(professional)}</span>
-                )}
+                <SafeImage src={professional.imageUrl || professional.fotoUrl} alt={professional.fullName} />
               </div>
               <div className="professional-modal-intro">
                 <span className="professional-specialty"><Sparkles size={14} /> {professional.especialidad || professional.cargo}</span>
@@ -173,8 +132,8 @@ export function ProfessionalProfileModal({ professional, onClose }) {
             </div>
 
             <section className="professional-modal-gallery" aria-label="Galeria de trabajos realizados">
-              {portfolio.map((image, index) => (
-                <img key={image} src={image} alt={`Trabajo realizado ${index + 1} por ${professional.fullName}`} loading="lazy" />
+              {(portfolio.length ? portfolio : [null, null, null]).map((image, index) => (
+                <SafeImage key={image || `fallback-${index}`} src={image} alt={`Trabajo realizado ${index + 1} por ${professional.fullName}`} />
               ))}
             </section>
 

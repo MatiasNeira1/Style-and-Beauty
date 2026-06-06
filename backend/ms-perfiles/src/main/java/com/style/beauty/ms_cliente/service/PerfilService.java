@@ -153,6 +153,14 @@ public class PerfilService {
                 .orElseThrow(() -> new RuntimeException("Cliente no encontrado."));
     }
 
+    public ClienteModel obtenerClientePorAuthId(String idAuth) {
+        PersonaModel persona = obtenerMiPerfil(idAuth);
+        if (persona instanceof ClienteModel cliente) {
+            return cliente;
+        }
+        throw new RuntimeException("El usuario autenticado no corresponde a un cliente.");
+    }
+
     // 2.2 READ (Listar Staff)
     public List<StaffModel> listarTodoElStaff() {
         return staffRepository.findAll();

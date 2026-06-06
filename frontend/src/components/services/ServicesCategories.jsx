@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { SafeImage } from '../ui/SafeImage.jsx';
 
 const featuredOrder = ['maquillajes', 'nails'];
 
@@ -25,7 +26,7 @@ export function ServicesCategories({ categories = [], services = [], onSelect })
             whileHover={{ y: -6 }}
             transition={{ duration: 0.2 }}
           >
-            <img src={category.imagen} alt={category.nombre} loading="lazy" />
+            <SafeImage src={category.imageUrl || category.imagenUrl || category.imagen} alt={category.nombre} />
             <span className="card-kicker">{count} servicios</span>
             <h3>{category.nombre}</h3>
             <p>{category.descripcion}</p>

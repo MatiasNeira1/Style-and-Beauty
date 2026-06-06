@@ -4,34 +4,10 @@ import { ArrowLeft, CalendarDays, Clock } from 'lucide-react';
 import { Reveal } from '../../components/animations/Reveal.jsx';
 import { ProfessionalProfiles } from '../../components/services/ProfessionalProfiles.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { catalogService } from '../../services/catalogService.js';
 import { profileService } from '../../services/profileService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory, normalizeCategory } from '../../utils/categoryUtils.js';
-
-const serviceImages = [
-  {
-    match: ['peluqueria', 'pelo', 'cabello', 'corte', 'color'],
-    url: 'https://www.loreal-paris.com.mx/-/media/project/loreal/brand-sites/oap/americas/mx/articles/blog-de-belleza/cuidado-del-cabello/espuma-para-el-cabello/banner.jpg?cx=0.53&cy=0.24&cw=2000&ch=815&hash=4415F77E19A31614BD6CC4B1879D2A61',
-  },
-  {
-    match: ['facial', 'skin', 'piel', 'cosmetologia'],
-    url: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1800&q=82',
-  },
-  {
-    match: ['manicura', 'unas', 'manos', 'nails'],
-    url: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=1800&q=82',
-  },
-  {
-    match: ['masaje', 'masoterapia', 'spa', 'relajacion'],
-    url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1800&q=82',
-  },
-  {
-    match: ['maquillaje', 'makeup'],
-    url: 'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=1800&q=82',
-  },
-];
-
-const fallbackImage = 'https://images.unsplash.com/photo-1522337660859-02fbefca4702?auto=format&fit=crop&w=1800&q=82';
 
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
@@ -43,9 +19,8 @@ function serviceDuration(service) {
   return service?.duracion_minutos || service?.duracion || service?.duration || 45;
 }
 
-function heroImage(category, service) {
-  const source = normalizeCategory(`${category} ${service?.nombre || service?.name || ''}`);
-  return serviceImages.find((item) => item.match.some((term) => source.includes(term)))?.url || fallbackImage;
+function serviceImage(service) {
+  return service?.imageUrl || service?.imagenUrl || service?.imagen_url || service?.imagen || service?.fotoUrl;
 }
 
 function serviceMatchesSlug(service, slug) {
@@ -105,10 +80,9 @@ export function ServiceDetailPage() {
 
   return (
     <section className="service-detail-page">
-      <div
-        className="service-detail-banner"
-        style={{ backgroundImage: `linear-gradient(90deg, rgba(25, 20, 23, 0.7), rgba(25, 20, 23, 0.28)), url("${heroImage(category, service)}")` }}
-      >
+      <div className="service-detail-banner">
+        <SafeImage className="service-detail-banner-image" src={serviceImage(service)} alt={service.nombre || service.name || 'Servicio'} />
+        <div className="service-detail-banner-overlay" />
         <div className="service-detail-banner-inner">
           <Link className="service-detail-back" to={`/servicios/${categorySlug(category)}`}>
             <ArrowLeft size={16} />

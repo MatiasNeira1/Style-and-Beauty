@@ -11,13 +11,13 @@ import java.util.Arrays;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-    @Value("${app.cors.allowed-origins:${APP_CORS_ALLOWED_ORIGINS:https://midominio.com,https://www.midominio.com}}")
+    @Value("${app.cors.allowed-origins:${CORS_ALLOWED_ORIGINS:${APP_CORS_ALLOWED_ORIGINS:https://styleandbeauty.me,https://*.pages.dev}}}")
     private String allowedOrigins;
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
-                .allowedOrigins(corsAllowedOrigins())
+                .allowedOriginPatterns(corsAllowedOrigins())
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true)

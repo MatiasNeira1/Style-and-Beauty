@@ -52,7 +52,7 @@ function slotWeight(professional) {
 }
 
 export function ProfessionalsPage() {
-  const { professionals, isLoading } = useProfessionals();
+  const { professionals, isLoading, isError, error } = useProfessionals();
   const [search, setSearch] = useState('');
   const [specialty, setSpecialty] = useState('Todos');
   const [availability, setAvailability] = useState('Todos');
@@ -119,6 +119,12 @@ export function ProfessionalsPage() {
         {isLoading ? (
           <div className="professionals-grid">
             {[0, 1, 2, 3, 4, 5].map((item) => <ProfessionalSkeleton key={item} />)}
+          </div>
+        ) : isError ? (
+          <div className="professionals-empty-state">
+            <SlidersHorizontal size={34} />
+            <h3>No fue posible cargar profesionales.</h3>
+            <p>{error?.message || 'Servicio temporalmente no disponible.'}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="professionals-empty-state">

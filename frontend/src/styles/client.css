@@ -64,6 +64,13 @@
   min-width: 0;
 }
 
+.service-choice-image {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-xs);
+  object-fit: cover;
+  width: 100%;
+}
+
 .choice-card-header,
 .staff-card-header,
 .calendar-header,
@@ -1507,6 +1514,13 @@ a.contact-info-card:hover {
   aspect-ratio: 16 / 10;
   background-position: center;
   background-size: cover;
+  overflow: hidden;
+}
+
+.catalog-item-media img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .catalog-item-body {
@@ -1794,6 +1808,12 @@ a.contact-info-card:hover {
   transition: transform 320ms ease, filter 320ms ease;
   width: 100%;
   z-index: 0;
+}
+
+.service-showcase-card .catalog-item-media img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .service-showcase-card:hover .catalog-item-media {

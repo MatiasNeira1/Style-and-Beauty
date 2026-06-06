@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Style and Beauty">
+  <rect width="64" height="64" rx="14" fill="#fff8f4"/>
+  <circle cx="22" cy="21" r="10" fill="#f4b6c8"/>
+  <circle cx="41" cy="23" r="11" fill="#f7d8df"/>
+  <circle cx="32" cy="36" r="13" fill="#f3e3c4"/>
+  <path d="M16 40c10-11 22-16 36-15-9 5-14 13-16 23-5-6-12-9-20-8Z" fill="#76906e" opacity=".82"/>
+  <path d="M12 43h40" stroke="#a93454" stroke-width="3" stroke-linecap="round"/>
+  <text x="32" y="39" text-anchor="middle" font-family="Georgia, serif" font-size="16" font-weight="700" fill="#20191d">S&amp;B</text>
+</svg>
