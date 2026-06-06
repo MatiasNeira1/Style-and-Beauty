@@ -137,7 +137,7 @@ public class CitaService {
                     ));
                 }
 
-                cursor = cursor.plusMinutes(15);
+                cursor = cursor.plusMinutes(duracion + holgura);
             }
         }
 

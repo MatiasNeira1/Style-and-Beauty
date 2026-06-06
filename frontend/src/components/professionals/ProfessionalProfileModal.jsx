@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CalendarDays, Clock, MapPin, Signal, Sparkles, X } from 'lucide-react';
@@ -19,17 +20,17 @@ function portfolioFor(professional) {
 
 function servicesFor(professional) {
   const text = normalize(`${professional?.especialidad || ''} ${professional?.descripcion || ''}`);
-  if (text.includes('maquill')) return ['Maquillaje social', 'Maquillaje de novia', 'Preparacion de piel'];
+  if (text.includes('maquill')) return ['Maquillaje social', 'Maquillaje de novia', 'Preparación de piel'];
   if (text.includes('manicur') || text.includes('nail')) return ['Manicure premium', 'Esmaltado permanente', 'Nail art'];
-  if (text.includes('capilar') || text.includes('color') || text.includes('estilista')) return ['Corte y brushing', 'Coloracion', 'Tratamientos capilares'];
+  if (text.includes('capilar') || text.includes('color') || text.includes('estilista')) return ['Corte y brushing', 'Coloración', 'Tratamientos capilares'];
   if (text.includes('maso')) return ['Masaje relajante', 'Drenaje', 'Ritual spa'];
-  if (text.includes('corporal') || text.includes('kines')) return ['Drenaje linfatico', 'Modelacion corporal', 'Tratamientos reafirmantes'];
-  return ['Limpieza facial', 'Hidratacion profunda', 'Glow facial'];
+  if (text.includes('corporal') || text.includes('kines')) return ['Drenaje linfático', 'Modelación corporal', 'Tratamientos reafirmantes'];
+  return ['Limpieza facial', 'Hidratación profunda', 'Glow facial'];
 }
 
 function yearsWithUs(professional) {
   const numericId = Number(String(professional?.id || '').match(/\d+/)?.[0] || 1);
-  return `${(numericId % 4) + 1} anos junto a Style & Beauty`;
+  return `${(numericId % 4) + 1} años junto a Style & Beauty`;
 }
 
 export function ProfessionalProfileModal({ professional, onClose }) {
@@ -42,16 +43,8 @@ export function ProfessionalProfileModal({ professional, onClose }) {
   useEffect(() => {
     if (!professional) return undefined;
 
-    const previousOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousBodyPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-
-    document.body.style.overflow = 'hidden';
+    const originalOverflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') onClose?.();
@@ -60,14 +53,12 @@ export function ProfessionalProfileModal({ professional, onClose }) {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.body.style.paddingRight = previousBodyPaddingRight;
+      document.documentElement.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [professional, onClose]);
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {professional && (
         <motion.div
@@ -88,6 +79,7 @@ export function ProfessionalProfileModal({ professional, onClose }) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="professional-profile-title"
+            data-lenis-prevent
           >
             <button type="button" className="professional-modal-close" onClick={onClose} aria-label="Cerrar perfil">
               <X size={18} />
@@ -100,11 +92,11 @@ export function ProfessionalProfileModal({ professional, onClose }) {
               <div className="professional-modal-intro">
                 <span className="professional-specialty"><Sparkles size={14} /> {professional.especialidad || professional.cargo}</span>
                 <h2 id="professional-profile-title">{professional.fullName}</h2>
-                <p>{professional.descripcion || 'Atencion personalizada con diagnostico, tecnica cuidada y acabado profesional.'}</p>
+                <p>{professional.descripcion || 'Atención personalizada con diagnóstico, técnica cuidada y acabado profesional.'}</p>
                 <div className="professional-modal-meta">
                   <span><MapPin size={15} /> Sucursal: {professional.sucursal || 'Providencia'}</span>
                   <span className={`professional-modal-status ${tone}`}><Signal size={15} /> Estado: {professional.estado || 'Disponible hoy'}</span>
-                  <span><Clock size={15} /> Proxima hora: {nextHour}</span>
+                  <span><Clock size={15} /> Próxima hora: {nextHour}</span>
                 </div>
               </div>
             </div>
@@ -114,11 +106,11 @@ export function ProfessionalProfileModal({ professional, onClose }) {
                 <span className="modal-section-kicker">Trayectoria</span>
                 <h3>Perfil profesional</h3>
                 <p>
-                  {professional.trayectoria || `${professional.fullName} combina tecnica, criterio estetico y una experiencia cercana para crear resultados pulidos y naturales.`}
+                  {professional.trayectoria || `${professional.fullName} combina técnica, criterio estético y una experiencia cercana para crear resultados pulidos y naturales.`}
                 </p>
                 <div className="professional-modal-stat">
                   <strong>{yearsWithUs(professional)}</strong>
-                  <span>Experiencia curada para clientas que buscan precision, calma y resultados consistentes.</span>
+                  <span>Experiencia curada para clientas que buscan precisión, calma y resultados consistentes.</span>
                 </div>
               </section>
 
@@ -131,7 +123,7 @@ export function ProfessionalProfileModal({ professional, onClose }) {
               </section>
             </div>
 
-            <section className="professional-modal-gallery" aria-label="Galeria de trabajos realizados">
+            <section className="professional-modal-gallery" aria-label="Galería de trabajos realizados">
               {(portfolio.length ? portfolio : [null, null, null]).map((image, index) => (
                 <SafeImage key={image || `fallback-${index}`} src={image} alt={`Trabajo realizado ${index + 1} por ${professional.fullName}`} />
               ))}
@@ -139,20 +131,37 @@ export function ProfessionalProfileModal({ professional, onClose }) {
 
             <div className="professional-modal-footer">
               <div>
-                <span className="modal-section-kicker">Proximas horas</span>
+                <span className="modal-section-kicker">Próximas horas</span>
                 <div className="professional-modal-hours">
-                  {(professional.proximasHoras?.length ? professional.proximasHoras : ['Consultar disponibilidad']).slice(0, 4).map((hour) => (
-                    <span key={hour}>{hour}</span>
-                  ))}
+                  {(professional.proximasHoras?.length ? professional.proximasHoras : ['Consultar disponibilidad']).slice(0, 4).map((hour) => {
+                    const todayStr = new Date().toLocaleDateString('sv-SE');
+                    return hour !== 'Consultar disponibilidad' ? (
+                      <Link
+                        key={hour}
+                        to="/reservar"
+                        state={{
+                          professional,
+                          selectedHour: `${todayStr}T${hour}:00`,
+                          selectedDate: todayStr
+                        }}
+                        onClick={onClose}
+                      >
+                        {hour}
+                      </Link>
+                    ) : (
+                      <span key={hour}>{hour}</span>
+                    );
+                  })}
                 </div>
               </div>
-              <Link to="/reservar" className="professional-modal-booking" onClick={onClose}>
+              <Link to="/reservar" state={{ professional }} className="professional-modal-booking" onClick={onClose}>
                 <CalendarDays size={17} /> Reservar hora
               </Link>
             </div>
           </motion.article>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

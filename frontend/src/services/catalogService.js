@@ -10,4 +10,5 @@ export const catalogService = {
   listarStaffPorServicio: (idServicio) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${idServicio}/staff` }),
   validarStaffServicio: (idServicio, idStaff) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${idServicio}/staff/${idStaff}/validar` }),
   desactivarStaffServicio: (idServicio, idStaff) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${idServicio}/staff/${idStaff}`, method: 'DELETE', authRequired: true }),
+  listProfessionalsByService: (idServicio) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${idServicio}/profesionales` }),
 };
