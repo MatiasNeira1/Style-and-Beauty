@@ -1,13 +1,12 @@
 package com.style.beauty.ms_catalogo.service;
 
-import com.style.beauty.ms_catalogo.repository.CategoriaRepository;
 import com.style.beauty.ms_catalogo.entity.Servicio;
+import com.style.beauty.ms_catalogo.repository.CategoriaRepository;
 import com.style.beauty.ms_catalogo.repository.ServicioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.text.Normalizer;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,29 +21,28 @@ public class ServicioService {
     private CategoriaRepository categoriaRepository;
 
     public List<Servicio> listarTodos() {
-        return repository.findAll().stream()
-                .map(this::conHolguraCatalogo)
-                .toList();
+        return repository.findByActivoTrue();
     }
 
     public Optional<Servicio> buscarPorId(UUID id) {
-        return repository.findById(id).map(this::conHolguraCatalogo);
+        return repository.findById(id)
+                .filter(servicio -> Boolean.TRUE.equals(servicio.getActivo()));
     }
 
     public List<Servicio> listarPorCategoria(String categoria) {
-        return repository.findByCategoria(categoria).stream()
-                .map(this::conHolguraCatalogo)
-                .toList();
+        return repository.findByCategoriaIgnoreCaseAndActivoTrue(categoria);
     }
 
     public Servicio guardar(Servicio servicio) {
-        conHolguraCatalogo(servicio);
+        prepararServicio(servicio);
+        validarServicio(servicio);
         return repository.save(servicio);
     }
 
     @Transactional
     public Optional<Servicio> actualizar(UUID id, Servicio cambios) {
         return repository.findById(id).map(existente -> {
+
             existente.setNombre(cambios.getNombre());
             existente.setDescripcion(cambios.getDescripcion());
             existente.setDetallerservicio(cambios.getDetallerservicio());
@@ -55,7 +53,10 @@ public class ServicioService {
             existente.setPrecio_total(cambios.getPrecio_total());
             existente.setMonto_fianza(cambios.getMonto_fianza());
             existente.setActivo(cambios.getActivo());
-            conHolguraCatalogo(existente);
+
+            prepararServicio(existente);
+            validarServicio(existente);
+
             return repository.save(existente);
         });
     }
@@ -64,55 +65,66 @@ public class ServicioService {
         repository.deleteById(id);
     }
 
-    private Servicio conHolguraCatalogo(Servicio servicio) {
-        if (servicio.getHolgura_minutos() == null || servicio.getHolgura_minutos() < 0) {
-            servicio.setHolgura_minutos(holguraPorCategoria(servicio.getCategoria(), servicio.getNombre()));
-        }
-        return servicio;
-    }
+    private void prepararServicio(Servicio servicio) {
 
-    private int holguraPorCategoria(String categoria, String nombre) {
-        if (categoria != null && !categoria.isBlank()) {
-            Optional<Integer> holguraCatalogo = categoriaRepository.findByNombreIgnoreCase(categoria.trim())
-                    .map(valor -> valor.getHolgura());
-            if (holguraCatalogo.isPresent()) {
-                return holguraCatalogo.get();
+        if (servicio.getActivo() == null) {
+            servicio.setActivo(true);
+        }
+
+        if (servicio.getHolgura_minutos() == null) {
+            Integer holguraCategoria = obtenerHolguraCategoria(servicio.getCategoria());
+
+            if (holguraCategoria == null) {
+                throw new RuntimeException("El servicio no tiene holgura configurada y la categoría tampoco tiene holgura por defecto");
             }
-        }
 
-        String texto = normalizar((categoria == null ? "" : categoria) + " " + (nombre == null ? "" : nombre));
-
-        if (contieneAlguno(texto, "cabello", "peluqueria", "barber", "corte", "color")) {
-            return 30;
+            servicio.setHolgura_minutos(holguraCategoria);
         }
-        if (contieneAlguno(texto, "maquillaje")) {
-            return 15;
-        }
-        if (contieneAlguno(texto, "nails", "unas", "manicure", "pedicure")) {
-            return 15;
-        }
-        if (contieneAlguno(texto, "cuidados de la piel", "piel", "facial", "estetica")) {
-            return 20;
-        }
-        if (contieneAlguno(texto, "spa", "masaje", "masoterapia")) {
-            return 30;
-        }
-
-        return 20;
     }
 
-    private boolean contieneAlguno(String texto, String... valores) {
-        for (String valor : valores) {
-            if (texto.contains(valor)) {
-                return true;
-            }
+    private Integer obtenerHolguraCategoria(String categoria) {
+
+        if (categoria == null || categoria.isBlank()) {
+            return null;
         }
-        return false;
+
+        return categoriaRepository.findByNombreIgnoreCase(categoria.trim())
+                .map(categoriaEncontrada -> categoriaEncontrada.getHolgura())
+                .orElse(null);
     }
 
-    private String normalizar(String texto) {
-        return Normalizer.normalize(texto, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "")
-                .toLowerCase();
+    private void validarServicio(Servicio servicio) {
+
+        if (servicio.getNombre() == null || servicio.getNombre().isBlank()) {
+            throw new RuntimeException("El nombre del servicio es obligatorio");
+        }
+
+        if (servicio.getCategoria() == null || servicio.getCategoria().isBlank()) {
+            throw new RuntimeException("La categoría del servicio es obligatoria");
+        }
+
+        if (servicio.getDuracion_minutos() == null || servicio.getDuracion_minutos() <= 0) {
+            throw new RuntimeException("La duración del servicio debe ser mayor a 0");
+        }
+
+        if (servicio.getHolgura_minutos() == null) {
+            throw new RuntimeException("La holgura del servicio es obligatoria");
+        }
+
+        if (servicio.getHolgura_minutos() < 0) {
+            throw new RuntimeException("La holgura del servicio no puede ser negativa");
+        }
+
+        if (servicio.getHolgura_minutos() >= servicio.getDuracion_minutos()) {
+            throw new RuntimeException("La holgura no puede ser igual o mayor a la duración del servicio");
+        }
+
+        if (servicio.getPrecio_total() == null || servicio.getPrecio_total() < 0) {
+            throw new RuntimeException("El precio total del servicio debe ser válido");
+        }
+
+        if (servicio.getMonto_fianza() == null || servicio.getMonto_fianza() < 0) {
+            throw new RuntimeException("El monto de fianza debe ser válido");
+        }
     }
 }

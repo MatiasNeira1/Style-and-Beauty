@@ -22,7 +22,7 @@ BEGIN
             ADD CONSTRAINT citas_staff_sin_solapamientos
             EXCLUDE USING gist (
                 id_staff WITH =,
-                tstzrange(fecha_hora_inicio, fecha_hora_fin_holgura, '[)') WITH &&
+                tstzrange(fecha_hora_inicio, fecha_hora_fin, '[)') WITH &&
             )
             WHERE (estado_cita NOT IN ('CANCELADA', 'EXPIRADA', 'RECHAZADA'));
     END IF;

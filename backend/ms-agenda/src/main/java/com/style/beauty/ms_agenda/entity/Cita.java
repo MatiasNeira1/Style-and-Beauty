@@ -32,12 +32,13 @@ public class Cita {
 
     @Column(nullable = false)
     private OffsetDateTime fechaHoraInicio;
-
+    //Fin visible para el cliente y fin real del bloque ocupado (incluye holgura)
     @Column(nullable = false)
     private OffsetDateTime fechaHoraFin;
 
+    // Hora interna en que el profesional debe terminar la atención real
     @Column(nullable = false)
-    private OffsetDateTime fechaHoraFinHolgura;
+    private OffsetDateTime fechaHoraFinAtencion;
 
     @Column(nullable = false)
     private Integer duracionServicioMin;
@@ -75,11 +76,10 @@ public class Cita {
         updatedAt = OffsetDateTime.now();
 
         if (estadoCita == null)
-            estadoCita = EstadoCita.PENDIENTE_PAGO;
+            estadoCita = EstadoCita.CONFIRMADA;
         if (tipoCita == null)
             tipoCita = TipoCita.NORMAL;
-        if (holguraMin == null)
-            holguraMin = 20;
+        
     }
 
     @PreUpdate
