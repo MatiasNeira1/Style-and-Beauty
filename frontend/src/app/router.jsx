@@ -56,19 +56,21 @@ export const router = createBrowserRouter([
   {
     path: '/admin',
     element: (
-      <RequireAuth roles={['ADMIN', 'STAFF']}>
+      <RequireAuth roles={['ADMIN']}>
         <AdminLayout />
       </RequireAuth>
     ),
     errorElement: <RouteErrorBoundary />,
     children: [
       { index: true, element: lazyRoute(() => import('../pages/admin/AdminDashboard.jsx'), 'AdminDashboard') },
+      { path: 'dashboard', element: lazyRoute(() => import('../pages/admin/AdminDashboard.jsx'), 'AdminDashboard') },
       { path: 'agenda', element: lazyRoute(() => import('../pages/admin/AgendaAdminPage.jsx'), 'AgendaAdminPage') },
       { path: 'servicios', element: lazyRoute(() => import('../pages/admin/ServicesAdminPage.jsx'), 'ServicesAdminPage') },
       { path: 'inventario', element: lazyRoute(() => import('../pages/admin/InventoryAdminPage.jsx'), 'InventoryAdminPage') },
       { path: 'pagos', element: lazyRoute(() => import('../pages/admin/PaymentsAdminPage.jsx'), 'PaymentsAdminPage') },
       { path: 'clientes', element: lazyRoute(() => import('../pages/admin/ClientsAdminPage.jsx'), 'ClientsAdminPage') },
       { path: 'staff', element: lazyRoute(() => import('../pages/admin/StaffAdminPage.jsx'), 'StaffAdminPage') },
+      { path: 'perfil', element: lazyRoute(() => import('../pages/admin/AdminProfilePage.jsx'), 'AdminProfilePage') },
     ],
   },
   {
