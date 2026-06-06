@@ -15,7 +15,8 @@ public class ServicioClient {
 
     public ServicioClient(
             RestClient.Builder builder,
-            @Value("${app.ms-catalogo.base-url:http://ms-catalogo:8083}") String catalogoBaseUrl) {
+            @Value("${app.ms-catalogo.base-url:http://ms-catalogo:8083}") String catalogoBaseUrl
+    ) {
         this.restClient = builder.baseUrl(catalogoBaseUrl).build();
     }
 
@@ -26,13 +27,35 @@ public class ServicioClient {
                     .retrieve()
                     .body(ServicioResumen.class);
 
-            if (servicio == null || servicio.duracionMinutos() == null || servicio.duracionMinutos() <= 0) {
-                throw new BusinessException("Servicio no encontrado o sin duracion valida en ms-catalogo");
-            }
+            validarServicio(servicio);
 
             return servicio;
+
         } catch (RestClientException e) {
+            throw new BusinessException("No se pudo obtener el servicio desde ms-catalogo");
+        }
+    }
+
+    private void validarServicio(ServicioResumen servicio) {
+
+        if (servicio == null) {
             throw new BusinessException("Servicio no encontrado en ms-catalogo");
+        }
+
+        if (servicio.duracionMinutos() == null || servicio.duracionMinutos() <= 0) {
+            throw new BusinessException("El servicio no tiene una duración válida configurada en ms-catalogo");
+        }
+
+        if (servicio.holguraMinutos() == null) {
+            throw new BusinessException("El servicio no tiene holgura configurada en ms-catalogo");
+        }
+
+        if (servicio.holguraMinutos() < 0) {
+            throw new BusinessException("La holgura del servicio no puede ser negativa");
+        }
+
+        if (servicio.holguraMinutos() >= servicio.duracionMinutos()) {
+            throw new BusinessException("La holgura no puede ser igual o mayor a la duración del servicio");
         }
     }
 }
