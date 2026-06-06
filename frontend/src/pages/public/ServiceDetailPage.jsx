@@ -82,9 +82,12 @@ export function ServiceDetailPage() {
 
   const rawSpecialists = Array.isArray(specialistsQuery.data) ? specialistsQuery.data : [];
   const specialists = rawSpecialists.map((member, idx) => normalizeProfessional(member, idx));
-  const isLoading = servicesQuery.isLoading || specialistsQuery.isLoading;
 
-  if (isLoading) {
+  // Only block render on services loading — specialists query may be disabled (no serviceId yet)
+  const isServicesLoading = servicesQuery.isLoading;
+  const isSpecialistsLoading = !!serviceId && specialistsQuery.isFetching;
+
+  if (isServicesLoading || isSpecialistsLoading) {
     return (
       <section className="page-section">
         <Loader />
@@ -92,10 +95,10 @@ export function ServiceDetailPage() {
     );
   }
 
-  if (servicesQuery.isError || specialistsQuery.isError) {
+  if (servicesQuery.isError) {
     return (
       <section className="page-section">
-        <p className="admin-alert">{servicesQuery.error?.message || specialistsQuery.error?.message}</p>
+        <p className="admin-alert">{servicesQuery.error?.message}</p>
       </section>
     );
   }
