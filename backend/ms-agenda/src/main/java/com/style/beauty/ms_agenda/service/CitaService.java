@@ -271,6 +271,17 @@ public class CitaService {
         return cita;
     }
 
+    private Cita guardarSinSolape(Cita cita) {
+        try {
+            return citaRepository.saveAndFlush(cita);
+        } catch (DataIntegrityViolationException e) {
+            throw new DataIntegrityViolationException(
+                    "El horario seleccionado ya no esta disponible",
+                    e
+            );
+        }
+    }
+
     private int duracionServicio(ServicioResumen servicio) {
 
         if (servicio.duracionMinutos() == null || servicio.duracionMinutos() <= 0) {
