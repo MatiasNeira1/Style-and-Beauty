@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, CalendarDays, Clock } from 'lucide-react';
 import { Reveal } from '../../components/animations/Reveal.jsx';
@@ -8,6 +8,8 @@ import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { catalogService } from '../../services/catalogService.js';
 import { profileService } from '../../services/profileService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory, normalizeCategory } from '../../utils/categoryUtils.js';
+import { normalizeProfessional } from '../../hooks/useProfessionals.js';
+import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
 
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
@@ -37,20 +39,31 @@ function serviceMatchesSlug(service, slug) {
 
 export function ServiceDetailPage() {
   const { categoria, servicio } = useParams();
+  const navigate = useNavigate();
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
-  const staffQuery = useQuery({ queryKey: ['public-staff'], queryFn: profileService.listPublicStaff });
 
   const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
-  const staff = Array.isArray(staffQuery.data) ? staffQuery.data : [];
   const grouped = groupByCategory(services);
   const categories = Object.keys(grouped);
   const category = findCategoryBySlug(categories, categoria) || categories[0] || 'General';
   const categoryServices = grouped[category] || [];
   const service = categoryServices.find((item) => serviceMatchesSlug(item, servicio));
-  const specialists = staff.filter((member) => normalizeCategory(member.especialidad?.nombre) === normalizeCategory(category));
-  const isLoading = servicesQuery.isLoading || staffQuery.isLoading;
 
-  if (isLoading) {
+  const serviceId = service?.id_servicio || service?.idServicio || service?.id;
+  const specialistsQuery = useQuery({
+    queryKey: ['service-specialists', serviceId],
+    queryFn: () => catalogService.listProfessionalsByService(serviceId),
+    enabled: !!serviceId,
+  });
+
+  const rawSpecialists = Array.isArray(specialistsQuery.data) ? specialistsQuery.data : [];
+  const specialists = rawSpecialists.map((member, idx) => normalizeProfessional(member, idx));
+
+  // Only block render on services loading — specialists query may be disabled (no serviceId yet)
+  const isServicesLoading = servicesQuery.isLoading;
+  const isSpecialistsLoading = !!serviceId && specialistsQuery.isFetching;
+
+  if (isServicesLoading || isSpecialistsLoading) {
     return (
       <section className="page-section">
         <Loader />
@@ -58,10 +71,10 @@ export function ServiceDetailPage() {
     );
   }
 
-  if (servicesQuery.isError || staffQuery.isError) {
+  if (servicesQuery.isError) {
     return (
       <section className="page-section">
-        <p className="admin-alert">{servicesQuery.error?.message || staffQuery.error?.message}</p>
+        <p className="admin-alert">{servicesQuery.error?.message}</p>
       </section>
     );
   }
@@ -116,6 +129,7 @@ export function ServiceDetailPage() {
             <ProfessionalProfiles
               professionals={specialists}
               emptyText="Pronto asignaremos especialistas para este servicio."
+              onSelect={(prof) => navigate('/reservar', { state: { service, professional: prof.raw || prof } })}
             />
           </section>
         </div>

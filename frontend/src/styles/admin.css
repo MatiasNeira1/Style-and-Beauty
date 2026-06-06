@@ -253,6 +253,40 @@
   color: white;
   transform: translateY(-1px);
 }
+/* ── Logout button (sidebar footer) ── */
+.admin-logout-btn {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.6);
+  display: grid;
+  flex: 0 0 auto;
+  height: 2.2rem;
+  place-items: center;
+  transition: background 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
+  width: 2.2rem;
+}
+
+.admin-logout-btn:hover {
+  background: rgba(220, 60, 90, 0.22);
+  border-color: rgba(220, 60, 90, 0.35);
+  color: #ff8099;
+  transform: translateY(-1px);
+}
+
+/* ── Logout button (topbar) ── */
+.admin-logout-topbar {
+  color: var(--color-ink-soft);
+}
+
+.admin-logout-topbar:hover {
+  background: rgba(220, 60, 90, 0.08) !important;
+  border-color: rgba(220, 60, 90, 0.2) !important;
+  color: #c0334f !important;
+  box-shadow: 0 8px 20px rgba(220, 60, 90, 0.14) !important;
+}
+
 
 .admin-avatar {
   background: rgba(255, 255, 255, 0.14);

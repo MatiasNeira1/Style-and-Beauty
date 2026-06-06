@@ -52,6 +52,11 @@ export function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
   const [isOpen, setIsOpen] = useState(false);
   const profileQuery = useQuery({
     queryKey: ['my-profile'],
@@ -146,6 +151,19 @@ export function AdminLayout() {
           <button type="button" className="admin-logout-button" onClick={handleLogout}>
             <LogOut size={16} />
             Cerrar sesion
+          <div className="admin-avatar" aria-hidden="true">{initials || 'AD'}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <strong>{adminName}</strong>
+            <small>{user?.rol || 'ADMIN'}</small>
+          </div>
+          <button
+            type="button"
+            className="admin-logout-btn"
+            onClick={handleLogout}
+            aria-label="Cerrar sesion"
+            title="Cerrar sesion"
+          >
+            <LogOut size={17} />
           </button>
         </div>
       </aside>
@@ -179,6 +197,15 @@ export function AdminLayout() {
               <Plus size={17} />
               Nueva reserva
             </NavLink>
+            <button
+              type="button"
+              className="admin-icon-button admin-logout-topbar"
+              onClick={handleLogout}
+              aria-label="Cerrar sesion"
+              title="Cerrar sesion"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
 
