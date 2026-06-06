@@ -1,9 +1,10 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   Bell,
   CalendarRange,
   CreditCard,
+  LogOut,
   Menu,
   Package,
   Plus,
@@ -41,7 +42,13 @@ const adminGroups = [
 ];
 
 export function AdminLayout() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
   const [isOpen, setIsOpen] = useState(false);
   const today = useMemo(
     () => new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date()),
@@ -110,10 +117,19 @@ export function AdminLayout() {
 
         <div className="admin-sidebar-footer">
           <div className="admin-avatar" aria-hidden="true">{initials || 'AD'}</div>
-          <div>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <strong>{adminName}</strong>
             <small>{user?.rol || 'ADMIN'}</small>
           </div>
+          <button
+            type="button"
+            className="admin-logout-btn"
+            onClick={handleLogout}
+            aria-label="Cerrar sesion"
+            title="Cerrar sesion"
+          >
+            <LogOut size={17} />
+          </button>
         </div>
       </aside>
 
@@ -146,6 +162,15 @@ export function AdminLayout() {
               <Plus size={17} />
               Nueva reserva
             </NavLink>
+            <button
+              type="button"
+              className="admin-icon-button admin-logout-topbar"
+              onClick={handleLogout}
+              aria-label="Cerrar sesion"
+              title="Cerrar sesion"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
 

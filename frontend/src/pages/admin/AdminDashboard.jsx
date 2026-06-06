@@ -21,9 +21,9 @@ import { useAdminDashboardMetrics } from '../../hooks/admin/useAdminDashboardMet
 import { formatTime } from '../../utils/adminFormatters.js';
 
 function RangeFilter() {
-  const ranges = ['7 dias', '30 dias', 'Mes', 'Año'];
+  const ranges = ['7 días', '30 días', 'Mes', 'Año'];
   return (
-    <div className="admin-segmented" aria-label="Rango de metricas">
+    <div className="admin-segmented" aria-label="Rango de métricas">
       {ranges.map((range, index) => (
         <button key={range} type="button" className={index === 0 ? 'active' : ''} aria-pressed={index === 0}>
           {range}
@@ -45,7 +45,7 @@ function ProfessionalCard({ professional }) {
       <AdminStatusBadge status={professional.status}>{professional.status}</AdminStatusBadge>
       <dl>
         <div><dt>Reservas hoy</dt><dd>{professional.reservations}</dd></div>
-        <div><dt>Proxima</dt><dd>{professional.nextBooking ? formatTime(professional.nextBooking.fechaHoraInicio) : 'Sin agenda'}</dd></div>
+        <div><dt>Próxima</dt><dd>{professional.nextBooking ? formatTime(professional.nextBooking.fechaHoraInicio) : 'Sin agenda'}</dd></div>
       </dl>
       <Link to="/admin/staff">Gestionar <ExternalLink size={14} /></Link>
     </article>
@@ -58,7 +58,7 @@ export function AdminDashboard() {
   if (isLoading) {
     return (
       <div className="admin-dashboard">
-        <AdminPageHeader title="Resumen operativo y financiero" description="Cargando indicadores del centro de estetica." />
+        <AdminPageHeader title="Resumen operativo y financiero" description="Cargando indicadores del centro de estética." />
         <AdminSkeleton rows={8} />
       </div>
     );
@@ -81,25 +81,25 @@ export function AdminDashboard() {
       </AdminKpiGrid>
 
       <div className="admin-dashboard-grid main">
-        <AdminChartCard title="Ganancias del centro" description="Serie historica preparada para analytics agregado del backend." action={<Sparkles size={18} />}>
+        <AdminChartCard title="Ganancias del centro" description="Serie histórica preparada para analytics agregado del backend." action={<Sparkles size={18} />}>
           <RevenueChart data={metrics.revenueSeries} />
         </AdminChartCard>
 
-        <AdminChartCard title="Estado operativo" description="Reservas segun etapa de atencion.">
+        <AdminChartCard title="Estado operativo" description="Reservas según etapa de atención.">
           <AppointmentStatusChart data={metrics.appointmentStatus} />
         </AdminChartCard>
       </div>
 
       <div className="admin-dashboard-grid secondary">
-        <AdminChartCard title="Desempeno de profesionales" description="Ranking visual por ingresos estimados.">
+        <AdminChartCard title="Desempeño de profesionales" description="Ranking visual por ingresos estimados.">
           <ProfessionalPerformanceChart data={metrics.staffPerformance} />
         </AdminChartCard>
 
-        <AdminChartCard title="Distribucion de servicios" description="Categorias con mayor actividad.">
+        <AdminChartCard title="Distribución de servicios" description="Categorías con mayor actividad.">
           <ServiceDistributionChart data={metrics.serviceDistribution} />
         </AdminChartCard>
 
-        <AdminChartCard title="Ocupacion semanal" description="Horas con mayor demanda operativa.">
+        <AdminChartCard title="Ocupación semanal" description="Horas con mayor demanda operativa.">
           <WeeklyOccupancyHeatmap data={metrics.weeklyOccupancy} />
         </AdminChartCard>
       </div>
@@ -109,7 +109,7 @@ export function AdminDashboard() {
           <header>
             <div>
               <h3>Equipo de hoy</h3>
-              <p>Profesionales con actividad, disponibilidad y proxima atencion.</p>
+              <p>Profesionales con actividad, disponibilidad y próxima atención.</p>
             </div>
             <Link to="/admin/staff">Ver equipo</Link>
           </header>
@@ -120,7 +120,7 @@ export function AdminDashboard() {
               <AdminEmptyState
                 compact
                 title="Sin profesionales cargados"
-                description="Agrega especialistas para ver disponibilidad y desempeno del equipo."
+                description="Agrega especialistas para ver disponibilidad y desempeño del equipo."
                 action={<Link to="/admin/staff" className="admin-empty-action">Gestionar profesionales</Link>}
               />
             )}
@@ -130,7 +130,7 @@ export function AdminDashboard() {
         <section className="admin-panel">
           <header>
             <div>
-              <h3>Proximas reservas</h3>
+              <h3>Próximas reservas</h3>
               <p>Cola operativa inmediata.</p>
             </div>
             <Clock size={18} />
@@ -145,8 +145,8 @@ export function AdminDashboard() {
             )) : (
               <AdminEmptyState
                 compact
-                title="No hay reservas proximas"
-                description="La cola operativa esta libre para este rango."
+                title="No hay reservas próximas"
+                description="La cola operativa está libre para este rango."
                 action={<Link to="/admin/agenda" className="admin-empty-action">Ver agenda</Link>}
               />
             )}
