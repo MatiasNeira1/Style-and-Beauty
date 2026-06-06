@@ -24,7 +24,7 @@ function categoryCard(category, count) {
     id: slugify(name),
     nombre: name,
     descripcion: `${count} productos disponibles en inventario.`,
-    logo: `https://placehold.co/420x420/f5e8dc/3f342e?text=${encodeURIComponent(name)}`,
+    logo: '/logo.jpg',
   };
 }
 

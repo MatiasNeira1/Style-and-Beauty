@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { Upload, Trash2, Image as ImageIcon } from 'lucide-react';
+import { SafeImage } from '../../ui/SafeImage.jsx';
 
 export function StaffPortfolioGallery({ images = [], onUpload, onDelete }) {
   const [dragOver, setDragOver] = useState(false);
@@ -109,10 +110,9 @@ export function StaffPortfolioGallery({ images = [], onUpload, onDelete }) {
         <div className="portfolio-grid">
           {allImages.map((img) => (
             <div key={img.id} className="portfolio-item">
-              <img
+              <SafeImage
                 src={img.url}
                 alt={img.name || 'Trabajo realizado'}
-                loading="lazy"
               />
               <div className="portfolio-item-overlay">
                 {img.isUploaded ? (

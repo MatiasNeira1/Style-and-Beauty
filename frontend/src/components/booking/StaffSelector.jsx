@@ -1,6 +1,6 @@
-import { UserRound } from 'lucide-react';
 import { Card } from '../ui/Card.jsx';
 import { Button } from '../ui/Button.jsx';
+import { SafeImage } from '../ui/SafeImage.jsx';
 
 function getStaffId(member) {
   return member.idPersona || member.idStaff || member.id || member.nombre;
@@ -26,11 +26,7 @@ export function StaffSelector({ staff = [], selectedId, onSelect }) {
           <Card key={id} className={`staff-card ${isSelected ? 'active-staff-card' : ''}`}>
             <div className="staff-card-header">
               <div className="staff-avatar">
-                {member.foto || member.fotoUrl ? (
-                  <img src={member.foto || member.fotoUrl} alt={fullName} />
-                ) : (
-                  <UserRound size={28} />
-                )}
+                <SafeImage src={member.imageUrl || member.foto || member.fotoUrl} alt={fullName} />
               </div>
               <div>
                 <h3>{fullName}</h3>

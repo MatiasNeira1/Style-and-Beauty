@@ -11,13 +11,13 @@ import java.util.Arrays;
 
 @Configuration
 public class CorsConfig {
-    @Value("${app.cors.allowed-origins:${APP_CORS_ALLOWED_ORIGINS:https://midominio.com,https://www.midominio.com}}")
+    @Value("${app.cors.allowed-origins:${CORS_ALLOWED_ORIGINS:${APP_CORS_ALLOWED_ORIGINS:https://styleandbeauty.me,https://*.pages.dev}}}")
     private String allowedOrigins;
 
     @Bean
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(corsAllowedOrigins());
+        config.setAllowedOriginPatterns(corsAllowedOrigins());
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(Arrays.asList("*"));
         config.setAllowCredentials(true);

@@ -145,6 +145,9 @@ public class CitaService {
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Cita crear(CrearCitaRequest request) {
+        if (request.idCliente() == null) {
+            throw new BusinessException("No fue posible identificar al cliente autenticado");
+        }
 
         PerfilResumen cliente = perfilClient.obtenerCliente(request.idCliente());
         PerfilResumen staff = perfilClient.obtenerStaff(request.idStaff());

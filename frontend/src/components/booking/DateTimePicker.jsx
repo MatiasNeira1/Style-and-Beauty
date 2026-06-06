@@ -137,8 +137,6 @@ export function DateTimePicker({ date, time, slots = [], isLoading = false, erro
               <p className="admin-alert">{error}</p>
             ) : isLoading ? (
               <p className="admin-alert">Calculando disponibilidad con jornada, citas, bloqueos y holgura...</p>
-            ) : error ? (
-              <p className="admin-alert">{error}</p>
             ) : slots.length === 0 ? (
               <p className="admin-alert">No hay horarios disponibles para este profesional en la fecha seleccionada.</p>
             ) : (

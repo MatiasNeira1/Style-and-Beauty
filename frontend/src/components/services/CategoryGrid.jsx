@@ -1,35 +1,10 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { categorySlug, groupByCategory, normalizeCategory } from '../../utils/categoryUtils.js';
+import { SafeImage } from '../ui/SafeImage.jsx';
+import { categorySlug, groupByCategory } from '../../utils/categoryUtils.js';
 
-const categoryImages = [
-  {
-    match: ['peluqueria', 'pelo', 'cabello', 'corte', 'color'],
-    url: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    match: ['facial', 'skin', 'piel', 'cosmetologia'],
-    url: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    match: ['manicura', 'unas', 'manos', 'nails'],
-    url: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    match: ['masaje', 'masoterapia', 'spa', 'relajacion'],
-    url: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=900&q=80',
-  },
-  {
-    match: ['maquillaje', 'makeup'],
-    url: 'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=900&q=80',
-  },
-];
-
-const fallbackImage = 'https://images.unsplash.com/photo-1522337660859-02fbefca4702?auto=format&fit=crop&w=900&q=80';
-
-function categoryImage(category) {
-  const normalized = normalizeCategory(category);
-  return categoryImages.find((item) => item.match.some((term) => normalized.includes(term)))?.url || fallbackImage;
+function serviceImage(service) {
+  return service?.imageUrl || service?.imagenUrl || service?.imagen_url || service?.imagen || service?.fotoUrl;
 }
 
 export function CategoryGrid({ services = [] }) {
@@ -42,7 +17,7 @@ export function CategoryGrid({ services = [] }) {
 
         return (
           <Link key={category} className="category-card" to={`/servicios/${categorySlug(category)}`}>
-            <img className="category-card-media" src={categoryImage(category)} alt={category} loading="lazy" />
+            <SafeImage className="category-card-media" src={serviceImage(sample)} alt={category} />
             <div className="category-card-content">
               <span className="card-kicker">{category}</span>
               <h3>{category}</h3>
