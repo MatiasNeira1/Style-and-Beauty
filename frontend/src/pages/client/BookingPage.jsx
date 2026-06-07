@@ -5,14 +5,15 @@ import { Lock } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
+import { Loader } from '../../components/ui/Loader.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { BookingSummary } from '../../components/booking/BookingSummary.jsx';
 import { DateTimePicker } from '../../components/booking/DateTimePicker.jsx';
 import { ServiceSelector } from '../../components/booking/ServiceSelector.jsx';
 import { StaffSelector } from '../../components/booking/StaffSelector.jsx';
-import { agendaService } from '../../services/agendaService.js';
-import { catalogService } from '../../services/catalogService.js';
-import { profileService } from '../../services/profileService.js';
+import { reservationService } from '../../services/reservationService.js';
+import { serviceCatalogService } from '../../services/serviceCatalogService.js';
+import { staffService } from '../../services/staffService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
 import { normalizeCategory } from '../../utils/categoryUtils.js';
@@ -25,6 +26,28 @@ function staffId(member) {
   return member?.idPersona || member?.idStaff || member?.id;
 }
 
+function isStaffCompatible(specialtyName = '', serviceCategory = '') {
+  const spec = normalizeCategory(specialtyName);
+  const cat = normalizeCategory(serviceCategory);
+  if (spec === cat) return true;
+  const mapping = {
+    'cosmetologa': ['cuidados de la piel', 'spa'],
+    'esteticista integral': ['cuidados de la piel', 'spa'],
+    'kinesiologa estetica': ['cuidados de la piel', 'spa'],
+    'masoterapeuta': ['spa'],
+    'manicurista': ['nails'],
+    'especialista en depilacion laser': ['cuidados de la piel'],
+    'especialista facial': ['cuidados de la piel'],
+    'especialista corporal': ['spa', 'cuidados de la piel'],
+    'maquilladora profesional': ['maquillaje'],
+    'estilista capilar': ['cabello', 'peluqueria'],
+    'colorista': ['cabello', 'peluqueria'],
+    'lashista': ['maquillaje', 'cuidados de la piel'],
+    'brow artist': ['maquillaje', 'cuidados de la piel']
+  };
+  return mapping[spec]?.includes(cat) || false;
+}
+
 export function BookingPage() {
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
@@ -32,30 +55,47 @@ export function BookingPage() {
   const location = useLocation();
   const { updateBooking } = useBooking();
 
-  const [step, setStep] = useState(1);
-  const [service, setService] = useState(null);
-  const [member, setMember] = useState(null);
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
+  const initialService = location.state?.service || null;
+  const initialProfessional = location.state?.professional || null;
+  const initialHour = location.state?.selectedHour || '';
+  const initialDate = location.state?.selectedDate || '';
+
+  const [service, setService] = useState(initialService);
+  const [member, setMember] = useState(initialProfessional);
+  const [date, setDate] = useState(initialDate);
+  const [time, setTime] = useState(initialHour);
+  const [step, setStep] = useState(() => {
+    if (initialService && initialProfessional) return 3;
+    if (initialService) return 2;
+    return 1;
+  });
   const [confirmError, setConfirmError] = useState('');
 
-  const { data: serviceData } = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
-  const { data: staffData = [] } = useQuery({ queryKey: ['public-staff'], queryFn: profileService.listPublicStaff });
-  const { data: myProfile } = useQuery({ queryKey: ['my-profile'], queryFn: profileService.getMyProfile, enabled: isAuthenticated });
+  const servicesQuery = useQuery({ queryKey: ['services'], queryFn: serviceCatalogService.listServices });
+  const staffQuery = useQuery({ queryKey: ['public-staff'], queryFn: staffService.listPublicStaff });
+  const { data: myProfile, isError: isProfileError, error: profileError } = useQuery({
+    queryKey: ['my-profile'],
+    queryFn: reservationService.getMe,
+    enabled: isAuthenticated,
+  });
 
-  const services = Array.isArray(serviceData) ? serviceData : [];
+  const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
+  const staffData = useMemo(() => (Array.isArray(staffQuery.data) ? staffQuery.data : []), [staffQuery.data]);
   const filteredStaff = useMemo(() => {
     if (!Array.isArray(staffData)) return [];
     if (!service?.categoria) return staffData;
-    return staffData.filter((item) => normalizeCategory(item.especialidad?.nombre) === normalizeCategory(service.categoria));
+    return staffData.filter((item) => {
+      const specName = item.especialidad?.nombre || item.especialidad || '';
+      return isStaffCompatible(specName, service.categoria);
+    });
   }, [staffData, service]);
 
   const availabilityQuery = useQuery({
     queryKey: ['availability', staffId(member), serviceId(service), date],
-    queryFn: () => agendaService.getAvailability({
-      idStaff: staffId(member),
-      idServicio: serviceId(service),
-      fecha: date,
+    queryFn: () => reservationService.getAvailability({
+      professionalId: staffId(member),
+      serviceId: serviceId(service),
+      date,
     }),
     enabled: Boolean(member && date && service),
   });
@@ -66,7 +106,7 @@ export function BookingPage() {
   }, [availabilityQuery.data, time]);
 
   const bookingMutation = useMutation({
-    mutationFn: agendaService.createBooking,
+    mutationFn: reservationService.createReservation,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['availability', staffId(member), serviceId(service), date] });
       await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
@@ -76,6 +116,16 @@ export function BookingPage() {
 
   const confirm = async () => {
     setConfirmError('');
+    if (!isAuthenticated) {
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+
+    if (!service || !member || !date || !time) {
+      setConfirmError('Selecciona servicio, profesional, fecha y horario para continuar.');
+      return;
+    }
+
     const freshAvailability = await availabilityQuery.refetch();
     if (freshAvailability.isError) {
       setConfirmError(freshAvailability.error?.message || 'No fue posible validar disponibilidad. Intenta nuevamente.');
@@ -91,12 +141,16 @@ export function BookingPage() {
       return;
     }
 
-    const created = await bookingMutation.mutateAsync({
-      idCliente: myProfile?.idPersona,
-      idStaff: staffId(member),
-      idServicio: serviceId(service),
-      fechaHoraInicio: time,
-    });
+    let created = null;
+    try {
+      created = await bookingMutation.mutateAsync({
+        professionalId: staffId(member),
+        serviceId: serviceId(service),
+        startsAt: time,
+      });
+    } catch {
+      return;
+    }
 
     updateBooking({
       service,
@@ -136,37 +190,67 @@ export function BookingPage() {
 
           <div className="wizard-steps">
             {[['1', 'Servicio'], ['2', 'Staff'], ['3', 'Horario']].map(([value, label]) => (
-              <Badge key={value} tone={step === Number(value) ? 'primary' : 'neutral'}>{label}</Badge>
+              <Badge key={value} tone={step >= Number(value) ? 'primary' : 'neutral'}>{label}</Badge>
             ))}
           </div>
 
           {step === 1 && (
-            <ServiceSelector
-              services={services}
-              selectedId={serviceId(service)}
-              onSelect={(value) => {
-                setService(value);
-                setMember(null);
-                setDate('');
-                setTime('');
-                setConfirmError('');
-                setStep(2);
-              }}
-            />
+            servicesQuery.isLoading ? (
+              <Loader />
+            ) : servicesQuery.isError ? (
+              <p className="admin-alert">Servicio temporalmente no disponible.</p>
+            ) : services.length === 0 ? (
+              <p className="admin-alert">No hay servicios disponibles para reservar.</p>
+            ) : (
+              <ServiceSelector
+                services={services}
+                selectedId={serviceId(service)}
+                onSelect={(value) => {
+                  setService(value);
+                  setMember(null);
+                  setDate('');
+                  setTime('');
+                  setConfirmError('');
+                  setStep(2);
+                  const specName = member?.especialidad?.nombre || member?.especialidad || '';
+                  const isCompatible = member && isStaffCompatible(specName, value.categoria);
+                  if (isCompatible) {
+                    if (!initialHour) {
+                      setDate('');
+                      setTime('');
+                    }
+                    setStep(3);
+                  } else {
+                    setMember(null);
+                    setDate('');
+                    setTime('');
+                    setStep(2);
+                  }
+                  setConfirmError('');
+                  setStep(2);
+                }}
+              />
+            )
           )}
 
           {step === 2 && (
-            <StaffSelector
-              staff={filteredStaff}
-              selectedId={staffId(member)}
-              onSelect={(value) => {
-                setMember(value);
-                setDate('');
-                setTime('');
-                setConfirmError('');
-                setStep(3);
-              }}
-            />
+            staffQuery.isLoading ? (
+              <Loader />
+            ) : staffQuery.isError ? (
+              <p className="admin-alert">No fue posible cargar profesionales.</p>
+            ) : (
+              <StaffSelector
+                staff={filteredStaff}
+                selectedId={staffId(member)}
+                onSelect={(value) => {
+                  setMember(value);
+                  setDate('');
+                  setTime('');
+                  setConfirmError('');
+                  setStep(3);
+                }}
+              />
+            )
           )}
 
           {step === 3 && (
@@ -176,7 +260,7 @@ export function BookingPage() {
                 time={time}
                 slots={Array.isArray(availabilityQuery.data) ? availabilityQuery.data : []}
                 isLoading={availabilityQuery.isLoading}
-                error={availabilityQuery.error?.message}
+                error={availabilityQuery.error ? availabilityQuery.error.message || 'No fue posible cargar horarios.' : ''}
                 onDateChange={(value) => { setDate(value); setTime(''); setConfirmError(''); }}
                 onTimeChange={(value) => { setTime(value); setConfirmError(''); }}
               />
@@ -196,7 +280,11 @@ export function BookingPage() {
             )}
           </div>
 
-          {step === 3 && !myProfile?.idPersona && <p className="admin-alert">Tu perfil de cliente debe estar completo para confirmar la reserva.</p>}
+          {step === 3 && !myProfile?.idPersona && (
+            <p className="admin-alert">
+              {isProfileError ? profileError?.message || 'No fue posible cargar tu perfil.' : 'Tu perfil de cliente debe estar completo para confirmar la reserva.'}
+            </p>
+          )}
           {confirmError && <p className="admin-alert">{confirmError}</p>}
           {bookingMutation.isError && <p className="admin-alert">{bookingMutation.error.message}</p>}
         </div>

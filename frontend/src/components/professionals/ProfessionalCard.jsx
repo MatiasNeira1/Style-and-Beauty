@@ -1,6 +1,7 @@
-import { CalendarDays, Clock, MapPin, UserRound } from 'lucide-react';
+import { CalendarDays, Clock, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { SafeImage } from '../ui/SafeImage.jsx';
 import { professionalTheme, statusTone } from '../../utils/professionalTheme.js';
 
 export function ProfessionalCard({ professional, compact = false, onViewProfile }) {
@@ -18,11 +19,7 @@ export function ProfessionalCard({ professional, compact = false, onViewProfile 
       <div className="professional-card-glow" />
       <div className="professional-card-header">
         <div className="professional-card-media">
-          {professional.fotoUrl ? (
-            <img src={professional.fotoUrl} alt={professional.fullName} loading="lazy" />
-          ) : (
-            <UserRound size={42} />
-          )}
+          <SafeImage src={professional.imageUrl || professional.fotoUrl} alt={professional.fullName} />
         </div>
         <span className={`professional-status ${tone}`}>{professional.estado}</span>
       </div>
@@ -41,8 +38,8 @@ export function ProfessionalCard({ professional, compact = false, onViewProfile 
 
         <div className="professional-hours" aria-label="Próximas horas disponibles">
           <strong>Próxima hora</strong>
-          <span className="next-hour-chip">{professional.proximaHora || professional.proximasHoras[0]}</span>
-          {!compact && professional.proximasHoras.slice(0, 3).map((hour) => (
+          <span className="next-hour-chip">{professional.proximaHora || professional.proximasHoras?.[0] || 'Consultar disponibilidad'}</span>
+          {!compact && (professional.proximasHoras || []).slice(0, 3).map((hour) => (
             <span key={hour}>{hour}</span>
           ))}
         </div>

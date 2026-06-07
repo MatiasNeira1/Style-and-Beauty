@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Eye, Image, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
+import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton } from '../../components/admin/AdminPrimitives.jsx';
 import { StaffDeleteDialog } from '../../components/admin/staff/StaffDeleteDialog.jsx';
 import { StaffFormModal } from '../../components/admin/staff/StaffFormModal.jsx';
 import { StaffPortfolioGallery } from '../../components/admin/staff/StaffPortfolioGallery.jsx';
@@ -9,7 +10,6 @@ import { StaffProfileCard } from '../../components/admin/staff/StaffProfileCard.
 import { StaffWorkSchedule } from '../../components/admin/staff/StaffWorkSchedule.jsx';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { Button } from '../../components/ui/Button.jsx';
-import { Loader } from '../../components/ui/Loader.jsx';
 import { authService } from '../../services/authService.js';
 import { staffService } from '../../services/staffService.js';
 
@@ -125,13 +125,11 @@ export function StaffAdminPage() {
         const name = `${row.nombre || ''} ${row.apellidos || ''}`.trim() || 'Sin nombre';
         const initials = name.split(' ').slice(0, 2).map((word) => word[0]).join('').toUpperCase();
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div className="staff-avatar" style={{ width: '2.4rem', height: '2.4rem', fontSize: '0.82rem' }}>
-              {initials}
-            </div>
-            <div style={{ display: 'grid', gap: '0.1rem' }}>
-              <span style={{ fontWeight: 700, color: 'var(--color-ink)' }}>{name}</span>
-              <span style={{ fontSize: '0.78rem', color: 'var(--color-muted)' }}>{row.emailContacto || ''}</span>
+          <div className="admin-staff-cell">
+            <div className="staff-avatar admin-staff-avatar">{initials}</div>
+            <div>
+              <span>{name}</span>
+              <small>{row.emailContacto || 'Sin email registrado'}</small>
             </div>
           </div>
         );
@@ -163,18 +161,12 @@ export function StaffAdminPage() {
   ];
 
   return (
-    <div className="stack">
-      <div className="staff-header">
-        <div className="staff-header-info">
-          <span>MS02 · Staff Service</span>
-          <h1>Equipo Profesional</h1>
-          <p>Gestiona perfiles, jornadas laborales y portfolio de trabajos realizados.</p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <div className="staff-stat-pill">
-            <Users size={16} />
-            {staff.length} Profesionales
-          </div>
+    <div className="admin-dashboard">
+      <AdminPageHeader
+        eyebrow="Gestion"
+        title="Equipo profesional"
+        description="Gestiona perfiles, jornadas laborales y portfolio de trabajos realizados."
+        actions={(
           <Button
             onClick={() => {
               setEditingStaff(null);
@@ -185,8 +177,14 @@ export function StaffAdminPage() {
             <Plus size={16} />
             Nuevo Profesional
           </Button>
-        </div>
-      </div>
+        )}
+      />
+
+      <AdminKpiGrid>
+        <AdminKpiCard icon={Users} title="Profesionales" value={staff.length} trend={5} microcopy="Perfiles registrados" tone="rose" />
+        <AdminKpiCard icon={CalendarClock} title="Jornadas" value={schedules.length} trend={4} microcopy={selectedStaff ? 'Panel seleccionado' : 'Selecciona un profesional'} tone="sage" />
+        <AdminKpiCard icon={Image} title="Portfolio" value={portfolio.length} trend={3} microcopy="Trabajos visibles" tone="gold" />
+      </AdminKpiGrid>
 
       {(createMutation.isError || updateMutation.isError || deleteMutation.isError) && (
         <p className="admin-alert">
@@ -197,7 +195,7 @@ export function StaffAdminPage() {
       <div className={`staff-admin-detail-layout ${selectedStaff ? 'has-drawer' : ''}`}>
         <div>
           {staffQuery.isLoading ? (
-            <Loader />
+            <AdminSkeleton rows={5} />
           ) : staffQuery.isError ? (
             <p className="admin-alert">{staffQuery.error.message}</p>
           ) : (
@@ -236,7 +234,7 @@ export function StaffAdminPage() {
               />
             )}
 
-            <Button variant="ghost" size="sm" onClick={() => setSelectedStaff(null)} style={{ justifySelf: 'center' }}>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedStaff(null)} className="admin-centered-action">
               Cerrar panel
             </Button>
           </div>

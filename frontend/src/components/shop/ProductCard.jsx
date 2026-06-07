@@ -1,5 +1,6 @@
 import { ShoppingCart } from 'lucide-react';
 import { Button } from '../ui/Button.jsx';
+import { SafeImage } from '../ui/SafeImage.jsx';
 
 export function ProductCard({ product, onAdd }) {
   const name = product.nombre || product.name || product.nombreProducto || 'Producto profesional';
@@ -11,7 +12,9 @@ export function ProductCard({ product, onAdd }) {
 
   return (
     <article className="product-card">
-      <div className="product-media" style={imageUrl ? { backgroundImage: `linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(25, 20, 23, 0.18)), url("${imageUrl}")` } : undefined} />
+      <div className="product-media">
+        <SafeImage src={imageUrl} alt={name} />
+      </div>
       <div className="product-info">
         <span className="product-category">{category}</span>
         <h3>{name}</h3>

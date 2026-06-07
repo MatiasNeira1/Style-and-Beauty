@@ -75,6 +75,7 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
 
   const redirectTo = location.state?.from?.pathname || '/perfil';
+  const redirectState = location.state?.from?.state;
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -88,8 +89,13 @@ export function LoginPage() {
 
     try {
       const session = await login(form.email, form.password);
-      const destination = session.user?.rol === 'ADMIN' ? '/admin' : redirectTo;
+      const requestedAdminRoute = redirectTo.startsWith('/admin');
+      const destination = session.user?.rol === 'ADMIN'
+        ? (requestedAdminRoute ? redirectTo : '/admin')
+        : (requestedAdminRoute ? '/perfil' : redirectTo);
       navigate(destination, { replace: true });
+      const destination = session.user?.rol === 'ADMIN' ? '/admin' : redirectTo;
+      navigate(destination, { replace: true, state: redirectState });
     } catch (loginError) {
       setError(getLoginErrorMessage(loginError));
     } finally {

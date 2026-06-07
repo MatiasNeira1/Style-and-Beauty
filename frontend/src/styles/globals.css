@@ -516,7 +516,7 @@ img { max-width: 100%; display: block; }
 .products-hero-media {
   background:
     linear-gradient(115deg, rgba(25, 20, 23, 0.42), rgba(25, 20, 23, 0.1) 54%, rgba(255, 248, 244, 0.04)),
-    url("https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=2400&q=90") center 46%/cover;
+    url("/logo.jpg") center 46%/cover;
   filter: saturate(1.08) contrast(1.04);
   transform: scale(1.02);
 }
@@ -535,7 +535,7 @@ img { max-width: 100%; display: block; }
 }
 
 .page-hero-booking {
-  --page-hero-image: url("https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=2400&q=90");
+  --page-hero-image: url("/hero-salon.png");
 }
 
 .page-hero-contact {
@@ -544,7 +544,7 @@ img { max-width: 100%; display: block; }
 }
 
 .page-hero-login {
-  --page-hero-image: url("https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=2400&q=90");
+  --page-hero-image: url("/logo.jpg");
 }
 
 .page-hero-professionals {
@@ -614,6 +614,32 @@ img { max-width: 100%; display: block; }
   width: 100%;
 }
 
+.auth-guard-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.78)),
+    rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(190, 18, 60, 0.14);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-soft);
+  color: #9f1239;
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  margin-inline: auto;
+  max-width: 28rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.auth-guard-card strong {
+  color: #881337;
+  font-size: 1.2rem;
+}
+
+.auth-guard-card p {
+  margin: 0;
+}
+
 .stack {
   display: grid;
   gap: 1.2rem;
@@ -630,6 +656,32 @@ img { max-width: 100%; display: block; }
 
 .text-link:hover {
   color: var(--color-primary);
+}
+
+.route-error-section {
+  align-items: center;
+  display: grid;
+  min-height: 55vh;
+}
+
+.route-error-card {
+  display: grid;
+  gap: 0.9rem;
+  margin-inline: auto;
+  max-width: 520px;
+  text-align: center;
+}
+
+.route-error-card h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  line-height: 1.05;
+  margin: 0;
+}
+
+.route-error-card p {
+  color: var(--color-muted);
+  margin: 0;
 }
 
 /* ─── Select Cards ─── */
@@ -1346,7 +1398,7 @@ img { max-width: 100%; display: block; }
 .login-hero-media {
   background:
     linear-gradient(135deg, rgba(58, 31, 42, 0.16), rgba(212, 122, 158, 0.1)),
-    url("https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=1800&q=90") center/cover;
+    url("/hero-salon.png") center/cover;
 }
 
 .login-form-card {
@@ -1432,7 +1484,7 @@ img { max-width: 100%; display: block; }
   aspect-ratio: 4 / 3;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(25, 20, 23, 0.18)),
-    url("https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=1000&q=86") center/cover;
+    url("/logo.jpg") center/cover;
   background-position: center;
   background-size: cover;
 }
@@ -1441,11 +1493,18 @@ img { max-width: 100%; display: block; }
   aspect-ratio: 4 / 3;
   background:
     linear-gradient(135deg, rgba(251, 207, 232, 0.3), rgba(226, 180, 126, 0.15)),
-    url("https://images.unsplash.com/photo-1522338242992-e1a54906a8da?auto=format&fit=crop&w=900&q=80") center/cover;
+    url("/logo.jpg") center/cover;
   border-radius: var(--radius-xs);
   box-shadow: inset 0 -42px 70px rgba(25, 20, 23, 0.12);
   height: auto;
   min-height: 0;
+  overflow: hidden;
+}
+
+.product-media img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .product-info {
@@ -2007,12 +2066,30 @@ img { max-width: 100%; display: block; }
 
 .service-detail-banner {
   align-items: end;
-  background-position: center;
-  background-size: cover;
   display: grid;
   min-height: clamp(18rem, 42vh, 26rem);
+  overflow: hidden;
   padding: 7rem var(--page-x) 2.3rem;
+  position: relative;
   width: 100%;
+}
+
+.service-detail-banner-image,
+.service-detail-banner-overlay {
+  inset: 0;
+  position: absolute;
+}
+
+.service-detail-banner-image {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+  z-index: 0;
+}
+
+.service-detail-banner-overlay {
+  background: linear-gradient(90deg, rgba(25, 20, 23, 0.7), rgba(25, 20, 23, 0.28));
+  z-index: 1;
 }
 
 .service-detail-banner-inner {
@@ -2021,7 +2098,9 @@ img { max-width: 100%; display: block; }
   gap: 0.85rem;
   margin-inline: auto;
   max-width: var(--max-page);
+  position: relative;
   width: 100%;
+  z-index: 2;
 }
 
 .service-detail-banner .card-kicker {

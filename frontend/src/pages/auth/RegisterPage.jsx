@@ -18,7 +18,7 @@ import {
   User,
   UsersRound,
 } from 'lucide-react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../../components/ui/Button.jsx';
 import { useAuth } from '../../store/AuthContext.jsx';
 
@@ -484,6 +484,7 @@ function PremiumGenderSelect({ value, onChange }) {
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { registerClient } = useAuth();
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState('');
@@ -537,7 +538,9 @@ export function RegisterPage() {
         password,
         profile,
       });
-      navigate('/perfil', { replace: true });
+      const redirectTo = location.state?.from?.pathname || '/perfil';
+      const redirectState = location.state?.from?.state;
+      navigate(redirectTo, { replace: true, state: redirectState });
     } catch (registerError) {
       setError(getRegisterErrorMessage(registerError));
     } finally {
