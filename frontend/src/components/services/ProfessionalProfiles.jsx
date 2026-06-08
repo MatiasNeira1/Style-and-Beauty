@@ -4,7 +4,6 @@ function fullName(person) {
   return `${person.nombre || ''} ${person.apellidos || ''}`.trim() || 'Especialista';
 }
 
-export function ProfessionalProfiles({ professionals = [], emptyText = 'Pronto asignaremos especialistas para esta categoria.' }) {
 export function ProfessionalProfiles({ professionals = [], emptyText = 'Pronto asignaremos especialistas para esta categoria.', onSelect }) {
   return (
     <div className="professional-profiles">
