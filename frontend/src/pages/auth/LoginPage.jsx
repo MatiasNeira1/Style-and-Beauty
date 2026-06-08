@@ -93,8 +93,6 @@ export function LoginPage() {
       const destination = session.user?.rol === 'ADMIN'
         ? (requestedAdminRoute ? redirectTo : '/admin')
         : (requestedAdminRoute ? '/perfil' : redirectTo);
-      navigate(destination, { replace: true });
-      const destination = session.user?.rol === 'ADMIN' ? '/admin' : redirectTo;
       navigate(destination, { replace: true, state: redirectState });
     } catch (loginError) {
       setError(getLoginErrorMessage(loginError));

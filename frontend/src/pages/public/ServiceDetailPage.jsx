@@ -7,9 +7,8 @@ import { Loader } from '../../components/ui/Loader.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { catalogService } from '../../services/catalogService.js';
 import { profileService } from '../../services/profileService.js';
-import { categorySlug, findCategoryBySlug, groupByCategory, normalizeCategory } from '../../utils/categoryUtils.js';
-import { normalizeProfessional } from '../../hooks/useProfessionals.js';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
+import { normalizeProfessional } from '../../hooks/useProfessionals.js';
 
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
