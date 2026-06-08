@@ -123,6 +123,7 @@ export function ProfessionalProfileModal({ professional, onClose }) {
               </section>
             </div>
 
+            <section className="professional-modal-gallery" aria-label="Galeria de trabajos realizados">
             <section className="professional-modal-gallery" aria-label="Galería de trabajos realizados">
               {(portfolio.length ? portfolio : [null, null, null]).map((image, index) => (
                 <SafeImage key={image || `fallback-${index}`} src={image} alt={`Trabajo realizado ${index + 1} por ${professional.fullName}`} />

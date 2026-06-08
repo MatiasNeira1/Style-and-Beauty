@@ -207,6 +207,11 @@ export function BookingPage() {
                 selectedId={serviceId(service)}
                 onSelect={(value) => {
                   setService(value);
+                  setMember(null);
+                  setDate('');
+                  setTime('');
+                  setConfirmError('');
+                  setStep(2);
                   const specName = member?.especialidad?.nombre || member?.especialidad || '';
                   const isCompatible = member && isStaffCompatible(specName, value.categoria);
                   if (isCompatible) {
@@ -222,6 +227,7 @@ export function BookingPage() {
                     setStep(2);
                   }
                   setConfirmError('');
+                  setStep(2);
                 }}
               />
             )

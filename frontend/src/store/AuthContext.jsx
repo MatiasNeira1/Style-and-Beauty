@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useQueryClient } from '@tanstack/react-query';
 import { AUTH_EXPIRED_EVENT, clearStoredSession, SESSION_USER_KEY, TOKEN_KEY } from '../services/apiClient.js';
+import { AUTH_EXPIRED_EVENT, TOKEN_KEY } from '../services/apiClient.js';
 import { authService } from '../services/authService.js';
 import { firebaseAuth } from '../services/firebaseClient.js';
 import { firebaseAuthService } from '../services/firebaseAuthService.js';
@@ -12,16 +14,25 @@ const ROLE_CLAIM_RETRY_DELAY_MS = 700;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export function AuthProvider({ children }) {
-  const [isAuthReady, setIsAuthReady] = useState(false);
-  const [user, setUserState] = useState(() => {
+function readStoredUser() {
+  try {
     const stored = window.localStorage.getItem(SESSION_USER_KEY);
     return stored ? JSON.parse(stored) : null;
-  });
+  } catch {
+    clearStoredSession();
+    return null;
+  }
+}
+
+export function AuthProvider({ children }) {
+  const queryClient = useQueryClient();
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [user, setUserState] = useState(readStoredUser);
 
   const setSession = useCallback((session) => {
     if (!session?.user) {
       clearStoredSession();
+      queryClient.clear();
       setUserState(null);
       return;
     }
@@ -31,7 +42,7 @@ export function AuthProvider({ children }) {
     }
     window.localStorage.setItem(SESSION_USER_KEY, JSON.stringify(session.user));
     setUserState(session.user);
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     return onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
@@ -54,6 +65,12 @@ export function AuthProvider({ children }) {
   }, [setSession]);
 
   useEffect(() => {
+    const handleAuthExpired = () => {
+      setSession(null);
+      firebaseAuthService.logout().catch((err) => {
+        console.error('Firebase logout after auth failure failed', err);
+      });
+    };
     const handleAuthExpired = () => setSession(null);
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
@@ -87,8 +104,11 @@ export function AuthProvider({ children }) {
   }, [setSession]);
 
   const logout = useCallback(async () => {
-    await firebaseAuthService.logout();
-    setSession(null);
+    try {
+      await firebaseAuthService.logout();
+    } finally {
+      setSession(null);
+    }
   }, [setSession]);
 
   const value = useMemo(
