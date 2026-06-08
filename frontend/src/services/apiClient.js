@@ -10,6 +10,7 @@ export const CATALOG_API_BASE_URL = API_BASE_URL;
 export const AGENDA_API_BASE_URL = API_BASE_URL;
 export const INVENTORY_API_BASE_URL = API_BASE_URL;
 export const TOKEN_KEY = 'style_beauty_token';
+export const SESSION_USER_KEY = 'style_beauty_user';
 export const AUTH_EXPIRED_EVENT = 'style-beauty:auth-expired';
 export const ASSETS_BASE_URL = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
 export const USE_MOCKS = import.meta.env.DEV && String(import.meta.env.VITE_USE_MOCKS || '').toLowerCase() === 'true';
@@ -26,6 +27,11 @@ export class AuthRequiredError extends Error {
 
 export function getAuthToken() {
   return window.localStorage.getItem(TOKEN_KEY);
+}
+
+export function clearStoredSession() {
+  window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(SESSION_USER_KEY);
 }
 
 export function resolveAssetUrl(src, fallback = '') {
@@ -68,7 +74,7 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response.status === 401) {
-      window.localStorage.removeItem(TOKEN_KEY);
+      clearStoredSession();
       window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
     }
 

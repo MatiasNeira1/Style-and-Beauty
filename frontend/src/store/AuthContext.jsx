@@ -1,13 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { AUTH_EXPIRED_EVENT, TOKEN_KEY } from '../services/apiClient.js';
+import { AUTH_EXPIRED_EVENT, clearStoredSession, SESSION_USER_KEY, TOKEN_KEY } from '../services/apiClient.js';
 import { authService } from '../services/authService.js';
 import { firebaseAuth } from '../services/firebaseClient.js';
 import { firebaseAuthService } from '../services/firebaseAuthService.js';
 import { profileService } from '../services/profileService.js';
 
 const AuthContext = createContext(null);
-const USER_KEY = 'style_beauty_user';
 const ROLE_CLAIM_RETRIES = 6;
 const ROLE_CLAIM_RETRY_DELAY_MS = 700;
 
@@ -16,14 +15,13 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export function AuthProvider({ children }) {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [user, setUserState] = useState(() => {
-    const stored = window.localStorage.getItem(USER_KEY);
+    const stored = window.localStorage.getItem(SESSION_USER_KEY);
     return stored ? JSON.parse(stored) : null;
   });
 
   const setSession = useCallback((session) => {
     if (!session?.user) {
-      window.localStorage.removeItem(TOKEN_KEY);
-      window.localStorage.removeItem(USER_KEY);
+      clearStoredSession();
       setUserState(null);
       return;
     }
@@ -31,7 +29,7 @@ export function AuthProvider({ children }) {
     if (session.token) {
       window.localStorage.setItem(TOKEN_KEY, session.token);
     }
-    window.localStorage.setItem(USER_KEY, JSON.stringify(session.user));
+    window.localStorage.setItem(SESSION_USER_KEY, JSON.stringify(session.user));
     setUserState(session.user);
   }, []);
 
