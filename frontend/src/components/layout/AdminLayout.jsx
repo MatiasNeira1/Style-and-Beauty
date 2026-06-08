@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BarChart3,
   Bell,
@@ -12,11 +13,13 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  UserRound,
   Users,
   X,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../store/AuthContext.jsx';
+import { profileService } from '../../services/profileService.js';
 
 const adminGroups = [
   {
@@ -39,22 +42,36 @@ const adminGroups = [
     label: 'Finanzas',
     links: [{ to: '/admin/pagos', label: 'Pagos', icon: CreditCard }],
   },
+  {
+    label: 'Cuenta',
+    links: [{ to: '/admin/perfil', label: 'Perfil', icon: UserRound }],
+  },
 ];
 
 export function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
   const [isOpen, setIsOpen] = useState(false);
+  const profileQuery = useQuery({
+    queryKey: ['my-profile'],
+    queryFn: profileService.getMyProfile,
+    enabled: Boolean(user),
+    retry: false,
+    staleTime: 1000 * 60,
+  });
   const today = useMemo(
     () => new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date()),
     [],
   );
-  const adminName = user?.nombre || user?.displayName || user?.email || 'Administracion';
+  const profileName = [profileQuery.data?.nombre, profileQuery.data?.apellidos].filter(Boolean).join(' ');
+  const adminName = profileName || user?.nombre || user?.displayName || user?.email || 'Administracion';
+  const adminRole = profileQuery.data?.rol || profileQuery.data?.tipoPerfil || user?.rol || 'ADMIN';
   const initials = adminName
     .split(' ')
     .slice(0, 2)
@@ -75,6 +92,13 @@ export function AdminLayout() {
 
   const closeOverlay = () => {
     setIsOpen(false);
+  };
+
+  const handleLogout = async () => {
+    closeOverlay();
+    await logout();
+    queryClient.clear();
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -116,6 +140,17 @@ export function AdminLayout() {
         </nav>
 
         <div className="admin-sidebar-footer">
+          <NavLink to="/admin/perfil" className="admin-user-card" onClick={closeOverlay}>
+            <div className="admin-avatar" aria-hidden="true">{initials || 'AD'}</div>
+            <div className="admin-user-copy">
+              <strong>{adminName}</strong>
+              <small>{adminRole}</small>
+            </div>
+            <UserRound size={17} aria-hidden="true" />
+          </NavLink>
+          <button type="button" className="admin-logout-button" onClick={handleLogout}>
+            <LogOut size={16} />
+            Cerrar sesion
           <div className="admin-avatar" aria-hidden="true">{initials || 'AD'}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <strong>{adminName}</strong>
