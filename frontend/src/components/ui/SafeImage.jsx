@@ -23,6 +23,7 @@ export function SafeImage({
       src={currentSrc}
       alt={alt}
       className={className}
+      data-fallback={currentSrc === fallbackSrc ? 'true' : undefined}
       loading={loading}
       onError={() => {
         if (currentSrc !== fallbackSrc) {

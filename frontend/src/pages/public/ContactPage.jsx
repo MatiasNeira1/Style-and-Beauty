@@ -90,7 +90,6 @@ export function ContactPage() {
                 <div className="form-grid">
                   <Input id="contact-name" name="name" label="Nombre" required />
                   <Input id="contact-email" name="email" label="Email" type="email" required />
-                  <Input id="contact-phone" name="phone" label="Telefono" />
                   <Input id="contact-phone" name="phone" label="Teléfono" />
                   <Input id="contact-subject" name="subject" label="Motivo" />
                 </div>

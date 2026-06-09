@@ -3,13 +3,13 @@ import { Clock, Save } from 'lucide-react';
 import { Button } from '../../ui/Button.jsx';
 
 const DAYS = [
-  { key: 0, label: 'Lunes' },
-  { key: 1, label: 'Martes' },
-  { key: 2, label: 'Miércoles' },
-  { key: 3, label: 'Jueves' },
-  { key: 4, label: 'Viernes' },
-  { key: 5, label: 'Sábado' },
-  { key: 6, label: 'Domingo' },
+  { key: 1, label: 'Lunes' },
+  { key: 2, label: 'Martes' },
+  { key: 3, label: 'Miércoles' },
+  { key: 4, label: 'Jueves' },
+  { key: 5, label: 'Viernes' },
+  { key: 6, label: 'Sábado' },
+  { key: 7, label: 'Domingo' },
 ];
 
 const DEFAULT_START = '09:00';
@@ -20,7 +20,7 @@ function buildDefaultSchedule() {
     diaSemana: d.key,
     horaInicio: DEFAULT_START,
     horaFin: DEFAULT_END,
-    activo: d.key < 5, // Lunes a viernes activo por defecto
+    activo: d.key <= 5,
   }));
 }
 
