@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { onAuthStateChanged } from 'firebase/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { AUTH_EXPIRED_EVENT, clearStoredSession, SESSION_USER_KEY, TOKEN_KEY } from '../services/apiClient.js';
-import { AUTH_EXPIRED_EVENT, TOKEN_KEY } from '../services/apiClient.js';
 import { authService } from '../services/authService.js';
 import { firebaseAuth } from '../services/firebaseClient.js';
 import { firebaseAuthService } from '../services/firebaseAuthService.js';
@@ -71,7 +70,6 @@ export function AuthProvider({ children }) {
         console.error('Firebase logout after auth failure failed', err);
       });
     };
-    const handleAuthExpired = () => setSession(null);
     window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
     return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
   }, [setSession]);

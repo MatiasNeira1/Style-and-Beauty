@@ -7,7 +7,9 @@ import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.service.CitaService;
@@ -41,6 +43,11 @@ public class CitaController {
     @PostMapping("/disponibilidad")
     public List<DisponibilidadSlot> disponibilidad(@Valid @RequestBody DisponibilidadRequest request) {
         return citaService.calcularDisponibilidad(request);
+    }
+
+    @PostMapping("/disponibilidad-semanal")
+    public List<DisponibilidadMensualResponse> disponibilidadSemanal(@Valid @RequestBody DisponibilidadSemanalRequest request) {
+        return citaService.calcularDisponibilidadSemanal(request);
     }
 
     @PostMapping

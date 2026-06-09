@@ -145,7 +145,7 @@ public class PerfilService {
 
     // 2.1 READ (Listar Clientes - Solo para Staff/Admin)
     public List<ClienteModel> listarTodosLosClientes() {
-        return clienteRepository.findAll();
+        return clienteRepository.listarClientesRegistrados();
     }
 
     public ClienteModel obtenerClientePorId(java.util.UUID idCliente) {
@@ -209,5 +209,4 @@ public class PerfilService {
     }
 
 }
-
 

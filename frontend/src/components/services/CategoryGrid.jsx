@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { SafeImage } from '../ui/SafeImage.jsx';
@@ -7,8 +8,8 @@ function serviceImage(service) {
   return service?.imageUrl || service?.imagenUrl || service?.imagen_url || service?.imagen || service?.fotoUrl;
 }
 
-export function CategoryGrid({ services = [] }) {
-  const categories = Object.entries(groupByCategory(services));
+export const CategoryGrid = memo(function CategoryGrid({ services = [] }) {
+  const categories = useMemo(() => Object.entries(groupByCategory(services)), [services]);
 
   return (
     <div className="category-grid">
@@ -32,4 +33,4 @@ export function CategoryGrid({ services = [] }) {
       })}
     </div>
   );
-}
+});

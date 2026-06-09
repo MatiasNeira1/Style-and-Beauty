@@ -1,44 +1,76 @@
+import { memo } from 'react';
 import { SafeImage } from '../ui/SafeImage.jsx';
 
 function fullName(person) {
   return `${person.nombre || ''} ${person.apellidos || ''}`.trim() || 'Especialista';
 }
 
-export function ProfessionalProfiles({ professionals = [], emptyText = 'Pronto asignaremos especialistas para esta categoria.' }) {
-export function ProfessionalProfiles({ professionals = [], emptyText = 'Pronto asignaremos especialistas para esta categoria.', onSelect }) {
+function professionalId(person) {
+  return person?.idStaff || person?.idPersona || person?.idAuth || person?.id;
+}
+
+export const ProfessionalProfiles = memo(function ProfessionalProfiles({
+  professionals = [],
+  emptyText = 'Pronto asignaremos especialistas para esta categoria.',
+  onViewProfile,
+  onSelect,
+  selectedId,
+  actionLabel = 'Ver horarios',
+}) {
   return (
     <div className="professional-profiles">
       {professionals.length === 0 ? (
         <p className="professional-empty">{emptyText}</p>
       ) : (
-        professionals.map((member) => (
-          <article key={member.idPersona || member.idStaff || member.idAuth} className="professional-profile">
+        professionals.map((member) => {
+          const id = professionalId(member);
+          const selected = selectedId && id === selectedId;
+
+          return (
+          <article key={id} className={`professional-profile ${selected ? 'is-selected' : ''}`}>
             <SafeImage src={member.imageUrl || member.fotoUrl || member.foto} alt={fullName(member)} />
             <div>
               <h3>{fullName(member)}</h3>
-              <span>{member.especialidad?.nombre || 'Especialista'}</span>
+              <span>{member.emailContacto || member.especialidad?.nombre || 'Especialista'}</span>
+              {member.activo !== undefined && (
+                <small className={member.activo ? 'professional-status active' : 'professional-status inactive'}>
+                  {member.activo ? 'Activo' : 'No disponible'}
+                </small>
+              )}
               <p>{member.descripcionPerfil || member.especialidad?.descripcion || 'Especialista certificado del equipo Style & Beauty.'}</p>
 
-              <div style={{ marginTop: '0.8rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <div className="professional-profile-actions">
                 {member.cvUrl && (
                   <a className="text-link" href={member.cvUrl} target="_blank" rel="noreferrer">
                     Ver CV
                   </a>
                 )}
+                {onViewProfile && (
+                  <button
+                    type="button"
+                    onClick={() => onViewProfile(member)}
+                    className="button button-sm button-secondary"
+                  >
+                    Ver perfil
+                  </button>
+                )}
                 {onSelect && (
                   <button
+                    type="button"
                     onClick={() => onSelect(member)}
                     className="button button-sm"
+                    disabled={member.activo === false}
                     style={{ marginLeft: 'auto' }}
                   >
-                    Ver horarios
+                    {selected ? 'Seleccionado' : actionLabel}
                   </button>
                 )}
               </div>
             </div>
           </article>
-        ))
+          );
+        })
       )}
     </div>
   );
-}
+});
