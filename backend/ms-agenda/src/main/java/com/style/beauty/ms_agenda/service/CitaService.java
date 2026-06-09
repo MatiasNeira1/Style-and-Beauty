@@ -6,7 +6,9 @@ import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.Cita;
@@ -76,30 +78,86 @@ public class CitaService {
 
         validarDuracionYHolgura(duracion, holgura);
 
+        return calcularDisponibilidadParaDia(request.idStaff(), request.fecha(), duracion, holgura);
+    }
+
+    public List<DisponibilidadMensualResponse> calcularDisponibilidadMensual(UUID idServicio, UUID idStaff, int anio, int mes) {
+        if (mes < 1 || mes > 12) {
+            throw new BusinessException("El mes debe estar entre 1 y 12");
+        }
+
+        // Valida dependencias una sola vez; el calculo diario se reutiliza para cada fecha.
+        perfilClient.obtenerStaff(idStaff);
+
+        ServicioResumen servicio = servicioClient.obtenerServicio(idServicio);
+        validarStaffRealizaServicio(idServicio, idStaff);
+
+        int duracion = duracionServicio(servicio);
+        int holgura = holguraService.calcularHolguraMin(servicio);
+
+        validarDuracionYHolgura(duracion, holgura);
+
+        LocalDate inicioMes = LocalDate.of(anio, mes, 1);
+        int diasDelMes = inicioMes.lengthOfMonth();
+        List<DisponibilidadMensualResponse> disponibilidad = new ArrayList<>();
+
+        for (int dia = 1; dia <= diasDelMes; dia++) {
+            LocalDate fecha = inicioMes.withDayOfMonth(dia);
+            List<DisponibilidadSlot> slots = calcularDisponibilidadParaDia(idStaff, fecha, duracion, holgura);
+            disponibilidad.add(new DisponibilidadMensualResponse(fecha, slots));
+        }
+
+        return disponibilidad;
+    }
+
+    public List<DisponibilidadMensualResponse> calcularDisponibilidadSemanal(DisponibilidadSemanalRequest request) {
+        // Valida dependencias una sola vez y reutiliza el mismo calculo diario de disponibilidad.
+        perfilClient.obtenerStaff(request.idStaff());
+
+        ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
+        validarStaffRealizaServicio(request.idServicio(), request.idStaff());
+
+        int duracion = duracionServicio(servicio);
+        int holgura = holguraService.calcularHolguraMin(servicio);
+
+        validarDuracionYHolgura(duracion, holgura);
+
+        List<DisponibilidadMensualResponse> disponibilidad = new ArrayList<>();
+
+        for (int offset = 0; offset < 7; offset++) {
+            LocalDate fecha = request.fechaInicioSemana().plusDays(offset);
+            List<DisponibilidadSlot> slots = calcularDisponibilidadParaDia(request.idStaff(), fecha, duracion, holgura);
+            disponibilidad.add(new DisponibilidadMensualResponse(fecha, slots));
+        }
+
+        return disponibilidad;
+    }
+
+    private List<DisponibilidadSlot> calcularDisponibilidadParaDia(UUID idStaff, LocalDate fecha, int duracion, int holgura) {
         List<JornadaStaff> jornadas = jornadaStaffRepository
                 .findByIdStaffAndDiaSemanaAndActivoTrue(
-                        request.idStaff(),
-                        request.fecha().getDayOfWeek().getValue()
+                        idStaff,
+                        fecha.getDayOfWeek().getValue()
                 );
 
         if (jornadas.isEmpty()) {
             return List.of();
         }
 
-        OffsetDateTime inicioDia = atDateTime(request.fecha(), 0, 0);
+        OffsetDateTime inicioDia = atDateTime(fecha, 0, 0);
         OffsetDateTime finDia = inicioDia.plusDays(1);
 
         List<EstadoCita> ignorados = estadosIgnoradosParaDisponibilidad();
 
         List<Cita> citas = citaRepository.buscarCitasEnRango(
-                request.idStaff(),
+                idStaff,
                 inicioDia,
                 finDia,
                 ignorados
         );
 
         List<BloqueoAgenda> bloqueos = bloqueoAgendaRepository.buscarBloqueosEnRango(
-                request.idStaff(),
+                idStaff,
                 inicioDia,
                 finDia
         );
@@ -108,12 +166,12 @@ public class CitaService {
 
         for (JornadaStaff jornada : jornadas) {
 
-            OffsetDateTime cursor = request.fecha()
+            OffsetDateTime cursor = fecha
                     .atTime(jornada.getHoraInicio())
                     .atZone(zoneId())
                     .toOffsetDateTime();
 
-            OffsetDateTime finJornada = request.fecha()
+            OffsetDateTime finJornada = fecha
                     .atTime(jornada.getHoraFin())
                     .atZone(zoneId())
                     .toOffsetDateTime();
@@ -141,7 +199,7 @@ public class CitaService {
             }
         }
 
-        return slots;
+        return slots.stream().distinct().toList();
     }
 
     @Transactional(isolation = Isolation.SERIALIZABLE)

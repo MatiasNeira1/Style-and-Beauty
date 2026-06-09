@@ -29,7 +29,6 @@ public class ServicioController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
-
     // GET /api/servicio/categoria/{categoria} — Filtrar por categoría
     @GetMapping("/categoria/{categoria}")
     public List<Servicio> listarPorCategoria(@PathVariable String categoria) {

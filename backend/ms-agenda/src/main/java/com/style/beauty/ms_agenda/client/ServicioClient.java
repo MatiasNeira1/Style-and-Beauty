@@ -8,6 +8,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -24,11 +25,13 @@ public class ServicioClient {
 
     public ServicioResumen obtenerServicio(UUID idServicio) {
         try {
-            ServicioResumen servicio = restClient.get()
+            Map<String, Object> servicioData = restClient.get()
                     .uri("/api/servicio/{idServicio}", idServicio)
                     .retrieve()
-                    .body(ServicioResumen.class);
+                    .body(new ParameterizedTypeReference<Map<String, Object>>() {
+                    });
 
+            ServicioResumen servicio = mapServicio(servicioData);
             validarServicio(servicio);
 
             return servicio;
@@ -65,6 +68,56 @@ public class ServicioClient {
         } catch (RestClientException e) {
             throw new BusinessException("No se pudo obtener el staff asociado al servicio desde ms-catalogo");
         }
+    }
+
+    private ServicioResumen mapServicio(Map<String, Object> servicioData) {
+        if (servicioData == null) {
+            return null;
+        }
+
+        return new ServicioResumen(
+                readUuid(servicioData, "id_servicio", "idServicio", "id"),
+                readString(servicioData, "nombre", "name"),
+                readString(servicioData, "categoria", "category"),
+                readInteger(servicioData, "duracion_minutos", "duracionMinutos", "duracionServicioMin", "duracion"),
+                readInteger(servicioData, "holgura_minutos", "holguraMinutos", "holguraMin")
+        );
+    }
+
+    private UUID readUuid(Map<String, Object> data, String... keys) {
+        Object value = readValue(data, keys);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof UUID uuid) {
+            return uuid;
+        }
+        return UUID.fromString(String.valueOf(value));
+    }
+
+    private String readString(Map<String, Object> data, String... keys) {
+        Object value = readValue(data, keys);
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private Integer readInteger(Map<String, Object> data, String... keys) {
+        Object value = readValue(data, keys);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return Integer.valueOf(String.valueOf(value));
+    }
+
+    private Object readValue(Map<String, Object> data, String... keys) {
+        for (String key : keys) {
+            if (data.containsKey(key)) {
+                return data.get(key);
+            }
+        }
+        return null;
     }
 
     private void validarServicio(ServicioResumen servicio) {

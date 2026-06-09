@@ -1,10 +1,14 @@
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, CalendarDays, Clock } from 'lucide-react';
 import { Reveal } from '../../components/animations/Reveal.jsx';
+import { AuthModal } from '../../components/auth/AuthModal.jsx';
+import { ProfessionalProfileModal } from '../../components/professionals/ProfessionalProfileModal.jsx';
 import { ProfessionalProfiles } from '../../components/services/ProfessionalProfiles.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
+import { agendaService } from '../../services/agendaService.js';
 import { catalogService } from '../../services/catalogService.js';
 import { profileService } from '../../services/profileService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
@@ -36,10 +40,113 @@ function serviceMatchesSlug(service, slug) {
   return names.some((value) => categorySlug(value) === slug);
 }
 
+function serviceId(service) {
+  return service?.id_servicio || service?.idServicio || service?.id;
+}
+
+function staffId(professional) {
+  return professional?.idStaff || professional?.idPersona || professional?.id;
+}
+
+function formatSlotTime(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('es-CL', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(value));
+}
+
+function formatLongDate(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${value}T00:00:00`));
+}
+
+function parseLocalDate(value) {
+  if (!value) return new Date();
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getStartOfWeek(date) {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  start.setDate(start.getDate() - start.getDay());
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function addDays(date, days) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function weekDays(start) {
+  return Array.from({ length: 7 }, (_, index) => addDays(start, index));
+}
+
+function weekRangeLabel(start) {
+  const end = addDays(start, 6);
+  const startLabel = new Intl.DateTimeFormat('es-CL', { day: 'numeric' }).format(start);
+  const endLabel = new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'long' }).format(end);
+  return `${startLabel} al ${endLabel}`;
+}
+
+function professionalName(professional) {
+  return `${professional?.nombre || ''} ${professional?.apellidos || ''}`.trim() || professional?.fullName || 'Especialista';
+}
+
+function profileForModal(professional, service) {
+  if (!professional) return null;
+
+  const fullName = professionalName(professional);
+  const specialty = professional.especialidad?.nombre || professional.especialidad || professional.cargo || service?.nombre || service?.name || 'Especialista';
+
+  return {
+    ...professional,
+    id: staffId(professional),
+    fullName,
+    especialidad: specialty,
+    cargo: professional.cargo || specialty,
+    estado: professional.activo === false ? 'No disponible' : professional.estado || 'Disponible',
+    descripcion: professional.descripcionPerfil || professional.descripcion || professional.especialidad?.descripcion,
+    trayectoria: professional.trayectoria || professional.descripcionPerfil,
+    imageUrl: professional.imageUrl || professional.fotoUrl || professional.foto,
+  };
+}
+
 export function ServiceDetailPage() {
   const { categoria, servicio } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
+
+  const [profesionales, setProfesionales] = useState([]);
+  const [profesionalSeleccionado, setProfesionalSeleccionado] = useState(null);
+  const [cargandoProfesionales, setCargandoProfesionales] = useState(false);
+  const [errorProfesionales, setErrorProfesionales] = useState('');
+  const [semanaInicio, setSemanaInicio] = useState(() => getStartOfWeek(new Date()));
+  const [disponibilidadSemana, setDisponibilidadSemana] = useState({});
+  const [cargandoDisponibilidad, setCargandoDisponibilidad] = useState(false);
+  const [errorDisponibilidad, setErrorDisponibilidad] = useState('');
+  const [fechaSeleccionada, setFechaSeleccionada] = useState('');
+  const [horariosDisponibles, setHorariosDisponibles] = useState([]);
+  const [horarioSeleccionado, setHorarioSeleccionado] = useState(null);
+  const [observacionCliente, setObservacionCliente] = useState('');
+  const [mensajeReserva, setMensajeReserva] = useState('');
+  const [creandoCita, setCreandoCita] = useState(false);
+  const [perfilStaffVisible, setPerfilStaffVisible] = useState(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const availabilityWeekCache = useRef(new Map());
+  const pendingReservationRef = useRef(null);
 
   const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
   const grouped = groupByCategory(services);
@@ -47,22 +154,270 @@ export function ServiceDetailPage() {
   const category = findCategoryBySlug(categories, categoria) || categories[0] || 'General';
   const categoryServices = grouped[category] || [];
   const service = categoryServices.find((item) => serviceMatchesSlug(item, servicio));
+  const idServicio = serviceId(service);
 
-  const serviceId = service?.id_servicio || service?.idServicio || service?.id;
-  const specialistsQuery = useQuery({
-    queryKey: ['service-specialists', serviceId],
-    queryFn: () => catalogService.listProfessionalsByService(serviceId),
-    enabled: !!serviceId,
-  });
+  const savePendingReservation = () => {
+    const pending = {
+      idServicio,
+      servicio: service,
+      profesionalSeleccionado,
+      fechaSeleccionada,
+      horarioSeleccionado,
+      observacionCliente,
+    };
+    sessionStorage.setItem('reservaPendiente', JSON.stringify(pending));
+    return pending;
+  };
 
-  const rawSpecialists = Array.isArray(specialistsQuery.data) ? specialistsQuery.data : [];
-  const specialists = rawSpecialists.map((member, idx) => normalizeProfessional(member, idx));
+  const goToAuth = (path) => {
+    savePendingReservation();
+    navigate(path, {
+      state: {
+        from: {
+          pathname: location.pathname,
+          state: { reservaPendiente: true },
+        },
+      },
+    });
+  };
 
-  // Only block render on services loading — specialists query may be disabled (no serviceId yet)
-  const isServicesLoading = servicesQuery.isLoading;
-  const isSpecialistsLoading = !!serviceId && specialistsQuery.isFetching;
+  useEffect(() => {
+    if (!idServicio) return undefined;
 
-  if (isServicesLoading || isSpecialistsLoading) {
+    let active = true;
+    setCargandoProfesionales(true);
+    setErrorProfesionales('');
+    setProfesionales([]);
+    setProfesionalSeleccionado(null);
+    setDisponibilidadSemana({});
+    setFechaSeleccionada('');
+    setHorariosDisponibles([]);
+    setHorarioSeleccionado(null);
+
+    agendaService.listarStaffPorServicio(idServicio)
+      .then((response) => {
+        if (active) setProfesionales(Array.isArray(response) ? response : []);
+      })
+      .catch((error) => {
+        if (active) setErrorProfesionales(error.message || 'No pudimos cargar los especialistas de este servicio.');
+      })
+      .finally(() => {
+        if (active) setCargandoProfesionales(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [idServicio]);
+
+  useEffect(() => {
+    if (!idServicio || profesionales.length === 0 || profesionalSeleccionado) return;
+
+    try {
+      const rawPending = sessionStorage.getItem('reservaPendiente');
+      if (!rawPending) return;
+
+      const pending = JSON.parse(rawPending);
+      if (pending?.idServicio !== idServicio || !pending?.profesionalSeleccionado) return;
+
+      const pendingStaffId = staffId(pending.profesionalSeleccionado);
+      const professional = profesionales.find((item) => staffId(item) === pendingStaffId);
+      if (!professional) return;
+
+      pendingReservationRef.current = pending;
+      setProfesionalSeleccionado(professional);
+      setObservacionCliente(pending.observacionCliente || '');
+      if (pending.fechaSeleccionada) {
+        setSemanaInicio(getStartOfWeek(parseLocalDate(pending.fechaSeleccionada)));
+      }
+      if (location.state?.reservaPendiente) {
+        setMensajeReserva('Sesion iniciada. Ahora puedes confirmar tu reserva.');
+      }
+    } catch {
+      sessionStorage.removeItem('reservaPendiente');
+    }
+  }, [idServicio, location.state, profesionalSeleccionado, profesionales]);
+
+  useEffect(() => {
+    const idStaff = staffId(profesionalSeleccionado);
+    if (!idServicio || !idStaff) {
+      setDisponibilidadSemana({});
+      setFechaSeleccionada('');
+      setHorariosDisponibles([]);
+      setHorarioSeleccionado(null);
+      return undefined;
+    }
+
+    let active = true;
+    setCargandoDisponibilidad(true);
+    setErrorDisponibilidad('');
+    setDisponibilidadSemana({});
+    setFechaSeleccionada('');
+    setHorariosDisponibles([]);
+    setHorarioSeleccionado(null);
+
+    const dias = weekDays(semanaInicio);
+    const fechaInicioSemana = formatLocalDate(semanaInicio);
+    const weekKey = `${idServicio}:${idStaff}:${fechaInicioSemana}`;
+
+    if (availabilityWeekCache.current.has(weekKey)) {
+      setDisponibilidadSemana(availabilityWeekCache.current.get(weekKey));
+      setCargandoDisponibilidad(false);
+      return undefined;
+    }
+
+    const payload = { idStaff, idServicio, fechaInicioSemana };
+
+    if (import.meta.env.DEV) {
+      console.log('Consultando disponibilidad semanal', payload);
+    }
+
+    const loadWeeklyAvailability = async () => {
+      try {
+        const response = await agendaService.consultarDisponibilidadSemanal(payload);
+        if (import.meta.env.DEV) {
+          console.log('Respuesta disponibilidad semanal', response);
+        }
+
+        const weeklyAvailability = Object.fromEntries(dias.map((dia) => [formatLocalDate(dia), []]));
+        if (Array.isArray(response)) {
+          response.forEach((dia) => {
+            if (dia?.fecha) {
+              weeklyAvailability[dia.fecha] = Array.isArray(dia.slots) ? dia.slots : [];
+            }
+          });
+        }
+
+        return weeklyAvailability;
+      } catch (error) {
+        if (![404, 405].includes(error.status)) {
+          throw error;
+        }
+
+        if (import.meta.env.DEV) {
+          console.log('Endpoint semanal no disponible, usando disponibilidad diaria');
+        }
+
+        const entries = await Promise.all(dias.map(async (dia) => {
+          const fecha = formatLocalDate(dia);
+          const dailyPayload = { idStaff, idServicio, fecha };
+          const response = await agendaService.consultarDisponibilidad(dailyPayload);
+          return [fecha, Array.isArray(response) ? response : []];
+        }));
+
+        return Object.fromEntries(entries);
+      }
+    };
+
+    loadWeeklyAvailability()
+      .then((weeklyAvailability) => {
+        availabilityWeekCache.current.set(weekKey, weeklyAvailability);
+        if (active) setDisponibilidadSemana(weeklyAvailability);
+      })
+      .catch((error) => {
+        if (active) setErrorDisponibilidad(error.message || 'No se pudo cargar la disponibilidad. Intenta nuevamente.');
+      })
+      .finally(() => {
+        if (active) setCargandoDisponibilidad(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [idServicio, profesionalSeleccionado, semanaInicio]);
+
+  useEffect(() => {
+    const pending = pendingReservationRef.current;
+    if (!pending?.fechaSeleccionada || !pending?.horarioSeleccionado) return;
+
+    const slots = disponibilidadSemana[pending.fechaSeleccionada];
+    if (!Array.isArray(slots)) return;
+
+    const slot = slots.find((item) => item.inicio === pending.horarioSeleccionado.inicio);
+    if (!slot) return;
+
+    setFechaSeleccionada(pending.fechaSeleccionada);
+    setHorariosDisponibles(slots);
+    setHorarioSeleccionado(slot);
+    pendingReservationRef.current = null;
+    sessionStorage.removeItem('reservaPendiente');
+  }, [disponibilidadSemana]);
+
+  const handleWeekChange = (offset) => {
+    setSemanaInicio((current) => addDays(current, offset * 7));
+    setMensajeReserva('');
+  };
+
+  const handleSelectProfessional = (profesional) => {
+    setProfesionalSeleccionado(profesional);
+    setSemanaInicio(getStartOfWeek(new Date()));
+    setDisponibilidadSemana({});
+    setFechaSeleccionada('');
+    setHorariosDisponibles([]);
+    setHorarioSeleccionado(null);
+    setMensajeReserva('');
+  };
+
+  const handleSelectDay = (fecha) => {
+    setFechaSeleccionada(fecha);
+    setHorariosDisponibles(disponibilidadSemana[fecha] || []);
+    setHorarioSeleccionado(null);
+    setMensajeReserva('');
+  };
+
+  const handleCreateBooking = async () => {
+    setMensajeReserva('');
+
+    if (!profesionalSeleccionado) {
+      setMensajeReserva('Selecciona un especialista.');
+      return;
+    }
+    if (!fechaSeleccionada) {
+      setMensajeReserva('Selecciona una fecha.');
+      return;
+    }
+    if (!horarioSeleccionado) {
+      setMensajeReserva('Selecciona una hora disponible.');
+      return;
+    }
+    if (!isAuthenticated) {
+      savePendingReservation();
+      setAuthModalOpen(true);
+      return;
+    }
+
+    setCreandoCita(true);
+    try {
+      await agendaService.crearCita({
+        idStaff: staffId(profesionalSeleccionado),
+        idServicio,
+        fechaHoraInicio: horarioSeleccionado.inicio,
+        observacionCliente,
+      });
+      setMensajeReserva('Reserva creada correctamente.');
+      setObservacionCliente('');
+    } catch (error) {
+      const message = error.message || '';
+      if (message.toLowerCase().includes('perfil') || message.toLowerCase().includes('cliente')) {
+        setMensajeReserva('No se pudo identificar tu perfil de cliente. Inicia sesion nuevamente o completa tu registro.');
+      } else {
+        setMensajeReserva(message || 'No pudimos crear la reserva.');
+      }
+    } finally {
+      setCreandoCita(false);
+    }
+  };
+
+  const diasSemana = weekDays(semanaInicio);
+  const fechasSemana = diasSemana.map(formatLocalDate);
+  const semanaCargada = fechasSemana.every((fecha) => Array.isArray(disponibilidadSemana[fecha]));
+  const sinDisponibilidadSemana = profesionalSeleccionado
+    && !cargandoDisponibilidad
+    && !errorDisponibilidad
+    && semanaCargada
+    && fechasSemana.every((fecha) => (disponibilidadSemana[fecha] || []).length === 0);
+
+  if (servicesQuery.isLoading) {
     return (
       <section className="page-section">
         <Loader />
@@ -116,23 +471,163 @@ export function ServiceDetailPage() {
             <span className="card-kicker">Detalle del servicio</span>
             <h2>{service.nombre || service.name || 'Servicio personalizado'}</h2>
             <p>{service.detallerservicio || service.description || 'Este servicio se adapta al diagnostico del profesional y a tus preferencias.'}</p>
-            <Link className="button button-sm" to="/reservar">
+            <a className="button button-sm" href="#reservar-servicio">
               <CalendarDays size={16} />
               Reservar
-            </Link>
+            </a>
           </section>
 
-          <section className="service-professionals-section">
+          <section className="service-professionals-section" id="reservar-servicio">
             <span className="card-kicker">Profesionales</span>
             <h2>Especialistas disponibles</h2>
+            {cargandoProfesionales && <p className="professional-empty">Cargando especialistas asociados...</p>}
+            {errorProfesionales && <p className="admin-alert">{errorProfesionales}</p>}
             <ProfessionalProfiles
-              professionals={specialists}
-              emptyText="Pronto asignaremos especialistas para este servicio."
-              onSelect={(prof) => navigate('/reservar', { state: { service, professional: prof.raw || prof } })}
+              professionals={profesionales}
+              emptyText="No hay especialistas asignados a este servicio por el momento."
+              selectedId={staffId(profesionalSeleccionado)}
+              actionLabel="Seleccionar"
+              onViewProfile={(profesional) => setPerfilStaffVisible(profileForModal(profesional, service))}
+              onSelect={handleSelectProfessional}
             />
+            {/* Este estado depende de la relacion servicio_staff en ms-catalogo. */}
+            {/* Para mostrar especialistas, se debe asociar staff al servicio usando POST /api/servicio-staff. */}
+
+            <div className="service-booking-panel">
+              <div className="service-week-header">
+                <button type="button" className="button button-sm button-secondary" onClick={() => handleWeekChange(-1)}>
+                  Semana anterior
+                </button>
+                <div>
+                  <span className="card-kicker">Disponibilidad semanal</span>
+                  <h3>Selecciona tu hora</h3>
+                  <p>Semana desde el {weekRangeLabel(semanaInicio)}</p>
+                </div>
+                <button type="button" className="button button-sm button-secondary" onClick={() => handleWeekChange(1)}>
+                  Semana siguiente
+                </button>
+              </div>
+
+              {cargandoDisponibilidad && <p className="professional-empty">Consultando disponibilidad de la semana...</p>}
+              {errorDisponibilidad && <p className="admin-alert">{errorDisponibilidad}</p>}
+              {!profesionalSeleccionado && <p className="professional-empty">Selecciona un especialista para ver sus horas disponibles.</p>}
+              {sinDisponibilidadSemana && <p className="professional-empty">Este especialista no tiene horas disponibles para esta semana.</p>}
+
+              {profesionalSeleccionado && !cargandoDisponibilidad && !errorDisponibilidad && semanaCargada && (
+                <div className="service-week-grid">
+                  {diasSemana.map((dia) => {
+                    const fecha = formatLocalDate(dia);
+                    const slots = disponibilidadSemana[fecha] || [];
+                    const available = slots.length > 0;
+                    const selected = fechaSeleccionada === fecha;
+
+                    return (
+                      <button
+                        key={fecha}
+                        type="button"
+                        className={selected ? 'service-week-day is-selected' : 'service-week-day'}
+                        onClick={() => handleSelectDay(fecha)}
+                      >
+                        <strong>{new Intl.DateTimeFormat('es-CL', { weekday: 'short' }).format(dia)}</strong>
+                        <em>{new Intl.DateTimeFormat('es-CL', { day: '2-digit' }).format(dia)}</em>
+                        <span className={available ? 'is-available' : ''}>{available ? 'Disponible' : 'Sin horas'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="service-booking-grid">
+                <label className="field">
+                  <span>Observacion</span>
+                  <textarea
+                    rows={3}
+                    placeholder="Primera cita"
+                    value={observacionCliente}
+                    onChange={(event) => setObservacionCliente(event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="service-slots-panel">
+                <span className="card-kicker">Disponibilidad</span>
+                <h3>Horarios disponibles</h3>
+                {fechaSeleccionada && <h3>{formatLongDate(fechaSeleccionada)}</h3>}
+                <p className="service-slots-helper">Selecciona una hora disponible. La reserva bloqueara el tiempo completo del servicio.</p>
+                {!profesionalSeleccionado && <p className="professional-empty">Selecciona un especialista para ver sus horarios disponibles.</p>}
+                {!fechaSeleccionada && profesionalSeleccionado && <p className="professional-empty">Selecciona un dia de la semana.</p>}
+                {fechaSeleccionada && horariosDisponibles.length === 0 && (
+                  <p className="professional-empty">No hay horas disponibles para este día.</p>
+                )}
+                <div className="service-slot-list">
+                  {horariosDisponibles.map((horario) => (
+                    <button
+                      key={horario.inicio}
+                      type="button"
+                      className={horarioSeleccionado?.inicio === horario.inicio ? 'service-slot is-selected' : 'service-slot'}
+                      onClick={() => setHorarioSeleccionado(horario)}
+                    >
+                      {formatSlotTime(horario.inicio)} - {formatSlotTime(horario.finVisible)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {horarioSeleccionado && (
+                <div className="service-booking-summary">
+                  <span className="card-kicker">Resumen</span>
+                  <dl>
+                    <div>
+                      <dt>Servicio</dt>
+                      <dd>{service.nombre || service.name || 'Servicio'}</dd>
+                    </div>
+                    <div>
+                      <dt>Profesional</dt>
+                      <dd>{professionalName(profesionalSeleccionado)}</dd>
+                    </div>
+                    <div>
+                      <dt>Fecha</dt>
+                      <dd>{formatLongDate(fechaSeleccionada)}</dd>
+                    </div>
+                    <div>
+                      <dt>Hora</dt>
+                      <dd>{formatSlotTime(horarioSeleccionado.inicio)} a {formatSlotTime(horarioSeleccionado.finVisible)}</dd>
+                    </div>
+                    <div>
+                      <dt>Duracion</dt>
+                      <dd>{horarioSeleccionado.duracionServicioMin || serviceDuration(service)} min</dd>
+                    </div>
+                    <div>
+                      <dt>Precio</dt>
+                      <dd>{servicePrice(service)}</dd>
+                    </div>
+                    {observacionCliente && (
+                      <div>
+                        <dt>Observacion</dt>
+                        <dd>{observacionCliente}</dd>
+                      </div>
+                    )}
+                  </dl>
+                </div>
+              )}
+
+              {mensajeReserva && <p className={mensajeReserva.includes('correctamente') ? 'service-booking-success' : 'admin-alert'}>{mensajeReserva}</p>}
+              <button type="button" className="button" onClick={handleCreateBooking} disabled={creandoCita}>
+                <CalendarDays size={17} />
+                {creandoCita ? 'Reservando...' : 'Reservar'}
+              </button>
+            </div>
           </section>
         </div>
       </Reveal>
+
+      <ProfessionalProfileModal professional={perfilStaffVisible} onClose={() => setPerfilStaffVisible(null)} />
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onLogin={() => goToAuth('/login')}
+        onRegister={() => goToAuth('/registro')}
+      />
     </section>
   );
 }
