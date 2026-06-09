@@ -13,10 +13,8 @@ import { ServiceSelector } from '../../components/booking/ServiceSelector.jsx';
 import { StaffSelector } from '../../components/booking/StaffSelector.jsx';
 import { reservationService } from '../../services/reservationService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
-import { staffService } from '../../services/staffService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
-import { normalizeCategory } from '../../utils/categoryUtils.js';
 
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
@@ -24,28 +22,6 @@ function serviceId(service) {
 
 function staffId(member) {
   return member?.idPersona || member?.idStaff || member?.id;
-}
-
-function isStaffCompatible(specialtyName = '', serviceCategory = '') {
-  const spec = normalizeCategory(specialtyName);
-  const cat = normalizeCategory(serviceCategory);
-  if (spec === cat) return true;
-  const mapping = {
-    'cosmetologa': ['cuidados de la piel', 'spa'],
-    'esteticista integral': ['cuidados de la piel', 'spa'],
-    'kinesiologa estetica': ['cuidados de la piel', 'spa'],
-    'masoterapeuta': ['spa'],
-    'manicurista': ['nails'],
-    'especialista en depilacion laser': ['cuidados de la piel'],
-    'especialista facial': ['cuidados de la piel'],
-    'especialista corporal': ['spa', 'cuidados de la piel'],
-    'maquilladora profesional': ['maquillaje'],
-    'estilista capilar': ['cabello', 'peluqueria'],
-    'colorista': ['cabello', 'peluqueria'],
-    'lashista': ['maquillaje', 'cuidados de la piel'],
-    'brow artist': ['maquillaje', 'cuidados de la piel']
-  };
-  return mapping[spec]?.includes(cat) || false;
 }
 
 export function BookingPage() {
@@ -71,8 +47,13 @@ export function BookingPage() {
   });
   const [confirmError, setConfirmError] = useState('');
 
+  const selectedServiceId = serviceId(service);
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: serviceCatalogService.listServices });
-  const staffQuery = useQuery({ queryKey: ['public-staff'], queryFn: staffService.listPublicStaff });
+  const serviceStaffQuery = useQuery({
+    queryKey: ['service-staff', selectedServiceId],
+    queryFn: () => serviceCatalogService.listProfessionalsByService(selectedServiceId),
+    enabled: Boolean(selectedServiceId),
+  });
   const { data: myProfile, isError: isProfileError, error: profileError } = useQuery({
     queryKey: ['my-profile'],
     queryFn: reservationService.getMe,
@@ -80,24 +61,16 @@ export function BookingPage() {
   });
 
   const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
-  const staffData = useMemo(() => (Array.isArray(staffQuery.data) ? staffQuery.data : []), [staffQuery.data]);
-  const filteredStaff = useMemo(() => {
-    if (!Array.isArray(staffData)) return [];
-    if (!service?.categoria) return staffData;
-    return staffData.filter((item) => {
-      const specName = item.especialidad?.nombre || item.especialidad || '';
-      return isStaffCompatible(specName, service.categoria);
-    });
-  }, [staffData, service]);
+  const serviceStaff = useMemo(() => (Array.isArray(serviceStaffQuery.data) ? serviceStaffQuery.data : []), [serviceStaffQuery.data]);
 
   const availabilityQuery = useQuery({
-    queryKey: ['availability', staffId(member), serviceId(service), date],
+    queryKey: ['availability', staffId(member), selectedServiceId, date],
     queryFn: () => reservationService.getAvailability({
       professionalId: staffId(member),
-      serviceId: serviceId(service),
+      serviceId: selectedServiceId,
       date,
     }),
-    enabled: Boolean(member && date && service),
+    enabled: Boolean(member && date && selectedServiceId),
   });
 
   const selectedSlot = useMemo(() => {
@@ -108,7 +81,7 @@ export function BookingPage() {
   const bookingMutation = useMutation({
     mutationFn: reservationService.createReservation,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['availability', staffId(member), serviceId(service), date] });
+      await queryClient.invalidateQueries({ queryKey: ['availability', staffId(member), selectedServiceId, date] });
       await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
       await queryClient.invalidateQueries({ queryKey: ['admin-bookings'] });
     },
@@ -145,7 +118,7 @@ export function BookingPage() {
     try {
       created = await bookingMutation.mutateAsync({
         professionalId: staffId(member),
-        serviceId: serviceId(service),
+        serviceId: selectedServiceId,
         startsAt: time,
       });
     } catch {
@@ -212,35 +185,23 @@ export function BookingPage() {
                   setTime('');
                   setConfirmError('');
                   setStep(2);
-                  const specName = member?.especialidad?.nombre || member?.especialidad || '';
-                  const isCompatible = member && isStaffCompatible(specName, value.categoria);
-                  if (isCompatible) {
-                    if (!initialHour) {
-                      setDate('');
-                      setTime('');
-                    }
-                    setStep(3);
-                  } else {
-                    setMember(null);
-                    setDate('');
-                    setTime('');
-                    setStep(2);
-                  }
-                  setConfirmError('');
-                  setStep(2);
                 }}
               />
             )
           )}
 
           {step === 2 && (
-            staffQuery.isLoading ? (
+            !service ? (
+              <p className="admin-alert">Selecciona primero un servicio.</p>
+            ) : serviceStaffQuery.isLoading ? (
               <Loader />
-            ) : staffQuery.isError ? (
+            ) : serviceStaffQuery.isError ? (
               <p className="admin-alert">No fue posible cargar profesionales.</p>
+            ) : serviceStaff.length === 0 ? (
+              <p className="admin-alert">No hay profesionales asociados a este servicio por el momento.</p>
             ) : (
               <StaffSelector
-                staff={filteredStaff}
+                staff={serviceStaff}
                 selectedId={staffId(member)}
                 onSelect={(value) => {
                   setMember(value);

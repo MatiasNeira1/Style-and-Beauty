@@ -1,4 +1,6 @@
-import { PROFILES_API_BASE_URL, STAFF_API_BASE_URL, request } from './apiClient.js';
+import { AGENDA_API_BASE_URL, PROFILES_API_BASE_URL, request } from './apiClient.js';
+
+const portfolioUnavailableMessage = 'Portfolio temporalmente no disponible hasta habilitar almacenamiento de imágenes.';
 
 export const staffService = {
   listPublicStaff: () =>
@@ -26,28 +28,28 @@ export const staffService = {
 
   // ── Jornadas Laborales ─────────────────────────────
   listSchedules: (staffId) =>
-    request({ baseURL: STAFF_API_BASE_URL, url: `/api/staff/${staffId}/jornadas`, method: 'GET', authRequired: true }),
+    request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/jornadas/staff/${staffId}`, method: 'GET', authRequired: true }),
 
-  saveSchedules: (staffId, jornadas) =>
-    request({ baseURL: STAFF_API_BASE_URL, url: `/api/staff/${staffId}/jornadas`, method: 'POST', authRequired: true, data: jornadas }),
+  saveSchedules: (staffId, jornadas) => Promise.all(
+    jornadas
+      .filter((jornada) => jornada.activo !== false)
+      .map((jornada) => request({
+        baseURL: AGENDA_API_BASE_URL,
+        url: '/api/agenda/jornadas',
+        method: 'POST',
+        authRequired: true,
+        data: { ...jornada, idStaff: staffId },
+      })),
+  ),
 
   // ── Portfolio (Fotos de trabajos) ──────────────────
-  listPortfolio: (staffId) =>
-    request({ baseURL: STAFF_API_BASE_URL, url: `/api/staff/${staffId}/portfolio`, method: 'GET', authRequired: true }),
+  listPortfolio: async () => [],
 
-  uploadPortfolioImage: (staffId, file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return request({
-      baseURL: STAFF_API_BASE_URL,
-      url: `/api/staff/${staffId}/portfolio`,
-      method: 'POST',
-      authRequired: true,
-      data: formData,
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+  uploadPortfolioImage: async () => {
+    throw new Error(portfolioUnavailableMessage);
   },
 
-  deletePortfolioImage: (staffId, imageId) =>
-    request({ baseURL: STAFF_API_BASE_URL, url: `/api/staff/${staffId}/portfolio/${imageId}`, method: 'DELETE', authRequired: true }),
+  deletePortfolioImage: async () => {
+    throw new Error(portfolioUnavailableMessage);
+  },
 };

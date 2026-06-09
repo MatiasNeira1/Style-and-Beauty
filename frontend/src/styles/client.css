@@ -2324,6 +2324,229 @@ a.contact-info-card:hover {
   padding-inline: 1.15rem;
 }
 
+.page-section {
+  padding-block: clamp(2.35rem, 4.5vw, 4rem);
+}
+
+.page-hero,
+.products-hero {
+  min-height: clamp(19rem, 40vh, 28rem);
+}
+
+.page-hero-content h1,
+.products-hero-content h1 {
+  text-wrap: balance;
+}
+
+.card-kicker,
+.product-editorial-kicker {
+  letter-spacing: 0;
+}
+
+.grid-list,
+.catalog-page .catalog-card-grid,
+.catalog-item-grid,
+.products-section .product-grid,
+.professionals-grid {
+  align-items: stretch;
+}
+
+.service-choice-card,
+.staff-card,
+.catalog-feature-card,
+.catalog-item-card,
+.product-card,
+.professional-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.service-choice-card h3,
+.staff-card h3,
+.catalog-feature-card h3,
+.catalog-item-card h3,
+.product-card h3,
+.professional-card h3 {
+  overflow-wrap: anywhere;
+}
+
+.service-choice-card p,
+.staff-card p,
+.catalog-feature-card p,
+.catalog-item-card p,
+.product-card p,
+.professional-card p,
+.product-editorial-copy p,
+.catalog-detail-header p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.service-choice-image,
+.catalog-feature-card img,
+.catalog-item-media img,
+.product-media img,
+.professional-card-media img,
+.product-editorial-media img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+img[data-fallback="true"] {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(251, 244, 246, 0.86));
+  object-fit: contain;
+  padding: clamp(0.7rem, 3vw, 1.15rem);
+}
+
+.service-choice-card {
+  display: grid;
+  gap: 0.62rem;
+  grid-template-rows: auto auto auto 1fr auto;
+  height: 100%;
+  padding: 0.78rem;
+}
+
+.service-choice-image {
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-xs);
+}
+
+.service-choice-card p {
+  font-size: 0.88rem;
+  line-height: 1.42;
+}
+
+.choice-card-header {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.choice-card-header strong,
+.choice-meta {
+  white-space: nowrap;
+}
+
+.staff-card {
+  height: 100%;
+  padding: 0.85rem;
+}
+
+.staff-card-header {
+  align-items: start;
+  gap: 0.65rem;
+}
+
+.staff-avatar {
+  flex: 0 0 3.25rem;
+  height: 3.25rem;
+  width: 3.25rem;
+}
+
+.calendar-card,
+.summary-card,
+.client-auth-card,
+.contact-form-card,
+.contact-info-card {
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+}
+
+.calendar-card {
+  padding: clamp(0.85rem, 1.8vw, 1.15rem);
+}
+
+.slot-grid {
+  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+}
+
+.slot-button {
+  min-height: 2.45rem;
+  padding: 0.45rem 0.6rem;
+}
+
+.product-brand-header-copy img,
+.catalog-page .brand-feature-card img,
+.products-section .brand-card img {
+  background: #fff;
+  object-fit: contain;
+}
+
+.product-editorial {
+  gap: clamp(1.1rem, 2.6vw, 2.4rem);
+}
+
+.product-editorial-media {
+  aspect-ratio: 4 / 3;
+}
+
+.product-editorial-copy h3 {
+  font-size: clamp(1.75rem, 3.5vw, 3.2rem);
+}
+
+.birthdate-field {
+  gap: 0.48rem;
+}
+
+.birthdate-select-grid {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 0.8fr 1.2fr 0.8fr;
+}
+
+.birthdate-select-grid select {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(110, 88, 96, 0.18);
+  border-radius: 0.8rem;
+  color: var(--color-ink);
+  font: inherit;
+  min-height: 3rem;
+  min-width: 0;
+  padding: 0 0.7rem;
+}
+
+.birthdate-select-grid select:disabled {
+  background: rgba(255, 255, 255, 0.46);
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
+
+.birthdate-field small {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+}
+
+@media (min-width: 1180px) {
+  .grid-list,
+  .catalog-page .catalog-card-grid,
+  .catalog-item-grid,
+  .products-section .product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .professionals-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 760px) and (max-width: 1179px) {
+  .grid-list,
+  .catalog-page .catalog-card-grid,
+  .catalog-item-grid,
+  .products-section .product-grid,
+  .professionals-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @keyframes skeleton-pulse {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
