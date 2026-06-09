@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { memo } from 'react';
 import { CheckCircle2, ShoppingBag, Sparkles } from 'lucide-react';
 import { Button } from '../ui/Button.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
@@ -42,7 +43,7 @@ function benefitsFor(product) {
   return benefitMap[category] || benefitMap.cuidado;
 }
 
-export function ProductEditorialShowcase({ products = [], onAdd }) {
+export const ProductEditorialShowcase = memo(function ProductEditorialShowcase({ products = [], onAdd }) {
   return (
     <div className="product-editorial-list">
       {products.map((product, index) => {
@@ -95,4 +96,4 @@ export function ProductEditorialShowcase({ products = [], onAdd }) {
       })}
     </div>
   );
-}
+});

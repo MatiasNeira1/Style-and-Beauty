@@ -1,5 +1,13 @@
 import { INVENTORY_API_BASE_URL, request } from './apiClient.js';
 
+let productsCache = null;
+let stockCache = null;
+
+function clearInventoryCache() {
+  productsCache = null;
+  stockCache = null;
+}
+
 export const inventoryService = {
   listProducts: () => request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/productos' }),
   listStock: () => request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/stock' }),

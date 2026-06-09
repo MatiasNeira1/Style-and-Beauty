@@ -7,6 +7,7 @@ export function SafeImage({
   className = '',
   fallback = DEFAULT_IMAGE_FALLBACK,
   loading = 'lazy',
+  decoding = 'async',
   ...props
 }) {
   const fallbackSrc = useMemo(() => resolveAssetUrl(fallback, DEFAULT_IMAGE_FALLBACK), [fallback]);
@@ -25,6 +26,7 @@ export function SafeImage({
       className={className}
       data-fallback={currentSrc === fallbackSrc ? 'true' : undefined}
       loading={loading}
+      decoding={decoding}
       onError={() => {
         if (currentSrc !== fallbackSrc) {
           setCurrentSrc(fallbackSrc);

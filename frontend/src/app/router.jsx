@@ -77,4 +77,8 @@ export const router = createBrowserRouter([
     path: '/employee',
     element: <div style={{ padding: '2rem', textAlign: 'center' }}><h2>Portal de Empleado</h2><p>Módulo administrado externamente.</p></div>,
   },
-]);
+], {
+  future: {
+    v7_startTransition: true,
+  },
+});

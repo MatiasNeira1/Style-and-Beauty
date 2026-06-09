@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { Reveal } from '../../components/animations/Reveal.jsx';
 import { ProductsBrands } from '../../components/shop/ProductsBrands.jsx';
 import { ProductsByBrand } from '../../components/shop/ProductsByBrand.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
-import { inventoryService } from '../../services/inventoryService.js';
+import { productService } from '../../services/productService.js';
 import { useCart } from '../../store/CartContext.jsx';
 
 function slugify(value) {
@@ -24,6 +24,7 @@ function categoryCard(category, count) {
     id: slugify(name),
     nombre: name,
     descripcion: `${count} productos disponibles en inventario.`,
+    count,
     logo: '/logo.jpg',
   };
 }
@@ -34,7 +35,9 @@ export function ProductsPage() {
   const [selectedBrand, setSelectedBrand] = useState(null);
   const productsQuery = useQuery({
     queryKey: ['public-products'],
-    queryFn: inventoryService.listProducts,
+    queryFn: productService.listProducts,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
   });
 
   const products = useMemo(() => {
@@ -69,6 +72,14 @@ export function ProductsPage() {
     }
   }, [location.state?.showProductsHome]);
 
+  const handleSelectBrand = useCallback((brand) => {
+    setSelectedBrand(brand);
+  }, []);
+
+  const handleBackToBrands = useCallback(() => {
+    setSelectedBrand(null);
+  }, []);
+
   return (
     <>
       <section className="products-hero">
@@ -101,7 +112,7 @@ export function ProductsPage() {
               </div>
             ) : productBrands.length ? (
               <Reveal>
-                <ProductsBrands brands={productBrands} products={products} onSelect={setSelectedBrand} />
+                <ProductsBrands brands={productBrands} onSelect={handleSelectBrand} />
               </Reveal>
             ) : (
               <div className="client-empty-state" style={{ padding: '4rem 1rem', background: 'var(--color-surface-glass)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-line)' }}>
@@ -115,7 +126,7 @@ export function ProductsPage() {
           </>
         ) : (
           <Reveal>
-            <ProductsByBrand brand={selectedBrand} products={visibleProducts} onAdd={addItem} onBack={() => setSelectedBrand(null)} />
+            <ProductsByBrand brand={selectedBrand} products={visibleProducts} onAdd={addItem} onBack={handleBackToBrands} />
           </Reveal>
         )}
       </section>

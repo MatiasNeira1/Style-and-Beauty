@@ -1,7 +1,17 @@
 import { AGENDA_API_BASE_URL, CATALOG_API_BASE_URL, request } from './apiClient.js';
 
+let servicesCache = null;
+const serviceByIdCache = new Map();
+const servicesByCategoryCache = new Map();
+
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
+}
+
+function clearServiceCache() {
+  servicesCache = null;
+  serviceByIdCache.clear();
+  servicesByCategoryCache.clear();
 }
 
 export const serviceCatalogService = {

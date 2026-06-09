@@ -1,8 +1,9 @@
+import { memo } from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { Button } from '../ui/Button.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
 
-export function ProductCard({ product, onAdd }) {
+export const ProductCard = memo(function ProductCard({ product, onAdd }) {
   const name = product.nombre || product.name || product.nombreProducto || 'Producto profesional';
   const description = product.descripcion || product.description || product.detalle || 'Producto profesional recomendado por el salón.';
   const category = product.categoria || 'Cuidado profesional';
@@ -29,4 +30,4 @@ export function ProductCard({ product, onAdd }) {
       </div>
     </article>
   );
-}
+});
