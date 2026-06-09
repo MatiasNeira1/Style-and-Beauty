@@ -5,18 +5,7 @@ function fullName(person) {
   return `${person.nombre || ''} ${person.apellidos || ''}`.trim() || 'Especialista';
 }
 
-function professionalId(person) {
-  return person?.idStaff || person?.idPersona || person?.idAuth || person?.id;
-}
-
-export const ProfessionalProfiles = memo(function ProfessionalProfiles({
-  professionals = [],
-  emptyText = 'Pronto asignaremos especialistas para esta categoria.',
-  onViewProfile,
-  onSelect,
-  selectedId,
-  actionLabel = 'Ver horarios',
-}) {
+export function ProfessionalProfiles({ professionals = [], emptyText = 'Pronto asignaremos especialistas para esta categoria.', onSelect }) {
   return (
     <div className="professional-profiles">
       {professionals.length === 0 ? (

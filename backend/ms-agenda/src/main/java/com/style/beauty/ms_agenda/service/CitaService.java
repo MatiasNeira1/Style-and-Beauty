@@ -219,7 +219,9 @@ public class CitaService {
 
         validarDuracionYHolgura(duracion, holgura);
 
-        OffsetDateTime inicio = request.fechaHoraInicio();
+        OffsetDateTime inicio = request.fechaHoraInicio()
+                .atZoneSameInstant(zoneId())
+                .toOffsetDateTime();
         OffsetDateTime finVisible = inicio.plusMinutes(duracion);
         OffsetDateTime finAtencion = finVisible.minusMinutes(holgura);
 
