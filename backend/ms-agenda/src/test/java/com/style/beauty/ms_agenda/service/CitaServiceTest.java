@@ -84,6 +84,7 @@ class CitaServiceTest {
                 .thenReturn(List.of(jornada(LocalTime.of(8, 0), LocalTime.of(13, 0))));
         when(bloqueoAgendaRepository.buscarBloqueosEnRango(any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.saveAndFlush(any(Cita.class))).thenAnswer(invocation -> {
             Cita cita = invocation.getArgument(0);
             if (cita.getIdCita() == null) {
@@ -100,9 +101,42 @@ class CitaServiceTest {
         List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null));
 
         assertThat(slots).extracting(DisponibilidadSlot::inicio)
-                .contains(at(8, 0), at(9, 0), at(11, 30), at(11, 45), at(12, 0));
+                .containsExactly(at(8, 0), at(9, 0), at(10, 0), at(11, 0), at(12, 0));
+        assertThat(slots).extracting(DisponibilidadSlot::inicio)
+                .doesNotContain(at(8, 15), at(8, 30), at(8, 45));
         assertThat(slots).extracting(DisponibilidadSlot::finVisible)
                 .allMatch(fin -> !fin.isAfter(at(13, 0)));
+    }
+
+    @Test
+    void disponibilidadAvanzaHastaFinVisibleCuandoElBloqueEstaDisponible() {
+        when(servicioClient.obtenerServicio(ID_SERVICIO))
+                .thenReturn(new ServicioResumen(ID_SERVICIO, "Corte", "Cabello", 45, 15));
+        when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(ID_STAFF, FECHA.getDayOfWeek().getValue()))
+                .thenReturn(List.of(jornada(LocalTime.of(9, 0), LocalTime.of(18, 0))));
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
+
+        List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null));
+
+        assertThat(slots).extracting(DisponibilidadSlot::inicio)
+                .containsExactly(
+                        at(9, 0),
+                        at(9, 45),
+                        at(10, 30),
+                        at(11, 15),
+                        at(12, 0),
+                        at(12, 45),
+                        at(13, 30),
+                        at(14, 15),
+                        at(15, 0),
+                        at(15, 45),
+                        at(16, 30),
+                        at(17, 15)
+                );
+        assertThat(slots).extracting(DisponibilidadSlot::inicio)
+                .doesNotContain(at(9, 15), at(9, 30), at(10, 0), at(10, 15));
+        assertThat(slots.get(0).finVisible()).isEqualTo(at(9, 45));
+        assertThat(slots.get(0).finAtencion()).isEqualTo(at(9, 30));
     }
 
     @Test
@@ -137,7 +171,8 @@ class CitaServiceTest {
 
         List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null));
 
-        assertThat(slots).extracting(DisponibilidadSlot::inicio).contains(at(8, 30), at(9, 0), at(11, 0), at(11, 30));
+        assertThat(slots).extracting(DisponibilidadSlot::inicio)
+                .containsExactly(at(8, 0), at(9, 0), at(11, 0), at(12, 0));
         assertThat(slots).extracting(DisponibilidadSlot::inicio).doesNotContain(at(9, 15), at(10, 0), at(10, 30));
     }
 
@@ -182,6 +217,8 @@ class CitaServiceTest {
     @Test
     void permiteCrearCitaExactamenteDespuesDeDuracionMasHolgura() {
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any()))
+                .thenReturn(List.of(cita(at(9, 0), at(10, 0), at(10, 30))));
 
         Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(10, 30), null, null, null));
 
@@ -195,12 +232,33 @@ class CitaServiceTest {
         when(servicioClient.obtenerServicio(ID_SERVICIO))
                 .thenReturn(new ServicioResumen(ID_SERVICIO, "Tratamiento capilar", "Peluqueria", 50, 30));
 
-        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 0), 999, 0, null));
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(8, 0), 999, 0, null));
 
         assertThat(creada.getDuracionServicioMin()).isEqualTo(50);
         assertThat(creada.getHolguraMin()).isEqualTo(30);
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(9, 50));
-        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(9, 20));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(8, 50));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(8, 20));
+    }
+
+    @Test
+    void rechazaCrearCitaSiLaHoraNoCorrespondeAUnSlotDisponible() {
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(8, 15), null, null, null);
+
+        assertThatThrownBy(() -> citaService.crear(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("horario seleccionado ya no esta disponible");
+
+        verify(citaRepository, never()).saveAndFlush(any(Cita.class));
+    }
+
+    @Test
+    void normalizaHoraRecibidaAUsoHorarioDeAgendaAntesDeGuardar() {
+        OffsetDateTime inicioUtc = at(9, 0).withOffsetSameInstant(java.time.ZoneOffset.UTC);
+
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, inicioUtc, null, null, null));
+
+        assertThat(creada.getFechaHoraInicio()).isEqualTo(at(9, 0));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(10, 0));
     }
 
     @Test

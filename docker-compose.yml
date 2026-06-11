@@ -29,22 +29,6 @@ services:
     networks:
       - style-beauty-net
 
-  mongo:
-    image: mongo:7
-    container_name: style-beauty-mongo
-    restart: unless-stopped
-    expose:
-      - "27017"
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - style-beauty-net
-
   api-gateway:
     build: ./backend/Api-gateway
     image: watoncitoxx/style-and-beauty-gateway:latest
@@ -61,8 +45,6 @@ services:
       MS_AGENDA_URI: http://ms-agenda:8084
       MS_INVENTARIO_URI: http://ms-inventario:8085
       MS_PAGOS_URI: http://ms-pagos:8086
-      MS_EXTRA_URI: http://ms-extra:8087
-      MS_NOTIFICACION_AUDIT_URI: http://ms-notificacion-audit:8088
     ports:
       - "127.0.0.1:${API_GATEWAY_PORT:-8080}:8080"
     depends_on:
@@ -77,10 +59,6 @@ services:
       ms-inventario:
         condition: service_started
       ms-pagos:
-        condition: service_started
-      ms-extra:
-        condition: service_started
-      ms-notificacion-audit:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8080/ >/dev/null || exit 1"]
@@ -257,6 +235,10 @@ services:
       SPRING_DATASOURCE_URL: ${MS_PAGOS_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
       SPRING_DATASOURCE_USERNAME: ${MS_PAGOS_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
       SPRING_DATASOURCE_PASSWORD: ${MS_PAGOS_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
+      MS_AGENDA_BASE_URL: http://ms-agenda:8084
+      MS_CATALOGO_BASE_URL: http://ms-catalogo:8083
+      FRONTEND_SUCCESS_URL: ${FRONTEND_SUCCESS_URL:-http://localhost/pago/exitoso}
+      FRONTEND_ERROR_URL: ${FRONTEND_ERROR_URL:-http://localhost/pago/error}
       SPRING_SECURITY_USER_NAME: ${SPRING_SECURITY_USER_NAME:-admin}
       SPRING_SECURITY_USER_PASSWORD: ${SPRING_SECURITY_USER_PASSWORD:-admin123}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
@@ -265,51 +247,6 @@ services:
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8086/ >/dev/null || exit 1"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-    networks:
-      - style-beauty-net
-
-  ms-extra:
-    image: watoncitoxx/style-and-beauty-extra:latest
-    container_name: style-beauty-ms-extra
-    restart: unless-stopped
-    environment:
-      <<: *hikari-env
-      SERVER_PORT: 8087
-      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
-      SPRING_DATASOURCE_URL: ${MS_EXTRA_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
-      SPRING_DATASOURCE_USERNAME: ${MS_EXTRA_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
-      SPRING_DATASOURCE_PASSWORD: ${MS_EXTRA_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
-      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
-      SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
-      SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://127.0.0.1:8087/ >/dev/null || exit 1"]
-      interval: 20s
-      timeout: 5s
-      retries: 10
-    networks:
-      - style-beauty-net
-
-  ms-notificacion-audit:
-    image: watoncitoxx/style-and-beauty-notificacion-audit:latest
-    container_name: style-beauty-ms-notificacion-audit
-    restart: unless-stopped
-    environment:
-      SERVER_PORT: 8088
-      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
-      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/${MONGO_DB:-style_beauty_audit}
-      SPRING_SECURITY_USER_NAME: admin
-      SPRING_SECURITY_USER_PASSWORD: admin123
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
-    depends_on:
-      mongo:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -s http://127.0.0.1:8088/ >/dev/null || exit 1"]
       interval: 20s
       timeout: 5s
       retries: 10
@@ -362,7 +299,6 @@ services:
 
 volumes:
   postgres-master-data:
-  mongo-data:
 
 networks:
   style-beauty-net:

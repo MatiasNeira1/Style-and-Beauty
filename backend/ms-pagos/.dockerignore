@@ -3,6 +3,5 @@ target
 .env
 *.log
 serviceAccountKey.json
-**/serviceAccountKey.json
 *.pem
 *.key
