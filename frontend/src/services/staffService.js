@@ -2,6 +2,12 @@ import { AGENDA_API_BASE_URL, PROFILES_API_BASE_URL, request } from './apiClient
 
 const portfolioUnavailableMessage = 'Portfolio temporalmente no disponible hasta habilitar almacenamiento de imágenes.';
 
+function imageFormData(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return formData;
+}
+
 export const staffService = {
   listPublicStaff: () =>
     request({ baseURL: PROFILES_API_BASE_URL, url: '/api/perfiles/staff', method: 'GET' }),
@@ -21,6 +27,15 @@ export const staffService = {
 
   deleteStaff: (idAuth) =>
     request({ baseURL: PROFILES_API_BASE_URL, url: `/api/admin/eliminar/${idAuth}`, method: 'DELETE', authRequired: true }),
+
+  uploadStaffPhoto: (staffId, file) =>
+    request({ baseURL: PROFILES_API_BASE_URL, url: `/api/profesionales/${staffId}/foto`, method: 'POST', authRequired: true, data: imageFormData(file) }),
+
+  deleteStaffPhoto: (staffId) =>
+    request({ baseURL: PROFILES_API_BASE_URL, url: `/api/profesionales/${staffId}/foto`, method: 'DELETE', authRequired: true }),
+
+  updateStaffStatus: (staffId, active) =>
+    request({ baseURL: PROFILES_API_BASE_URL, url: `/api/profesionales/${staffId}/estado/${Boolean(active)}`, method: 'PATCH', authRequired: true }),
 
   // ── Especialidades ─────────────────────────────────
   listSpecialties: () =>

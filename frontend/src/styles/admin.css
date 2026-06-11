@@ -1194,6 +1194,48 @@
 .admin-status-badge.info { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.18); color: #1d4ed8; }
 .admin-status-badge.neutral { background: rgba(81, 71, 76, 0.08); border-color: rgba(81, 71, 76, 0.12); color: var(--color-ink-soft); }
 
+.admin-media-cell {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.admin-media-cell img {
+  aspect-ratio: 1;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  flex: 0 0 auto;
+  height: 3rem;
+  object-fit: cover;
+  width: 3rem;
+}
+
+.admin-image-field {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.admin-image-field img {
+  aspect-ratio: 1;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  height: 4rem;
+  object-fit: cover;
+  width: 4rem;
+}
+
+.staff-file-button {
+  cursor: pointer;
+}
+
+.staff-file-button input {
+  display: none;
+}
+
 .admin-reservation-list article,
 .admin-alert-list span {
   align-items: center;

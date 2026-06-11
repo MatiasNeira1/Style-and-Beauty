@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Edit3, Package, PackagePlus, PowerOff, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, Camera, Edit3, Image as ImageIcon, Package, PackagePlus, PowerOff, Save, Trash2, X } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { inventoryService } from '../../services/inventoryService.js';
 import { formatCurrencyCLP } from '../../utils/adminFormatters.js';
 
@@ -33,10 +34,17 @@ function getProductId(product) {
   return product.idProducto || product.id || product.uuid;
 }
 
+function productImage(product) {
+  return product.imagenUrl || product.imageUrl || product.imagen_url || product.imagen || product.image;
+}
+
 export function InventoryAdminPage() {
   const queryClient = useQueryClient();
   const [productForm, setProductForm] = useState(initialProductForm);
   const [editingProductId, setEditingProductId] = useState(null);
+  const [productImageFile, setProductImageFile] = useState(null);
+  const [productImagePreview, setProductImagePreview] = useState('');
+  const [productImageError, setProductImageError] = useState('');
   const [stockForm, setStockForm] = useState(initialStockForm);
   const [movementForm, setMovementForm] = useState(initialMovementForm);
 
@@ -55,18 +63,56 @@ export function InventoryAdminPage() {
   const invalidateInventory = () => {
     queryClient.invalidateQueries({ queryKey: ['inventory-admin'] });
     queryClient.invalidateQueries({ queryKey: ['inventory-stock'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
+  };
+
+  useEffect(() => {
+    if (!productImageFile) return undefined;
+    const objectUrl = URL.createObjectURL(productImageFile);
+    setProductImagePreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [productImageFile]);
+
+  const validateAndSetProductImage = (file) => {
+    setProductImageError('');
+    if (!file) {
+      setProductImageFile(null);
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setProductImageFile(null);
+      setProductImageError('Solo se permiten imagenes JPG, PNG o WEBP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setProductImageFile(null);
+      setProductImageError('La imagen no puede superar 5 MB.');
+      return;
+    }
+    setProductImageFile(file);
   };
 
   const saveProductMutation = useMutation({
-    mutationFn: (payload) => {
+    mutationFn: async (payload) => {
+      let savedProduct;
       if (editingProductId) {
-        return inventoryService.updateProduct(editingProductId, payload);
+        savedProduct = await inventoryService.updateProduct(editingProductId, payload);
+      } else {
+        savedProduct = await inventoryService.createProduct(payload);
       }
-      return inventoryService.createProduct(payload);
+
+      if (productImageFile) {
+        return inventoryService.uploadProductImage(getProductId(savedProduct) || editingProductId, productImageFile);
+      }
+
+      return savedProduct;
     },
     onSuccess: () => {
       setProductForm(initialProductForm);
       setEditingProductId(null);
+      setProductImageFile(null);
+      setProductImagePreview('');
+      setProductImageError('');
       invalidateInventory();
     },
   });
@@ -106,6 +152,16 @@ export function InventoryAdminPage() {
     onSuccess: invalidateInventory,
   });
 
+  const productImageMutation = useMutation({
+    mutationFn: ({ productId, file }) => inventoryService.uploadProductImage(productId, file),
+    onSuccess: invalidateInventory,
+  });
+
+  const deleteProductImageMutation = useMutation({
+    mutationFn: inventoryService.deleteProductImage,
+    onSuccess: invalidateInventory,
+  });
+
   const handleProductChange = (event) => {
     const { name, value } = event.target;
     setProductForm((current) => ({ ...current, [name]: value }));
@@ -123,6 +179,7 @@ export function InventoryAdminPage() {
 
   const handleProductSubmit = (event) => {
     event.preventDefault();
+    if (productImageError) return;
     saveProductMutation.mutate({
       ...productForm,
       precio: Number(productForm.precio),
@@ -141,6 +198,9 @@ export function InventoryAdminPage() {
 
   const startEditing = (product) => {
     setEditingProductId(getProductId(product));
+    setProductImageFile(null);
+    setProductImagePreview(productImage(product) || '');
+    setProductImageError('');
     setProductForm({
       nombre: product.nombre || '',
       categoria: product.categoria || '',
@@ -152,6 +212,16 @@ export function InventoryAdminPage() {
   const cancelEditing = () => {
     setEditingProductId(null);
     setProductForm(initialProductForm);
+    setProductImageFile(null);
+    setProductImagePreview('');
+    setProductImageError('');
+  };
+
+  const handleTableProductImageChange = (product, event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    productImageMutation.mutate({ productId: getProductId(product), file });
   };
 
   const isLoading = productsQuery.isLoading || stockQuery.isLoading;
@@ -188,7 +258,16 @@ export function InventoryAdminPage() {
           <Input label="Precio" id="inventory-price" name="precio" type="number" min="0" step="100" value={productForm.precio} onChange={handleProductChange} required />
           <Input label="Descripcion" id="inventory-description" name="descripcion" value={productForm.descripcion} onChange={handleProductChange} />
         </div>
+        <div className="admin-image-field">
+          <SafeImage src={productImagePreview} alt="Imagen del producto" />
+          <label className="button button-ghost button-sm staff-file-button">
+            <span className="button-content"><Camera size={14} /> Imagen</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => validateAndSetProductImage(event.target.files?.[0])} />
+          </label>
+          {productImageError && <p className="admin-alert compact">{productImageError}</p>}
+        </div>
         {saveProductMutation.isError && <p className="admin-alert">{saveProductMutation.error.message}</p>}
+        {(productImageMutation.isError || deleteProductImageMutation.isError) && <p className="admin-alert">{productImageMutation.error?.message || deleteProductImageMutation.error?.message}</p>}
         <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={saveProductMutation.isPending}>
             <Save size={16} />
@@ -264,9 +343,12 @@ export function InventoryAdminPage() {
               key: 'nombre',
               label: 'Producto',
               render: (row) => (
-                <div className="flex flex-col">
-                  <span className="font-bold text-ink">{row.nombre || 'Producto sin nombre'}</span>
-                  {row.descripcion && <span className="text-xs text-ink-soft font-normal max-w-sm truncate">{row.descripcion}</span>}
+                <div className="admin-media-cell">
+                  <SafeImage src={productImage(row)} alt={row.nombre || 'Producto'} />
+                  <div className="flex flex-col">
+                    <span className="font-bold text-ink">{row.nombre || 'Producto sin nombre'}</span>
+                    {row.descripcion && <span className="text-xs text-ink-soft font-normal max-w-sm truncate">{row.descripcion}</span>}
+                  </div>
                 </div>
               ),
             },
@@ -321,6 +403,14 @@ export function InventoryAdminPage() {
                     <Button type="button" size="sm" variant="ghost" onClick={() => startEditing(row)}>
                       <Edit3 size={14} />
                       Editar
+                    </Button>
+                    <label className="button button-ghost button-sm staff-file-button">
+                      <span className="button-content"><Camera size={14} /> Imagen</span>
+                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleTableProductImageChange(row, event)} />
+                    </label>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => deleteProductImageMutation.mutate(productId)} disabled={deleteProductImageMutation.isPending || !productImage(row)}>
+                      <ImageIcon size={14} />
+                      Quitar
                     </Button>
                     {row.activo && (
                       <Button type="button" size="sm" variant="ghost" onClick={() => deactivateMutation.mutate(productId)} disabled={deactivateMutation.isPending}>

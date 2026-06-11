@@ -30,6 +30,9 @@ public class StaffModel extends PersonaModel {
     @Column(name = "descripcion_perfil", columnDefinition = "TEXT")
     private String descripcionPerfil;
 
+    @Column(nullable = false)
+    private Boolean activo = true;
+
     @OneToMany(mappedBy = "staff", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     private List<ContratoModel> contratos;

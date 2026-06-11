@@ -2,6 +2,8 @@ package com.style.beauty.ms_cliente.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
 import com.style.beauty.ms_cliente.model.PersonaModel;
@@ -25,16 +27,19 @@ public class PerfilService {
     private final PersonaRepository personaRepository;
     private final ClienteRepository clienteRepository;
     private final StaffRepository staffRepository;
+    private final AzureBlobStorageService azureBlobStorageService;
     private final Map<String, PerfilStrategy> estrategias = new HashMap<>();
 
     @Autowired
     public PerfilService(PersonaRepository personaRepository,
                          ClienteRepository clienteRepository,
                          StaffRepository staffRepository,
+                         AzureBlobStorageService azureBlobStorageService,
                          List<PerfilStrategy> listaEstrategias) {
         this.personaRepository = personaRepository;
         this.clienteRepository = clienteRepository;
         this.staffRepository = staffRepository;
+        this.azureBlobStorageService = azureBlobStorageService;
         // Arma el diccionario de estrategias leyendo los "letreros"
         for (PerfilStrategy estrategia : listaEstrategias) {
             estrategias.put(estrategia.getTipoPerfil().toUpperCase(), estrategia);
@@ -169,6 +174,31 @@ public class PerfilService {
     public StaffModel obtenerStaffPorId(java.util.UUID idStaff) {
         return staffRepository.findById(idStaff)
                 .orElseThrow(() -> new RuntimeException("Staff no encontrado."));
+    }
+
+    @Transactional
+    public StaffModel actualizarFotoStaff(java.util.UUID idStaff, MultipartFile file) {
+        StaffModel staff = obtenerStaffPorId(idStaff);
+        String imageUrl = azureBlobStorageService.replace(staff.getFotoUrl(), file, "profesionales");
+        staff.setFotoUrl(imageUrl);
+        return staffRepository.save(staff);
+    }
+
+    @Transactional
+    public StaffModel eliminarFotoStaff(java.util.UUID idStaff) {
+        StaffModel staff = obtenerStaffPorId(idStaff);
+        if (staff.getFotoUrl() != null && !staff.getFotoUrl().isBlank()) {
+            azureBlobStorageService.delete(staff.getFotoUrl());
+        }
+        staff.setFotoUrl(null);
+        return staffRepository.save(staff);
+    }
+
+    @Transactional
+    public StaffModel actualizarEstadoStaff(java.util.UUID idStaff, boolean activo) {
+        StaffModel staff = obtenerStaffPorId(idStaff);
+        staff.setActivo(activo);
+        return staffRepository.save(staff);
     }
 
     // 3. UPDATE (Actualizar datos del perfil)

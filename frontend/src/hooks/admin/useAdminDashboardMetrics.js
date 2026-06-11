@@ -180,7 +180,7 @@ export function useAdminDashboardMetrics() {
         lowStock.length ? `${lowStock.length} productos bajo stock minimo` : 'Inventario sin quiebres criticos',
         occupancy >= 80 ? `Ocupacion alta: ${occupancy}%` : `Ocupacion agenda: ${occupancy}%`,
       ],
-      raw: { bookings, services, payments, products, stock, clients, staff },
+      raw: { bookings, services, payments, products, stock, clients, staff, partialErrors: snapshot.partialErrors || [] },
     };
   }, [mockQuery.data, query.data]);
 

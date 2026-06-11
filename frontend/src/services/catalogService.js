@@ -7,4 +7,6 @@ export const catalogService = {
   createService: serviceCatalogService.createService,
   updateService: serviceCatalogService.updateService,
   deleteService: serviceCatalogService.deleteService,
+  uploadServiceImage: serviceCatalogService.uploadServiceImage,
+  deleteServiceImage: serviceCatalogService.deleteServiceImage,
 };

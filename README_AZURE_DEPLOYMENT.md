@@ -141,6 +141,8 @@ Use immutable tags for demos, for example `2026-06-08-db65796`, not only
 | `SPRING_DATASOURCE_HIKARI_MAX_LIFETIME` | DB-backed services | No |
 | `SPRING_JPA_HIBERNATE_DDL_AUTO` | DB-backed services | No |
 | `SPRING_SQL_INIT_MODE` | Agenda/local seed behavior | No |
+| `AZURE_STORAGE_CONNECTION_STRING` | `ms-perfiles`, `ms-catalogo`, `ms-inventario` | Yes |
+| `AZURE_STORAGE_CONTAINER` | `stylebeauty` | No |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | `ms-auth`, `ms-perfiles`, `ms-agenda` | Yes |
 | `FIREBASE_SERVICE_ACCOUNT_PATH` | same | No if just path |
 | `GOOGLE_APPLICATION_CREDENTIALS` | same / Google Calendar | No if just path |
@@ -148,6 +150,12 @@ Use immutable tags for demos, for example `2026-06-08-db65796`, not only
 | `GOOGLE_CALENDAR_ENABLED` | agenda | No |
 | `GOOGLE_CALENDAR_CREDENTIALS_JSON` | agenda if enabled | Yes |
 | `GOOGLE_CALENDAR_CREDENTIALS_PATH` | agenda if enabled | No if just path |
+
+### Azure Blob Storage
+
+Images are uploaded only through backend endpoints. Configure `AZURE_STORAGE_CONNECTION_STRING` as a Container Apps secret and `AZURE_STORAGE_CONTAINER=stylebeauty` for `ms-perfiles`, `ms-catalogo` and `ms-inventario`.
+
+See `docs/azure-blob-storage.md` for upload/delete endpoints, frontend routes touched, Docker commands and Container Apps scale-to-zero notes.
 | `GOOGLE_CALENDAR_DEFAULT_CALENDAR_ID` | agenda if enabled | Usually no |
 | `SPRING_SECURITY_USER_NAME` | pagos/audit basic auth | Yes |
 | `SPRING_SECURITY_USER_PASSWORD` | pagos/audit basic auth | Yes |

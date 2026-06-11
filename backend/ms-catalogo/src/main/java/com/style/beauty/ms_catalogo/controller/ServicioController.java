@@ -5,12 +5,13 @@ import com.style.beauty.ms_catalogo.service.ServicioService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/servicio")
+@RequestMapping({"/api/servicio", "/api/servicios"})
 public class ServicioController {
 
     @Autowired
@@ -45,6 +46,22 @@ public class ServicioController {
     @PutMapping("/{id}")
     public ResponseEntity<Servicio> actualizar(@PathVariable UUID id, @RequestBody Servicio servicio) {
         return service.actualizar(id, servicio)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // POST /api/servicios/{id}/imagen — Subir o reemplazar imagen del servicio
+    @PostMapping("/{id}/imagen")
+    public ResponseEntity<Servicio> subirImagen(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
+        return service.actualizarImagen(id, file)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // DELETE /api/servicios/{id}/imagen — Eliminar imagen del servicio
+    @DeleteMapping("/{id}/imagen")
+    public ResponseEntity<Servicio> eliminarImagen(@PathVariable UUID id) {
+        return service.eliminarImagen(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
