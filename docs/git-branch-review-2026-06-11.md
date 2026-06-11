@@ -55,8 +55,28 @@ Fuente oficial validada: https://github.com/MatiasNeira1/Style-and-Beauty.git
 - Ajustes de agenda para normalizacion de zona horaria y estado `PENDIENTE_PAGO`.
 - Persistencia de `experienciaAnios` para staff desde `upstream/feature/staff-corrections`, integrada manualmente sobre la base actual con Azure.
 
-## Pendiente de esta revision
+## Validacion despues de integrar upstream
 
-- Revalidar lint/build/tests despues de la integracion.
-- Reintentar Docker build secuencial por servicio.
+- `npm run lint`: correcto.
+- `npm run build`: correcto.
+- `mvn -f backend/ms-catalogo/pom.xml test`: correcto, 5 tests.
+- `mvn -f backend/ms-perfiles/pom.xml test`: correcto, 5 tests.
+- `mvn -f backend/ms-inventario/pom.xml test`: correcto, 5 tests.
+- `mvn -f backend/ms-agenda/pom.xml test`: correcto, 21 tests.
+- `mvn -f backend/ms-pagos/pom.xml test`: correcto, 1 test.
+- `mvn -f backend/Api-gateway/pom.xml test`: correcto, 2 tests.
+- `docker compose config --quiet`: correcto despues de restaurar `mongo`.
+- `git diff --check`: correcto, solo avisos LF/CRLF esperados en Windows.
+- Escaneo de patrones de secretos Azure reales: sin coincidencias.
+
+## Docker build secuencial
+
+- Primer intento: `docker compose build api-gateway` (`api-gateway` es el nombre real del servicio equivalente a `gateway`).
+- Resultado: fallo antes de compilar por Docker Desktop daemon.
+- Error: `request returned 500 Internal Server Error ... dockerDesktopLinuxEngine/_ping`.
+- Decision: se detuvo el build secuencial como se solicito.
+
+## Pendiente
+
+- Reparar/reiniciar Docker Desktop o su engine Linux y repetir builds secuenciales.
 - No hacer push hasta confirmacion explicita.
