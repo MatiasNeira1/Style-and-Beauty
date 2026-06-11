@@ -19,13 +19,14 @@ export const reservationService = {
       data: normalizeAvailabilityPayload({ serviceId, professionalId, date }),
     }),
 
-  createReservation: ({ serviceId, professionalId, startsAt, note }) =>
+  createReservation: ({ serviceId, professionalId, startsAt, note, clientId }) =>
     request({
       baseURL: AGENDA_API_BASE_URL,
       url: '/api/agenda/citas',
       method: 'POST',
       authRequired: true,
       data: {
+        idCliente: clientId,
         idServicio: serviceId,
         idStaff: professionalId,
         fechaHoraInicio: startsAt,

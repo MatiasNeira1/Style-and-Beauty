@@ -11,10 +11,13 @@ import { BookingSummary } from '../../components/booking/BookingSummary.jsx';
 import { DateTimePicker } from '../../components/booking/DateTimePicker.jsx';
 import { ServiceSelector } from '../../components/booking/ServiceSelector.jsx';
 import { StaffSelector } from '../../components/booking/StaffSelector.jsx';
+import { crearTransaccionWebpay } from '../../services/pagosService.js';
 import { reservationService } from '../../services/reservationService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
+import { normalizeCategory } from '../../utils/categoryUtils.js';
+import { redirigirAWebpay } from '../../utils/webpayRedirect.js';
 
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
@@ -46,6 +49,7 @@ export function BookingPage() {
     return 1;
   });
   const [confirmError, setConfirmError] = useState('');
+  const [confirmandoPago, setConfirmandoPago] = useState(false);
 
   const selectedServiceId = serviceId(service);
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: serviceCatalogService.listServices });
@@ -115,25 +119,40 @@ export function BookingPage() {
     }
 
     let created = null;
+    setConfirmandoPago(true);
     try {
       created = await bookingMutation.mutateAsync({
+        clientId: myProfile?.idPersona,
         professionalId: staffId(member),
         serviceId: selectedServiceId,
         startsAt: time,
       });
-    } catch {
-      return;
-    }
+      const transaccion = await crearTransaccionWebpay({
+        idCita: created.idCita,
+        descripcion: 'Reserva Style and Beauty',
+      });
+      const token = transaccion?.token || transaccion?.tokenWebpay;
+      const urlWebpay = transaccion?.urlWebpay || transaccion?.url;
 
-    updateBooking({
-      service,
-      staff: member,
-      date,
-      time,
-      holguraMin: created?.holguraMin,
-      duracionServicioMin: created?.duracionServicioMin,
-    });
-    navigate('/checkout');
+      if (!token || !urlWebpay) {
+        throw new Error('No se recibieron los datos de redireccion Webpay.');
+      }
+
+      updateBooking({
+        service,
+        staff: member,
+        date,
+        time,
+        holguraMin: created?.holguraMin,
+        duracionServicioMin: created?.duracionServicioMin,
+      });
+      redirigirAWebpay(urlWebpay, token);
+    } catch (error) {
+      setConfirmError(error.message || 'No se pudo iniciar el pago. Intenta nuevamente.');
+      return;
+    } finally {
+      setConfirmandoPago(false);
+    }
   };
 
   if (!isAuthenticated) {
@@ -158,7 +177,7 @@ export function BookingPage() {
       <section className="page-section two-column booking-shell client-view">
         <div className="stack wizard-panel">
           <SectionTitle eyebrow="Agenda inteligente" title="Reserva segun disponibilidad real">
-            El sistema calcula horarios usando jornada del staff, citas existentes, bloqueos y holgura operativa.
+            El sistema calcula horarios usando jornada del staff, citas existentes y bloqueos.
           </SectionTitle>
 
           <div className="wizard-steps">
@@ -234,9 +253,9 @@ export function BookingPage() {
             {step === 3 && (
               <Button
                 onClick={confirm}
-                disabled={!myProfile?.idPersona || !service || !member || !date || !time || !selectedSlot || bookingMutation.isPending || availabilityQuery.isFetching}
+                disabled={!myProfile?.idPersona || !service || !member || !date || !time || !selectedSlot || bookingMutation.isPending || availabilityQuery.isFetching || confirmandoPago}
               >
-                {bookingMutation.isPending || availabilityQuery.isFetching ? 'Confirmando...' : 'Confirmar reserva'}
+                {bookingMutation.isPending || availabilityQuery.isFetching || confirmandoPago ? 'Iniciando pago...' : 'Reservar y pagar'}
               </Button>
             )}
           </div>
@@ -264,7 +283,7 @@ function BookingHero() {
       <div className="page-hero-content">
         <span className="card-kicker">Reserva online</span>
         <h1>Agenda tu momento con disponibilidad real</h1>
-        <p>Elige servicio, profesional y horario disponible con tiempos de holgura pensados para una atencion impecable.</p>
+        <p>Elige servicio, profesional y horario disponible para coordinar tu atencion.</p>
       </div>
     </section>
   );

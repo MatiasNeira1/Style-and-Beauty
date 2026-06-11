@@ -183,9 +183,10 @@ public class CitaService {
                 OffsetDateTime finVisible = cursor.plusMinutes(duracion);
                 OffsetDateTime finAtencion = finVisible.minusMinutes(holgura);
 
-                if (!cursor.isBefore(ahora)
-                        && !tieneChoque(cursor, finVisible, citas, bloqueos)) {
+                boolean disponible = !cursor.isBefore(ahora)
+                        && !tieneChoque(cursor, finVisible, citas, bloqueos);
 
+                if (disponible) {
                     slots.add(new DisponibilidadSlot(
                             cursor,
                             finVisible,
@@ -193,9 +194,11 @@ public class CitaService {
                             duracion,
                             holgura
                     ));
-                }
 
-                cursor = cursor.plusMinutes(15);
+                    cursor = finVisible;
+                } else {
+                    cursor = cursor.plusMinutes(15);
+                }
             }
         }
 
@@ -219,15 +222,14 @@ public class CitaService {
 
         validarDuracionYHolgura(duracion, holgura);
 
-        OffsetDateTime inicio = request.fechaHoraInicio()
-                .atZoneSameInstant(zoneId())
-                .toOffsetDateTime();
+        OffsetDateTime inicio = normalizarAZoneAgenda(request.fechaHoraInicio());
         OffsetDateTime finVisible = inicio.plusMinutes(duracion);
         OffsetDateTime finAtencion = finVisible.minusMinutes(holgura);
 
         validarJornada(request.idStaff(), inicio, finVisible);
         validarBloqueos(request.idStaff(), inicio, finVisible);
         validarChoqueCitas(request.idStaff(), inicio, finVisible);
+        validarHorarioDisponible(request.idStaff(), inicio, finVisible, duracion, holgura);
 
         Cita cita = Cita.builder()
                 .idCliente(request.idCliente())
@@ -238,7 +240,7 @@ public class CitaService {
                 .fechaHoraFinAtencion(finAtencion)
                 .duracionServicioMin(duracion)
                 .holguraMin(holgura)
-                .estadoCita(EstadoCita.CONFIRMADA)
+                .estadoCita(EstadoCita.PENDIENTE_PAGO)
                 .tipoCita(TipoCita.NORMAL)
                 .observacionCliente(request.observacionCliente())
                 .build();
@@ -257,7 +259,7 @@ public class CitaService {
                 AccionHistorial.CREADA,
                 null,
                 guardada.getEstadoCita().name(),
-                "Cita creada y confirmada"
+                "Cita creada pendiente de pago"
         );
 
         return guardada;
@@ -416,6 +418,29 @@ public class CitaService {
         }
     }
 
+    private void validarHorarioDisponible(
+            UUID idStaff,
+            OffsetDateTime inicio,
+            OffsetDateTime finVisible,
+            int duracion,
+            int holgura
+    ) {
+        List<DisponibilidadSlot> slots = calcularDisponibilidadParaDia(
+                idStaff,
+                inicio.toLocalDate(),
+                duracion,
+                holgura
+        );
+
+        boolean existeSlot = slots.stream()
+                .anyMatch(slot -> slot.inicio().isEqual(inicio)
+                        && slot.finVisible().isEqual(finVisible));
+
+        if (!existeSlot) {
+            throw new BusinessException("El horario seleccionado ya no esta disponible");
+        }
+    }
+
     private boolean tieneChoque(
             OffsetDateTime inicio,
             OffsetDateTime finVisible,
@@ -455,6 +480,10 @@ public class CitaService {
         return date.atTime(hour, minute)
                 .atZone(zoneId())
                 .toOffsetDateTime();
+    }
+
+    private OffsetDateTime normalizarAZoneAgenda(OffsetDateTime fechaHora) {
+        return fechaHora.atZoneSameInstant(zoneId()).toOffsetDateTime();
     }
 
     private ZoneId zoneId() {

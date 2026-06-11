@@ -67,7 +67,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-
+        <dependency>
+        <groupId>com.github.transbankdevelopers</groupId>
+        <artifactId>transbank-sdk-java</artifactId>
+        <version>6.2.0</version>
+        </dependency>
         <!-- Circuit Breaker -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>

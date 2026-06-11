@@ -1,9 +1,13 @@
 import { AGENDA_API_BASE_URL, request } from './apiClient.js';
 
+export function crearCita(payload) {
+  return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas', method: 'POST', authRequired: true, data: payload });
+}
+
 export const agendaService = {
   listBookings: () => request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas', authRequired: true }),
-  createBooking: (payload) => request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas', method: 'POST', authRequired: true, data: payload }),
-  crearCita: (payload) => request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas', method: 'POST', authRequired: true, data: payload }),
+  createBooking: crearCita,
+  crearCita,
   getAvailability: (payload) => request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: payload }),
   consultarDisponibilidad: (payload) => request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: payload }),
   consultarDisponibilidadSemanal: (payload) => request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad-semanal', method: 'POST', data: payload }),
