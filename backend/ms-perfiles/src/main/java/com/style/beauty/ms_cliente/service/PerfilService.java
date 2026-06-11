@@ -10,8 +10,10 @@ import com.style.beauty.ms_cliente.model.PersonaModel;
 import com.style.beauty.ms_cliente.repository.PersonaRepository;
 import com.style.beauty.ms_cliente.strategy.PerfilStrategy;
 import com.style.beauty.ms_cliente.model.ClienteModel;
+import com.style.beauty.ms_cliente.model.EspecialidadModel;
 import com.style.beauty.ms_cliente.model.StaffModel;
 import com.style.beauty.ms_cliente.repository.ClienteRepository;
+import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 import com.style.beauty.ms_cliente.repository.StaffRepository;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -27,6 +29,7 @@ public class PerfilService {
     private final PersonaRepository personaRepository;
     private final ClienteRepository clienteRepository;
     private final StaffRepository staffRepository;
+    private final EspecialidadRepository especialidadRepository;
     private final AzureBlobStorageService azureBlobStorageService;
     private final Map<String, PerfilStrategy> estrategias = new HashMap<>();
 
@@ -34,11 +37,13 @@ public class PerfilService {
     public PerfilService(PersonaRepository personaRepository,
                          ClienteRepository clienteRepository,
                          StaffRepository staffRepository,
+                         EspecialidadRepository especialidadRepository,
                          AzureBlobStorageService azureBlobStorageService,
                          List<PerfilStrategy> listaEstrategias) {
         this.personaRepository = personaRepository;
         this.clienteRepository = clienteRepository;
         this.staffRepository = staffRepository;
+        this.especialidadRepository = especialidadRepository;
         this.azureBlobStorageService = azureBlobStorageService;
         // Arma el diccionario de estrategias leyendo los "letreros"
         for (PerfilStrategy estrategia : listaEstrategias) {
@@ -206,14 +211,23 @@ public class PerfilService {
         PersonaModel persona = obtenerMiPerfil(idAuth);
 
         // Actualizamos solo los datos que el usuario nos envíe
+        if (dto.getRut() != null) persona.setRut(dto.getRut());
         if (dto.getNombre() != null) persona.setNombre(dto.getNombre());
         if (dto.getApellidos() != null) persona.setApellidos(dto.getApellidos());
+        if (dto.getFechaNacimiento() != null) persona.setFechaNacimiento(dto.getFechaNacimiento());
+        if (dto.getGenero() != null) persona.setGenero(dto.getGenero());
         if (dto.getTelefono() != null) persona.setTelefono(dto.getTelefono());
         if (dto.getEmailContacto() != null) persona.setEmailContacto(dto.getEmailContacto());
         if (persona instanceof StaffModel staff) {
             if (dto.getFotoUrl() != null) staff.setFotoUrl(dto.getFotoUrl());
             if (dto.getCvUrl() != null) staff.setCvUrl(dto.getCvUrl());
             if (dto.getDescripcionPerfil() != null) staff.setDescripcionPerfil(dto.getDescripcionPerfil());
+            if (dto.getExperienciaAnios() != null) staff.setExperienciaAnios(dto.getExperienciaAnios());
+            if (dto.getIdEspecialidad() != null) {
+                EspecialidadModel especialidad = especialidadRepository.findById(dto.getIdEspecialidad())
+                        .orElseThrow(() -> new IllegalArgumentException("No existe la especialidad con ID: " + dto.getIdEspecialidad()));
+                staff.setEspecialidad(especialidad);
+            }
         }
         
         // Actualizamos la ficha técnica si es cliente

@@ -16,7 +16,6 @@ import { reservationService } from '../../services/reservationService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
-import { normalizeCategory } from '../../utils/categoryUtils.js';
 import { redirigirAWebpay } from '../../utils/webpayRedirect.js';
 
 function serviceId(service) {

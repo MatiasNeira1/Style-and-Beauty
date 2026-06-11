@@ -70,6 +70,7 @@ export function StaffAdminPage() {
         ...profilePayload,
         idAuth: user.uid || user.idAuth || user.id,
         idEspecialidad: Number(profilePayload.idEspecialidad),
+        experienciaAnios: profilePayload.experienciaAnios ? Number(profilePayload.experienciaAnios) : null,
       });
 
       if (fotoFile) {
@@ -90,6 +91,7 @@ export function StaffAdminPage() {
       const updatedStaff = await staffService.updateStaff(idAuth, {
         ...profilePayload,
         idEspecialidad: Number(profilePayload.idEspecialidad),
+        experienciaAnios: profilePayload.experienciaAnios ? Number(profilePayload.experienciaAnios) : null,
       });
 
       if (fotoFile) {

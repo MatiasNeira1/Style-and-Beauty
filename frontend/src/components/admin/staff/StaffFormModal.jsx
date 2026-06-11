@@ -62,6 +62,7 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
           ...initialData,
           idEspecialidad: String(initialData.idEspecialidad || initialData.especialidad?.idEspecialidad || ''),
           descripcionPerfil: initialData.descripcionPerfil || initialData.biografia || '',
+          experienciaAnios: initialData.experienciaAnios != null ? String(initialData.experienciaAnios) : '',
         }
       : defaultValues,
   });
@@ -73,6 +74,7 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
           ...initialData,
           idEspecialidad: String(initialData.idEspecialidad || initialData.especialidad?.idEspecialidad || ''),
           descripcionPerfil: initialData.descripcionPerfil || initialData.biografia || '',
+          experienciaAnios: initialData.experienciaAnios != null ? String(initialData.experienciaAnios) : '',
         }
       : defaultValues);
     setSelectedPhoto(null);

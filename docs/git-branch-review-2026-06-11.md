@@ -1,68 +1,62 @@
-# Revision de ramas - 2026-06-11
+# Revision de ramas upstream - 2026-06-11
+
+Fuente oficial validada: https://github.com/MatiasNeira1/Style-and-Beauty.git
 
 ## Comandos ejecutados
 
-- `git fetch --all --prune`
-- `git branch -a`
-- Comparacion de ramas locales/remotas contra `origin/master`
-- Revision de diffs relevantes por area: frontend, backend, Docker/config y docs
+- `git remote -v`
+- `git remote add upstream https://github.com/MatiasNeira1/Style-and-Beauty.git`
+- `git fetch upstream --prune`
+- `git branch -r`
+- Comparacion de `feature/azure-blob-admin-dashboard` contra todas las ramas `upstream/*`.
+- Revision de diffs relevantes por frontend, backend, microservicios, Docker/config, Azure/Cloudflare/env y documentacion.
 
 ## Estado observado
 
-- La rama local inicial era `feature/uiux-agenda-auth-endpoints`, pero su upstream remoto quedo eliminado despues del prune: `origin/feature/uiux-agenda-auth-endpoints [gone]`.
-- `origin/master` apunta a `97f2d5b`, merge de la rama UI/agenda/auth.
-- `watoncitox/master` y `fork/master` apuntan a `f3e45a8`, un commit por delante de `origin/master`.
-- `origin/develop` apunta a `3edcf1f` y esta detras de `origin/master`.
-- Se creo la rama de trabajo `feature/azure-blob-admin-dashboard` desde `watoncitox/master`.
+- `origin` ya apuntaba al repositorio oficial `MatiasNeira1/Style-and-Beauty`.
+- Se agrego `upstream` apuntando al mismo repositorio oficial para trabajar explicitamente con `upstream/*`.
+- La rama de trabajo se mantiene como `feature/azure-blob-admin-dashboard`.
+- La rama parte de `watoncitox/master` (`f3e45a8`), que contiene `upstream/master` (`97f2d5b`) mas el fix de `ProfessionalProfiles.jsx`.
+- Los cambios de Azure Blob Storage, panel staff, servicios, productos, dashboard y frontend quedaron protegidos en el commit local `1ff44d1`.
 
-## Ramas con cambios relevantes no equivalentes a `origin/master`
+## Ramas upstream revisadas
 
-| Rama | Estado frente a `origin/master` | Area | Decision |
+| Rama | Estado frente a HEAD inicial | Area | Decision |
 | --- | --- | --- | --- |
-| `watoncitox/master` / `fork/master` | 1 commit ahead | Frontend | Usada como base. Corrige `frontend/src/components/services/ProfessionalProfiles.jsx`, donde `origin/master` tenia referencias no definidas y cierre incorrecto. |
-| `origin/feature/ms-agenda-creacion-agenda` | 1 ahead, 20 behind; force-update recibido | Agenda, pagos/Webpay, frontend booking, Docker | No se fusiono automaticamente. Es reciente pero divergente y trae cambios de pagos/Webpay fuera del alcance directo de Azure Blob. Debe integrarse en una rama separada con validacion dedicada. |
-| `origin/feature/staff-corrections` | 2 ahead, 96 behind; multiples merge bases | Staff, admin, backend perfiles/catalogo/inventario, estilos | No se fusiono automaticamente por antiguedad y divergencia amplia. Se reimplementaron las necesidades actuales de staff/fotos sobre la base vigente. |
-| `watoncitox/develop-1` / `fork/develop-1` | 7 ahead, 30 behind | Refactors frontend puntuales | No se fusiono; gran parte esta superada por `master` y el diff vigente era menor. |
+| `upstream/master` | 0 commits pendientes; estaba contenido en la rama actual | Base oficial | Sin merge adicional. |
+| `upstream/develop` | 0 commits pendientes; atrasado frente a master actual | Config/API gateway | Sin merge adicional. |
+| `upstream/copilot/resuelve-conflictos` | 0 commits pendientes; rama antigua contenida | Merge/conflictos previos | Sin merge adicional. |
+| `upstream/backup/feature-ms-agenda-creacion-agenda-20260610-222849` | 0 commits pendientes | Agenda | Sin merge adicional. |
+| `upstream/feature/admin-logout-button` | 0 commits pendientes | Frontend/admin | Ya contenido o superado. |
+| `upstream/feature/agenda-frontend-sync` | 0 commits pendientes | Agenda/frontend/docs | Ya contenido o superado. |
+| `upstream/feature/devops/style-beauty-ui-dashboard` | 0 commits pendientes | DevOps/dashboard | Ya contenido o superado. |
+| `upstream/feature/frontend-mejoras-y-fixes` | 0 commits pendientes | Frontend fixes | Ya contenido o superado. |
+| `upstream/feature/frontend/Panel-administrativo` | 0 commits pendientes | Panel admin | Ya contenido o superado. |
+| `upstream/feature/java21-validaciones-tests` | 0 commits pendientes | Java/tests | Ya contenido o superado. |
+| `upstream/feature/ms-agenda/creacion-agenda` | 0 commits pendientes | Agenda/config | Ya contenido o superado. |
+| `upstream/feature/ms-catalogo` | 0 commits pendientes | Catalogo | Ya contenido o superado. |
+| `upstream/feature/ms-extra` | 0 commits pendientes | Extra bookings | Ya contenido o superado. |
+| `upstream/feature/ms-perfiles` | 0 commits pendientes | Perfiles | Ya contenido o superado. |
+| `upstream/feature/ms-agenda-creacion-agenda` | 1 commit pendiente: `3396fec` | Agenda, ms-pagos, Webpay, booking frontend, Docker | Integrado localmente como `f8abfdf`, resolviendo conflictos manuales. |
+| `upstream/feature/staff-corrections` | 1 commit puntual pendiente: `0f274f6`; rama antigua y muy divergente | Staff/perfiles/admin | No se fusiono la rama completa. Se integro manualmente la parte estable: persistencia de `experienciaAnios`, actualizacion de especialidad y campos editables de staff. |
 
-## Ramas ya contenidas o sin diff util frente a `origin/master`
+## Conflictos resueltos
 
-- `develop`
-- `feature/agenda-frontend-sync`
-- `feature/auth-api-images-admin-fix`
-- `feature/devops/style-beauty-ui-dashboard`
-- `feature/integracion-agenda-logout-validacion`
-- `feature/java21-validaciones-tests`
-- `feature/ms-agenda`
-- `feature/ms-extra`
-- `feature/ms-inventario`
-- `feature/ms-pagos`
-- `frontend-bosquejo-premium`
-- `Nueva-arquitectura`
-- `origin/backup/feature-ms-agenda-creacion-agenda-20260610-222849`
-- `origin/copilot/resuelve-conflictos`
-- `origin/feature/admin-logout-button`
-- `origin/feature/agenda-frontend-sync`
-- `origin/feature/devops/style-beauty-ui-dashboard`
-- `origin/feature/frontend-mejoras-y-fixes`
-- `origin/feature/frontend/Panel-administrativo`
-- `origin/feature/java21-validaciones-tests`
-- `origin/feature/ms-agenda/creacion-agenda`
-- `origin/feature/ms-catalogo`
-- `origin/feature/ms-extra`
-- `origin/feature/ms-perfiles`
+- `backend/ms-agenda/src/main/java/com/style/beauty/ms_agenda/service/CitaService.java`: se adopto `normalizarAZoneAgenda(...)` del commit Webpay.
+- `backend/ms-pagos/.dockerignore`: se conservaron las reglas anti-secretos existentes.
+- `docker-compose.yml`: se conservaron `ms-extra` y `ms-notificacion-audit`, y se integro la configuracion requerida por `ms-pagos`.
+- `frontend/src/pages/client/BookingPage.jsx`: se incorporaron imports/utilidades de Webpay preservando el flujo actual.
 
-## Validacion realizada sobre la rama de trabajo
+## Cambios integrados desde upstream
 
-- `npm run build` en `frontend`: correcto.
-- `mvn -f backend/ms-catalogo/pom.xml test`: correcto, 5 tests.
-- `mvn -f backend/ms-perfiles/pom.xml test`: correcto, 5 tests.
-- `mvn -f backend/ms-inventario/pom.xml test`: correcto, 5 tests.
-- `mvn -f backend/Api-gateway/pom.xml test`: correcto, 2 tests.
-- `mvn -f backend/ms-agenda/pom.xml test`: correcto, 18 tests.
-- `docker compose config --quiet`: correcto.
-- `docker compose build ...`: bloqueado por Docker Desktop. El daemon se cayo durante el build con `EOF` y luego `docker info` respondio `500 Internal Server Error` contra `dockerDesktopLinuxEngine`.
+- Webpay/pagos simulado desde `upstream/feature/ms-agenda-creacion-agenda`.
+- Pagina de resultado de pago y utilidades frontend de redireccion Webpay.
+- Clientes internos de `ms-pagos` hacia agenda/catalogo.
+- Ajustes de agenda para normalizacion de zona horaria y estado `PENDIENTE_PAGO`.
+- Persistencia de `experienciaAnios` para staff desde `upstream/feature/staff-corrections`, integrada manualmente sobre la base actual con Azure.
 
-## Pendiente
+## Pendiente de esta revision
 
-- Reintentar Docker build/push cuando Docker Desktop este estable.
-- Integrar o descartar formalmente `origin/feature/ms-agenda-creacion-agenda` en una tarea separada si se quiere sumar Webpay.
+- Revalidar lint/build/tests despues de la integracion.
+- Reintentar Docker build secuencial por servicio.
+- No hacer push hasta confirmacion explicita.
