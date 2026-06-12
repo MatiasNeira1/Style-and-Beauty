@@ -10,6 +10,7 @@ import com.style.beauty.ms_inventario.service.InventarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -46,6 +47,16 @@ public class InventarioController {
             @PathVariable UUID id,
             @Valid @RequestBody CrearProductoRequest request) {
         return inventarioService.actualizarProducto(id, request);
+    }
+
+    @PostMapping("/productos/{id}/imagen")
+    public Producto subirImagenProducto(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
+        return inventarioService.actualizarImagenProducto(id, file);
+    }
+
+    @DeleteMapping("/productos/{id}/imagen")
+    public Producto eliminarImagenProducto(@PathVariable UUID id) {
+        return inventarioService.eliminarImagenProducto(id);
     }
 
     @PatchMapping("/productos/{id}/desactivar")

@@ -22,6 +22,7 @@ public class PerfilRequestDTO {
     private String fotoUrl;
     private String cvUrl;
     private String descripcionPerfil;
+    private Integer experienciaAnios;
     
     // Ficha Medica (Solo para clientes)
     private String alergias;

@@ -5,7 +5,18 @@ function fullName(person) {
   return `${person.nombre || ''} ${person.apellidos || ''}`.trim() || 'Especialista';
 }
 
-export function ProfessionalProfiles({ professionals = [], emptyText = 'Pronto asignaremos especialistas para esta categoria.', onSelect }) {
+function professionalId(person) {
+  return person.id || person.idProfesional || person.emailContacto || fullName(person);
+}
+
+function ProfessionalProfilesComponent({
+  professionals = [],
+  emptyText = 'Pronto asignaremos especialistas para esta categoria.',
+  onSelect,
+  onViewProfile,
+  selectedId,
+  actionLabel = 'Seleccionar',
+}) {
   return (
     <div className="professional-profiles">
       {professionals.length === 0 ? (
@@ -16,50 +27,60 @@ export function ProfessionalProfiles({ professionals = [], emptyText = 'Pronto a
           const selected = selectedId && id === selectedId;
 
           return (
-          <article key={id} className={`professional-profile ${selected ? 'is-selected' : ''}`}>
-            <SafeImage src={member.imageUrl || member.fotoUrl || member.foto} alt={fullName(member)} />
-            <div>
-              <h3>{fullName(member)}</h3>
-              <span>{member.emailContacto || member.especialidad?.nombre || 'Especialista'}</span>
-              {member.activo !== undefined && (
-                <small className={member.activo ? 'professional-status active' : 'professional-status inactive'}>
-                  {member.activo ? 'Activo' : 'No disponible'}
-                </small>
-              )}
-              <p>{member.descripcionPerfil || member.especialidad?.descripcion || 'Especialista certificado del equipo Style & Beauty.'}</p>
+            <article key={id} className={`professional-profile ${selected ? 'is-selected' : ''}`}>
+              <SafeImage src={member.imageUrl || member.fotoUrl || member.foto} alt={fullName(member)} />
+              <div>
+                <h3>{fullName(member)}</h3>
+                <span>{member.emailContacto || member.especialidad?.nombre || 'Especialista'}</span>
 
-              <div className="professional-profile-actions">
-                {member.cvUrl && (
-                  <a className="text-link" href={member.cvUrl} target="_blank" rel="noreferrer">
-                    Ver CV
-                  </a>
+                {member.activo !== undefined && (
+                  <small className={member.activo ? 'professional-status active' : 'professional-status inactive'}>
+                    {member.activo ? 'Activo' : 'No disponible'}
+                  </small>
                 )}
-                {onViewProfile && (
-                  <button
-                    type="button"
-                    onClick={() => onViewProfile(member)}
-                    className="button button-sm button-secondary"
-                  >
-                    Ver perfil
-                  </button>
-                )}
-                {onSelect && (
-                  <button
-                    type="button"
-                    onClick={() => onSelect(member)}
-                    className="button button-sm"
-                    disabled={member.activo === false}
-                    style={{ marginLeft: 'auto' }}
-                  >
-                    {selected ? 'Seleccionado' : actionLabel}
-                  </button>
-                )}
+
+                <p>
+                  {member.descripcionPerfil ||
+                    member.especialidad?.descripcion ||
+                    'Especialista certificado del equipo Style & Beauty.'}
+                </p>
+
+                <div className="professional-profile-actions">
+                  {member.cvUrl && (
+                    <a className="text-link" href={member.cvUrl} target="_blank" rel="noreferrer">
+                      Ver CV
+                    </a>
+                  )}
+
+                  {onViewProfile && (
+                    <button
+                      type="button"
+                      onClick={() => onViewProfile(member)}
+                      className="button button-sm button-secondary"
+                    >
+                      Ver perfil
+                    </button>
+                  )}
+
+                  {onSelect && (
+                    <button
+                      type="button"
+                      onClick={() => onSelect(member)}
+                      className="button button-sm"
+                      disabled={member.activo === false}
+                      style={{ marginLeft: 'auto' }}
+                    >
+                      {selected ? 'Seleccionado' : actionLabel}
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          </article>
+            </article>
           );
         })
       )}
     </div>
   );
-});
+}
+
+export const ProfessionalProfiles = memo(ProfessionalProfilesComponent);

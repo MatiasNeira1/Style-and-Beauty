@@ -15,7 +15,7 @@ const QUICK_REPLIES = [
 function answerFor(message) {
   const text = message.toLowerCase();
   if (text.includes('reserv') || text.includes('agenda')) {
-    return 'Puedes reservar eligiendo servicio, profesional, fecha y horario disponible. La agenda respeta jornada del staff, bloqueos y holgura entre atenciones.';
+    return 'Puedes reservar eligiendo servicio, profesional, fecha y horario disponible. La agenda respeta la jornada del staff, citas existentes y bloqueos.';
   }
   if (text.includes('horario') || text.includes('dispon')) {
     return 'Los horarios se calculan segun el profesional seleccionado. Primero elige un servicio y staff; luego veras los slots reales disponibles.';

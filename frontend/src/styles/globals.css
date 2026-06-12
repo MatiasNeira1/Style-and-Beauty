@@ -748,6 +748,12 @@ img { max-width: 100%; display: block; }
   color: white;
 }
 
+.badge-success {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.18);
+  color: #047857;
+}
+
 /* ─── Form Fields ─── */
 .field {
   display: grid;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CalendarDays, Clock } from 'lucide-react';
 import { Reveal } from '../../components/animations/Reveal.jsx';
 import { AuthModal } from '../../components/auth/AuthModal.jsx';
@@ -10,8 +10,11 @@ import { Loader } from '../../components/ui/Loader.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { agendaService } from '../../services/agendaService.js';
 import { catalogService } from '../../services/catalogService.js';
+import { crearTransaccionWebpay } from '../../services/pagosService.js';
+import { reservationService } from '../../services/reservationService.js';
+import { useAuth } from '../../store/AuthContext.jsx';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
-import { normalizeProfessional } from '../../hooks/useProfessionals.js';
+import { redirigirAWebpay } from '../../utils/webpayRedirect.js';
 
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
@@ -125,8 +128,14 @@ export function ServiceDetailPage() {
   const { categoria, servicio } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
+  const profileQuery = useQuery({
+    queryKey: ['my-profile'],
+    queryFn: reservationService.getMe,
+    enabled: isAuthenticated,
+  });
 
   const [profesionales, setProfesionales] = useState([]);
   const [profesionalSeleccionado, setProfesionalSeleccionado] = useState(null);
@@ -387,20 +396,44 @@ export function ServiceDetailPage() {
 
     setCreandoCita(true);
     try {
-      await agendaService.crearCita({
+      const citaCreada = await agendaService.crearCita({
+        idCliente: profileQuery.data?.idPersona,
         idStaff: staffId(profesionalSeleccionado),
         idServicio,
         fechaHoraInicio: horarioSeleccionado.inicio,
         observacionCliente,
       });
-      setMensajeReserva('Reserva creada correctamente.');
+      const transaccion = await crearTransaccionWebpay({
+        idCita: citaCreada.idCita,
+        descripcion: 'Reserva Style and Beauty',
+      });
+      const token = transaccion?.token || transaccion?.tokenWebpay;
+      const urlWebpay = transaccion?.urlWebpay || transaccion?.url;
+
+      if (!token || !urlWebpay) {
+        throw new Error('No se recibieron los datos de redireccion Webpay.');
+      }
+
+      const horarioReservado = horarioSeleccionado.inicio;
+      const horariosActualizados = horariosDisponibles.filter((horario) => horario.inicio !== horarioReservado);
+      setDisponibilidadSemana((current) => ({
+        ...current,
+        [fechaSeleccionada]: (current[fechaSeleccionada] || []).filter((horario) => horario.inicio !== horarioReservado),
+      }));
+      setHorariosDisponibles(horariosActualizados);
+      setHorarioSeleccionado(null);
+      availabilityWeekCache.current.delete(`${idServicio}:${staffId(profesionalSeleccionado)}:${formatLocalDate(semanaInicio)}`);
+      await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
+      setMensajeReserva('Reserva creada. Redirigiendo a Webpay...');
       setObservacionCliente('');
+      redirigirAWebpay(urlWebpay, token);
     } catch (error) {
       const message = error.message || '';
       if (message.toLowerCase().includes('perfil') || message.toLowerCase().includes('cliente')) {
         setMensajeReserva('No se pudo identificar tu perfil de cliente. Inicia sesion nuevamente o completa tu registro.');
       } else {
-        setMensajeReserva(message || 'No pudimos crear la reserva.');
+        setMensajeReserva(message || 'No se pudo iniciar el pago. Intenta nuevamente.');
       }
     } finally {
       setCreandoCita(false);
@@ -610,10 +643,13 @@ export function ServiceDetailPage() {
                 </div>
               )}
 
-              {mensajeReserva && <p className={mensajeReserva.includes('correctamente') ? 'service-booking-success' : 'admin-alert'}>{mensajeReserva}</p>}
+              {profileQuery.isError && isAuthenticated && (
+                <p className="admin-alert">No se pudo cargar tu perfil de cliente. Inicia sesion nuevamente o completa tu registro.</p>
+              )}
+              {mensajeReserva && <p className={mensajeReserva.includes('Redirigiendo') ? 'service-booking-success' : 'admin-alert'}>{mensajeReserva}</p>}
               <button type="button" className="button" onClick={handleCreateBooking} disabled={creandoCita}>
                 <CalendarDays size={17} />
-                {creandoCita ? 'Reservando...' : 'Reservar'}
+                {creandoCita ? 'Iniciando pago...' : 'Reservar y pagar'}
               </button>
             </div>
           </section>

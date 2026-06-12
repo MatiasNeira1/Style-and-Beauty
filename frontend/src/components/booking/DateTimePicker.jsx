@@ -136,7 +136,7 @@ export function DateTimePicker({ date, time, slots = [], isLoading = false, erro
             {error ? (
               <p className="admin-alert">{error}</p>
             ) : isLoading ? (
-              <p className="admin-alert">Calculando disponibilidad con jornada, citas, bloqueos y holgura...</p>
+              <p className="admin-alert">Calculando disponibilidad del profesional...</p>
             ) : slots.length === 0 ? (
               <p className="admin-alert">No hay horarios disponibles para este profesional en la fecha seleccionada.</p>
             ) : (
@@ -153,10 +153,10 @@ export function DateTimePicker({ date, time, slots = [], isLoading = false, erro
                             type="button"
                             className={`slot-button ${time === slot.inicio ? 'active' : ''}`}
                             onClick={() => onTimeChange?.(slot.inicio)}
-                            title={`Servicio hasta ${formatSlotTime(slot.fin)}. Holgura hasta ${formatSlotTime(slot.finConHolgura)}`}
+                            title={`Servicio hasta ${formatSlotTime(slot.finVisible || slot.fin)}`}
                           >
                             <span>{formatSlotTime(slot.inicio)}</span>
-                            <small>{formatSlotTime(slot.fin)} fin</small>
+                            <small>{formatSlotTime(slot.finVisible || slot.fin)} fin</small>
                           </button>
                         ))}
                       </div>

@@ -7,7 +7,9 @@ export const AUTH_API_BASE_URL = API_BASE_URL;
 export const PROFILES_API_BASE_URL = API_BASE_URL;
 export const STAFF_API_BASE_URL = API_BASE_URL;
 export const CATALOG_API_BASE_URL = API_BASE_URL;
-export const AGENDA_API_BASE_URL = API_BASE_URL;
+export const AGENDA_API_BASE_URL = (import.meta.env.VITE_AGENDA_API_BASE_URL || API_BASE_URL || 'http://localhost:8084')
+  .replace(/\/$/, '')
+  .replace(/\/api$/i, '');
 export const INVENTORY_API_BASE_URL = API_BASE_URL;
 export const TOKEN_KEY = 'style_beauty_token';
 export const SESSION_USER_KEY = 'style_beauty_user';
@@ -87,6 +89,15 @@ apiClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (typeof config.headers?.delete === 'function') {
+      config.headers.delete('Content-Type');
+    } else if (config.headers) {
+      delete config.headers['Content-Type'];
+    }
+  }
+
   return config;
 });
 

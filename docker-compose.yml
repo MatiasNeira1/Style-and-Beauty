@@ -61,8 +61,6 @@ services:
       MS_AGENDA_URI: http://ms-agenda:8084
       MS_INVENTARIO_URI: http://ms-inventario:8085
       MS_PAGOS_URI: http://ms-pagos:8086
-      MS_EXTRA_URI: http://ms-extra:8087
-      MS_NOTIFICACION_AUDIT_URI: http://ms-notificacion-audit:8088
     ports:
       - "127.0.0.1:${API_GATEWAY_PORT:-8080}:8080"
     depends_on:
@@ -77,10 +75,6 @@ services:
       ms-inventario:
         condition: service_started
       ms-pagos:
-        condition: service_started
-      ms-extra:
-        condition: service_started
-      ms-notificacion-audit:
         condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8080/ >/dev/null || exit 1"]
@@ -123,6 +117,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MS_PERFILES_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-stylebeauty}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
@@ -158,6 +154,8 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-stylebeauty}
     ports:
       - "127.0.0.1:${MS_CATALOGO_PORT:-8083}:8083"
     depends_on:
@@ -229,6 +227,8 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-stylebeauty}
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -252,6 +252,10 @@ services:
       SPRING_DATASOURCE_URL: ${MS_PAGOS_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
       SPRING_DATASOURCE_USERNAME: ${MS_PAGOS_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
       SPRING_DATASOURCE_PASSWORD: ${MS_PAGOS_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
+      MS_AGENDA_BASE_URL: http://ms-agenda:8084
+      MS_CATALOGO_BASE_URL: http://ms-catalogo:8083
+      FRONTEND_SUCCESS_URL: ${FRONTEND_SUCCESS_URL:-http://localhost/pago/exitoso}
+      FRONTEND_ERROR_URL: ${FRONTEND_ERROR_URL:-http://localhost/pago/error}
       SPRING_SECURITY_USER_NAME: ${SPRING_SECURITY_USER_NAME:-admin}
       SPRING_SECURITY_USER_PASSWORD: ${SPRING_SECURITY_USER_PASSWORD:-admin123}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
