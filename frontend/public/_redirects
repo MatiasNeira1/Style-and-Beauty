@@ -1,1 +1,5 @@
+/assets/:file.js /assets/missing-chunk.js 404
+/assets/:file.css /assets/missing-style.css 404
+/assets/* /404.html 404
+
 /* /index.html 200

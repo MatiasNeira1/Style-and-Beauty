@@ -9,6 +9,13 @@ import { useAuth } from '../../store/AuthContext.jsx';
 import { profileService } from '../../services/profileService.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+function profileRoleLabel(user, profile) {
+  const role = String(user?.rol || user?.role || profile?.tipoPerfil || '').toUpperCase();
+  if (role === 'ADMIN') return 'Administrador';
+  if (role === 'STAFF') return 'Staff';
+  return 'Cliente Registrado';
+}
+
 export function ProfilePage() {
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
@@ -142,7 +149,7 @@ export function ProfilePage() {
             <UserRound size={40} />
           </div>
           <h3 style={{ marginBottom: '0.5rem' }}>{profile?.nombre || user?.email}</h3>
-          <p style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>{user?.role === 'cliente' ? 'Cliente Registrado' : 'Administrador'}</p>
+          <p style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>{profileRoleLabel(user, profile)}</p>
           <Button variant="ghost" onClick={logout} style={{ width: '100%', color: '#b91c1c', borderColor: '#fca5a5' }}>
             Cerrar Sesión
           </Button>
