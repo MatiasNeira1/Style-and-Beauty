@@ -155,6 +155,12 @@ Use immutable tags for demos, for example `2026-06-08-db65796`, not only
 
 Images are uploaded only through backend endpoints. Configure `AZURE_STORAGE_CONNECTION_STRING` as a Container Apps secret and `AZURE_STORAGE_CONTAINER=stylebeauty` for `ms-perfiles`, `ms-catalogo` and `ms-inventario`.
 
+Expected Container Apps service names for this integration:
+
+- `sb-catalogo`
+- `sb-perfiles`
+- `sb-inventario`
+
 See `docs/azure-blob-storage.md` for upload/delete endpoints, frontend routes touched, Docker commands and Container Apps scale-to-zero notes.
 | `GOOGLE_CALENDAR_DEFAULT_CALENDAR_ID` | agenda if enabled | Usually no |
 | `SPRING_SECURITY_USER_NAME` | pagos/audit basic auth | Yes |
