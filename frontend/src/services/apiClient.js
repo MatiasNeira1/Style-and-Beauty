@@ -15,6 +15,7 @@ export const TOKEN_KEY = 'style_beauty_token';
 export const SESSION_USER_KEY = 'style_beauty_user';
 export const AUTH_EXPIRED_EVENT = 'style-beauty:auth-expired';
 export const ASSETS_BASE_URL = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
+export const HOME_HERO_IMAGE_URL = import.meta.env.VITE_HOME_HERO_IMAGE_URL || resolveAssetUrl('jefes.png', '/jefes.png');
 export const USE_MOCKS = import.meta.env.DEV && String(import.meta.env.VITE_USE_MOCKS || '').toLowerCase() === 'true';
 export const DEFAULT_IMAGE_FALLBACK = '/logo.jpg';
 

@@ -3,6 +3,7 @@ package com.style.beauty.ms_auth.security;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
+import com.google.firebase.FirebaseApp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -23,6 +24,11 @@ public class FirebaseAuthInterceptor implements HandlerInterceptor {
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Missing or invalid Authorization header");
+            return false;
+        }
+
+        if (FirebaseApp.getApps().isEmpty()) {
+            response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Firebase Admin SDK no esta configurado en el servidor.");
             return false;
         }
 

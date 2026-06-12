@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/Card.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useProfessionals } from '../../hooks/useProfessionals.js';
 import { catalogService } from '../../services/catalogService.js';
+import { HOME_HERO_IMAGE_URL } from '../../services/apiClient.js';
 
 const features = [
   { icon: Sparkles, title: 'Diagnóstico experto', desc: 'Servicios seleccionados por necesidad, estilo y rutina personal.' },
@@ -44,7 +45,10 @@ export function HomePage() {
   return (
     <>
       {/* ═══ HERO ═══ */}
-      <section className="hero-section">
+      <section
+        className="hero-section"
+        style={{ '--home-hero-image': `url("${HOME_HERO_IMAGE_URL}")` }}
+      >
         <div className="hero-media" />
         <div className="hero-overlay" />
         <div className="hero-content">

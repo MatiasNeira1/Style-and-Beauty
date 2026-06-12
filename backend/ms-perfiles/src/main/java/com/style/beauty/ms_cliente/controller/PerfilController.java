@@ -49,7 +49,7 @@ public class PerfilController {
             String rolVerdadero = (String) decodedToken.getClaims().get("rol");
 
             if (rolVerdadero == null) {
-                return ResponseEntity.status(403).body("El usuario no tiene un rol asignado en Firebase.");
+                rolVerdadero = "CLIENTE";
             }
 
             // Inyectamos la Verdad Absoluta en el DTO (Sobrescribiendo cualquier cosa)
@@ -153,7 +153,8 @@ public class PerfilController {
         } catch (ResponseStatusException e) {
             return responseStatus(e);
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            HttpStatus status = esPerfilNoEncontrado(e) ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(e.getMessage());
         }
     }
 

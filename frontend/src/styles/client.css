@@ -1620,6 +1620,7 @@ a.contact-info-card:hover {
 }
 
 .page-hero-services,
+.page-hero-category,
 .page-hero-booking,
 .page-hero-contact,
 .page-hero-professionals,
@@ -1629,6 +1630,7 @@ a.contact-info-card:hover {
 }
 
 .page-hero-services .page-hero-content h1,
+.page-hero-category .page-hero-content h1,
 .page-hero-booking .page-hero-content h1,
 .page-hero-contact .page-hero-content h1,
 .page-hero-professionals .page-hero-content h1,
@@ -1638,6 +1640,7 @@ a.contact-info-card:hover {
 }
 
 .page-hero-services .page-hero-content p,
+.page-hero-category .page-hero-content p,
 .page-hero-booking .page-hero-content p,
 .page-hero-contact .page-hero-content p,
 .page-hero-professionals .page-hero-content p,
