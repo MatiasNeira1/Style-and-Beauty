@@ -1,4 +1,12 @@
-import { PROFILES_API_BASE_URL, STAFF_API_BASE_URL, request } from './apiClient.js';
+import { AGENDA_API_BASE_URL, PROFILES_API_BASE_URL, request } from './apiClient.js';
+
+const portfolioUnavailableMessage = 'Portfolio temporalmente no disponible hasta habilitar almacenamiento de imágenes.';
+
+function imageFormData(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return formData;
+}
 
 export const staffService = {
   listPublicStaff: () =>
@@ -20,34 +28,43 @@ export const staffService = {
   deleteStaff: (idAuth) =>
     request({ baseURL: PROFILES_API_BASE_URL, url: `/api/admin/eliminar/${idAuth}`, method: 'DELETE', authRequired: true }),
 
+  uploadStaffPhoto: (staffId, file) =>
+    request({ baseURL: PROFILES_API_BASE_URL, url: `/api/profesionales/${staffId}/foto`, method: 'POST', authRequired: true, data: imageFormData(file) }),
+
+  deleteStaffPhoto: (staffId) =>
+    request({ baseURL: PROFILES_API_BASE_URL, url: `/api/profesionales/${staffId}/foto`, method: 'DELETE', authRequired: true }),
+
+  updateStaffStatus: (staffId, active) =>
+    request({ baseURL: PROFILES_API_BASE_URL, url: `/api/profesionales/${staffId}/estado/${Boolean(active)}`, method: 'PATCH', authRequired: true }),
+
   // ── Especialidades ─────────────────────────────────
   listSpecialties: () =>
     request({ baseURL: PROFILES_API_BASE_URL, url: '/api/admin/especialidades', method: 'GET', authRequired: true }),
 
   // ── Jornadas Laborales ─────────────────────────────
   listSchedules: (staffId) =>
-    request({ baseURL: STAFF_API_BASE_URL, url: `/api/staff/${staffId}/jornadas`, method: 'GET', authRequired: true }),
+    request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/jornadas/staff/${staffId}`, method: 'GET', authRequired: true }),
 
-  saveSchedules: (staffId, jornadas) =>
-    request({ baseURL: STAFF_API_BASE_URL, url: `/api/staff/${staffId}/jornadas`, method: 'POST', authRequired: true, data: jornadas }),
+  saveSchedules: (staffId, jornadas) => Promise.all(
+    jornadas
+      .filter((jornada) => jornada.activo !== false)
+      .map((jornada) => request({
+        baseURL: AGENDA_API_BASE_URL,
+        url: '/api/agenda/jornadas',
+        method: 'POST',
+        authRequired: true,
+        data: { ...jornada, idStaff: staffId },
+      })),
+  ),
 
   // ── Portfolio (Fotos de trabajos) ──────────────────
-  listPortfolio: (staffId) =>
-    request({ baseURL: STAFF_API_BASE_URL, url: `/api/staff/${staffId}/portfolio`, method: 'GET', authRequired: true }),
+  listPortfolio: async () => [],
 
-  uploadPortfolioImage: (staffId, file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    return request({
-      baseURL: STAFF_API_BASE_URL,
-      url: `/api/staff/${staffId}/portfolio`,
-      method: 'POST',
-      authRequired: true,
-      data: formData,
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+  uploadPortfolioImage: async () => {
+    throw new Error(portfolioUnavailableMessage);
   },
 
-  deletePortfolioImage: (staffId, imageId) =>
-    request({ baseURL: STAFF_API_BASE_URL, url: `/api/staff/${staffId}/portfolio/${imageId}`, method: 'DELETE', authRequired: true }),
+  deletePortfolioImage: async () => {
+    throw new Error(portfolioUnavailableMessage);
+  },
 };

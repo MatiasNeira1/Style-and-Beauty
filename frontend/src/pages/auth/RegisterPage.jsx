@@ -2,12 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import {
-  CalendarDays,
   Check,
   CheckCircle2,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Eye,
   EyeOff,
   Heart,
@@ -67,8 +64,6 @@ const monthNames = [
   'Diciembre',
 ];
 
-const weekdayNames = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-
 const firebaseErrorMessages = {
   'auth/email-already-in-use': 'Ya existe una cuenta con ese correo.',
   'auth/invalid-email': 'El correo no es válido.',
@@ -119,18 +114,6 @@ const parseIsoDate = (isoDate) => {
   return new Date(year, month - 1, day);
 };
 
-const formatDisplayDate = (isoDate) => {
-  const date = parseIsoDate(isoDate);
-  if (!date) return '';
-  return new Intl.DateTimeFormat('es-CL', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  }).format(date);
-};
-
-const isSameDay = (date, isoDate) => isoDate && toIsoDate(date) === isoDate;
-
 const isValidGender = (value) => genderOptions.some((option) => option.value === value);
 
 const calculateAge = (isoDate) => {
@@ -143,24 +126,6 @@ const calculateAge = (isoDate) => {
 
   if (hasNotHadBirthday) age -= 1;
   return age;
-};
-
-const getCalendarDays = (viewDate) => {
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const firstWeekday = (firstDay.getDay() + 6) % 7;
-  const startDate = new Date(year, month, 1 - firstWeekday);
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(startDate);
-    date.setDate(startDate.getDate() + index);
-    return {
-      date,
-      iso: toIsoDate(date),
-      isCurrentMonth: date.getMonth() === month,
-    };
-  });
 };
 
 const getRegisterErrorMessage = (registerError) => {
@@ -287,135 +252,77 @@ function PremiumField({ icon: Icon, label, id, className = '', trailing, ...prop
   );
 }
 
-function PremiumDatePicker({ value, onChange, maxDate }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isYearPickerOpen, setIsYearPickerOpen] = useState(false);
-  const closePicker = useCallback(() => {
-    setIsOpen(false);
-    setIsYearPickerOpen(false);
-  }, []);
-  const { triggerRef, popoverRef, floatingStyle, isMobileSheet } = useFloatingOverlay({
-    isOpen,
-    onClose: closePicker,
-    preferredWidth: 340,
-    estimatedHeight: 430,
-  });
+function BirthDateSelects({ value, onChange, maxDate }) {
   const selectedDate = parseIsoDate(value);
   const maxDateObject = parseIsoDate(maxDate);
-  const [viewDate, setViewDate] = useState(selectedDate || new Date(maxDateObject.getFullYear() - 24, 0, 1));
-  const calendarDays = useMemo(() => getCalendarDays(viewDate), [viewDate]);
-  const years = useMemo(() => {
-    const maxYear = maxDateObject.getFullYear();
-    return Array.from({ length: 101 }, (_, index) => maxYear - index);
-  }, [maxDateObject]);
+  const maxYear = maxDateObject.getFullYear();
+  const maxMonth = maxDateObject.getMonth() + 1;
+  const maxDay = maxDateObject.getDate();
+  const [year, setYear] = useState(selectedDate ? String(selectedDate.getFullYear()) : '');
+  const [month, setMonth] = useState(selectedDate ? String(selectedDate.getMonth() + 1).padStart(2, '0') : '');
+  const [day, setDay] = useState(selectedDate ? String(selectedDate.getDate()).padStart(2, '0') : '');
 
-  const canGoNext = viewDate.getFullYear() < maxDateObject.getFullYear() || viewDate.getMonth() < maxDateObject.getMonth();
+  const years = useMemo(() => Array.from({ length: 101 }, (_, index) => String(maxYear - index)), [maxYear]);
+  const monthOptions = useMemo(() => {
+    const selectedYear = Number(year);
+    const limit = selectedYear === maxYear ? maxMonth : 12;
+    return monthNames.slice(0, limit).map((label, index) => ({
+      label,
+      value: String(index + 1).padStart(2, '0'),
+    }));
+  }, [maxMonth, maxYear, year]);
+  const dayOptions = useMemo(() => {
+    if (!year || !month) return [];
+    const selectedYear = Number(year);
+    const selectedMonth = Number(month);
+    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+    const limit = selectedYear === maxYear && selectedMonth === maxMonth ? maxDay : daysInMonth;
+    return Array.from({ length: limit }, (_, index) => String(index + 1).padStart(2, '0'));
+  }, [maxDay, maxMonth, maxYear, month, year]);
 
-  const moveMonth = (direction) => {
-    setViewDate((current) => new Date(current.getFullYear(), current.getMonth() + direction, 1));
-    setIsYearPickerOpen(false);
+  const handleYearChange = (event) => {
+    setYear(event.target.value);
+    setMonth('');
+    setDay('');
+    onChange('');
   };
 
-  const selectYear = (year) => {
-    const nextMonth = year === maxDateObject.getFullYear() ? Math.min(viewDate.getMonth(), maxDateObject.getMonth()) : viewDate.getMonth();
-    setViewDate(new Date(year, nextMonth, 1));
-    setIsYearPickerOpen(false);
+  const handleMonthChange = (event) => {
+    setMonth(event.target.value);
+    setDay('');
+    onChange('');
   };
 
-  const selectDate = (date) => {
-    const isoDate = toIsoDate(date);
-    if (isoDate > maxDate) return;
-    onChange(isoDate);
-    setViewDate(new Date(date.getFullYear(), date.getMonth(), 1));
-    closePicker();
+  const handleDayChange = (event) => {
+    const selectedDay = event.target.value;
+    setDay(selectedDay);
+    if (!year || !month || !selectedDay) {
+      onChange('');
+      return;
+    }
+
+    const isoDate = `${year}-${month}-${selectedDay}`;
+    onChange(isoDate <= maxDate ? isoDate : '');
   };
 
   return (
-    <motion.div className="register-field custom-picker-field" variants={itemVariants}>
+    <motion.div className="register-field birthdate-field" variants={itemVariants}>
       <span>Fecha nacimiento</span>
-      <button
-        ref={triggerRef}
-        className={`register-input-shell register-input-trigger ${isOpen ? 'is-open' : ''}`}
-        type="button"
-        onClick={() => setIsOpen((current) => !current)}
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-      >
-        <CalendarDays aria-hidden="true" size={18} />
-        <span className={value ? 'trigger-value' : 'trigger-placeholder'}>
-          {value ? formatDisplayDate(value) : 'Selecciona tu fecha de nacimiento'}
-        </span>
-        <ChevronDown aria-hidden="true" size={18} />
-      </button>
-
-      {isOpen && (
-        <FloatingPortal
-          className="premium-picker-popover premium-date-popover"
-          floatingStyle={floatingStyle}
-          isMobileSheet={isMobileSheet}
-          popoverRef={popoverRef}
-          role="dialog"
-          aria-label="Seleccionar fecha de nacimiento"
-        >
-          <div className="premium-picker-mobile-handle" />
-          <div className="date-picker-header">
-            <button type="button" onClick={() => moveMonth(-1)} aria-label="Mes anterior">
-              <ChevronLeft size={18} />
-            </button>
-            <button className="date-picker-title" type="button" onClick={() => setIsYearPickerOpen((current) => !current)}>
-              {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
-              <ChevronDown size={16} />
-            </button>
-            <button type="button" onClick={() => moveMonth(1)} disabled={!canGoNext} aria-label="Mes siguiente">
-              <ChevronRight size={18} />
-            </button>
-          </div>
-
-          {isYearPickerOpen ? (
-            <div className="year-picker-grid">
-              {years.map((year) => (
-                <button
-                  className={year === viewDate.getFullYear() ? 'is-selected' : ''}
-                  key={year}
-                  type="button"
-                  onClick={() => selectYear(year)}
-                >
-                  {year}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <>
-              <div className="weekday-grid">
-                {weekdayNames.map((day, index) => (
-                  <span key={`${day}-${index}`}>{day}</span>
-                ))}
-              </div>
-              <div className="day-picker-grid">
-                {calendarDays.map(({ date, iso, isCurrentMonth }) => {
-                  const isDisabled = iso > maxDate;
-                  return (
-                    <button
-                      className={[
-                        !isCurrentMonth ? 'is-muted' : '',
-                        isSameDay(date, value) ? 'is-selected' : '',
-                      ].filter(Boolean).join(' ')}
-                      disabled={isDisabled}
-                      key={iso}
-                      type="button"
-                      onClick={() => selectDate(date)}
-                    >
-                      {date.getDate()}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          <p className="picker-helper">Edad mínima: 15 años.</p>
-        </FloatingPortal>
-      )}
+      <div className="birthdate-select-grid">
+        <select aria-label="Año de nacimiento" value={year} onChange={handleYearChange} required>
+          <option value="">Año</option>
+          {years.map((yearOption) => <option key={yearOption} value={yearOption}>{yearOption}</option>)}
+        </select>
+        <select aria-label="Mes de nacimiento" value={month} onChange={handleMonthChange} disabled={!year} required>
+          <option value="">Mes</option>
+          {monthOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+        <select aria-label="Día de nacimiento" value={day} onChange={handleDayChange} disabled={!year || !month} required>
+          <option value="">Día</option>
+          {dayOptions.map((dayOption) => <option key={dayOption} value={dayOption}>{dayOption}</option>)}
+        </select>
+      </div>
+      <small>Edad mínima: 15 años.</small>
     </motion.div>
   );
 }
@@ -697,7 +604,7 @@ export function RegisterPage() {
                 onChange={handleChange}
                 placeholder="+56 9 1234 5678"
               />
-              <PremiumDatePicker
+              <BirthDateSelects
                 value={form.fechaNacimiento}
                 maxDate={maxBirthDate}
                 onChange={(value) => updateFormValue('fechaNacimiento', value)}

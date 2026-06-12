@@ -1,53 +1,23 @@
-import { CATALOG_API_BASE_URL, request } from './apiClient.js';
-
-let servicesCache = null;
-const serviceByIdCache = new Map();
-const servicesByCategoryCache = new Map();
+import { AGENDA_API_BASE_URL, CATALOG_API_BASE_URL, request } from './apiClient.js';
 
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
 }
 
-function clearServiceCache() {
-  servicesCache = null;
-  serviceByIdCache.clear();
-  servicesByCategoryCache.clear();
+function imageFormData(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return formData;
 }
 
 export const serviceCatalogService = {
-  listServices: async () => {
-    if (servicesCache) return servicesCache;
-    const services = await request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio' });
-    servicesCache = Array.isArray(services) ? services : [];
-    return servicesCache;
-  },
-  getService: async (id) => {
-    if (serviceByIdCache.has(id)) return serviceByIdCache.get(id);
-    const service = await request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}` });
-    serviceByIdCache.set(id, service);
-    return service;
-  },
-  listServicesByCategory: async (categoria) => {
-    if (servicesByCategoryCache.has(categoria)) return servicesByCategoryCache.get(categoria);
-    const services = await request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/categoria/${categoria}` });
-    const normalized = Array.isArray(services) ? services : [];
-    servicesByCategoryCache.set(categoria, normalized);
-    return normalized;
-  },
-  createService: async (payload) => {
-    const response = await request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: payload, authRequired: true });
-    clearServiceCache();
-    return response;
-  },
-  updateService: async (id, payload) => {
-    const response = await request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'PUT', data: payload, authRequired: true });
-    clearServiceCache();
-    return response;
-  },
-  deleteService: async (id) => {
-    const response = await request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'DELETE', authRequired: true });
-    clearServiceCache();
-    return response;
-  },
+  listServices: () => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio' }),
+  getService: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}` }),
+  listProfessionalsByService: (id) => request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/servicios/${id}/staff` }),
+  createService: (payload) => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: payload, authRequired: true }),
+  updateService: (id, payload) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'PUT', data: payload, authRequired: true }),
+  deleteService: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'DELETE', authRequired: true }),
+  uploadServiceImage: (id, file) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicios/${id}/imagen`, method: 'POST', data: imageFormData(file), authRequired: true }),
+  deleteServiceImage: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicios/${id}/imagen`, method: 'DELETE', authRequired: true }),
   serviceId,
 };

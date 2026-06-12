@@ -1,6 +1,6 @@
+import { API_BASE_URL, request } from './apiClient.js';
+
 export const paymentService = {
-  listTransactions: async () => [],
-  createPayment: async () => {
-    throw new Error('El modulo de pagos aun no esta implementado.');
-  },
+  listTransactions: () => request({ baseURL: API_BASE_URL, url: '/api/pagos/transacciones', method: 'GET', authRequired: true }),
+  createPayment: (payload) => request({ baseURL: API_BASE_URL, url: '/api/pagos/transacciones', method: 'POST', authRequired: true, data: payload }),
 };

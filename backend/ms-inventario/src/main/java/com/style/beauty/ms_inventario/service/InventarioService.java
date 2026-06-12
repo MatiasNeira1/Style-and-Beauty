@@ -15,6 +15,7 @@ import com.style.beauty.ms_inventario.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -26,6 +27,7 @@ public class InventarioService {
     private final ProductoRepository productoRepository;
     private final StockRepository stockRepository;
     private final MovimientoStockRepository movimientoStockRepository;
+    private final AzureBlobStorageService azureBlobStorageService;
 
     public List<Producto> listarProductos() {
         return productoRepository.findAll();
@@ -46,6 +48,7 @@ public class InventarioService {
                 .nombre(request.nombre())
                 .categoria(request.categoria())
                 .descripcion(request.descripcion())
+                .imagenUrl(request.imagenUrl())
                 .precio(request.precio())
                 .activo(true)
                 .build();
@@ -60,8 +63,29 @@ public class InventarioService {
         producto.setNombre(request.nombre());
         producto.setCategoria(request.categoria());
         producto.setDescripcion(request.descripcion());
+        if (request.imagenUrl() != null) {
+            producto.setImagenUrl(request.imagenUrl());
+        }
         producto.setPrecio(request.precio());
 
+        return productoRepository.save(producto);
+    }
+
+    @Transactional
+    public Producto actualizarImagenProducto(UUID id, MultipartFile file) {
+        Producto producto = buscarProducto(id);
+        String imageUrl = azureBlobStorageService.replace(producto.getImagenUrl(), file, "productos");
+        producto.setImagenUrl(imageUrl);
+        return productoRepository.save(producto);
+    }
+
+    @Transactional
+    public Producto eliminarImagenProducto(UUID id) {
+        Producto producto = buscarProducto(id);
+        if (producto.getImagenUrl() != null && !producto.getImagenUrl().isBlank()) {
+            azureBlobStorageService.delete(producto.getImagenUrl());
+        }
+        producto.setImagenUrl(null);
         return productoRepository.save(producto);
     }
 

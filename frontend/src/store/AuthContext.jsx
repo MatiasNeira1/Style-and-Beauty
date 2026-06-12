@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { AUTH_EXPIRED_EVENT, clearStoredSession, SESSION_USER_KEY, TOKEN_KEY } from '../services/apiClient.js';
@@ -8,8 +8,8 @@ import { firebaseAuthService } from '../services/firebaseAuthService.js';
 import { profileService } from '../services/profileService.js';
 
 const AuthContext = createContext(null);
-const ROLE_CLAIM_RETRIES = 6;
-const ROLE_CLAIM_RETRY_DELAY_MS = 700;
+const ROLE_CLAIM_RETRIES = 10;
+const ROLE_CLAIM_RETRY_DELAY_MS = 900;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -27,6 +27,7 @@ export function AuthProvider({ children }) {
   const queryClient = useQueryClient();
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [user, setUserState] = useState(readStoredUser);
+  const isRegisteringRef = useRef(false);
 
   const setSession = useCallback((session) => {
     if (!session?.user) {
@@ -47,6 +48,11 @@ export function AuthProvider({ children }) {
     return onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       if (!firebaseUser) {
         setSession(null);
+        setIsAuthReady(true);
+        return;
+      }
+
+      if (isRegisteringRef.current) {
         setIsAuthReady(true);
         return;
       }
@@ -81,24 +87,48 @@ export function AuthProvider({ children }) {
   }, [setSession]);
 
   const registerClient = useCallback(async ({ email, password, profile }) => {
-    await profileService.validateAvailability({ ...profile, tipoPerfil: 'CLIENTE' });
-    const created = await firebaseAuthService.register(email, password);
-    await authService.registerClient({ uid: created.user.uid });
+    isRegisteringRef.current = true;
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const normalizedProfile = {
+        ...profile,
+        emailContacto: (profile.emailContacto || normalizedEmail).trim().toLowerCase(),
+        genero: profile.genero?.trim().toLowerCase(),
+        tipoPerfil: 'CLIENTE',
+      };
 
-    let session = null;
-    for (let attempt = 1; attempt <= ROLE_CLAIM_RETRIES; attempt += 1) {
-      session = await firebaseAuthService.refreshSession();
-      if (session?.user?.rol === 'CLIENTE') break;
-      await wait(ROLE_CLAIM_RETRY_DELAY_MS);
+      await profileService.validateAvailability(normalizedProfile);
+      const created = await firebaseAuthService.register(normalizedEmail, password);
+      await authService.registerClient({ uid: created.user.uid });
+
+      let session = null;
+      for (let attempt = 1; attempt <= ROLE_CLAIM_RETRIES; attempt += 1) {
+        session = await firebaseAuthService.refreshSession();
+        if (session?.claims?.rol === 'CLIENTE') break;
+        await wait(ROLE_CLAIM_RETRY_DELAY_MS);
+      }
+
+      if (session?.claims?.rol !== 'CLIENTE') {
+        throw new Error('La cuenta se creó, pero el rol CLIENTE aún no está disponible. Intenta iniciar sesión nuevamente.');
+      }
+
+      setSession(session);
+      try {
+        await profileService.createProfile(normalizedProfile);
+      } catch (profileError) {
+        const message = profileError.message?.toLowerCase() || '';
+        if (message.includes('ya existe un perfil') || message.includes('ya existe un usuario')) {
+          await profileService.getMyProfile();
+        } else {
+          await firebaseAuthService.logout().catch(() => {});
+          setSession(null);
+          throw profileError;
+        }
+      }
+      return session;
+    } finally {
+      isRegisteringRef.current = false;
     }
-
-    if (session?.user?.rol !== 'CLIENTE') {
-      throw new Error('La cuenta se creó, pero el rol CLIENTE aún no está disponible. Intenta iniciar sesión nuevamente.');
-    }
-
-    setSession(session);
-    await profileService.createProfile(profile);
-    return session;
   }, [setSession]);
 
   const logout = useCallback(async () => {

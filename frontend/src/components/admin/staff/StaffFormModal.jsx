@@ -1,10 +1,12 @@
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Briefcase, Mail, User } from 'lucide-react';
+import { Briefcase, ImagePlus, Mail, User } from 'lucide-react';
 import { Modal } from '../../ui/Modal.jsx';
 import { Button } from '../../ui/Button.jsx';
 import { Input } from '../../ui/Input.jsx';
+import { SafeImage } from '../../ui/SafeImage.jsx';
 
 const staffSchema = z.object({
   rut: z.string().min(1, 'El RUT es obligatorio'),
@@ -16,7 +18,7 @@ const staffSchema = z.object({
   fechaNacimiento: z.string().optional(),
   genero: z.string().optional(),
   idEspecialidad: z.string().min(1, 'Selecciona una especialidad'),
-  biografia: z.string().optional(),
+  descripcionPerfil: z.string().optional(),
   experienciaAnios: z.string().optional(),
 });
 
@@ -30,12 +32,15 @@ const defaultValues = {
   fechaNacimiento: '',
   genero: '',
   idEspecialidad: '',
-  biografia: '',
+  descripcionPerfil: '',
   experienciaAnios: '',
 };
 
 export function StaffFormModal({ open, onClose, onSubmit, initialData, specialties = [], isLoading }) {
   const isEditMode = Boolean(initialData);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState('');
+  const [photoError, setPhotoError] = useState('');
 
   const schema = isEditMode
     ? staffSchema.omit({ password: true })
@@ -56,17 +61,73 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
           ...defaultValues,
           ...initialData,
           idEspecialidad: String(initialData.idEspecialidad || initialData.especialidad?.idEspecialidad || ''),
+          descripcionPerfil: initialData.descripcionPerfil || initialData.biografia || '',
+          experienciaAnios: initialData.experienciaAnios != null ? String(initialData.experienciaAnios) : '',
         }
       : defaultValues,
   });
 
+  useEffect(() => {
+    reset(initialData
+      ? {
+          ...defaultValues,
+          ...initialData,
+          idEspecialidad: String(initialData.idEspecialidad || initialData.especialidad?.idEspecialidad || ''),
+          descripcionPerfil: initialData.descripcionPerfil || initialData.biografia || '',
+          experienciaAnios: initialData.experienciaAnios != null ? String(initialData.experienciaAnios) : '',
+        }
+      : defaultValues);
+    setSelectedPhoto(null);
+    setPhotoError('');
+  }, [initialData, open, reset]);
+
+  useEffect(() => {
+    if (!selectedPhoto) {
+      setPhotoPreview(initialData?.fotoUrl || initialData?.imageUrl || '');
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(selectedPhoto);
+    setPhotoPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [initialData, selectedPhoto]);
+
+  const handlePhotoChange = (event) => {
+    const file = event.target.files?.[0];
+    setPhotoError('');
+
+    if (!file) {
+      setSelectedPhoto(null);
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setPhotoError('Solo se permiten imagenes JPG, PNG o WEBP.');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError('La imagen no puede superar 5 MB.');
+      event.target.value = '';
+      return;
+    }
+
+    setSelectedPhoto(file);
+  };
+
   const onFormSubmit = (data) => {
-    onSubmit(data, isEditMode);
+    if (photoError) return;
+    onSubmit({ ...data, fotoFile: selectedPhoto }, isEditMode);
     reset(defaultValues);
+    setSelectedPhoto(null);
   };
 
   const handleClose = () => {
     reset(defaultValues);
+    setSelectedPhoto(null);
+    setPhotoError('');
     onClose();
   };
 
@@ -82,6 +143,14 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
           <div className="staff-form-section-title">
             <User size={14} />
             Datos Personales
+          </div>
+          <div className="staff-photo-picker-row">
+            <label className="staff-photo-picker">
+              <SafeImage src={photoPreview} alt="Foto del profesional" />
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoChange} />
+              <span><ImagePlus size={15} /> Cambiar foto</span>
+            </label>
+            {photoError && <p className="staff-photo-error">{photoError}</p>}
           </div>
           <div className="staff-form-grid">
             <Input
@@ -189,7 +258,7 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
             as="textarea"
             rows={3}
             placeholder="Describe la experiencia y habilidades del profesional..."
-            {...register('biografia')}
+            {...register('descripcionPerfil')}
           />
         </div>
 

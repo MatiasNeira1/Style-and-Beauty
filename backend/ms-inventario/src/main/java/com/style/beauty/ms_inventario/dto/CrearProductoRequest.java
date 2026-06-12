@@ -10,5 +10,6 @@ public record CrearProductoRequest(
         @NotBlank String nombre,
         @NotBlank String categoria,
         String descripcion,
+        String imagenUrl,
         @NotNull @PositiveOrZero BigDecimal precio) {
 }

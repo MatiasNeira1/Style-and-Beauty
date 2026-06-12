@@ -5,12 +5,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.style.beauty.ms_cliente.service.PerfilService;
 import com.google.firebase.auth.FirebaseAuth;
@@ -20,6 +23,7 @@ import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
 import com.style.beauty.ms_cliente.model.PersonaModel;
 import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 
+import java.util.UUID;
 
 
 
@@ -87,6 +91,47 @@ public class AdminController {
             return ResponseEntity.ok(perfilActualizado);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error al actualizar: " + e.getMessage());
+        }
+    }
+
+    @PostMapping({"/profesionales/{idStaff}/foto", "/admin/staff/{idStaff}/foto"})
+    public ResponseEntity<?> adminActualizarFotoStaff(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable UUID idStaff,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            if (!esAdmin(authHeader)) return ResponseEntity.status(403).body("Acceso denegado. Solo Administradores.");
+
+            return ResponseEntity.ok(perfilService.actualizarFotoStaff(idStaff, file));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error al actualizar foto: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping({"/profesionales/{idStaff}/foto", "/admin/staff/{idStaff}/foto"})
+    public ResponseEntity<?> adminEliminarFotoStaff(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable UUID idStaff) {
+        try {
+            if (!esAdmin(authHeader)) return ResponseEntity.status(403).body("Acceso denegado. Solo Administradores.");
+
+            return ResponseEntity.ok(perfilService.eliminarFotoStaff(idStaff));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error al eliminar foto: " + e.getMessage());
+        }
+    }
+
+    @PatchMapping({"/profesionales/{idStaff}/estado/{activo}", "/admin/staff/{idStaff}/estado/{activo}"})
+    public ResponseEntity<?> adminActualizarEstadoStaff(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable UUID idStaff,
+            @PathVariable boolean activo) {
+        try {
+            if (!esAdmin(authHeader)) return ResponseEntity.status(403).body("Acceso denegado. Solo Administradores.");
+
+            return ResponseEntity.ok(perfilService.actualizarEstadoStaff(idStaff, activo));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error al actualizar estado: " + e.getMessage());
         }
     }
 

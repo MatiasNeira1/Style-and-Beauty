@@ -29,6 +29,9 @@ public class Producto {
     @Column(columnDefinition = "TEXT")
     private String descripcion;
 
+    @Column(name = "imagen_url", columnDefinition = "TEXT")
+    private String imagenUrl;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal precio;
 

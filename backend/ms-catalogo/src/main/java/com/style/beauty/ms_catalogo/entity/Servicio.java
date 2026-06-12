@@ -27,6 +27,9 @@ public class Servicio {
     @Column(columnDefinition = "TEXT")
     private String manual_uso_url;
 
+    @Column(name = "imagen_url", columnDefinition = "TEXT")
+    private String imagenUrl;
+
     @Column(nullable = false)
     private Integer duracion_minutos;
 

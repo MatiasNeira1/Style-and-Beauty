@@ -76,6 +76,12 @@ export function AdminDashboard() {
         meta={<RangeFilter />}
       />
 
+      {metrics.raw.partialErrors?.length > 0 && (
+        <p className="admin-alert">
+          Algunas fuentes de métricas no respondieron. El dashboard muestra los datos reales disponibles.
+        </p>
+      )}
+
       <AdminKpiGrid variant="three">
         {metrics.kpis.map((kpi) => <AdminKpiCard key={kpi.title} {...kpi} />)}
       </AdminKpiGrid>

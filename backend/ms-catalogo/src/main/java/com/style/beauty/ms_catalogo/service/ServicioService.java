@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
@@ -20,6 +21,9 @@ public class ServicioService {
 
     @Autowired
     private CategoriaRepository categoriaRepository;
+
+    @Autowired
+    private AzureBlobStorageService azureBlobStorageService;
 
     public List<Servicio> listarTodos() {
         return repository.findByActivoTrue();
@@ -49,6 +53,9 @@ public class ServicioService {
             existente.setDetallerservicio(cambios.getDetallerservicio());
             existente.setCategoria(cambios.getCategoria());
             existente.setManual_uso_url(cambios.getManual_uso_url());
+            if (cambios.getImagenUrl() != null) {
+                existente.setImagenUrl(cambios.getImagenUrl());
+            }
             existente.setDuracion_minutos(cambios.getDuracion_minutos());
             existente.setHolgura_minutos(cambios.getHolgura_minutos());
             existente.setPrecio_total(cambios.getPrecio_total());
@@ -59,6 +66,26 @@ public class ServicioService {
             validarServicio(existente);
 
             return repository.save(existente);
+        });
+    }
+
+    @Transactional
+    public Optional<Servicio> actualizarImagen(UUID id, MultipartFile file) {
+        return repository.findById(id).map(servicio -> {
+            String imageUrl = azureBlobStorageService.replace(servicio.getImagenUrl(), file, "servicios");
+            servicio.setImagenUrl(imageUrl);
+            return repository.save(servicio);
+        });
+    }
+
+    @Transactional
+    public Optional<Servicio> eliminarImagen(UUID id) {
+        return repository.findById(id).map(servicio -> {
+            if (servicio.getImagenUrl() != null && !servicio.getImagenUrl().isBlank()) {
+                azureBlobStorageService.delete(servicio.getImagenUrl());
+            }
+            servicio.setImagenUrl(null);
+            return repository.save(servicio);
         });
     }
 

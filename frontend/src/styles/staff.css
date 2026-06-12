@@ -65,6 +65,12 @@
   transition: all 180ms ease;
 }
 
+.staff-action-btn input,
+.staff-file-button input,
+.staff-photo-picker input {
+  display: none;
+}
+
 .staff-action-btn:hover {
   background: rgba(169, 52, 84, 0.08);
   border-color: rgba(169, 52, 84, 0.3);
@@ -109,6 +115,48 @@
   display: grid;
   gap: 0.75rem;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.staff-photo-picker-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.staff-photo-picker {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.staff-photo-picker img {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  height: 3rem;
+  object-fit: cover;
+  width: 3rem;
+}
+
+.staff-photo-picker span {
+  align-items: center;
+  color: var(--color-ink);
+  display: inline-flex;
+  font-size: 0.86rem;
+  font-weight: 800;
+  gap: 0.4rem;
+}
+
+.staff-photo-error {
+  color: #b42318;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin: 0;
 }
 
 .staff-form-footer {
@@ -157,6 +205,24 @@
   width: 3.6rem;
 }
 
+.staff-avatar img {
+  border-radius: inherit;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.admin-staff-avatar {
+  font-size: 0.9rem;
+  height: 2.5rem;
+  width: 2.5rem;
+}
+
+.staff-profile-photo {
+  height: 4.4rem;
+  width: 4.4rem;
+}
+
 .staff-profile-meta {
   display: grid;
   gap: 0.15rem;
@@ -172,6 +238,13 @@
 .staff-profile-meta span {
   color: var(--color-muted);
   font-size: 0.85rem;
+}
+
+.staff-profile-badges {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .staff-info-grid {
@@ -436,6 +509,13 @@
   grid-template-columns: 1fr;
   gap: 1.25rem;
   transition: grid-template-columns 300ms ease;
+}
+
+.staff-detail-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
 }
 
 @media (min-width: 990px) {

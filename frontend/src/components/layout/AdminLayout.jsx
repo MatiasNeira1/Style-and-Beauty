@@ -52,6 +52,7 @@ export function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
   const [isOpen, setIsOpen] = useState(false);
   const profileQuery = useQuery({
     queryKey: ['my-profile'],

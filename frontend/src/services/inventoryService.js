@@ -1,54 +1,20 @@
 import { INVENTORY_API_BASE_URL, request } from './apiClient.js';
 
-let productsCache = null;
-let stockCache = null;
-
-function clearInventoryCache() {
-  productsCache = null;
-  stockCache = null;
+function imageFormData(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return formData;
 }
 
 export const inventoryService = {
-  listProducts: async () => {
-    if (productsCache) return productsCache;
-    const products = await request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/productos' });
-    productsCache = Array.isArray(products) ? products : [];
-    return productsCache;
-  },
-  listStock: async () => {
-    if (stockCache) return stockCache;
-    const stock = await request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/stock' });
-    stockCache = Array.isArray(stock) ? stock : [];
-    return stockCache;
-  },
-  createProduct: async (payload) => {
-    const response = await request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/productos', method: 'POST', data: payload });
-    clearInventoryCache();
-    return response;
-  },
-  updateProduct: async (idProducto, payload) => {
-    const response = await request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}`, method: 'PUT', data: payload });
-    clearInventoryCache();
-    return response;
-  },
-  deactivateProduct: async (idProducto) => {
-    const response = await request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}/desactivar`, method: 'PATCH' });
-    clearInventoryCache();
-    return response;
-  },
-  deleteProduct: async (idProducto) => {
-    const response = await request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}`, method: 'DELETE' });
-    clearInventoryCache();
-    return response;
-  },
-  createStock: async (payload) => {
-    const response = await request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/stock', method: 'POST', data: payload });
-    clearInventoryCache();
-    return response;
-  },
-  registerMovement: async (payload) => {
-    const response = await request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/movimientos', method: 'POST', data: payload });
-    clearInventoryCache();
-    return response;
-  },
+  listProducts: () => request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/productos' }),
+  listStock: () => request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/stock' }),
+  createProduct: (payload) => request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/productos', method: 'POST', authRequired: true, data: payload }),
+  updateProduct: (idProducto, payload) => request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}`, method: 'PUT', authRequired: true, data: payload }),
+  deactivateProduct: (idProducto) => request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}/desactivar`, method: 'PATCH', authRequired: true }),
+  deleteProduct: (idProducto) => request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}`, method: 'DELETE', authRequired: true }),
+  uploadProductImage: (idProducto, file) => request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/productos/${idProducto}/imagen`, method: 'POST', authRequired: true, data: imageFormData(file) }),
+  deleteProductImage: (idProducto) => request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/productos/${idProducto}/imagen`, method: 'DELETE', authRequired: true }),
+  createStock: (payload) => request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/stock', method: 'POST', authRequired: true, data: payload }),
+  registerMovement: (payload) => request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/movimientos', method: 'POST', authRequired: true, data: payload }),
 };
