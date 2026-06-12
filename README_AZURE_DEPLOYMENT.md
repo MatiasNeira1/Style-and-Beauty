@@ -101,6 +101,7 @@ Use immutable tags for demos, for example `2026-06-08-db65796`, not only
 | `VITE_API_URL` | `https://api.styleandbeauty.me/api` | No |
 | `VITE_API_BASE_URL` | `https://api.styleandbeauty.me` | No |
 | `VITE_ASSETS_BASE_URL` | empty or CDN URL | No |
+| `VITE_HOME_HERO_IMAGE_URL` | public Azure Blob URL for the jefes image | No |
 | `VITE_USE_MOCKS` | `false` | No |
 | `VITE_FIREBASE_API_KEY` | Firebase Web API key | No, but environment-specific |
 | `VITE_FIREBASE_AUTH_DOMAIN` | `<project>.firebaseapp.com` | No |
@@ -321,6 +322,10 @@ Runtime:
 - Protected endpoints return expected `200/201` with fresh Firebase token.
 - CORS preflight succeeds from final frontend domain.
 - Logs have no Firebase Admin, datasource, migration, or pool exhaustion errors.
+- For production booking/profile flows, keep `sb-auth`, `sb-perfiles`,
+  `sb-agenda`, `sb-catalogo` and `sb-gateway` warm with at least
+  `minReplicas=1`, or expect first-hit latency/timeouts while ACA scales from
+  zero.
 
 ## Runtime Files and n8n
 

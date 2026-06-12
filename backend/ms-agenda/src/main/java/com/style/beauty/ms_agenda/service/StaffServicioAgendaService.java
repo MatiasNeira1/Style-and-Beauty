@@ -34,8 +34,14 @@ public class StaffServicioAgendaService {
             return cached.staff();
         }
 
-        List<StaffServicioDetalleResponse> staff = servicioClient.obtenerStaffPorServicio(idServicio)
-                .parallelStream()
+        List<ServicioStaffResumen> relaciones;
+        try {
+            relaciones = servicioClient.obtenerStaffPorServicio(idServicio);
+        } catch (BusinessException e) {
+            relaciones = List.of();
+        }
+
+        List<StaffServicioDetalleResponse> staff = relaciones.stream()
                 .filter(relacion -> Boolean.TRUE.equals(relacion.activo()))
                 .map(this::obtenerDetalleStaff)
                 .filter(detalle -> detalle != null && Boolean.TRUE.equals(detalle.activo()))

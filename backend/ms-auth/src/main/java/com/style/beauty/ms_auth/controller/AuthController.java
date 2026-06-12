@@ -56,6 +56,8 @@ public class AuthController {
             return ResponseEntity.internalServerError().body("Error al crear usuario en Firebase: " + message);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Rol invalido: " + e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(503).body(e.getMessage());
         }
     }
 
@@ -88,6 +90,8 @@ public class AuthController {
             return ResponseEntity.internalServerError().body("Error al comunicar con Firebase: " + e.getMessage());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Rol inválido: " + e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(503).body(e.getMessage());
         }
     }
 //===============================================================================================================================
@@ -105,6 +109,8 @@ public class AuthController {
             return ResponseEntity.ok("Rol CLIENTE asignado exitosamente al nuevo usuario");
         } catch (FirebaseAuthException e) {
             return ResponseEntity.internalServerError().body("Error al comunicar con Firebase: " + e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(503).body(e.getMessage());
         }
     }
 }

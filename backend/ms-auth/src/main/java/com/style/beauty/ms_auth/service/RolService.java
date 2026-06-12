@@ -4,6 +4,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord.CreateRequest;
 import com.google.firebase.auth.UserRecord;
+import com.google.firebase.FirebaseApp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ public class RolService {
     private static final Logger logger = LoggerFactory.getLogger(RolService.class);
 
     public UserRecord createUserWithRole(String email, String password, String rol) throws FirebaseAuthException {
+        ensureFirebaseConfigured();
         if (!Roles.isValid(rol)) {
             throw new IllegalArgumentException("Rol no permitido: " + rol);
         }
@@ -37,6 +39,7 @@ public class RolService {
      * @param rol El rol a asignar ("STAFF", "CLIENTE", "ADMIN")
      */
     public void assignRoleToUser(String uid, String rol) throws FirebaseAuthException {
+        ensureFirebaseConfigured();
         // Validar rol permitido
         if (!Roles.isValid(rol)) {
             throw new IllegalArgumentException("Rol no permitido: " + rol);
@@ -61,6 +64,12 @@ public class RolService {
         FirebaseAuth.getInstance().setCustomUserClaims(uid, existingClaims);
 
         logger.info("Rol {} asignado correctamente al UID: {}", rol, uid);
+    }
+
+    private void ensureFirebaseConfigured() {
+        if (FirebaseApp.getApps().isEmpty()) {
+            throw new IllegalStateException("Firebase Admin SDK no esta configurado en el servidor.");
+        }
     }
 }
 
