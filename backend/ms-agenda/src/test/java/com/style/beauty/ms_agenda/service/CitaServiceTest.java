@@ -313,7 +313,7 @@ class CitaServiceTest {
     }
 
     private PerfilResumen perfil(UUID id, String nombre, String apellidos, String email) {
-        return new PerfilResumen(id, "auth-" + id, "1-9", nombre, apellidos, email, true);
+        return new PerfilResumen(id, "auth-" + id, "1-9", nombre, apellidos, email, null, true);
     }
 
     private JornadaStaff jornada(LocalTime inicio, LocalTime fin) {

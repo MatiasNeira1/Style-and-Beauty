@@ -124,6 +124,12 @@ function profileForModal(professional, service) {
   };
 }
 
+function profileErrorMessage(error) {
+  if (error?.status === 404) return 'Completa tu perfil de cliente antes de confirmar la reserva.';
+  if (error?.status === 503) return 'La autenticacion del servidor no esta configurada. Intenta mas tarde.';
+  return error?.message || 'No se pudo cargar tu perfil de cliente.';
+}
+
 export function ServiceDetailPage() {
   const { categoria, servicio } = useParams();
   const navigate = useNavigate();
@@ -135,6 +141,7 @@ export function ServiceDetailPage() {
     queryKey: ['my-profile'],
     queryFn: reservationService.getMe,
     enabled: isAuthenticated,
+    retry: false,
   });
 
   const [profesionales, setProfesionales] = useState([]);
@@ -276,16 +283,9 @@ export function ServiceDetailPage() {
 
     const payload = { idStaff, idServicio, fechaInicioSemana };
 
-    if (import.meta.env.DEV) {
-      console.log('Consultando disponibilidad semanal', payload);
-    }
-
     const loadWeeklyAvailability = async () => {
       try {
         const response = await agendaService.consultarDisponibilidadSemanal(payload);
-        if (import.meta.env.DEV) {
-          console.log('Respuesta disponibilidad semanal', response);
-        }
 
         const weeklyAvailability = Object.fromEntries(dias.map((dia) => [formatLocalDate(dia), []]));
         if (Array.isArray(response)) {
@@ -300,10 +300,6 @@ export function ServiceDetailPage() {
       } catch (error) {
         if (![404, 405].includes(error.status)) {
           throw error;
-        }
-
-        if (import.meta.env.DEV) {
-          console.log('Endpoint semanal no disponible, usando disponibilidad diaria');
         }
 
         const entries = await Promise.all(dias.map(async (dia) => {
@@ -391,6 +387,18 @@ export function ServiceDetailPage() {
     if (!isAuthenticated) {
       savePendingReservation();
       setAuthModalOpen(true);
+      return;
+    }
+    if (profileQuery.isLoading) {
+      setMensajeReserva('Estamos cargando tu perfil de cliente. Intenta nuevamente en unos segundos.');
+      return;
+    }
+    if (profileQuery.isError) {
+      setMensajeReserva(profileErrorMessage(profileQuery.error));
+      return;
+    }
+    if (!profileQuery.data?.idPersona) {
+      setMensajeReserva('Completa tu perfil de cliente antes de confirmar la reserva.');
       return;
     }
 
@@ -644,10 +652,15 @@ export function ServiceDetailPage() {
               )}
 
               {profileQuery.isError && isAuthenticated && (
-                <p className="admin-alert">No se pudo cargar tu perfil de cliente. Inicia sesion nuevamente o completa tu registro.</p>
+                <p className="admin-alert">{profileErrorMessage(profileQuery.error)}</p>
               )}
               {mensajeReserva && <p className={mensajeReserva.includes('Redirigiendo') ? 'service-booking-success' : 'admin-alert'}>{mensajeReserva}</p>}
-              <button type="button" className="button" onClick={handleCreateBooking} disabled={creandoCita}>
+              <button
+                type="button"
+                className="button"
+                onClick={handleCreateBooking}
+                disabled={creandoCita || (isAuthenticated && (profileQuery.isLoading || profileQuery.isError || !profileQuery.data?.idPersona))}
+              >
                 <CalendarDays size={17} />
                 {creandoCita ? 'Iniciando pago...' : 'Reservar y pagar'}
               </button>

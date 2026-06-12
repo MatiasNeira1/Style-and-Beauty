@@ -6,6 +6,7 @@ import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioStaffResumen;
 import com.style.beauty.ms_agenda.dto.StaffServicioDetalleResponse;
 import com.style.beauty.ms_agenda.exception.BusinessException;
+import com.style.beauty.ms_agenda.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -63,11 +64,12 @@ public class StaffServicioAgendaService {
                     staff.nombre(),
                     staff.apellidos(),
                     staff.emailContacto(),
+                    staff.fotoUrl(),
                     activo
             );
             staffDetalleCache.put(relacion.idStaff(), new CachedStaffDetail(detalle, Instant.now()));
             return detalle;
-        } catch (BusinessException e) {
+        } catch (BusinessException | ResourceNotFoundException e) {
             return null;
         }
     }

@@ -1,23 +1,28 @@
 package com.style.beauty.ms_cliente.controller;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
 import com.style.beauty.ms_cliente.model.PersonaModel;
+import com.style.beauty.ms_cliente.service.FirebaseTokenVerifier;
 import com.style.beauty.ms_cliente.service.PerfilService;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.lang.RuntimeException;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/perfiles")
 public class PerfilController {
 
     @Autowired
     private PerfilService perfilService;
+
+    @Autowired
+    private FirebaseTokenVerifier firebaseTokenVerifier;
 
     @PostMapping("/validar-disponibilidad")
     public ResponseEntity<?> validarDisponibilidad(@RequestBody PerfilRequestDTO requestDTO) {
@@ -37,15 +42,7 @@ public class PerfilController {
             @RequestBody PerfilRequestDTO requestDTO) {
 
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("Falta el header Authorization.");
-            }
-
-            // Limpiamos el token
-            String token = authHeader.replace("Bearer ", "");
-
-            // Desencriptamos con Firebase
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
 
             // Extraemos la Identidad y el Permiso
             String uidVerdadero = decodedToken.getUid();
@@ -64,8 +61,8 @@ public class PerfilController {
             
             return ResponseEntity.ok(nuevoPerfil);
 
-        } catch (FirebaseAuthException e) {
-            return ResponseEntity.status(401).body("Token inválido o expirado.");
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
@@ -76,21 +73,17 @@ public class PerfilController {
     @GetMapping("/me")
     public ResponseEntity<?> obtenerMiPerfil(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("Falta el header Authorization.");
-            }
-
-            String token = authHeader.replace("Bearer ", "");
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
             String uidVerdadero = decodedToken.getUid();
 
             PersonaModel miPerfil = perfilService.obtenerMiPerfil(uidVerdadero);
             return ResponseEntity.ok(miPerfil);
 
-        } catch (FirebaseAuthException e) {
-            return ResponseEntity.status(401).body("Token inválido o expirado.");
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            HttpStatus status = esPerfilNoEncontrado(e) ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(e.getMessage());
         }
     }
 
@@ -112,12 +105,7 @@ public class PerfilController {
     @GetMapping("/clientes")
     public ResponseEntity<?> listarClientes(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("Falta el header Authorization.");
-            }
-
-            String token = authHeader.replace("Bearer ", "");
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
             String rol = (String) decodedToken.getClaims().get("rol");
 
             // SEGURIDAD: Solo STAFF puede ver la lista de todos los clientes
@@ -127,8 +115,8 @@ public class PerfilController {
 
             return ResponseEntity.ok(perfilService.listarTodosLosClientes());
 
-        } catch (FirebaseAuthException e) {
-            return ResponseEntity.status(401).body("Token inválido.");
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
         }
     }
 
@@ -139,19 +127,14 @@ public class PerfilController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody PerfilRequestDTO requestDTO) {
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("Falta el header Authorization.");
-            }
-
-            String token = authHeader.replace("Bearer ", "");
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
             String uidVerdadero = decodedToken.getUid();
 
             PersonaModel perfilActualizado = perfilService.actualizarMiPerfil(uidVerdadero, requestDTO);
             return ResponseEntity.ok(perfilActualizado);
 
-        } catch (FirebaseAuthException e) {
-            return ResponseEntity.status(401).body("Token inválido.");
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -161,21 +144,24 @@ public class PerfilController {
     @DeleteMapping("/eliminar")
     public ResponseEntity<?> eliminarPerfil(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("Falta el header Authorization.");
-            }
-
-            String token = authHeader.replace("Bearer ", "");
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
             String uidVerdadero = decodedToken.getUid();
 
             perfilService.eliminarMiPerfil(uidVerdadero);
             return ResponseEntity.ok("Perfil eliminado correctamente de la base de datos.");
 
-        } catch (FirebaseAuthException e) {
-            return ResponseEntity.status(401).body("Token inválido.");
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    private ResponseEntity<String> responseStatus(ResponseStatusException e) {
+        return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+    }
+
+    private boolean esPerfilNoEncontrado(RuntimeException e) {
+        return e.getMessage() != null && e.getMessage().toLowerCase().contains("perfil no encontrado");
     }
 }

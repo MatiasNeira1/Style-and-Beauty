@@ -26,6 +26,12 @@ function staffId(member) {
   return member?.idPersona || member?.idStaff || member?.id;
 }
 
+function profileErrorMessage(error) {
+  if (error?.status === 404) return 'Completa tu perfil de cliente antes de confirmar la reserva.';
+  if (error?.status === 503) return 'La autenticacion del servidor no esta configurada. Intenta mas tarde.';
+  return error?.message || 'No fue posible cargar tu perfil de cliente.';
+}
+
 export function BookingPage() {
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
@@ -61,6 +67,7 @@ export function BookingPage() {
     queryKey: ['my-profile'],
     queryFn: reservationService.getMe,
     enabled: isAuthenticated,
+    retry: false,
   });
 
   const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
@@ -99,6 +106,14 @@ export function BookingPage() {
 
     if (!service || !member || !date || !time) {
       setConfirmError('Selecciona servicio, profesional, fecha y horario para continuar.');
+      return;
+    }
+    if (isProfileError) {
+      setConfirmError(profileErrorMessage(profileError));
+      return;
+    }
+    if (!myProfile?.idPersona) {
+      setConfirmError('Tu perfil de cliente debe estar completo para confirmar la reserva.');
       return;
     }
 
@@ -252,7 +267,7 @@ export function BookingPage() {
             {step === 3 && (
               <Button
                 onClick={confirm}
-                disabled={!myProfile?.idPersona || !service || !member || !date || !time || !selectedSlot || bookingMutation.isPending || availabilityQuery.isFetching || confirmandoPago}
+                disabled={!myProfile?.idPersona || isProfileError || !service || !member || !date || !time || !selectedSlot || bookingMutation.isPending || availabilityQuery.isFetching || confirmandoPago}
               >
                 {bookingMutation.isPending || availabilityQuery.isFetching || confirmandoPago ? 'Iniciando pago...' : 'Reservar y pagar'}
               </Button>
@@ -261,7 +276,8 @@ export function BookingPage() {
 
           {step === 3 && !myProfile?.idPersona && (
             <p className="admin-alert">
-              {isProfileError ? profileError?.message || 'No fue posible cargar tu perfil.' : 'Tu perfil de cliente debe estar completo para confirmar la reserva.'}
+              {isProfileError ? profileErrorMessage(profileError) : 'Tu perfil de cliente debe estar completo para confirmar la reserva.'}
+              <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/perfil')}>Ir a mi perfil</Button>
             </p>
           )}
           {confirmError && <p className="admin-alert">{confirmError}</p>}

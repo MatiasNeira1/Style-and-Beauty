@@ -20,6 +20,9 @@ public record PerfilResumen(
         @JsonAlias({"emailContacto", "email_contacto", "email"})
         String emailContacto,
 
+        @JsonAlias({"fotoUrl", "foto_url", "imageUrl", "imagenUrl"})
+        String fotoUrl,
+
         @JsonAlias({"activo", "active"})
         Boolean activo) {
 }

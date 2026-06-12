@@ -17,15 +17,19 @@ function slugify(value) {
     .replace(/(^-|-$)/g, '') || 'sin-categoria';
 }
 
-function categoryCard(category, count) {
+function productImage(product) {
+  return product?.imagenUrl || product?.imagen_url || product?.imageUrl || product?.image || product?.imagen;
+}
+
+function categoryCard(category, data) {
   const name = category || 'Sin categoria';
 
   return {
     id: slugify(name),
     nombre: name,
-    descripcion: `${count} productos disponibles en inventario.`,
-    count,
-    logo: '/logo.jpg',
+    descripcion: `${data.count} productos disponibles en inventario.`,
+    count: data.count,
+    logo: data.logo,
   };
 }
 
@@ -48,13 +52,19 @@ export function ProductsPage() {
   const productBrands = useMemo(() => {
     const countsByCategory = products.reduce((acc, product) => {
       const category = product.categoria || 'Sin categoria';
-      acc[category] = (acc[category] || 0) + 1;
+      if (!acc[category]) {
+        acc[category] = { count: 0, logo: productImage(product) };
+      }
+      acc[category].count += 1;
+      if (!acc[category].logo) {
+        acc[category].logo = productImage(product);
+      }
       return acc;
     }, {});
 
     return Object.entries(countsByCategory)
       .sort(([first], [second]) => first.localeCompare(second))
-      .map(([category, count]) => categoryCard(category, count));
+      .map(([category, data]) => categoryCard(category, data));
   }, [products]);
 
   const visibleProducts = useMemo(() => (
@@ -95,7 +105,7 @@ export function ProductsPage() {
       <section className="page-section products-section catalog-page">
         {!selectedBrand ? (
           <>
-            <SectionTitle eyebrow="Categorias" title="Catalogo por categorias">
+            <SectionTitle eyebrow="Categorias" title="Productos por categoria">
               Productos profesionales cargados desde inventario.
             </SectionTitle>
             {productsQuery.isLoading ? (

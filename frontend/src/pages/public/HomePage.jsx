@@ -1,16 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Sparkles, Star, Timer, Scissors, Heart, Award, ArrowRight, Quote } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { Reveal } from '../../components/animations/Reveal.jsx';
-import { TextReveal } from '../../components/animations/TextReveal.jsx';
-import { ParticleField } from '../../components/animations/ParticleField.jsx';
-import { AuroraBackground } from '../../components/animations/AuroraBackground.jsx';
-import { GlowCard } from '../../components/animations/GlowCard.jsx';
-import { CountUp } from '../../components/animations/CountUp.jsx';
-import { MagneticButton } from '../../components/animations/MagneticButton.jsx';
-import { ParallaxSection } from '../../components/animations/ParallaxSection.jsx';
 import { ProfessionalsCarousel } from '../../components/professionals/ProfessionalsCarousel.jsx';
+import { Button } from '../../components/ui/Button.jsx';
+import { Card } from '../../components/ui/Card.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useProfessionals } from '../../hooks/useProfessionals.js';
 import { catalogService } from '../../services/catalogService.js';
@@ -53,26 +47,21 @@ export function HomePage() {
       <section className="hero-section">
         <div className="hero-media" />
         <div className="hero-overlay" />
-        <AuroraBackground />
-        <ParticleField count={40} />
-
         <div className="hero-content">
           <Reveal>
             <span className="section-title">
               <span>Salón premium</span>
             </span>
           </Reveal>
-          <TextReveal className="section-title" style={{ marginBottom: '1rem' }}>
-            Style & Beauty
-          </TextReveal>
+          <h1 className="hero-title">Style & Beauty</h1>
           <Reveal delay={0.4}>
-            <p style={{ color: 'var(--color-ink-soft)', fontSize: '1.15rem', maxWidth: '540px', lineHeight: 1.65, marginBottom: '0.5rem' }}>
+            <p className="hero-copy">
               Belleza editorial, agenda inteligente y productos profesionales en una experiencia digital fluida.
             </p>
           </Reveal>
           <Reveal delay={0.6}>
             <div className="hero-actions">
-              <Link to="/reservar"><MagneticButton>Reservar experiencia</MagneticButton></Link>
+              <Link to="/reservar"><Button>Reservar experiencia</Button></Link>
               <Link to="/servicios" className="text-link" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
                 Ver servicios <ArrowRight size={16} />
               </Link>
@@ -91,11 +80,11 @@ export function HomePage() {
 
         <Reveal stagger className="premium-grid">
           {features.map(({ icon: Icon, title, desc }) => (
-            <GlowCard key={title}>
+            <Card key={title} className="home-feature-card">
               <div className="feature-icon"><Icon size={24} /></div>
               <h3>{title}</h3>
               <p>{desc}</p>
-            </GlowCard>
+            </Card>
           ))}
         </Reveal>
       </section>
@@ -105,14 +94,10 @@ export function HomePage() {
         <Reveal>
           <div className="stats-section">
             {stats.map(({ value, suffix, label }) => (
-              <motion.div
-                key={label}
-                className="stat-item"
-                whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
-              >
-                <CountUp value={value} suffix={suffix} />
+              <div key={label} className="stat-item">
+                <span className="stat-value">{value}{suffix}</span>
                 <div className="stat-label">{label}</div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </Reveal>
@@ -125,7 +110,7 @@ export function HomePage() {
       </section>
 
       {/* ═══ SERVICES PREVIEW ═══ */}
-      <ParallaxSection className="experience-band">
+      <section className="experience-band">
         <div className="parallax-layer" />
         <Reveal>
           <SectionTitle eyebrow="Catálogo" title="Nuestros servicios">
@@ -137,7 +122,7 @@ export function HomePage() {
             const Icon = serviceIcons[index % serviceIcons.length];
             const name = service.nombre || service.name || 'Servicio';
             return (
-            <GlowCard key={service.id_servicio || service.idServicio || service.id || name} className="service-preview-card">
+            <Card key={service.id_servicio || service.idServicio || service.id || name} className="service-preview-card">
               <div className="feature-icon"><Icon size={22} /></div>
               <h3>{name}</h3>
               <p>{service.descripcion || service.description || 'Atencion personalizada con tecnica profesional.'}</p>
@@ -147,14 +132,14 @@ export function HomePage() {
                   Reservar <ArrowRight size={14} />
                 </Link>
               </div>
-            </GlowCard>
+            </Card>
           );
           })}
           {!servicesQuery.isLoading && services.length === 0 && (
             <p className="admin-alert">No hay servicios cargados en el catalogo.</p>
           )}
         </Reveal>
-      </ParallaxSection>
+      </section>
 
       {/* ═══ TESTIMONIALS ═══ */}
       <section className="page-section">
@@ -179,7 +164,6 @@ export function HomePage() {
 
       {/* ═══ CTA ═══ */}
       <section className="cta-section cta-section-centered">
-        <AuroraBackground />
         <Reveal>
           <SectionTitle eyebrow="Comienza ahora" title="Tu transformación te espera">
             Agenda tu primera experiencia premium y descubre por qué miles de clientes confían en nosotros.
@@ -187,7 +171,7 @@ export function HomePage() {
         </Reveal>
         <Reveal delay={0.3}>
           <div className="cta-actions">
-            <Link to="/reservar"><MagneticButton><Award size={18} /> Reservar ahora</MagneticButton></Link>
+            <Link to="/reservar"><Button><Award size={18} /> Reservar ahora</Button></Link>
           </div>
         </Reveal>
       </section>

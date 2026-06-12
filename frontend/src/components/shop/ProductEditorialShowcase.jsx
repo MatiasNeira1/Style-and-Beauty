@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { memo } from 'react';
 import { CheckCircle2, ShoppingBag, Sparkles } from 'lucide-react';
 import { Button } from '../ui/Button.jsx';
@@ -53,21 +52,13 @@ export const ProductEditorialShowcase = memo(function ProductEditorialShowcase({
         const image = productImage(product);
 
         return (
-          <motion.article
+          <article
             key={productId(product)}
             className={`product-editorial ${isReversed ? 'is-reversed' : ''}`}
-            initial={{ opacity: 0, y: 32 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-80px' }}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           >
-            <motion.div
-              className="product-editorial-media"
-              whileHover={{ scale: 1.015 }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
-            >
+            <div className="product-editorial-media">
               <SafeImage src={image} alt={name} />
-            </motion.div>
+            </div>
 
             <div className="product-editorial-copy">
               <span className="product-editorial-kicker"><Sparkles size={15} /> {productCategory(product)}</span>
@@ -91,7 +82,7 @@ export const ProductEditorialShowcase = memo(function ProductEditorialShowcase({
                 </Button>
               </div>
             </div>
-          </motion.article>
+          </article>
         );
       })}
     </div>

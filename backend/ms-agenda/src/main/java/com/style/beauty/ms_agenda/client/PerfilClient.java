@@ -1,10 +1,13 @@
 package com.style.beauty.ms_agenda.client;
 
 import com.style.beauty.ms_agenda.exception.BusinessException;
+import com.style.beauty.ms_agenda.exception.ResourceNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.UUID;
 
@@ -39,10 +42,15 @@ public class PerfilClient {
                     .body(PerfilResumen.class);
 
             if (perfil == null) {
-                throw new BusinessException(mensajeError);
+                throw new ResourceNotFoundException(mensajeError);
             }
 
             return perfil;
+        } catch (RestClientResponseException e) {
+            if (HttpStatus.NOT_FOUND.value() == e.getStatusCode().value()) {
+                throw new ResourceNotFoundException(mensajeError);
+            }
+            throw new BusinessException(mensajeError);
         } catch (RestClientException e) {
             throw new BusinessException(mensajeError);
         }
