@@ -29,22 +29,6 @@ services:
     networks:
       - style-beauty-net
 
-  mongo:
-    image: mongo:7
-    container_name: style-beauty-mongo
-    restart: unless-stopped
-    expose:
-      - "27017"
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - style-beauty-net
-
   api-gateway:
     build: ./backend/Api-gateway
     image: watoncitoxx/style-and-beauty-gateway:latest
@@ -358,7 +342,6 @@ services:
 
 volumes:
   postgres-master-data:
-  mongo-data:
 
 networks:
   style-beauty-net:
