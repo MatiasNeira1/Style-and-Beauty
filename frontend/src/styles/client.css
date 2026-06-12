@@ -322,8 +322,32 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.contact-form-card .form-grid-single {
+  grid-template-columns: 1fr;
+}
+
 .contact-form-card textarea {
   min-height: 8rem;
+}
+
+.contact-profile-summary {
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem;
+}
+
+.contact-profile-summary strong {
+  color: var(--color-ink);
+  font-size: 1rem;
+}
+
+.contact-profile-summary p {
+  color: var(--color-muted);
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .contact-highlight {
@@ -1451,6 +1475,28 @@ a.contact-info-card:hover {
   padding: 0.4rem;
 }
 
+.brand-card-placeholder {
+  align-items: center;
+  aspect-ratio: 1;
+  background: linear-gradient(135deg, rgba(255, 248, 244, 0.94), rgba(251, 207, 232, 0.24));
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  color: var(--color-primary-strong);
+  display: inline-flex;
+  font-family: var(--font-serif);
+  font-size: 2.1rem;
+  justify-content: center;
+  justify-self: center;
+  max-width: 6.5rem;
+  width: 100%;
+}
+
+.brand-card-placeholder-small {
+  font-size: 1.7rem;
+  max-width: none;
+  width: 100%;
+}
+
 .catalog-feature-card h3,
 .catalog-detail-header h2,
 .catalog-item-card h3 {
@@ -1574,20 +1620,26 @@ a.contact-info-card:hover {
 }
 
 .page-hero-services,
+.page-hero-booking,
+.page-hero-contact,
 .page-hero-professionals,
 .products-hero {
-  min-height: clamp(20rem, 46vh, 31rem);
-  padding-bottom: clamp(2.4rem, 5vw, 3.5rem);
+  min-height: clamp(17rem, 34vh, 25rem);
+  padding-bottom: clamp(2rem, 4vw, 2.75rem);
 }
 
 .page-hero-services .page-hero-content h1,
+.page-hero-booking .page-hero-content h1,
+.page-hero-contact .page-hero-content h1,
 .page-hero-professionals .page-hero-content h1,
 .products-hero-content h1 {
-  font-size: clamp(2.5rem, 6.2vw, 5.6rem);
+  font-size: clamp(2.15rem, 5.3vw, 4.6rem);
   max-width: 760px;
 }
 
 .page-hero-services .page-hero-content p,
+.page-hero-booking .page-hero-content p,
+.page-hero-contact .page-hero-content p,
 .page-hero-professionals .page-hero-content p,
 .products-hero-content p {
   font-size: clamp(0.98rem, 1.6vw, 1.12rem);
@@ -1649,6 +1701,10 @@ a.contact-info-card:hover {
   border-radius: var(--radius-xs);
   max-width: 6.5rem;
   padding: 0.35rem;
+}
+
+.catalog-page .brand-card-placeholder {
+  max-width: 5.8rem;
 }
 
 .catalog-page .catalog-feature-card h3,
@@ -2330,7 +2386,7 @@ a.contact-info-card:hover {
 
 .page-hero,
 .products-hero {
-  min-height: clamp(19rem, 40vh, 28rem);
+  min-height: clamp(17rem, 34vh, 25rem);
 }
 
 .page-hero-content h1,
@@ -2436,6 +2492,11 @@ img[data-fallback="true"] {
 .staff-card {
   height: 100%;
   padding: 0.85rem;
+}
+
+.admin-alert .button {
+  margin-left: 0.6rem;
+  width: auto;
 }
 
 .staff-card-header {
@@ -2779,10 +2840,12 @@ img[data-fallback="true"] {
   }
 
   .page-hero-services,
+  .page-hero-booking,
+  .page-hero-contact,
   .page-hero-professionals,
   .products-hero {
-    min-height: 21rem;
-    padding-top: 6.6rem;
+    min-height: 19rem;
+    padding-top: 6.2rem;
   }
 
   .catalog-page,

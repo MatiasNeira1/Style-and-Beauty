@@ -6,7 +6,7 @@ function fullName(person) {
 }
 
 function professionalId(person) {
-  return person.id || person.idProfesional || person.emailContacto || fullName(person);
+  return person.idStaff || person.idPersona || person.id || person.idProfesional || person.emailContacto || fullName(person);
 }
 
 function ProfessionalProfilesComponent({

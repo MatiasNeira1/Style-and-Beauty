@@ -7,6 +7,7 @@ public record StaffServicioDetalleResponse(
         String nombre,
         String apellidos,
         String emailContacto,
+        String fotoUrl,
         Boolean activo
 ) {
 }

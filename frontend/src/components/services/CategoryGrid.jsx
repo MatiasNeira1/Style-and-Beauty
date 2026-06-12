@@ -15,10 +15,18 @@ export const CategoryGrid = memo(function CategoryGrid({ services = [] }) {
     <div className="category-grid">
       {categories.map(([category, categoryServices]) => {
         const sample = categoryServices[0];
+        const imageUrl = serviceImage(sample);
 
         return (
           <Link key={category} className="category-card" to={`/servicios/${categorySlug(category)}`}>
-            <SafeImage className="category-card-media" src={serviceImage(sample)} alt={category} />
+            {imageUrl ? (
+              <SafeImage className="category-card-media" src={imageUrl} alt={category} />
+            ) : (
+              <div className="category-card-placeholder" aria-hidden="true">
+                <span>{category.slice(0, 1).toUpperCase()}</span>
+                <small>{categoryServices.length} servicios</small>
+              </div>
+            )}
             <div className="category-card-content">
               <span className="card-kicker">{category}</span>
               <h3>{category}</h3>
