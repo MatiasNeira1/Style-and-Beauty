@@ -17,6 +17,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/pagos/webpay/crear",
+                                "/api/pagos/webpay/redirigir/**",
                                 "/api/pagos/webpay/retorno",
                                 "/error",
                                 "/v3/api-docs/**",

@@ -1,10 +1,21 @@
 import { Link } from 'react-router-dom';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Card } from '../../components/ui/Card.jsx';
+import { useEffect } from 'react';
+import { useCart } from '../../store/CartContext.jsx';
 
 export function PaymentResultPage({ status = 'success' }) {
   const isSuccess = status === 'success';
   const Icon = isSuccess ? CheckCircle2 : XCircle;
+  const { clearCart, removeReservationItems } = useCart();
+
+  useEffect(() => {
+    if (isSuccess) {
+      clearCart();
+    } else {
+      removeReservationItems();
+    }
+  }, [clearCart, isSuccess, removeReservationItems]);
 
   return (
     <section className="page-section client-view">
@@ -13,11 +24,11 @@ export function PaymentResultPage({ status = 'success' }) {
         <h1>{isSuccess ? 'Pago confirmado' : 'No se pudo confirmar el pago'}</h1>
         <p>
           {isSuccess
-            ? 'Tu reserva fue recibida y estamos validando la confirmacion del pago.'
-            : 'La transaccion fue cancelada o rechazada. Puedes volver a intentar la reserva.'}
+            ? 'Tu carrito fue pagado correctamente. Las reservas asociadas quedaron confirmadas.'
+            : 'La transaccion fue cancelada o rechazada. Las reservas del carrito fueron liberadas.'}
         </p>
-        <Link className="button" to={isSuccess ? '/perfil' : '/reservar'}>
-          {isSuccess ? 'Ver mi perfil' : 'Volver a reservar'}
+        <Link className="button" to={isSuccess ? '/perfil' : '/checkout'}>
+          {isSuccess ? 'Ver mi perfil' : 'Volver al carrito'}
         </Link>
       </Card>
     </section>

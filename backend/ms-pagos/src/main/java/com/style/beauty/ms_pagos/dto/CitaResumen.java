@@ -5,6 +5,7 @@ import java.util.UUID;
 public record CitaResumen(
         UUID idCita,
         UUID idCliente,
-        UUID idServicio
+        UUID idServicio,
+        String estadoCita
 ) {
 }

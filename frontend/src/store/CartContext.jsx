@@ -84,6 +84,10 @@ export function CartProvider({ children }) {
     setItems((current) => current.filter((item) => item.id !== id));
   }, [setItems]);
 
+  const removeReservationItems = useCallback(() => {
+    setItems((current) => current.filter((item) => !isReservation(item)));
+  }, [setItems]);
+
   const updateQuantity = useCallback((id, delta) => {
     setItems((current) => (
       current.map((item) => {
@@ -104,6 +108,7 @@ export function CartProvider({ children }) {
       addReservationItem,
       hasReservationForService,
       removeItem,
+      removeReservationItems,
       updateQuantity,
       clearCart,
       total,
@@ -112,7 +117,7 @@ export function CartProvider({ children }) {
       lastCartError,
       setLastCartError,
     }),
-    [items, addItem, addReservationItem, hasReservationForService, removeItem, updateQuantity, clearCart, total, isCartOpen, lastCartError],
+    [items, addItem, addReservationItem, hasReservationForService, removeItem, removeReservationItems, updateQuantity, clearCart, total, isCartOpen, lastCartError],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

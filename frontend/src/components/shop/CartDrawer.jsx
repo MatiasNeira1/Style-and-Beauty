@@ -4,6 +4,7 @@ import { reservationService } from '../../services/reservationService.js';
 import { Button } from '../ui/Button.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function formatRemaining(expiresAt, now) {
   if (!expiresAt) return '';
@@ -16,6 +17,7 @@ function formatRemaining(expiresAt, now) {
 export function CartDrawer() {
   const { items, total, isCartOpen, setIsCartOpen, removeItem, updateQuantity, lastCartError, setLastCartError } = useCart();
   const [now, setNow] = useState(Date.now());
+  const navigate = useNavigate();
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(Date.now()), 1000);
@@ -90,10 +92,11 @@ export function CartDrawer() {
 
       <footer>
         <strong>Total ${total.toLocaleString('es-CL')}</strong>
-        <Button onClick={() => {
+        <Button disabled={items.length === 0} onClick={() => {
           setLastCartError('');
           setIsCartOpen(false);
-        }}>Continuar</Button>
+          navigate('/checkout');
+        }}>Ir a pagar</Button>
       </footer>
     </aside>
   );
