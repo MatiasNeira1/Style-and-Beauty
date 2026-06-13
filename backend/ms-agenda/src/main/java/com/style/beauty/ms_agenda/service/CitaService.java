@@ -1,7 +1,6 @@
 package com.style.beauty.ms_agenda.service;
 
 import com.style.beauty.ms_agenda.client.PerfilClient;
-import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
@@ -24,9 +23,9 @@ import com.style.beauty.ms_agenda.repository.CitaRepository;
 import com.style.beauty.ms_agenda.repository.HistorialCitaRepository;
 import com.style.beauty.ms_agenda.repository.JornadaStaffRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,10 +37,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CitaService {
+    private static final int MINUTOS_RESERVA_TEMPORAL = 5;
 
     private final CitaRepository citaRepository;
     private final JornadaStaffRepository jornadaStaffRepository;
@@ -50,12 +49,12 @@ public class CitaService {
     private final PerfilClient perfilClient;
     private final ServicioClient servicioClient;
     private final HolguraService holguraService;
-    private final GoogleCalendarService googleCalendarService;
 
     @Value("${app.agenda.zone:America/Santiago}")
     private String agendaZone;
 
     public List<Cita> listar() {
+        liberarReservasVencidas();
         return citaRepository.findAll();
     }
 
@@ -65,6 +64,7 @@ public class CitaService {
     }
 
     public List<DisponibilidadSlot> calcularDisponibilidad(DisponibilidadRequest request) {
+        liberarReservasVencidas();
 
         // Solo valida que el staff exista.
         // Google Calendar NO se usa para bloquear disponibilidad.
@@ -82,6 +82,8 @@ public class CitaService {
     }
 
     public List<DisponibilidadMensualResponse> calcularDisponibilidadMensual(UUID idServicio, UUID idStaff, int anio, int mes) {
+        liberarReservasVencidas();
+
         if (mes < 1 || mes > 12) {
             throw new BusinessException("El mes debe estar entre 1 y 12");
         }
@@ -111,6 +113,8 @@ public class CitaService {
     }
 
     public List<DisponibilidadMensualResponse> calcularDisponibilidadSemanal(DisponibilidadSemanalRequest request) {
+        liberarReservasVencidas();
+
         // Valida dependencias una sola vez y reutiliza el mismo calculo diario de disponibilidad.
         perfilClient.obtenerStaff(request.idStaff());
 
@@ -207,12 +211,14 @@ public class CitaService {
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Cita crear(CrearCitaRequest request) {
+        liberarReservasVencidas();
+
         if (request.idCliente() == null) {
             throw new BusinessException("No fue posible identificar al cliente autenticado");
         }
 
-        PerfilResumen cliente = perfilClient.obtenerCliente(request.idCliente());
-        PerfilResumen staff = perfilClient.obtenerStaff(request.idStaff());
+        perfilClient.obtenerCliente(request.idCliente());
+        perfilClient.obtenerStaff(request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
         validarStaffRealizaServicio(request.idServicio(), request.idStaff());
@@ -225,6 +231,7 @@ public class CitaService {
         OffsetDateTime inicio = normalizarAZoneAgenda(request.fechaHoraInicio());
         OffsetDateTime finVisible = inicio.plusMinutes(duracion);
         OffsetDateTime finAtencion = finVisible.minusMinutes(holgura);
+        OffsetDateTime expiracionReserva = OffsetDateTime.now(zoneId()).plusMinutes(MINUTOS_RESERVA_TEMPORAL);
 
         validarJornada(request.idStaff(), inicio, finVisible);
         validarBloqueos(request.idStaff(), inicio, finVisible);
@@ -242,24 +249,18 @@ public class CitaService {
                 .holguraMin(holgura)
                 .estadoCita(EstadoCita.PENDIENTE_PAGO)
                 .tipoCita(TipoCita.NORMAL)
+                .expiracionReserva(expiracionReserva)
                 .observacionCliente(request.observacionCliente())
                 .build();
 
         Cita guardada = guardarSinSolape(cita);
-
-        guardada = crearEventoGoogleCalendarSoloVisualizacion(
-                guardada,
-                cliente,
-                staff,
-                servicio
-        );
 
         registrarHistorial(
                 guardada.getIdCita(),
                 AccionHistorial.CREADA,
                 null,
                 guardada.getEstadoCita().name(),
-                "Cita creada pendiente de pago"
+                "Reserva temporal agregada al carrito. Expira en " + MINUTOS_RESERVA_TEMPORAL + " minutos"
         );
 
         return guardada;
@@ -308,34 +309,19 @@ public class CitaService {
         );
     }
 
-    private Cita crearEventoGoogleCalendarSoloVisualizacion(
-            Cita cita,
-            PerfilResumen cliente,
-            PerfilResumen staff,
-            ServicioResumen servicio
-    ) {
-        try {
-            String googleEventId = googleCalendarService.crearEvento(
-                    cita,
-                    cliente,
-                    staff,
-                    servicio
-            );
+    @Scheduled(fixedDelay = 60000)
+    @Transactional
+    public void liberarReservasVencidasProgramado() {
+        liberarReservasVencidas();
+    }
 
-            if (googleEventId != null) {
-                cita.setGoogleCalendarEventId(googleEventId);
-                return citaRepository.saveAndFlush(cita);
-            }
-
-        } catch (Exception e) {
-            log.warn(
-                    "No se pudo crear el evento en Google Calendar para la cita {}. La cita queda guardada igualmente.",
-                    cita.getIdCita(),
-                    e
-            );
-        }
-
-        return cita;
+    @Transactional
+    public void liberarReservasVencidas() {
+        citaRepository.expirarReservasVencidas(
+                EstadoCita.PENDIENTE_PAGO,
+                EstadoCita.EXPIRADA,
+                OffsetDateTime.now(zoneId())
+        );
     }
 
     private Cita guardarSinSolape(Cita cita) {

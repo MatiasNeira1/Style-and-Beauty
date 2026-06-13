@@ -3,6 +3,7 @@ package com.style.beauty.ms_agenda.repository;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.enums.EstadoCita;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.OffsetDateTime;
@@ -40,5 +41,19 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
             OffsetDateTime inicio,
             OffsetDateTime fin,
             List<EstadoCita> estadosIgnorados
+    );
+
+    @Modifying
+    @Query("""
+        UPDATE Cita c
+        SET c.estadoCita = :estadoExpirada
+        WHERE c.estadoCita = :estadoPendiente
+        AND c.expiracionReserva IS NOT NULL
+        AND c.expiracionReserva <= :ahora
+    """)
+    int expirarReservasVencidas(
+            EstadoCita estadoPendiente,
+            EstadoCita estadoExpirada,
+            OffsetDateTime ahora
     );
 }

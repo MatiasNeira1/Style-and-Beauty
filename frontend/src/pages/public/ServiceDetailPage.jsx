@@ -10,12 +10,12 @@ import { Loader } from '../../components/ui/Loader.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { agendaService } from '../../services/agendaService.js';
 import { catalogService } from '../../services/catalogService.js';
-import { crearTransaccionWebpay } from '../../services/pagosService.js';
 import { reservationService } from '../../services/reservationService.js';
+import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
+import { useCart } from '../../store/CartContext.jsx';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
-import { redirigirAWebpay } from '../../utils/webpayRedirect.js';
 
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
@@ -136,7 +136,8 @@ export function ServiceDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, setSession } = useAuth();
+  const { addReservationItem, hasReservationForService, setIsCartOpen, setLastCartError } = useCart();
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
   const profileQuery = useQuery({
     queryKey: ['my-profile'],
@@ -402,9 +403,21 @@ export function ServiceDetailPage() {
       setMensajeReserva('Completa tu perfil de cliente antes de confirmar la reserva.');
       return;
     }
+    if (hasReservationForService(idServicio)) {
+      const message = 'Ya tienes una reserva temporal para este servicio en el carrito.';
+      setMensajeReserva(message);
+      setLastCartError(message);
+      setIsCartOpen(true);
+      return;
+    }
 
     setCreandoCita(true);
     try {
+      const refreshedSession = await firebaseAuthService.refreshSession();
+      if (refreshedSession) {
+        setSession(refreshedSession);
+      }
+
       const citaCreada = await agendaService.crearCita({
         idCliente: profileQuery.data?.idPersona,
         idStaff: staffId(profesionalSeleccionado),
@@ -412,18 +425,31 @@ export function ServiceDetailPage() {
         fechaHoraInicio: horarioSeleccionado.inicio,
         observacionCliente,
       });
-      const transaccion = await crearTransaccionWebpay({
-        idCita: citaCreada.idCita,
-        descripcion: 'Reserva Style and Beauty',
-      });
-      const token = transaccion?.token || transaccion?.tokenWebpay;
-      const urlWebpay = transaccion?.urlWebpay || transaccion?.url;
-
-      if (!token || !urlWebpay) {
-        throw new Error('No se recibieron los datos de redireccion Webpay.');
-      }
 
       const horarioReservado = horarioSeleccionado.inicio;
+      const addResult = addReservationItem({
+        id: `reservation:${citaCreada.idCita}`,
+        reservationId: citaCreada.idCita,
+        serviceId: idServicio,
+        staffId: staffId(profesionalSeleccionado),
+        name: service?.nombre || service?.name || 'Reserva',
+        price: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
+        startsAt: citaCreada.fechaHoraInicio || horarioReservado,
+        endsAt: citaCreada.fechaHoraFin,
+        expiresAt: citaCreada.expiracionReserva,
+        service,
+        staff: profesionalSeleccionado,
+        date: fechaSeleccionada,
+        time: horarioReservado,
+        observacionCliente,
+      });
+
+      if (!addResult.ok) {
+        await reservationService.cancelReservation(citaCreada.idCita);
+        setMensajeReserva(addResult.error);
+        return;
+      }
+
       const horariosActualizados = horariosDisponibles.filter((horario) => horario.inicio !== horarioReservado);
       setDisponibilidadSemana((current) => ({
         ...current,
@@ -434,15 +460,14 @@ export function ServiceDetailPage() {
       availabilityWeekCache.current.delete(`${idServicio}:${staffId(profesionalSeleccionado)}:${formatLocalDate(semanaInicio)}`);
       await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
       await queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
-      setMensajeReserva('Reserva creada. Redirigiendo a Webpay...');
+      setMensajeReserva('Reserva agregada al carrito. Tienes 5 minutos para confirmarla antes de que el horario se libere.');
       setObservacionCliente('');
-      redirigirAWebpay(urlWebpay, token);
     } catch (error) {
       const message = error.message || '';
       if (message.toLowerCase().includes('perfil') || message.toLowerCase().includes('cliente')) {
         setMensajeReserva('No se pudo identificar tu perfil de cliente. Inicia sesion nuevamente o completa tu registro.');
       } else {
-        setMensajeReserva(message || 'No se pudo iniciar el pago. Intenta nuevamente.');
+        setMensajeReserva(message || 'No se pudo agregar la reserva al carrito. Intenta nuevamente.');
       }
     } finally {
       setCreandoCita(false);
@@ -655,7 +680,7 @@ export function ServiceDetailPage() {
               {profileQuery.isError && isAuthenticated && (
                 <p className="admin-alert">{profileErrorMessage(profileQuery.error)}</p>
               )}
-              {mensajeReserva && <p className={mensajeReserva.includes('Redirigiendo') ? 'service-booking-success' : 'admin-alert'}>{mensajeReserva}</p>}
+              {mensajeReserva && <p className={mensajeReserva.includes('agregada al carrito') ? 'service-booking-success' : 'admin-alert'}>{mensajeReserva}</p>}
               <button
                 type="button"
                 className="button"
@@ -663,7 +688,7 @@ export function ServiceDetailPage() {
                 disabled={creandoCita || (isAuthenticated && (profileQuery.isLoading || profileQuery.isError || !profileQuery.data?.idPersona))}
               >
                 <CalendarDays size={17} />
-                {creandoCita ? 'Iniciando pago...' : 'Reservar y pagar'}
+                {creandoCita ? 'Agregando...' : 'Agregar al carrito'}
               </button>
             </div>
           </section>
