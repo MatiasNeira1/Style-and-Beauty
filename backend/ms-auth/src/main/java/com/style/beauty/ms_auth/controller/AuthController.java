@@ -96,17 +96,28 @@ public class AuthController {
     }
 //===============================================================================================================================
     @PostMapping("/registrar-cliente")
-    public ResponseEntity<String> registrarClienteAutomatico(@RequestBody Map<String, String> requestBody) {
+    public ResponseEntity<?> registrarClienteAutomatico(@RequestBody Map<String, String> requestBody) {
         String uid = requestBody.get("uid");
+        String email = requestBody.get("email");
+        String password = requestBody.get("password");
 
-        if (uid == null || uid.isEmpty()) {
-            return ResponseEntity.badRequest().body("Falta el parámetro 'uid'");
+        if ((uid == null || uid.isBlank())
+                && (email == null || email.isBlank() || password == null || password.isBlank())) {
+            return ResponseEntity.badRequest().body("Debe enviar 'uid' o 'email' y 'password'");
         }
 
         try {
-            // Asignacion de usuario cliente por defecto al registrarse
-            rolService.assignClientRoleFromPublicFlow(uid);
-            return ResponseEntity.ok("Rol CLIENTE asignado exitosamente al nuevo usuario");
+            UserRecord user = uid != null && !uid.isBlank()
+                    ? rolService.assignClientRoleFromPublicFlow(uid)
+                    : rolService.createOrConfirmPublicClient(email, password);
+
+            return ResponseEntity.ok(Map.of(
+                    "uid", user.getUid(),
+                    "email", user.getEmail() == null ? "" : user.getEmail(),
+                    "rol", "CLIENTE",
+                    "role", "CLIENTE",
+                    "tokenRefreshRequired", true
+            ));
         } catch (FirebaseAuthException e) {
             return ResponseEntity.internalServerError().body("Error al comunicar con Firebase: " + e.getMessage());
         } catch (IllegalArgumentException e) {

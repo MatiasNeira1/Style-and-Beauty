@@ -125,6 +125,10 @@ export function AuthProvider({ children }) {
         window.localStorage.setItem(TOKEN_KEY, created.token);
       }
       await authService.registerClient({ uid: created.user.uid });
+      const clientClaimSession = await firebaseAuthService.refreshSession();
+      if (clientClaimSession?.token) {
+        window.localStorage.setItem(TOKEN_KEY, clientClaimSession.token);
+      }
 
       try {
         await profileService.createProfile(normalizedProfile);
