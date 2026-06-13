@@ -14,6 +14,7 @@ import { StaffSelector } from '../../components/booking/StaffSelector.jsx';
 import { crearTransaccionWebpay } from '../../services/pagosService.js';
 import { reservationService } from '../../services/reservationService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
+import { HOME_HERO_IMAGE_URL } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
 import { redirigirAWebpay } from '../../utils/webpayRedirect.js';
@@ -188,7 +189,7 @@ export function BookingPage() {
   return (
     <>
       <BookingHero />
-      <section className="page-section two-column booking-shell client-view">
+      <section className={`page-section booking-shell client-view${step === 3 ? ' booking-shell--with-summary' : ''}`}>
         <div className="stack wizard-panel">
           <SectionTitle eyebrow="Agenda inteligente" title="Reserva segun disponibilidad real">
             El sistema calcula horarios usando jornada del staff, citas existentes y bloqueos.
@@ -284,7 +285,11 @@ export function BookingPage() {
           {bookingMutation.isError && <p className="admin-alert">{bookingMutation.error.message}</p>}
         </div>
 
-        <BookingSummary service={service} staff={member} date={date} time={time} slot={selectedSlot} />
+        {step === 3 && (
+          <aside className="booking-summary-panel">
+            <BookingSummary service={service} staff={member} date={date} time={time} slot={selectedSlot} />
+          </aside>
+        )}
       </section>
     </>
   );
@@ -292,7 +297,10 @@ export function BookingPage() {
 
 function BookingHero() {
   return (
-    <section className="page-hero page-hero-booking">
+    <section
+      className="page-hero page-hero-booking"
+      style={{ '--page-hero-image': `url("${HOME_HERO_IMAGE_URL}")` }}
+    >
       <div className="page-hero-media" />
       <div className="page-hero-overlay" />
       <div className="page-hero-content">

@@ -7,7 +7,7 @@ export const AUTH_API_BASE_URL = API_BASE_URL;
 export const PROFILES_API_BASE_URL = API_BASE_URL;
 export const STAFF_API_BASE_URL = API_BASE_URL;
 export const CATALOG_API_BASE_URL = API_BASE_URL;
-export const AGENDA_API_BASE_URL = (import.meta.env.VITE_AGENDA_API_BASE_URL || API_BASE_URL || 'http://localhost:8084')
+export const AGENDA_API_BASE_URL = (import.meta.env.VITE_AGENDA_API_BASE_URL || API_BASE_URL)
   .replace(/\/$/, '')
   .replace(/\/api$/i, '');
 export const INVENTORY_API_BASE_URL = API_BASE_URL;
@@ -15,9 +15,11 @@ export const TOKEN_KEY = 'style_beauty_token';
 export const SESSION_USER_KEY = 'style_beauty_user';
 export const AUTH_EXPIRED_EVENT = 'style-beauty:auth-expired';
 export const ASSETS_BASE_URL = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
-export const HOME_HERO_IMAGE_URL = import.meta.env.VITE_HOME_HERO_IMAGE_URL || resolveAssetUrl('jefes.png', '/jefes.png');
+export const AZURE_PUBLIC_LOGO_URL = 'https://stylebeautyimages.blob.core.windows.net/stylebeauty/logo.jpg';
+export const AZURE_PUBLIC_STAFF_IMAGE_URL = 'https://stylebeautyimages.blob.core.windows.net/stylebeauty/jefes.png';
+export const HOME_HERO_IMAGE_URL = import.meta.env.VITE_HOME_HERO_IMAGE_URL || AZURE_PUBLIC_STAFF_IMAGE_URL;
 export const USE_MOCKS = import.meta.env.DEV && String(import.meta.env.VITE_USE_MOCKS || '').toLowerCase() === 'true';
-export const DEFAULT_IMAGE_FALLBACK = '/logo.jpg';
+export const DEFAULT_IMAGE_FALLBACK = AZURE_PUBLIC_LOGO_URL;
 
 const AUTH_STORAGE_KEYS = [
   TOKEN_KEY,
