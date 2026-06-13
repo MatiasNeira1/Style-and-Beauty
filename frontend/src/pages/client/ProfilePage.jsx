@@ -30,7 +30,12 @@ export function ProfilePage() {
     retry: false,
   });
 
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset } = useForm({
+    defaultValues: {
+      emailContacto: user?.email || '',
+      genero: 'no_especifica',
+    },
+  });
 
   // Reset form when profile data loads
   useEffect(() => {
@@ -60,6 +65,23 @@ export function ProfilePage() {
     }
   });
 
+  const createProfileMutation = useMutation({
+    mutationFn: (values) => profileService.createProfile({
+      ...values,
+      emailContacto: values.emailContacto || user?.email,
+      tipoPerfil: 'CLIENTE',
+    }),
+    onSuccess: async (createdProfile) => {
+      queryClient.setQueryData(['myProfile'], createdProfile);
+      queryClient.setQueryData(['my-profile'], createdProfile);
+      await queryClient.invalidateQueries({ queryKey: ['auth-session', user?.uid] });
+      setSuccessMsg('Perfil creado correctamente.');
+    },
+    onError: (err) => {
+      setErrorMsg(err.message || 'No fue posible crear tu perfil.');
+    },
+  });
+
   if (isLoading) {
     return <div style={{ minHeight: '60vh', display: 'grid', placeItems: 'center' }}>Cargando perfil...</div>;
   }
@@ -67,10 +89,66 @@ export function ProfilePage() {
   if (profileError?.status === 404) {
     return (
       <section className="page-section">
-        <Card className="client-auth-card">
+        <Card className="client-auth-card" style={{ maxWidth: '760px', margin: '0 auto' }}>
           <h2>Tu cuenta no tiene perfil asociado</h2>
-          <p>La sesion esta activa, pero falta completar el perfil cliente en la base de datos.</p>
-          <Button onClick={logout}>Cerrar sesion y volver a registrarme</Button>
+          <p>La sesion esta activa. Completa estos datos una sola vez para asociar tu usuario Firebase con tu perfil cliente.</p>
+
+          {errorMsg && (
+            <div style={{ background: '#fef2f2', color: '#991b1b', padding: '1rem', borderRadius: 'var(--radius-sm)' }}>
+              {errorMsg}
+            </div>
+          )}
+
+          {successMsg && (
+            <div style={{ background: '#ecfdf5', color: '#065f46', padding: '1rem', borderRadius: 'var(--radius-sm)' }}>
+              {successMsg}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit((values) => createProfileMutation.mutate(values))} className="stack" style={{ gap: '1.25rem', marginTop: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              <div className="field">
+                <label>RUT</label>
+                <Input {...register('rut', { required: true })} placeholder="12.345.678-9" required />
+              </div>
+              <div className="field">
+                <label>Nombre</label>
+                <Input {...register('nombre', { required: true })} placeholder="Tu nombre" required />
+              </div>
+              <div className="field">
+                <label>Apellidos</label>
+                <Input {...register('apellidos')} placeholder="Tus apellidos" />
+              </div>
+              <div className="field">
+                <label>Email de contacto</label>
+                <Input {...register('emailContacto', { required: true })} type="email" placeholder="tuemail@correo.com" required />
+              </div>
+              <div className="field">
+                <label>Fecha de nacimiento</label>
+                <Input {...register('fechaNacimiento', { required: true })} type="date" required />
+              </div>
+              <div className="field">
+                <label>Genero</label>
+                <Input {...register('genero', { required: true })} as="select" required>
+                  <option value="femenino">Femenino</option>
+                  <option value="masculino">Masculino</option>
+                  <option value="otro">Otro</option>
+                  <option value="no_especifica">Prefiero no decirlo</option>
+                </Input>
+              </div>
+              <div className="field">
+                <label>Telefono</label>
+                <Input {...register('telefono')} placeholder="+56 9 1234 5678" />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <Button type="button" variant="ghost" onClick={logout}>Cerrar sesion</Button>
+              <Button type="submit" disabled={createProfileMutation.isPending}>
+                {createProfileMutation.isPending ? 'Creando perfil...' : 'Crear mi perfil cliente'}
+              </Button>
+            </div>
+          </form>
         </Card>
       </section>
     );

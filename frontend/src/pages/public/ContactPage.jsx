@@ -112,6 +112,9 @@ export function ContactPage() {
                     {profileQuery.error?.status === 404
                       ? 'Completa tu perfil de cliente antes de enviar un mensaje.'
                       : profileQuery.error?.message || 'No fue posible cargar tu perfil.'}
+                    {profileQuery.error?.status === 404 && (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/perfil')}>Ir a mi perfil</Button>
+                    )}
                   </p>
                 )}
                 {profile && (

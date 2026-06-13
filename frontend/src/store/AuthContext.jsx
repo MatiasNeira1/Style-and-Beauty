@@ -99,7 +99,23 @@ export function AuthProvider({ children }) {
 
       await profileService.validateAvailability(normalizedProfile);
       const created = await firebaseAuthService.register(normalizedEmail, password);
+      if (created.token) {
+        window.localStorage.setItem(TOKEN_KEY, created.token);
+      }
       await authService.registerClient({ uid: created.user.uid });
+
+      try {
+        await profileService.createProfile(normalizedProfile);
+      } catch (profileError) {
+        const message = profileError.message?.toLowerCase() || '';
+        if (message.includes('ya existe un perfil') || message.includes('ya existe un usuario')) {
+          await profileService.getMyProfile();
+        } else {
+          await firebaseAuthService.logout().catch(() => {});
+          setSession(null);
+          throw profileError;
+        }
+      }
 
       let session = null;
       for (let attempt = 1; attempt <= ROLE_CLAIM_RETRIES; attempt += 1) {
@@ -113,18 +129,6 @@ export function AuthProvider({ children }) {
       }
 
       setSession(session);
-      try {
-        await profileService.createProfile(normalizedProfile);
-      } catch (profileError) {
-        const message = profileError.message?.toLowerCase() || '';
-        if (message.includes('ya existe un perfil') || message.includes('ya existe un usuario')) {
-          await profileService.getMyProfile();
-        } else {
-          await firebaseAuthService.logout().catch(() => {});
-          setSession(null);
-          throw profileError;
-        }
-      }
       return session;
     } finally {
       isRegisteringRef.current = false;
