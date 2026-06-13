@@ -241,6 +241,19 @@ class CitaServiceTest {
     }
 
     @Test
+    void crearCitaAjustaHolguraSiCatalogoTieneHolguraMayorALaDuracion() {
+        when(servicioClient.obtenerServicio(ID_SERVICIO))
+                .thenReturn(new ServicioResumen(ID_SERVICIO, "Corte express", "Cabello", 20, 30));
+
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(8, 0), null, null, null));
+
+        assertThat(creada.getDuracionServicioMin()).isEqualTo(20);
+        assertThat(creada.getHolguraMin()).isEqualTo(15);
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(8, 20));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(8, 5));
+    }
+
+    @Test
     void rechazaCrearCitaSiLaHoraNoCorrespondeAUnSlotDisponible() {
         CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(8, 15), null, null, null);
 

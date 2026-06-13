@@ -9,12 +9,24 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.text.Normalizer;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class ServicioService {
+
+    private static final int MINUTOS_ATENCION_MINIMA = 5;
+    private static final Map<String, Integer> HOLGURA_POR_CATEGORIA = Map.of(
+            "cabello", 30,
+            "maquillaje", 15,
+            "nails", 15,
+            "piel", 20,
+            "spa", 30
+    );
 
     @Autowired
     private ServicioRepository repository;
@@ -108,6 +120,16 @@ public class ServicioService {
 
             servicio.setHolgura_minutos(holguraCategoria);
         }
+
+        if (servicio.getDuracion_minutos() != null
+                && servicio.getDuracion_minutos() > 0
+                && servicio.getHolgura_minutos() != null
+                && servicio.getHolgura_minutos() >= servicio.getDuracion_minutos()) {
+            servicio.setHolgura_minutos(ajustarHolguraSegura(
+                    servicio.getDuracion_minutos(),
+                    servicio.getHolgura_minutos()
+            ));
+        }
     }
 
     private Integer obtenerHolguraCategoria(String categoria) {
@@ -116,9 +138,15 @@ public class ServicioService {
             return null;
         }
 
-        return categoriaRepository.findByNombreIgnoreCase(categoria.trim())
+        Integer holguraPersistida = categoriaRepository.findByNombreIgnoreCase(categoria.trim())
                 .map(categoriaEncontrada -> categoriaEncontrada.getHolgura())
                 .orElse(null);
+
+        if (holguraPersistida != null) {
+            return holguraPersistida;
+        }
+
+        return holguraPorCategoria(categoria);
     }
 
     private void validarServicio(Servicio servicio) {
@@ -141,10 +169,6 @@ public class ServicioService {
 
         if (servicio.getHolgura_minutos() < 0) {
             throw new RuntimeException("La holgura del servicio no puede ser negativa");
-        }
-
-        if (servicio.getHolgura_minutos() >= servicio.getDuracion_minutos()) {
-            throw new RuntimeException("La holgura no puede ser igual o mayor a la duración del servicio");
         }
 
         if (servicio.getPrecio_total() == null || servicio.getPrecio_total() < 0) {
@@ -216,5 +240,53 @@ public class ServicioService {
             return obtenerProfesionalesPorServicio(servicioOpt.get().getId_servicio());
         }
         return List.of();
+    }
+
+    private Integer holguraPorCategoria(String categoria) {
+        String normalizada = normalizarCategoria(categoria);
+
+        if (normalizada == null) {
+            return null;
+        }
+
+        if (normalizada.contains("cabello") || normalizada.contains("peluqueria")) {
+            return HOLGURA_POR_CATEGORIA.get("cabello");
+        }
+
+        if (normalizada.contains("maquillaje")) {
+            return HOLGURA_POR_CATEGORIA.get("maquillaje");
+        }
+
+        if (normalizada.contains("nails") || normalizada.contains("manicure") || normalizada.contains("unas")) {
+            return HOLGURA_POR_CATEGORIA.get("nails");
+        }
+
+        if (normalizada.contains("piel") || normalizada.contains("facial")) {
+            return HOLGURA_POR_CATEGORIA.get("piel");
+        }
+
+        if (normalizada.contains("spa")) {
+            return HOLGURA_POR_CATEGORIA.get("spa");
+        }
+
+        return null;
+    }
+
+    private String normalizarCategoria(String categoria) {
+        if (categoria == null || categoria.isBlank()) {
+            return null;
+        }
+
+        String sinAcentos = Normalizer.normalize(categoria.trim(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        return sinAcentos.toLowerCase(Locale.ROOT);
+    }
+
+    private int ajustarHolguraSegura(int duracion, int holgura) {
+        if (holgura < duracion) {
+            return holgura;
+        }
+
+        return Math.max(0, duracion - MINUTOS_ATENCION_MINIMA);
     }
 }
