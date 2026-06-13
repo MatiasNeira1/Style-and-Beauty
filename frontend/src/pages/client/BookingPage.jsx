@@ -14,6 +14,7 @@ import { StaffSelector } from '../../components/booking/StaffSelector.jsx';
 import { crearTransaccionWebpay } from '../../services/pagosService.js';
 import { reservationService } from '../../services/reservationService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
+import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
 import { HOME_HERO_IMAGE_URL } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
@@ -34,8 +35,22 @@ function profileErrorMessage(error) {
   return error?.message || 'No fue posible cargar tu perfil de cliente.';
 }
 
+function bookingErrorMessage(error) {
+  const message = String(error?.message || '').toLowerCase();
+
+  if (error?.status === 401) return 'Tu sesion expiro. Inicia sesion nuevamente para reservar.';
+  if (error?.status === 403) return 'Tu cuenta no tiene permisos para crear reservas.';
+  if (error?.status === 404 || isProfileNotFoundError(error)) return 'Completa tu perfil de cliente antes de confirmar la reserva.';
+  if (error?.status === 503) return 'El servicio de autenticacion de reservas no esta configurado. Intenta mas tarde.';
+  if (message.includes('firebaseapp') || message.includes('firebase admin')) {
+    return 'El servicio de autenticacion de reservas no esta disponible. Intenta mas tarde.';
+  }
+
+  return error?.message || 'No se pudo iniciar el pago. Intenta nuevamente.';
+}
+
 export function BookingPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, setSession } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -137,6 +152,11 @@ export function BookingPage() {
     let created = null;
     setConfirmandoPago(true);
     try {
+      const refreshedSession = await firebaseAuthService.refreshSession();
+      if (refreshedSession) {
+        setSession(refreshedSession);
+      }
+
       created = await bookingMutation.mutateAsync({
         clientId: myProfile?.idPersona,
         professionalId: staffId(member),
@@ -164,7 +184,7 @@ export function BookingPage() {
       });
       redirigirAWebpay(urlWebpay, token);
     } catch (error) {
-      setConfirmError(error.message || 'No se pudo iniciar el pago. Intenta nuevamente.');
+      setConfirmError(bookingErrorMessage(error));
       return;
     } finally {
       setConfirmandoPago(false);

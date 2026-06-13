@@ -152,7 +152,7 @@ public class GlobalExceptionHandler {
                 .timestamp(OffsetDateTime.now())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error("INTERNAL_SERVER_ERROR")
-                .message(ex.getMessage())
+                .message("No fue posible procesar la solicitud. Intenta nuevamente.")
                 .path(request.getRequestURI())
                 .build();
 

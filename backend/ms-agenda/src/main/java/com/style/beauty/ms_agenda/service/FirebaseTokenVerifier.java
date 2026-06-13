@@ -12,6 +12,23 @@ import org.springframework.web.server.ResponseStatusException;
 public class FirebaseTokenVerifier {
 
     public String authenticatedUid(String authHeader) {
+        return authenticatedToken(authHeader).getUid();
+    }
+
+    public String authenticatedClientUid(String authHeader) {
+        FirebaseToken token = authenticatedToken(authHeader);
+        Object roleClaim = token.getClaims().getOrDefault("rol", token.getClaims().get("role"));
+
+        if (roleClaim != null && !"CLIENTE".equalsIgnoreCase(String.valueOf(roleClaim))) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Solo clientes autenticados pueden crear reservas.");
+        }
+
+        return token.getUid();
+    }
+
+    private FirebaseToken authenticatedToken(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Falta el header Authorization.");
         }
@@ -23,8 +40,7 @@ public class FirebaseTokenVerifier {
         }
 
         try {
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(authHeader.substring(7).trim());
-            return decodedToken.getUid();
+            return FirebaseAuth.getInstance().verifyIdToken(authHeader.substring(7).trim());
         } catch (FirebaseAuthException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token invalido o expirado.");
         } catch (IllegalStateException e) {

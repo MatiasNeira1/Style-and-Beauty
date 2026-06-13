@@ -51,7 +51,7 @@ public class CitaController {
     public Cita crear(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @Valid @RequestBody CrearCitaRequest request) {
-        String uid = firebaseTokenVerifier.authenticatedUid(authHeader);
+        String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
         PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
         return citaService.crear(request.withCliente(cliente.idPersona()));
     }
