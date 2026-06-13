@@ -60,10 +60,38 @@ public class RolService {
                 : new HashMap<>();
 
         existingClaims.put("rol", rol);
+        existingClaims.put("role", rol);
 
         FirebaseAuth.getInstance().setCustomUserClaims(uid, existingClaims);
 
         logger.info("Rol {} asignado correctamente al UID: {}", rol, uid);
+    }
+
+    public void assignClientRoleFromPublicFlow(String uid) throws FirebaseAuthException {
+        ensureFirebaseConfigured();
+
+        UserRecord user;
+        try {
+            user = FirebaseAuth.getInstance().getUser(uid);
+        } catch (FirebaseAuthException e) {
+            logger.warn("Usuario no encontrado: {}", uid);
+            throw e;
+        }
+
+        Map<String, Object> existingClaims = user.getCustomClaims() != null
+                ? new HashMap<>(user.getCustomClaims())
+                : new HashMap<>();
+        Object currentRole = existingClaims.getOrDefault("rol", existingClaims.get("role"));
+
+        if (currentRole != null && !"CLIENTE".equalsIgnoreCase(String.valueOf(currentRole))) {
+            throw new IllegalArgumentException("El usuario ya tiene un rol protegido asignado.");
+        }
+
+        existingClaims.put("rol", "CLIENTE");
+        existingClaims.put("role", "CLIENTE");
+        FirebaseAuth.getInstance().setCustomUserClaims(uid, existingClaims);
+
+        logger.info("Rol CLIENTE confirmado para UID desde flujo publico: {}", uid);
     }
 
     private void ensureFirebaseConfigured() {

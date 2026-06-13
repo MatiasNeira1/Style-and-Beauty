@@ -13,6 +13,28 @@ const ROLE_CLAIM_RETRY_DELAY_MS = 900;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function isClientRole(session) {
+  const role = session?.claims?.rol || session?.claims?.role || session?.user?.rol || session?.user?.role;
+  return String(role || '').toUpperCase() === 'CLIENTE';
+}
+
+function withClientFallback(session) {
+  if (!session?.user) return session;
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      rol: 'CLIENTE',
+      role: 'cliente',
+    },
+    claims: {
+      ...(session.claims || {}),
+      rol: 'CLIENTE',
+      role: 'CLIENTE',
+    },
+  };
+}
+
 function readStoredUser() {
   try {
     const stored = window.localStorage.getItem(SESSION_USER_KEY);
@@ -120,12 +142,17 @@ export function AuthProvider({ children }) {
       let session = null;
       for (let attempt = 1; attempt <= ROLE_CLAIM_RETRIES; attempt += 1) {
         session = await firebaseAuthService.refreshSession();
-        if (session?.claims?.rol === 'CLIENTE') break;
+        if (isClientRole(session)) break;
         await wait(ROLE_CLAIM_RETRY_DELAY_MS);
       }
 
-      if (session?.claims?.rol !== 'CLIENTE') {
-        throw new Error('La cuenta se creó, pero el rol CLIENTE aún no está disponible. Intenta iniciar sesión nuevamente.');
+      if (!isClientRole(session)) {
+        await authService.registerClient({ uid: created.user.uid });
+        session = withClientFallback(session || {
+          user: created.user,
+          token: created.token,
+          claims: {},
+        });
       }
 
       setSession(session);
