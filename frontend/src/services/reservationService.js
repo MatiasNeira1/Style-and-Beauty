@@ -45,4 +45,12 @@ export const reservationService = {
       },
     });
   },
+
+  cancelReservation: (reservationId) =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: `/api/agenda/citas/${reservationId}`,
+      method: 'DELETE',
+      authRequired: true,
+    }),
 };

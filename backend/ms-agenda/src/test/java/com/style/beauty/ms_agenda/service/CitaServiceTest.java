@@ -33,6 +33,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -52,7 +53,6 @@ class CitaServiceTest {
     private HistorialCitaRepository historialCitaRepository;
     private PerfilClient perfilClient;
     private ServicioClient servicioClient;
-    private GoogleCalendarService googleCalendarService;
     private CitaService citaService;
 
     @BeforeEach
@@ -63,7 +63,6 @@ class CitaServiceTest {
         historialCitaRepository = mock(HistorialCitaRepository.class);
         perfilClient = mock(PerfilClient.class);
         servicioClient = mock(ServicioClient.class);
-        googleCalendarService = mock(GoogleCalendarService.class);
 
         citaService = new CitaService(
                 citaRepository,
@@ -72,8 +71,7 @@ class CitaServiceTest {
                 historialCitaRepository,
                 perfilClient,
                 servicioClient,
-                new HolguraService(),
-                googleCalendarService);
+                new HolguraService());
         ReflectionTestUtils.setField(citaService, "agendaZone", "America/Santiago");
 
         when(perfilClient.obtenerCliente(ID_CLIENTE)).thenReturn(perfil(ID_CLIENTE, "Cliente", "Demo", "cliente@example.com"));
@@ -297,9 +295,8 @@ class CitaServiceTest {
     }
 
     @Test
-    void guardaCitaConDuracionHolguraYGoogleEventId() {
+    void crearGeneraReservaTemporalConExpiracionSinGoogleCalendar() {
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
-        when(googleCalendarService.crearEvento(any(), any(), any(), any())).thenReturn("calendar-event-123");
 
         Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 0), null, null, "Test"));
 
@@ -307,22 +304,33 @@ class CitaServiceTest {
         assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(9, 30));
         assertThat(creada.getDuracionServicioMin()).isEqualTo(60);
         assertThat(creada.getHolguraMin()).isEqualTo(30);
-        assertThat(creada.getGoogleCalendarEventId()).isEqualTo("calendar-event-123");
-        verify(googleCalendarService).crearEvento(any(), any(), any(), any());
+        assertThat(creada.getEstadoCita()).isEqualTo(EstadoCita.PENDIENTE_PAGO);
+        assertThat(creada.getExpiracionReserva()).isAfter(OffsetDateTime.now(ZONE).plusMinutes(4));
+        assertThat(creada.getExpiracionReserva()).isBefore(OffsetDateTime.now(ZONE).plusMinutes(6));
+        assertThat(creada.getGoogleCalendarEventId()).isNull();
     }
 
     @Test
-    void creaCitaAunqueGoogleCalendarFalleYRegistraHistorial() {
-        when(googleCalendarService.crearEvento(any(), any(), any(), any()))
-                .thenThrow(new BusinessException("No fue posible crear el evento en Google Calendar"));
-
+    void creaCitaTemporalYRegistraHistorial() {
         CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 0), null, null, null);
 
         Cita creada = citaService.crear(request);
 
+        assertThat(creada.getEstadoCita()).isEqualTo(EstadoCita.PENDIENTE_PAGO);
         assertThat(creada.getGoogleCalendarEventId()).isNull();
         verify(citaRepository).saveAndFlush(any(Cita.class));
         verify(historialCitaRepository).save(any());
+    }
+
+    @Test
+    void liberarReservasVencidasMarcaPendientesComoExpiradas() {
+        citaService.liberarReservasVencidas();
+
+        verify(citaRepository).expirarReservasVencidas(
+                eq(EstadoCita.PENDIENTE_PAGO),
+                eq(EstadoCita.EXPIRADA),
+                any(OffsetDateTime.class)
+        );
     }
 
     private PerfilResumen perfil(UUID id, String nombre, String apellidos, String email) {

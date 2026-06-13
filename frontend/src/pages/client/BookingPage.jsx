@@ -11,7 +11,6 @@ import { BookingSummary } from '../../components/booking/BookingSummary.jsx';
 import { DateTimePicker } from '../../components/booking/DateTimePicker.jsx';
 import { ServiceSelector } from '../../components/booking/ServiceSelector.jsx';
 import { StaffSelector } from '../../components/booking/StaffSelector.jsx';
-import { crearTransaccionWebpay } from '../../services/pagosService.js';
 import { reservationService } from '../../services/reservationService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { firebaseAuthService } from '../../services/firebaseAuthService.js';
@@ -19,7 +18,7 @@ import { serviceCatalogService } from '../../services/serviceCatalogService.js';
 import { HOME_HERO_IMAGE_URL } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
-import { redirigirAWebpay } from '../../utils/webpayRedirect.js';
+import { useCart } from '../../store/CartContext.jsx';
 
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
@@ -46,7 +45,7 @@ function bookingErrorMessage(error) {
     return 'El servicio de autenticacion de reservas no esta disponible. Intenta mas tarde.';
   }
 
-  return error?.message || 'No se pudo iniciar el pago. Intenta nuevamente.';
+  return error?.message || 'No se pudo agregar la reserva al carrito. Intenta nuevamente.';
 }
 
 export function BookingPage() {
@@ -55,6 +54,7 @@ export function BookingPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { updateBooking } = useBooking();
+  const { addReservationItem, hasReservationForService, setIsCartOpen, setLastCartError } = useCart();
 
   const initialService = location.state?.service || null;
   const initialProfessional = location.state?.professional || null;
@@ -71,7 +71,7 @@ export function BookingPage() {
     return 1;
   });
   const [confirmError, setConfirmError] = useState('');
-  const [confirmandoPago, setConfirmandoPago] = useState(false);
+  const [agregandoCarrito, setAgregandoCarrito] = useState(false);
 
   const selectedServiceId = serviceId(service);
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: serviceCatalogService.listServices });
@@ -133,6 +133,13 @@ export function BookingPage() {
       setConfirmError('Tu perfil de cliente debe estar completo para confirmar la reserva.');
       return;
     }
+    if (hasReservationForService(selectedServiceId)) {
+      const message = 'Ya tienes una reserva temporal para este servicio en el carrito.';
+      setConfirmError(message);
+      setLastCartError(message);
+      setIsCartOpen(true);
+      return;
+    }
 
     const freshAvailability = await availabilityQuery.refetch();
     if (freshAvailability.isError) {
@@ -150,7 +157,7 @@ export function BookingPage() {
     }
 
     let created = null;
-    setConfirmandoPago(true);
+    setAgregandoCarrito(true);
     try {
       const refreshedSession = await firebaseAuthService.refreshSession();
       if (refreshedSession) {
@@ -163,16 +170,6 @@ export function BookingPage() {
         serviceId: selectedServiceId,
         startsAt: time,
       });
-      const transaccion = await crearTransaccionWebpay({
-        idCita: created.idCita,
-        descripcion: 'Reserva Style and Beauty',
-      });
-      const token = transaccion?.token || transaccion?.tokenWebpay;
-      const urlWebpay = transaccion?.urlWebpay || transaccion?.url;
-
-      if (!token || !urlWebpay) {
-        throw new Error('No se recibieron los datos de redireccion Webpay.');
-      }
 
       updateBooking({
         service,
@@ -182,12 +179,34 @@ export function BookingPage() {
         holguraMin: created?.holguraMin,
         duracionServicioMin: created?.duracionServicioMin,
       });
-      redirigirAWebpay(urlWebpay, token);
+      const addResult = addReservationItem({
+        id: `reservation:${created.idCita}`,
+        reservationId: created.idCita,
+        serviceId: selectedServiceId,
+        staffId: staffId(member),
+        name: service?.nombre || service?.name || 'Reserva',
+        price: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
+        startsAt: created.fechaHoraInicio || time,
+        endsAt: created.fechaHoraFin,
+        expiresAt: created.expiracionReserva,
+        service,
+        staff: member,
+        date,
+        time,
+      });
+
+      if (!addResult.ok) {
+        await reservationService.cancelReservation(created.idCita);
+        setConfirmError(addResult.error);
+        return;
+      }
+
+      setConfirmError('Reserva agregada al carrito. Tienes 5 minutos para confirmarla antes de que el horario se libere.');
     } catch (error) {
       setConfirmError(bookingErrorMessage(error));
       return;
     } finally {
-      setConfirmandoPago(false);
+      setAgregandoCarrito(false);
     }
   };
 
@@ -289,9 +308,9 @@ export function BookingPage() {
             {step === 3 && (
               <Button
                 onClick={confirm}
-                disabled={!myProfile?.idPersona || isProfileError || !service || !member || !date || !time || !selectedSlot || bookingMutation.isPending || availabilityQuery.isFetching || confirmandoPago}
+                disabled={!myProfile?.idPersona || isProfileError || !service || !member || !date || !time || !selectedSlot || bookingMutation.isPending || availabilityQuery.isFetching || agregandoCarrito}
               >
-                {bookingMutation.isPending || availabilityQuery.isFetching || confirmandoPago ? 'Iniciando pago...' : 'Reservar y pagar'}
+                {bookingMutation.isPending || availabilityQuery.isFetching || agregandoCarrito ? 'Agregando...' : 'Agregar al carrito'}
               </Button>
             )}
           </div>

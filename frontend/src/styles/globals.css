@@ -2647,6 +2647,14 @@ img { max-width: 100%; display: block; }
   transform: scale(1.05);
 }
 
+.cart-reservation-icon {
+  align-items: center;
+  background: rgba(157, 75, 95, 0.1);
+  color: var(--color-primary-strong);
+  display: flex;
+  justify-content: center;
+}
+
 .cart-line-details {
   display: flex;
   justify-content: space-between;
@@ -2677,6 +2685,16 @@ img { max-width: 100%; display: block; }
   font-size: 0.82rem;
   color: var(--color-muted);
   font-weight: 600;
+}
+
+.cart-item-timer {
+  align-items: center;
+  color: var(--color-primary-strong);
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 750;
+  gap: 0.3rem;
+  line-height: 1.2;
 }
 
 .cart-line-actions {
