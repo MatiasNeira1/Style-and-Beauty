@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
+import com.style.beauty.ms_cliente.exception.ProfileNotFoundException;
 import com.style.beauty.ms_cliente.model.PersonaModel;
 import com.style.beauty.ms_cliente.repository.PersonaRepository;
 import com.style.beauty.ms_cliente.strategy.PerfilStrategy;
@@ -150,7 +151,7 @@ public class PerfilService {
         // 2. READ (Obtener Mi Perfil)
     public PersonaModel obtenerMiPerfil(String idAuth) {
         return personaRepository.findByIdAuth(idAuth)
-                .orElseThrow(() -> new RuntimeException("Perfil no encontrado en la base de datos."));
+                .orElseThrow(() -> new ProfileNotFoundException("Perfil no encontrado en la base de datos."));
     }
 
     // 2.1 READ (Listar Clientes - Solo para Staff/Admin)

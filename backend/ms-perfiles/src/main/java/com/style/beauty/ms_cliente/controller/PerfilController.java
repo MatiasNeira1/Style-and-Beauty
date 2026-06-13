@@ -2,6 +2,7 @@ package com.style.beauty.ms_cliente.controller;
 
 import com.google.firebase.auth.FirebaseToken;
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
+import com.style.beauty.ms_cliente.exception.ProfileNotFoundException;
 import com.style.beauty.ms_cliente.model.PersonaModel;
 import com.style.beauty.ms_cliente.service.FirebaseTokenVerifier;
 import com.style.beauty.ms_cliente.service.PerfilService;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/perfiles")
@@ -81,9 +83,10 @@ public class PerfilController {
 
         } catch (ResponseStatusException e) {
             return responseStatus(e);
+        } catch (ProfileNotFoundException e) {
+            return profileNotFound(e);
         } catch (RuntimeException e) {
-            HttpStatus status = esPerfilNoEncontrado(e) ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
-            return ResponseEntity.status(status).body(e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
@@ -135,6 +138,8 @@ public class PerfilController {
 
         } catch (ResponseStatusException e) {
             return responseStatus(e);
+        } catch (ProfileNotFoundException e) {
+            return profileNotFound(e);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -152,9 +157,10 @@ public class PerfilController {
 
         } catch (ResponseStatusException e) {
             return responseStatus(e);
+        } catch (ProfileNotFoundException e) {
+            return profileNotFound(e);
         } catch (RuntimeException e) {
-            HttpStatus status = esPerfilNoEncontrado(e) ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
-            return ResponseEntity.status(status).body(e.getMessage());
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
@@ -162,7 +168,10 @@ public class PerfilController {
         return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
     }
 
-    private boolean esPerfilNoEncontrado(RuntimeException e) {
-        return e.getMessage() != null && e.getMessage().toLowerCase().contains("perfil no encontrado");
+    private ResponseEntity<Map<String, String>> profileNotFound(ProfileNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                "message", e.getMessage(),
+                "code", "PROFILE_NOT_FOUND"
+        ));
     }
 }

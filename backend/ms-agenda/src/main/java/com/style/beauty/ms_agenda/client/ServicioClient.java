@@ -1,11 +1,13 @@
 package com.style.beauty.ms_agenda.client;
 
 import com.style.beauty.ms_agenda.exception.BusinessException;
+import com.style.beauty.ms_agenda.exception.ResourceNotFoundException;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.List;
 import java.util.Map;
@@ -65,9 +67,20 @@ public class ServicioClient {
 
             return staff == null ? List.of() : staff;
 
+        } catch (RestClientResponseException e) {
+            if (isServicioNoEncontrado(e)) {
+                throw new ResourceNotFoundException("Servicio no encontrado");
+            }
+            throw new BusinessException("No se pudo obtener el staff asociado al servicio desde ms-catalogo");
         } catch (RestClientException e) {
             throw new BusinessException("No se pudo obtener el staff asociado al servicio desde ms-catalogo");
         }
+    }
+
+    private boolean isServicioNoEncontrado(RestClientResponseException e) {
+        String body = e.getResponseBodyAsString();
+        return e.getStatusCode().value() == 404
+                || (body != null && body.toLowerCase().contains("servicio no encontrado"));
     }
 
     private ServicioResumen mapServicio(Map<String, Object> servicioData) {
