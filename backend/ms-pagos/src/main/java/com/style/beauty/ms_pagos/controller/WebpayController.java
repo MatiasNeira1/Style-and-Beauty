@@ -3,8 +3,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.style.beauty.ms_pagos.dto.CrearTransaccionRequest;
 import com.style.beauty.ms_pagos.dto.CrearTransaccionResponse;
@@ -29,6 +32,20 @@ public class WebpayController {
             @Valid @RequestBody CrearTransaccionRequest request
     ) {
         return webpayService.crearTransaccion(request);
+    }
+
+    @GetMapping(value = "/redirigir/{idTransaccion}", produces = MediaType.TEXT_HTML_VALUE)
+    public ResponseEntity<String> redirigir(@PathVariable java.util.UUID idTransaccion) {
+        try {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .body(webpayService.construirHtmlRedireccion(idTransaccion));
+        } catch (IllegalStateException e) {
+            if (e.getMessage() != null && e.getMessage().toLowerCase().contains("no encontrada")) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
 
     @GetMapping("/retorno")

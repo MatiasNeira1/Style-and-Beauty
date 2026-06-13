@@ -30,6 +30,7 @@ public class AgendaClient {
                 .uri("/api/agenda/citas/{idCita}/estado", idCita)
                 .body(Map.of(
                         "estadoCita", "CONFIRMADA",
+                        "idTransaccionPago", idTransaccionPago,
                         "observacionStaff", "Pago Webpay confirmado. Transaccion: " + idTransaccionPago
                 ))
                 .retrieve()

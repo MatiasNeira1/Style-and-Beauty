@@ -274,7 +274,13 @@ public class CitaService {
         EstadoCita estadoAnterior = cita.getEstadoCita();
 
         cita.setEstadoCita(request.estadoCita());
+        if (request.idTransaccionPago() != null) {
+            cita.setIdTransaccionPago(request.idTransaccionPago());
+        }
         cita.setObservacionStaff(request.observacionStaff());
+        if (request.estadoCita() != EstadoCita.PENDIENTE_PAGO) {
+            cita.setExpiracionReserva(null);
+        }
 
         Cita actualizada = citaRepository.save(cita);
 
@@ -297,6 +303,7 @@ public class CitaService {
         EstadoCita estadoAnterior = cita.getEstadoCita();
 
         cita.setEstadoCita(EstadoCita.CANCELADA);
+        cita.setExpiracionReserva(null);
 
         citaRepository.save(cita);
 

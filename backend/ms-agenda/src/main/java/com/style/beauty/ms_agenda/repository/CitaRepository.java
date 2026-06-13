@@ -46,7 +46,8 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
     @Modifying
     @Query("""
         UPDATE Cita c
-        SET c.estadoCita = :estadoExpirada
+        SET c.estadoCita = :estadoExpirada,
+            c.expiracionReserva = NULL
         WHERE c.estadoCita = :estadoPendiente
         AND c.expiracionReserva IS NOT NULL
         AND c.expiracionReserva <= :ahora
