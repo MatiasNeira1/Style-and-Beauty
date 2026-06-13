@@ -34,19 +34,30 @@
 }
 
 .booking-shell {
+  display: grid;
   align-items: start;
+  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.booking-shell--with-summary {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
 }
 
 .booking-shell .wizard-panel,
+.booking-shell .booking-summary-panel,
 .booking-shell .summary-card {
   min-width: 0;
   width: 100%;
 }
 
-.booking-shell .summary-card {
+.booking-shell .booking-summary-panel {
   position: sticky;
   top: 6.25rem;
+}
+
+.booking-shell .summary-card {
+  position: static;
 }
 
 .horizontal-scroll {
@@ -2621,6 +2632,11 @@ img[data-fallback="true"] {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .booking-shell--with-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .booking-shell .booking-summary-panel,
   .booking-shell .summary-card {
     order: -1;
     position: static;

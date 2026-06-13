@@ -1,6 +1,7 @@
 import { Card } from '../ui/Card.jsx';
 import { Button } from '../ui/Button.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
+import { AZURE_PUBLIC_STAFF_IMAGE_URL } from '../../services/apiClient.js';
 
 function getStaffId(member) {
   return member.idPersona || member.idStaff || member.id || member.nombre;
@@ -26,7 +27,11 @@ export function StaffSelector({ staff = [], selectedId, onSelect }) {
           <Card key={id} className={`staff-card ${isSelected ? 'active-staff-card' : ''}`}>
             <div className="staff-card-header">
               <div className="staff-avatar">
-                <SafeImage src={member.imageUrl || member.foto || member.fotoUrl} alt={fullName} />
+                <SafeImage
+                  src={member.imageUrl || member.foto || member.fotoUrl}
+                  alt={fullName}
+                  fallback={AZURE_PUBLIC_STAFF_IMAGE_URL}
+                />
               </div>
               <div>
                 <h3>{fullName}</h3>
