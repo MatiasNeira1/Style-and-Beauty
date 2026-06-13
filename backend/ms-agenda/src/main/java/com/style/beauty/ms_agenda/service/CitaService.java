@@ -5,11 +5,16 @@ import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
+import com.style.beauty.ms_agenda.dto.CancelarCitaRequest;
+import com.style.beauty.ms_agenda.dto.CitaAgendaResponse;
+import com.style.beauty.ms_agenda.dto.ConfirmarPagoRequest;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
+import com.style.beauty.ms_agenda.dto.FinalizarCitaRequest;
+import com.style.beauty.ms_agenda.dto.RechazarPagoRequest;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.entity.HistorialCita;
@@ -51,6 +56,7 @@ public class CitaService {
     private final ServicioClient servicioClient;
     private final HolguraService holguraService;
     private final GoogleCalendarService googleCalendarService;
+    private final StaffCalendarConfigService staffCalendarConfigService;
 
     @Value("${app.agenda.zone:America/Santiago}")
     private String agendaZone;
@@ -62,6 +68,24 @@ public class CitaService {
     public Cita buscarPorId(UUID id) {
         return citaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
+    }
+
+    public List<CitaAgendaResponse> listarPorStaff(UUID idStaff, LocalDate desde, LocalDate hasta, EstadoCita estado) {
+        OffsetDateTime inicio = atDateTime(desde, 0, 0);
+        OffsetDateTime fin = atDateTime(hasta.plusDays(1), 0, 0);
+        return citaRepository.buscarCitasPorStaff(idStaff, inicio, fin, estado)
+                .stream()
+                .map(this::toAgendaResponse)
+                .toList();
+    }
+
+    public List<CitaAgendaResponse> listarPorCliente(UUID idCliente, LocalDate desde, LocalDate hasta, EstadoCita estado) {
+        OffsetDateTime inicio = atDateTime(desde, 0, 0);
+        OffsetDateTime fin = atDateTime(hasta.plusDays(1), 0, 0);
+        return citaRepository.buscarCitasPorCliente(idCliente, inicio, fin, estado)
+                .stream()
+                .map(this::toAgendaResponse)
+                .toList();
     }
 
     public List<DisponibilidadSlot> calcularDisponibilidad(DisponibilidadRequest request) {
@@ -211,8 +235,8 @@ public class CitaService {
             throw new BusinessException("No fue posible identificar al cliente autenticado");
         }
 
-        PerfilResumen cliente = perfilClient.obtenerCliente(request.idCliente());
-        PerfilResumen staff = perfilClient.obtenerStaff(request.idStaff());
+        perfilClient.obtenerCliente(request.idCliente());
+        perfilClient.obtenerStaff(request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
         validarStaffRealizaServicio(request.idServicio(), request.idStaff());
@@ -247,13 +271,6 @@ public class CitaService {
 
         Cita guardada = guardarSinSolape(cita);
 
-        guardada = crearEventoGoogleCalendarSoloVisualizacion(
-                guardada,
-                cliente,
-                staff,
-                servicio
-        );
-
         registrarHistorial(
                 guardada.getIdCita(),
                 AccionHistorial.CREADA,
@@ -277,6 +294,15 @@ public class CitaService {
 
         Cita actualizada = citaRepository.save(cita);
 
+        if (request.estadoCita() == EstadoCita.CONFIRMADA) {
+            actualizada = crearEventoGoogleCalendarSoloVisualizacion(actualizada);
+        } else if (request.estadoCita() == EstadoCita.CANCELADA
+                || request.estadoCita() == EstadoCita.RECHAZADA
+                || request.estadoCita() == EstadoCita.EXPIRADA) {
+            eliminarEventoGoogleCalendarSiExiste(actualizada);
+            actualizada = citaRepository.save(actualizada);
+        }
+
         registrarHistorial(
                 id,
                 AccionHistorial.MODIFICADA,
@@ -289,37 +315,160 @@ public class CitaService {
     }
 
     @Transactional
+    public Cita confirmarPago(UUID id, ConfirmarPagoRequest request) {
+        Cita cita = buscarPorId(id);
+
+        if (cita.getEstadoCita() == EstadoCita.CONFIRMADA) {
+            if (request.idTransaccionPago() != null && cita.getIdTransaccionPago() == null) {
+                cita.setIdTransaccionPago(request.idTransaccionPago());
+            }
+            Cita actualizada = citaRepository.save(cita);
+            return crearEventoGoogleCalendarSoloVisualizacion(actualizada);
+        }
+
+        if (cita.getEstadoCita() != EstadoCita.PENDIENTE_PAGO) {
+            throw new BusinessException("Solo se puede confirmar una cita pendiente de pago");
+        }
+
+        EstadoCita estadoAnterior = cita.getEstadoCita();
+        cita.setEstadoCita(EstadoCita.CONFIRMADA);
+        cita.setIdTransaccionPago(request.idTransaccionPago());
+
+        Cita actualizada = citaRepository.save(cita);
+        actualizada = crearEventoGoogleCalendarSoloVisualizacion(actualizada);
+
+        registrarHistorial(
+                id,
+                AccionHistorial.PAGO_APROBADO,
+                estadoAnterior.name(),
+                EstadoCita.CONFIRMADA.name(),
+                "Pago aprobado y cita confirmada"
+        );
+
+        return actualizada;
+    }
+
+    @Transactional
+    public Cita rechazarPago(UUID id, RechazarPagoRequest request) {
+        Cita cita = buscarPorId(id);
+
+        if (cita.getEstadoCita() == EstadoCita.RECHAZADA || cita.getEstadoCita() == EstadoCita.EXPIRADA) {
+            return cita;
+        }
+
+        if (cita.getEstadoCita() == EstadoCita.FINALIZADA) {
+            throw new BusinessException("No se puede rechazar una cita finalizada");
+        }
+
+        EstadoCita estadoAnterior = cita.getEstadoCita();
+        cita.setEstadoCita(EstadoCita.RECHAZADA);
+        cita.setObservacionStaff(defaultText(request.motivo(), "Pago Webpay rechazado"));
+        eliminarEventoGoogleCalendarSiExiste(cita);
+
+        Cita actualizada = citaRepository.save(cita);
+
+        registrarHistorial(
+                id,
+                AccionHistorial.PAGO_RECHAZADO,
+                estadoAnterior.name(),
+                EstadoCita.RECHAZADA.name(),
+                cita.getObservacionStaff()
+        );
+
+        return actualizada;
+    }
+
+    @Transactional
     public void cancelar(UUID id) {
+        cancelar(id, new CancelarCitaRequest("Cita cancelada"));
+    }
+
+    @Transactional
+    public Cita cancelar(UUID id, CancelarCitaRequest request) {
 
         Cita cita = buscarPorId(id);
+
+        if (cita.getEstadoCita() == EstadoCita.FINALIZADA) {
+            throw new BusinessException("No se puede cancelar una cita finalizada");
+        }
+
+        if (cita.getEstadoCita() == EstadoCita.CANCELADA
+                || cita.getEstadoCita() == EstadoCita.RECHAZADA
+                || cita.getEstadoCita() == EstadoCita.EXPIRADA) {
+            return cita;
+        }
 
         EstadoCita estadoAnterior = cita.getEstadoCita();
 
         cita.setEstadoCita(EstadoCita.CANCELADA);
+        cita.setObservacionStaff(defaultText(request.motivo(), "Cita cancelada"));
+        eliminarEventoGoogleCalendarSiExiste(cita);
 
-        citaRepository.save(cita);
+        Cita actualizada = citaRepository.save(cita);
 
         registrarHistorial(
                 id,
                 AccionHistorial.CANCELADA,
                 estadoAnterior.name(),
                 EstadoCita.CANCELADA.name(),
-                "Cita cancelada"
+                cita.getObservacionStaff()
         );
+
+        return actualizada;
     }
 
-    private Cita crearEventoGoogleCalendarSoloVisualizacion(
-            Cita cita,
-            PerfilResumen cliente,
-            PerfilResumen staff,
-            ServicioResumen servicio
-    ) {
+    @Transactional
+    public Cita finalizar(UUID id, FinalizarCitaRequest request) {
+        Cita cita = buscarPorId(id);
+
+        if (cita.getEstadoCita() == EstadoCita.FINALIZADA) {
+            return cita;
+        }
+
+        if (cita.getEstadoCita() != EstadoCita.CONFIRMADA) {
+            throw new BusinessException("Solo se puede finalizar una cita confirmada");
+        }
+
+        if (OffsetDateTime.now(zoneId()).isBefore(cita.getFechaHoraFinAtencion())) {
+            throw new BusinessException("No se puede finalizar antes de la hora de termino de la atencion");
+        }
+
+        EstadoCita estadoAnterior = cita.getEstadoCita();
+        cita.setEstadoCita(EstadoCita.FINALIZADA);
+        cita.setObservacionStaff(defaultText(request.observacionStaff(), "Atencion finalizada correctamente"));
+
+        Cita actualizada = citaRepository.save(cita);
+
+        registrarHistorial(
+                id,
+                AccionHistorial.FINALIZADA,
+                estadoAnterior.name(),
+                EstadoCita.FINALIZADA.name(),
+                cita.getObservacionStaff()
+        );
+
+        return actualizada;
+    }
+
+    private Cita crearEventoGoogleCalendarSoloVisualizacion(Cita cita) {
+        if (cita.getGoogleCalendarEventId() != null) {
+            return cita;
+        }
+
         try {
+            PerfilResumen cliente = perfilClient.obtenerCliente(cita.getIdCliente());
+            PerfilResumen staff = perfilClient.obtenerStaff(cita.getIdStaff());
+            ServicioResumen servicio = servicioClient.obtenerServicio(cita.getIdServicio());
+            String calendarId = staffCalendarConfigService.buscarActivoPorStaff(cita.getIdStaff())
+                    .map(config -> config.getCalendarId())
+                    .orElse(null);
+
             String googleEventId = googleCalendarService.crearEvento(
                     cita,
                     cliente,
                     staff,
-                    servicio
+                    servicio,
+                    calendarId
             );
 
             if (googleEventId != null) {
@@ -336,6 +485,26 @@ public class CitaService {
         }
 
         return cita;
+    }
+
+    private void eliminarEventoGoogleCalendarSiExiste(Cita cita) {
+        if (cita.getGoogleCalendarEventId() == null) {
+            return;
+        }
+
+        try {
+            String calendarId = staffCalendarConfigService.buscarActivoPorStaff(cita.getIdStaff())
+                    .map(config -> config.getCalendarId())
+                    .orElse(null);
+            googleCalendarService.eliminarEvento(calendarId, cita.getGoogleCalendarEventId());
+            cita.setGoogleCalendarEventId(null);
+        } catch (Exception e) {
+            log.warn(
+                    "No se pudo eliminar el evento de Google Calendar para la cita {}. La cita se actualiza igualmente.",
+                    cita.getIdCita(),
+                    e
+            );
+        }
     }
 
     private Cita guardarSinSolape(Cita cita) {
@@ -496,6 +665,52 @@ public class CitaService {
                 EstadoCita.EXPIRADA,
                 EstadoCita.RECHAZADA
         );
+    }
+
+    private CitaAgendaResponse toAgendaResponse(Cita cita) {
+        String nombreCliente = null;
+        String nombreServicio = null;
+
+        try {
+            PerfilResumen cliente = perfilClient.obtenerCliente(cita.getIdCliente());
+            nombreCliente = nombreCompleto(cliente);
+        } catch (Exception e) {
+            log.debug("No se pudo obtener cliente {} para cita {}", cita.getIdCliente(), cita.getIdCita());
+        }
+
+        try {
+            ServicioResumen servicio = servicioClient.obtenerServicio(cita.getIdServicio());
+            nombreServicio = servicio.nombre();
+        } catch (Exception e) {
+            log.debug("No se pudo obtener servicio {} para cita {}", cita.getIdServicio(), cita.getIdCita());
+        }
+
+        return new CitaAgendaResponse(
+                cita.getIdCita(),
+                cita.getIdCliente(),
+                nombreCliente,
+                cita.getIdStaff(),
+                cita.getIdServicio(),
+                nombreServicio,
+                cita.getFechaHoraInicio(),
+                cita.getFechaHoraFin(),
+                cita.getFechaHoraFinAtencion(),
+                cita.getEstadoCita(),
+                cita.getObservacionCliente(),
+                cita.getObservacionStaff(),
+                cita.getGoogleCalendarEventId()
+        );
+    }
+
+    private String nombreCompleto(PerfilResumen perfil) {
+        if (perfil == null) {
+            return null;
+        }
+        return (defaultText(perfil.nombre(), "") + " " + defaultText(perfil.apellidos(), "")).trim();
+    }
+
+    private String defaultText(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     private void registrarHistorial(

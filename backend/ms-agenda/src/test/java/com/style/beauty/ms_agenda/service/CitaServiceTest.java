@@ -4,12 +4,14 @@ import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
+import com.style.beauty.ms_agenda.dto.ConfirmarPagoRequest;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.entity.JornadaStaff;
+import com.style.beauty.ms_agenda.entity.StaffCalendarConfig;
 import com.style.beauty.ms_agenda.enums.EstadoCita;
 import com.style.beauty.ms_agenda.enums.TipoBloqueo;
 import com.style.beauty.ms_agenda.enums.TipoCita;
@@ -28,6 +30,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,6 +56,7 @@ class CitaServiceTest {
     private PerfilClient perfilClient;
     private ServicioClient servicioClient;
     private GoogleCalendarService googleCalendarService;
+    private StaffCalendarConfigService staffCalendarConfigService;
     private CitaService citaService;
 
     @BeforeEach
@@ -64,6 +68,7 @@ class CitaServiceTest {
         perfilClient = mock(PerfilClient.class);
         servicioClient = mock(ServicioClient.class);
         googleCalendarService = mock(GoogleCalendarService.class);
+        staffCalendarConfigService = mock(StaffCalendarConfigService.class);
 
         citaService = new CitaService(
                 citaRepository,
@@ -73,7 +78,8 @@ class CitaServiceTest {
                 perfilClient,
                 servicioClient,
                 new HolguraService(),
-                googleCalendarService);
+                googleCalendarService,
+                staffCalendarConfigService);
         ReflectionTestUtils.setField(citaService, "agendaZone", "America/Santiago");
 
         when(perfilClient.obtenerCliente(ID_CLIENTE)).thenReturn(perfil(ID_CLIENTE, "Cliente", "Demo", "cliente@example.com"));
@@ -86,6 +92,13 @@ class CitaServiceTest {
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.saveAndFlush(any(Cita.class))).thenAnswer(invocation -> {
+            Cita cita = invocation.getArgument(0);
+            if (cita.getIdCita() == null) {
+                cita.setIdCita(UUID.randomUUID());
+            }
+            return cita;
+        });
+        when(citaRepository.save(any(Cita.class))).thenAnswer(invocation -> {
             Cita cita = invocation.getArgument(0);
             if (cita.getIdCita() == null) {
                 cita.setIdCita(UUID.randomUUID());
@@ -284,9 +297,8 @@ class CitaServiceTest {
     }
 
     @Test
-    void guardaCitaConDuracionHolguraYGoogleEventId() {
+    void crearCitaPendientePagoNoCreaEventoGoogleCalendar() {
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
-        when(googleCalendarService.crearEvento(any(), any(), any(), any())).thenReturn("calendar-event-123");
 
         Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 0), null, null, "Test"));
 
@@ -294,26 +306,58 @@ class CitaServiceTest {
         assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(9, 30));
         assertThat(creada.getDuracionServicioMin()).isEqualTo(60);
         assertThat(creada.getHolguraMin()).isEqualTo(30);
-        assertThat(creada.getGoogleCalendarEventId()).isEqualTo("calendar-event-123");
-        verify(googleCalendarService).crearEvento(any(), any(), any(), any());
+        assertThat(creada.getEstadoCita()).isEqualTo(EstadoCita.PENDIENTE_PAGO);
+        assertThat(creada.getGoogleCalendarEventId()).isNull();
+        verify(googleCalendarService, never()).crearEvento(any(), any(), any(), any(), any());
     }
 
     @Test
-    void creaCitaAunqueGoogleCalendarFalleYRegistraHistorial() {
-        when(googleCalendarService.crearEvento(any(), any(), any(), any()))
+    void confirmarPagoCreaEventoGoogleCalendarSiEstaConfigurado() {
+        Cita pendiente = cita(at(9, 0), at(9, 30), at(10, 0));
+        pendiente.setIdCita(UUID.randomUUID());
+        pendingToRepository(pendiente);
+        when(staffCalendarConfigService.buscarActivoPorStaff(ID_STAFF))
+                .thenReturn(Optional.of(StaffCalendarConfig.builder()
+                        .idStaff(ID_STAFF)
+                        .calendarId("staff-calendar@example.com")
+                        .activo(true)
+                        .build()));
+        when(googleCalendarService.crearEvento(any(), any(), any(), any(), any())).thenReturn("calendar-event-123");
+
+        Cita confirmada = citaService.confirmarPago(pendiente.getIdCita(), new ConfirmarPagoRequest(UUID.randomUUID()));
+
+        assertThat(confirmada.getEstadoCita()).isEqualTo(EstadoCita.CONFIRMADA);
+        assertThat(confirmada.getGoogleCalendarEventId()).isEqualTo("calendar-event-123");
+        verify(googleCalendarService).crearEvento(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void siGoogleCalendarFallaLaCitaSigueConfirmada() {
+        Cita pendiente = cita(at(9, 0), at(9, 30), at(10, 0));
+        pendiente.setIdCita(UUID.randomUUID());
+        pendingToRepository(pendiente);
+        when(staffCalendarConfigService.buscarActivoPorStaff(ID_STAFF))
+                .thenReturn(Optional.of(StaffCalendarConfig.builder()
+                        .idStaff(ID_STAFF)
+                        .calendarId("staff-calendar@example.com")
+                        .activo(true)
+                        .build()));
+        when(googleCalendarService.crearEvento(any(), any(), any(), any(), any()))
                 .thenThrow(new BusinessException("No fue posible crear el evento en Google Calendar"));
 
-        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 0), null, null, null);
+        Cita confirmada = citaService.confirmarPago(pendiente.getIdCita(), new ConfirmarPagoRequest(UUID.randomUUID()));
 
-        Cita creada = citaService.crear(request);
-
-        assertThat(creada.getGoogleCalendarEventId()).isNull();
-        verify(citaRepository).saveAndFlush(any(Cita.class));
+        assertThat(confirmada.getEstadoCita()).isEqualTo(EstadoCita.CONFIRMADA);
+        assertThat(confirmada.getGoogleCalendarEventId()).isNull();
         verify(historialCitaRepository).save(any());
     }
 
     private PerfilResumen perfil(UUID id, String nombre, String apellidos, String email) {
         return new PerfilResumen(id, "auth-" + id, "1-9", nombre, apellidos, email, true);
+    }
+
+    private void pendingToRepository(Cita cita) {
+        when(citaRepository.findById(cita.getIdCita())).thenReturn(Optional.of(cita));
     }
 
     private JornadaStaff jornada(LocalTime inicio, LocalTime fin) {

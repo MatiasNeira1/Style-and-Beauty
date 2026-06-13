@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -57,13 +58,22 @@ public class GoogleCalendarService {
     
 
     public String crearEvento(Cita cita, PerfilResumen cliente, PerfilResumen staff, ServicioResumen servicio) {
+        return crearEvento(cita, cliente, staff, servicio, calendarId(staff));
+    }
+
+    public String crearEvento(
+            Cita cita,
+            PerfilResumen cliente,
+            PerfilResumen staff,
+            ServicioResumen servicio,
+            String calendarId
+    ) {
         if (!enabled) {
             return null;
         }
 
-        String calendarId = calendarId(staff);
         if (!StringUtils.hasText(calendarId)) {
-            manejarError("El staff no tiene calendarId/emailContacto para crear evento en Google Calendar", null);
+            manejarError("El staff no tiene calendarId configurado para crear evento en Google Calendar", null);
             return null;
         }
 
@@ -72,11 +82,21 @@ public class GoogleCalendarService {
             String staffNombre = nombreCompleto(staff);
             String servicioNombre = StringUtils.hasText(servicio.nombre()) ? servicio.nombre() : "Servicio";
 
-            Map<String, Object> body = Map.of(
-                    "summary", "Style & Beauty - " + servicioNombre,
-                    "description", "Cliente: " + clienteNombre + "\nProfesional: " + staffNombre,
-                    "start", Map.of("dateTime", cita.getFechaHoraInicio().toString(), "timeZone", agendaZone),
-                    "end", Map.of("dateTime", cita.getFechaHoraFin().toString(), "timeZone", agendaZone));
+            Map<String, Object> extendedPrivate = new HashMap<>();
+            extendedPrivate.put("idCita", String.valueOf(cita.getIdCita()));
+            extendedPrivate.put("idCliente", String.valueOf(cita.getIdCliente()));
+            extendedPrivate.put("idStaff", String.valueOf(cita.getIdStaff()));
+            extendedPrivate.put("idServicio", String.valueOf(cita.getIdServicio()));
+            extendedPrivate.put("estadoCita", String.valueOf(cita.getEstadoCita()));
+            extendedPrivate.put("fechaHoraFinAtencion", String.valueOf(cita.getFechaHoraFinAtencion()));
+            extendedPrivate.put("holguraMin", String.valueOf(cita.getHolguraMin()));
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("summary", servicioNombre + " - " + clienteNombre);
+            body.put("description", descripcionEvento(cita, clienteNombre, staffNombre, servicioNombre));
+            body.put("start", Map.of("dateTime", cita.getFechaHoraInicio().toString(), "timeZone", agendaZone));
+            body.put("end", Map.of("dateTime", cita.getFechaHoraFin().toString(), "timeZone", agendaZone));
+            body.put("extendedProperties", Map.of("private", extendedPrivate));
 
             Map<?, ?> response = restClient.post()
                     .uri("/calendars/{calendarId}/events", calendarId)
@@ -90,6 +110,22 @@ public class GoogleCalendarService {
         } catch (RestClientException | IOException e) {
             manejarError("No fue posible crear el evento en Google Calendar", e);
             return null;
+        }
+    }
+
+    public void eliminarEvento(String calendarId, String eventId) {
+        if (!enabled || !StringUtils.hasText(calendarId) || !StringUtils.hasText(eventId)) {
+            return;
+        }
+
+        try {
+            restClient.delete()
+                    .uri("/calendars/{calendarId}/events/{eventId}", calendarId, eventId)
+                    .header("Authorization", "Bearer " + accessToken())
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (RestClientException | IOException e) {
+            manejarError("No fue posible eliminar el evento en Google Calendar", e);
         }
     }
 
@@ -179,6 +215,33 @@ public class GoogleCalendarService {
             return "No informado";
         }
         return (safe(perfil.nombre()) + " " + safe(perfil.apellidos())).trim();
+    }
+
+    private String descripcionEvento(Cita cita, String clienteNombre, String staffNombre, String servicioNombre) {
+        return """
+                Servicio: %s
+                Cliente: %s
+                Profesional: %s
+                Estado: %s
+                Hora visible: %s - %s
+                Atencion real hasta: %s
+                Holgura interna: %s min
+                Observacion cliente: %s
+                idCita: %s
+                idTransaccionPago: %s
+                """.formatted(
+                servicioNombre,
+                clienteNombre,
+                staffNombre,
+                cita.getEstadoCita(),
+                cita.getFechaHoraInicio(),
+                cita.getFechaHoraFin(),
+                cita.getFechaHoraFinAtencion(),
+                cita.getHolguraMin(),
+                safe(cita.getObservacionCliente()),
+                cita.getIdCita(),
+                cita.getIdTransaccionPago()
+        );
     }
 
     private String safe(String value) {

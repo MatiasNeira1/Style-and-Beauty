@@ -1,0 +1,188 @@
+{
+  "name": "Style and Beauty - Reserva y Pago Webpay",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "style-beauty/crear-reserva",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "0f1b2c3d-1000-4000-9000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{($env.API_BASE_URL || 'http://localhost:8080') + '/api/agenda/citas'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ idCliente: $json.body.idCliente, idStaff: $json.body.idStaff, idServicio: $json.body.idServicio, fechaHoraInicio: $json.body.fechaHoraInicio, observacionCliente: 'Agendado desde chatbot n8n' }) }}",
+        "options": {}
+      },
+      "id": "0f1b2c3d-1000-4000-9000-000000000002",
+      "name": "Crear cita",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{($env.API_BASE_URL || 'http://localhost:8080') + '/api/pagos/webpay/crear'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ idCita: $json.idCita || $json.id, descripcion: 'Reserva Style and Beauty desde chatbot' }) }}",
+        "options": {}
+      },
+      "id": "0f1b2c3d-1000-4000-9000-000000000003",
+      "name": "Crear pago Webpay",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "mensaje",
+              "name": "mensaje",
+              "type": "string",
+              "value": "={{'Tu reserva quedo pendiente de pago. Para confirmarla, paga aqui: ' + (($env.PAYMENT_REDIRECT_BASE_URL || (($env.API_BASE_URL || 'http://localhost:8080') + '/api/pagos/webpay/redirigir')) + '/' + $json.idTransaccion)}}"
+            },
+            {
+              "id": "idCita",
+              "name": "idCita",
+              "type": "string",
+              "value": "={{$json.idCita}}"
+            },
+            {
+              "id": "idTransaccion",
+              "name": "idTransaccion",
+              "type": "string",
+              "value": "={{$json.idTransaccion}}"
+            },
+            {
+              "id": "linkPago",
+              "name": "linkPago",
+              "type": "string",
+              "value": "={{($env.PAYMENT_REDIRECT_BASE_URL || (($env.API_BASE_URL || 'http://localhost:8080') + '/api/pagos/webpay/redirigir')) + '/' + $json.idTransaccion}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0f1b2c3d-1000-4000-9000-000000000004",
+      "name": "Armar respuesta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1020,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "id": "0f1b2c3d-1000-4000-9000-000000000005",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1280,
+        300
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Crear cita",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear cita": {
+      "main": [
+        [
+          {
+            "node": "Crear pago Webpay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear pago Webpay": {
+      "main": [
+        [
+          {
+            "node": "Armar respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar respuesta": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "0f1b2c3d-1000-4000-9000-000000000099",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "style-beauty-reserva-pago-webpay",
+  "tags": []
+}

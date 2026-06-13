@@ -17,6 +17,36 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
     @Query("""
         SELECT c FROM Cita c
         WHERE c.idStaff = :idStaff
+        AND c.fechaHoraInicio < :hasta
+        AND c.fechaHoraFin > :desde
+        AND (:estado IS NULL OR c.estadoCita = :estado)
+        ORDER BY c.fechaHoraInicio ASC
+    """)
+    List<Cita> buscarCitasPorStaff(
+            UUID idStaff,
+            OffsetDateTime desde,
+            OffsetDateTime hasta,
+            EstadoCita estado
+    );
+
+    @Query("""
+        SELECT c FROM Cita c
+        WHERE c.idCliente = :idCliente
+        AND c.fechaHoraInicio < :hasta
+        AND c.fechaHoraFin > :desde
+        AND (:estado IS NULL OR c.estadoCita = :estado)
+        ORDER BY c.fechaHoraInicio ASC
+    """)
+    List<Cita> buscarCitasPorCliente(
+            UUID idCliente,
+            OffsetDateTime desde,
+            OffsetDateTime hasta,
+            EstadoCita estado
+    );
+
+    @Query("""
+        SELECT c FROM Cita c
+        WHERE c.idStaff = :idStaff
         AND c.estadoCita NOT IN :estadosIgnorados
         AND c.fechaHoraInicio < :fin
         AND c.fechaHoraFin > :inicio

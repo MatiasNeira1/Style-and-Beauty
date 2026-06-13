@@ -14,6 +14,8 @@ import com.style.beauty.ms_pagos.repository.TransaccionPagoRepository;
 import org.springframework.beans.factory.annotation.Value;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.UUID;
 import cl.transbank.webpay.webpayplus.WebpayPlus;
 import cl.transbank.webpay.webpayplus.responses.WebpayPlusTransactionCommitResponse;
 import cl.transbank.webpay.webpayplus.responses.WebpayPlusTransactionCreateResponse;
@@ -40,6 +42,25 @@ public class WebpayService {
         if (cita == null || cita.idCliente() == null || cita.idServicio() == null) {
             throw new IllegalStateException("No se pudo obtener la cita o sus datos de pago");
         }
+        if (!"PENDIENTE_PAGO".equalsIgnoreCase(cita.estadoCita())) {
+            throw new IllegalStateException("Solo se puede crear pago para una cita pendiente de pago");
+        }
+
+        TransaccionPago pendiente = transaccionPagoRepository
+                .findFirstByIdCitaAndEstadoInOrderByCreatedAtDesc(
+                        cita.idCita(),
+                        List.of(EstadoTransaccion.CREADA, EstadoTransaccion.PENDIENTE)
+                )
+                .orElse(null);
+
+        if (pendiente != null && pendiente.getTokenWebpay() != null && pendiente.getUrlWebpay() != null) {
+            return new CrearTransaccionResponse(
+                    pendiente.getIdTransaccion(),
+                    pendiente.getIdCita(),
+                    pendiente.getTokenWebpay(),
+                    pendiente.getUrlWebpay()
+            );
+        }
 
         ServicioCatalogoResumen servicio = catalogoClient.obtenerServicio(cita.idServicio());
         BigDecimal monto = obtenerMontoServicio(servicio);
@@ -65,6 +86,7 @@ public class WebpayService {
                     .buyOrder(buyOrder)
                     .sessionId(sessionId)
                     .tokenWebpay(response.getToken())
+                    .urlWebpay(response.getUrl())
                     .estado(EstadoTransaccion.PENDIENTE)
                     .build();
 
@@ -163,5 +185,77 @@ public class WebpayService {
         }
 
         return servicio.precioTotal();
+    }
+
+    public TransaccionPago buscarTransaccion(UUID idTransaccion) {
+        return transaccionPagoRepository.findById(idTransaccion)
+                .orElseThrow(() -> new IllegalStateException("Transaccion no encontrada"));
+    }
+
+    public String construirHtmlRedireccion(UUID idTransaccion) {
+        TransaccionPago transaccion = buscarTransaccion(idTransaccion);
+
+        if (transaccion.getEstado() == EstadoTransaccion.AUTORIZADA) {
+            return paginaSimple("Pago ya realizado", "Esta reserva ya fue pagada correctamente.");
+        }
+
+        if (transaccion.getEstado() == EstadoTransaccion.RECHAZADA
+                || transaccion.getEstado() == EstadoTransaccion.ERROR
+                || transaccion.getEstado() == EstadoTransaccion.EXPIRADA) {
+            return paginaSimple("Pago no disponible", "Este link de pago ya no se encuentra disponible.");
+        }
+
+        if (transaccion.getEstado() != EstadoTransaccion.PENDIENTE
+                && transaccion.getEstado() != EstadoTransaccion.CREADA) {
+            return paginaSimple("Pago no disponible", "Este link de pago no se encuentra disponible.");
+        }
+
+        if (transaccion.getTokenWebpay() == null || transaccion.getTokenWebpay().isBlank()
+                || transaccion.getUrlWebpay() == null || transaccion.getUrlWebpay().isBlank()) {
+            throw new IllegalStateException("La transaccion no tiene datos de redireccion Webpay");
+        }
+
+        return """
+                <!doctype html>
+                <html lang="es">
+                <head>
+                  <meta charset="utf-8">
+                  <title>Redirigiendo a Webpay</title>
+                </head>
+                <body>
+                  <p>Redirigiendo a Webpay...</p>
+                  <form id="webpayForm" method="POST" action="%s">
+                    <input type="hidden" name="token_ws" value="%s">
+                  </form>
+                  <script>
+                    document.getElementById("webpayForm").submit();
+                  </script>
+                </body>
+                </html>
+                """.formatted(escapeHtml(transaccion.getUrlWebpay()), escapeHtml(transaccion.getTokenWebpay()));
+    }
+
+    private String paginaSimple(String titulo, String mensaje) {
+        return """
+                <!doctype html>
+                <html lang="es">
+                <head>
+                  <meta charset="utf-8">
+                  <title>%s</title>
+                </head>
+                <body>
+                  <h1>%s</h1>
+                  <p>%s</p>
+                </body>
+                </html>
+                """.formatted(escapeHtml(titulo), escapeHtml(titulo), escapeHtml(mensaje));
+    }
+
+    private String escapeHtml(String value) {
+        return value == null ? "" : value
+                .replace("&", "&amp;")
+                .replace("\"", "&quot;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;");
     }
 }

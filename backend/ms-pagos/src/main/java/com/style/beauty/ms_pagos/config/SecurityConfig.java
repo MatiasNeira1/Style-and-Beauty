@@ -18,6 +18,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/pagos/webpay/crear",
                                 "/api/pagos/webpay/retorno",
+                                "/api/pagos/webpay/redirigir/**",
                                 "/error",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",

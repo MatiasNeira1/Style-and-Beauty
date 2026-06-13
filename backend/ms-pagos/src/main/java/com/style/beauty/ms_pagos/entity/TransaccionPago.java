@@ -56,6 +56,9 @@ public class TransaccionPago {
     @Column(name = "token_webpay", length = 256)
     private String tokenWebpay;
 
+    @Column(name = "url_webpay", length = 1024)
+    private String urlWebpay;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 32)
     private EstadoTransaccion estado;

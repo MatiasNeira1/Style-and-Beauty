@@ -27,10 +27,9 @@ public class AgendaClient {
 
     public void confirmarCita(UUID idCita, UUID idTransaccionPago) {
         restClient.patch()
-                .uri("/api/agenda/citas/{idCita}/estado", idCita)
+                .uri("/api/agenda/citas/{idCita}/confirmar-pago", idCita)
                 .body(Map.of(
-                        "estadoCita", "CONFIRMADA",
-                        "observacionStaff", "Pago Webpay confirmado. Transaccion: " + idTransaccionPago
+                        "idTransaccionPago", idTransaccionPago
                 ))
                 .retrieve()
                 .toBodilessEntity();
@@ -38,10 +37,9 @@ public class AgendaClient {
 
     public void rechazarCita(UUID idCita, String motivo) {
         restClient.patch()
-                .uri("/api/agenda/citas/{idCita}/estado", idCita)
+                .uri("/api/agenda/citas/{idCita}/rechazar-pago", idCita)
                 .body(Map.of(
-                        "estadoCita", "RECHAZADA",
-                        "observacionStaff", motivo
+                        "motivo", motivo
                 ))
                 .retrieve()
                 .toBodilessEntity();
