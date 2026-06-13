@@ -2,6 +2,7 @@ package com.style.beauty.ms_auth.service;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
+import com.google.firebase.auth.AuthErrorCode;
 import com.google.firebase.auth.UserRecord.CreateRequest;
 import com.google.firebase.auth.UserRecord;
 import com.google.firebase.FirebaseApp;
@@ -67,7 +68,32 @@ public class RolService {
         logger.info("Rol {} asignado correctamente al UID: {}", rol, uid);
     }
 
-    public void assignClientRoleFromPublicFlow(String uid) throws FirebaseAuthException {
+    public UserRecord createOrConfirmPublicClient(String email, String password) throws FirebaseAuthException {
+        ensureFirebaseConfigured();
+
+        if (email == null || email.isBlank() || password == null || password.isBlank()) {
+            throw new IllegalArgumentException("Email y password son obligatorios para registrar cliente.");
+        }
+
+        try {
+            CreateRequest request = new CreateRequest()
+                    .setEmail(email.trim().toLowerCase())
+                    .setPassword(password)
+                    .setEmailVerified(false)
+                    .setDisabled(false);
+
+            UserRecord user = FirebaseAuth.getInstance().createUser(request);
+            return assignClientRoleFromPublicFlow(user.getUid());
+        } catch (FirebaseAuthException e) {
+            if (e.getAuthErrorCode() == AuthErrorCode.EMAIL_ALREADY_EXISTS) {
+                UserRecord existingUser = FirebaseAuth.getInstance().getUserByEmail(email.trim().toLowerCase());
+                return assignClientRoleFromPublicFlow(existingUser.getUid());
+            }
+            throw e;
+        }
+    }
+
+    public UserRecord assignClientRoleFromPublicFlow(String uid) throws FirebaseAuthException {
         ensureFirebaseConfigured();
 
         UserRecord user;
@@ -92,6 +118,7 @@ public class RolService {
         FirebaseAuth.getInstance().setCustomUserClaims(uid, existingClaims);
 
         logger.info("Rol CLIENTE confirmado para UID desde flujo publico: {}", uid);
+        return FirebaseAuth.getInstance().getUser(uid);
     }
 
     private void ensureFirebaseConfigured() {

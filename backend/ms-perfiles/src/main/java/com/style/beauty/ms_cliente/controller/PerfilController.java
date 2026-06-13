@@ -4,6 +4,7 @@ import com.google.firebase.auth.FirebaseToken;
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
 import com.style.beauty.ms_cliente.exception.ProfileNotFoundException;
 import com.style.beauty.ms_cliente.model.PersonaModel;
+import com.style.beauty.ms_cliente.service.FirebaseClientRoleService;
 import com.style.beauty.ms_cliente.service.FirebaseTokenVerifier;
 import com.style.beauty.ms_cliente.service.PerfilService;
 
@@ -25,6 +26,9 @@ public class PerfilController {
 
     @Autowired
     private FirebaseTokenVerifier firebaseTokenVerifier;
+
+    @Autowired
+    private FirebaseClientRoleService firebaseClientRoleService;
 
     @PostMapping("/validar-disponibilidad")
     public ResponseEntity<?> validarDisponibilidad(@RequestBody PerfilRequestDTO requestDTO) {
@@ -48,9 +52,11 @@ public class PerfilController {
 
             // Extraemos la Identidad y el Permiso
             String uidVerdadero = decodedToken.getUid();
-            String rolVerdadero = (String) decodedToken.getClaims().get("rol");
+            Object claimRol = decodedToken.getClaims().getOrDefault("rol", decodedToken.getClaims().get("role"));
+            String rolVerdadero = claimRol == null ? null : String.valueOf(claimRol);
 
             if (rolVerdadero == null) {
+                firebaseClientRoleService.ensureClientRoleForPublicProfile(uidVerdadero);
                 rolVerdadero = "CLIENTE";
             }
 

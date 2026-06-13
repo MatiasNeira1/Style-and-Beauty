@@ -150,6 +150,10 @@ const getRegisterErrorMessage = (registerError) => {
     return 'Completa todos los campos obligatorios.';
   }
 
+  if (normalizedMessage.includes('rol') || normalizedMessage.includes('role') || normalizedMessage.includes('claim')) {
+    return 'No se pudo completar la creación de tu perfil. Intenta nuevamente.';
+  }
+
   return message || 'No se pudo crear la cuenta.';
 };
 
