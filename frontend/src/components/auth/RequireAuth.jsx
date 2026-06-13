@@ -46,6 +46,17 @@ export function RequireAuth({ children, roles }) {
     return <AccessDenied />;
   }
 
+  if (sessionQuery.error?.status && ![404].includes(sessionQuery.error.status)) {
+    return (
+      <section className="page-section">
+        <div className="auth-guard-card" role="alert">
+          <strong>No pudimos validar tu perfil</strong>
+          <p>{sessionQuery.error.message || 'Intenta nuevamente en unos minutos.'}</p>
+        </div>
+      </section>
+    );
+  }
+
   if (roles?.length && !roles.includes(user?.rol)) {
     return <Navigate to="/perfil" replace />;
   }

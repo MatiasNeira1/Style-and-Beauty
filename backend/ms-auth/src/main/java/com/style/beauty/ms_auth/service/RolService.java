@@ -67,7 +67,9 @@ public class RolService {
     }
 
     private void ensureFirebaseConfigured() {
-        if (FirebaseApp.getApps().isEmpty()) {
+        try {
+            FirebaseApp.getInstance();
+        } catch (IllegalStateException e) {
             throw new IllegalStateException("Firebase Admin SDK no esta configurado en el servidor.");
         }
     }
