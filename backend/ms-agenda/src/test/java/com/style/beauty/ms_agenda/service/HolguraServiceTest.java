@@ -21,7 +21,22 @@ class HolguraServiceTest {
     }
 
     @Test
-    void rechazaServicioSinHolguraConfigurada() {
+    void usaHolguraPorCategoriaSiCatalogoNoLaEnvia() {
+        assertThat(holgura("Corte express", "Cabello", 20, null)).isEqualTo(15);
+        assertThat(holgura("Maquillaje express", "Maquillaje", 60, null)).isEqualTo(15);
+        assertThat(holgura("Manicure express", "Nails", 15, null)).isEqualTo(10);
+        assertThat(holgura("Limpieza facial express", "Piel", 20, null)).isEqualTo(15);
+        assertThat(holgura("Masaje express", "Spa", 30, null)).isEqualTo(25);
+    }
+
+    @Test
+    void ajustaHolguraConfiguradaSiEsIgualOMayorALaDuracion() {
+        assertThat(holgura("Corte express", "Cabello", 20, 30)).isEqualTo(15);
+        assertThat(holgura("Servicio minimo", "Spa", 5, 30)).isEqualTo(0);
+    }
+
+    @Test
+    void rechazaServicioSinHolguraConfiguradaNiCategoriaConocida() {
         ServicioResumen servicio = new ServicioResumen(UUID.randomUUID(), "Servicio", "Categoria", 60, null);
 
         assertThatThrownBy(() -> holguraService.calcularHolguraMin(servicio))
@@ -30,8 +45,12 @@ class HolguraServiceTest {
     }
 
     private int holgura(String nombre, String categoria, Integer holguraMinutos) {
+        return holgura(nombre, categoria, 60, holguraMinutos);
+    }
+
+    private int holgura(String nombre, String categoria, Integer duracionMinutos, Integer holguraMinutos) {
         return holguraService.calcularHolguraMin(
-                new ServicioResumen(UUID.randomUUID(), nombre, categoria, 60, holguraMinutos)
+                new ServicioResumen(UUID.randomUUID(), nombre, categoria, duracionMinutos, holguraMinutos)
         );
     }
 }

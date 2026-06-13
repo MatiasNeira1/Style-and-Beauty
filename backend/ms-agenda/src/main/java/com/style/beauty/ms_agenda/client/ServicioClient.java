@@ -143,16 +143,8 @@ public class ServicioClient {
             throw new BusinessException("El servicio no tiene una duración válida configurada en ms-catalogo");
         }
 
-        if (servicio.holguraMinutos() == null) {
-            throw new BusinessException("El servicio no tiene holgura configurada en ms-catalogo");
-        }
-
-        if (servicio.holguraMinutos() < 0) {
+        if (servicio.holguraMinutos() != null && servicio.holguraMinutos() < 0) {
             throw new BusinessException("La holgura del servicio no puede ser negativa");
-        }
-
-        if (servicio.holguraMinutos() >= servicio.duracionMinutos()) {
-            throw new BusinessException("La holgura no puede ser igual o mayor a la duración del servicio");
         }
     }
 }
