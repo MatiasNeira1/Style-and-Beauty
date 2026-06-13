@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Loader } from '../ui/Loader.jsx';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { profileService } from '../../services/profileService.js';
+import { isProfileNotFoundError } from '../../services/apiClient.js';
 
 function AccessDenied() {
   return (
@@ -46,7 +47,7 @@ export function RequireAuth({ children, roles }) {
     return <AccessDenied />;
   }
 
-  if (sessionQuery.error?.status && ![404].includes(sessionQuery.error.status)) {
+  if (sessionQuery.error?.status && !isProfileNotFoundError(sessionQuery.error)) {
     return (
       <section className="page-section">
         <div className="auth-guard-card" role="alert">

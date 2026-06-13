@@ -13,6 +13,7 @@ import { ServiceSelector } from '../../components/booking/ServiceSelector.jsx';
 import { StaffSelector } from '../../components/booking/StaffSelector.jsx';
 import { crearTransaccionWebpay } from '../../services/pagosService.js';
 import { reservationService } from '../../services/reservationService.js';
+import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
 import { HOME_HERO_IMAGE_URL } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
@@ -28,7 +29,7 @@ function staffId(member) {
 }
 
 function profileErrorMessage(error) {
-  if (error?.status === 404) return 'Completa tu perfil de cliente antes de confirmar la reserva.';
+  if (isProfileNotFoundError(error)) return 'Completa tu perfil de cliente antes de confirmar la reserva.';
   if (error?.status === 503) return 'La autenticacion del servidor no esta configurada. Intenta mas tarde.';
   return error?.message || 'No fue posible cargar tu perfil de cliente.';
 }

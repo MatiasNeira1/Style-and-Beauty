@@ -12,6 +12,7 @@ import { agendaService } from '../../services/agendaService.js';
 import { catalogService } from '../../services/catalogService.js';
 import { crearTransaccionWebpay } from '../../services/pagosService.js';
 import { reservationService } from '../../services/reservationService.js';
+import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
 import { redirigirAWebpay } from '../../utils/webpayRedirect.js';
@@ -125,7 +126,7 @@ function profileForModal(professional, service) {
 }
 
 function profileErrorMessage(error) {
-  if (error?.status === 404) return 'Completa tu perfil de cliente antes de confirmar la reserva.';
+  if (isProfileNotFoundError(error)) return 'Completa tu perfil de cliente antes de confirmar la reserva.';
   if (error?.status === 503) return 'La autenticacion del servidor no esta configurada. Intenta mas tarde.';
   return error?.message || 'No se pudo cargar tu perfil de cliente.';
 }

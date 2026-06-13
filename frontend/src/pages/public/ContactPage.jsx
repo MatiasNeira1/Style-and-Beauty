@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/Card.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { contactService } from '../../services/contactService.js';
+import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { profileService } from '../../services/profileService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 
@@ -109,10 +110,10 @@ export function ContactPage() {
                 {profileQuery.isLoading && <p className="professional-empty">Cargando tus datos de cliente...</p>}
                 {profileQuery.isError && (
                   <p className="admin-alert">
-                    {profileQuery.error?.status === 404
+                    {isProfileNotFoundError(profileQuery.error)
                       ? 'Completa tu perfil de cliente antes de enviar un mensaje.'
                       : profileQuery.error?.message || 'No fue posible cargar tu perfil.'}
-                    {profileQuery.error?.status === 404 && (
+                    {isProfileNotFoundError(profileQuery.error) && (
                       <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/perfil')}>Ir a mi perfil</Button>
                     )}
                   </p>

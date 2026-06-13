@@ -54,6 +54,16 @@ export function clearStoredSession() {
   });
 }
 
+export function isProfileNotFoundError(error) {
+  const data = error?.data;
+  const code = String(error?.code || data?.code || data?.error || '').toUpperCase();
+  const message = String(error?.message || data?.message || (typeof data === 'string' ? data : '') || '').toLowerCase();
+
+  return code === 'PROFILE_NOT_FOUND'
+    || message.includes('perfil no encontrado')
+    || message.includes('no tiene perfil asociado');
+}
+
 function redirectToLoginAfterAuthFailure() {
   if (typeof window === 'undefined') return;
 

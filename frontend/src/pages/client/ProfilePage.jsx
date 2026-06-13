@@ -7,6 +7,7 @@ import { Input } from '../../components/ui/Input.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { profileService } from '../../services/profileService.js';
+import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 function profileRoleLabel(user, profile) {
@@ -86,7 +87,7 @@ export function ProfilePage() {
     return <div style={{ minHeight: '60vh', display: 'grid', placeItems: 'center' }}>Cargando perfil...</div>;
   }
 
-  if (profileError?.status === 404) {
+  if (isProfileNotFoundError(profileError)) {
     return (
       <section className="page-section">
         <Card className="client-auth-card" style={{ maxWidth: '760px', margin: '0 auto' }}>
