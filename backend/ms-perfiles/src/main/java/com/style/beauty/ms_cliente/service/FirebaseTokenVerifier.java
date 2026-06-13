@@ -16,7 +16,9 @@ public class FirebaseTokenVerifier {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Falta el header Authorization.");
         }
 
-        if (FirebaseApp.getApps().isEmpty()) {
+        try {
+            FirebaseApp.getInstance();
+        } catch (IllegalStateException e) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Firebase Admin SDK no esta configurado en el servidor.");

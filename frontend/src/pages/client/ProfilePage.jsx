@@ -23,10 +23,11 @@ export function ProfilePage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   // Fetch real profile data from backend
-  const { data: profile, isLoading } = useQuery({
+  const { data: profile, isLoading, error: profileError } = useQuery({
     queryKey: ['myProfile'],
     queryFn: profileService.getMyProfile,
     enabled: !!user,
+    retry: false,
   });
 
   const { register, handleSubmit, reset } = useForm();
@@ -61,6 +62,30 @@ export function ProfilePage() {
 
   if (isLoading) {
     return <div style={{ minHeight: '60vh', display: 'grid', placeItems: 'center' }}>Cargando perfil...</div>;
+  }
+
+  if (profileError?.status === 404) {
+    return (
+      <section className="page-section">
+        <Card className="client-auth-card">
+          <h2>Tu cuenta no tiene perfil asociado</h2>
+          <p>La sesion esta activa, pero falta completar el perfil cliente en la base de datos.</p>
+          <Button onClick={logout}>Cerrar sesion y volver a registrarme</Button>
+        </Card>
+      </section>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <section className="page-section">
+        <Card className="client-auth-card">
+          <h2>No pudimos cargar tu perfil</h2>
+          <p>{profileError.message || 'Intenta nuevamente en unos minutos.'}</p>
+          <Button onClick={logout}>Cerrar sesion</Button>
+        </Card>
+      </section>
+    );
   }
 
   const onSubmit = (data) => {
