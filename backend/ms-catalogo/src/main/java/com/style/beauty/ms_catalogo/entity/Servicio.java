@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.UUID;
 
 @Entity
-@Table(name = "servicio")
+@Table(name = "servicios")
 @Data
 public class Servicio {
 
