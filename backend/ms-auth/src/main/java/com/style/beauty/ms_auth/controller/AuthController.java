@@ -105,10 +105,12 @@ public class AuthController {
 
         try {
             // Asignacion de usuario cliente por defecto al registrarse
-            rolService.assignRoleToUser(uid, "CLIENTE");
+            rolService.assignClientRoleFromPublicFlow(uid);
             return ResponseEntity.ok("Rol CLIENTE asignado exitosamente al nuevo usuario");
         } catch (FirebaseAuthException e) {
             return ResponseEntity.internalServerError().body("Error al comunicar con Firebase: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(403).body(e.getMessage());
         } catch (IllegalStateException e) {
             return ResponseEntity.status(503).body(e.getMessage());
         }
