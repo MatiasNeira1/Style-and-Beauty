@@ -1,15 +1,25 @@
 import axios from 'axios';
 
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+const PUBLIC_GATEWAY_FALLBACK = 'https://sb-gateway.bluerock-c41dfa74.brazilsouth.azurecontainerapps.io';
 
-export const API_BASE_URL = rawApiBaseUrl.replace(/\/$/, '').replace(/\/api$/i, '');
+function isInternalAzureUrl(value) {
+  return String(value || '').toLowerCase().includes('.internal.');
+}
+
+function normalizeApiBaseUrl(value, fallback = '') {
+  const candidate = String(value || '').trim();
+  if (!candidate) return fallback;
+  if (isInternalAzureUrl(candidate)) return fallback || PUBLIC_GATEWAY_FALLBACK;
+  return candidate.replace(/\/$/, '').replace(/\/api$/i, '');
+}
+
+export const API_BASE_URL = normalizeApiBaseUrl(rawApiBaseUrl);
 export const AUTH_API_BASE_URL = API_BASE_URL;
 export const PROFILES_API_BASE_URL = API_BASE_URL;
 export const STAFF_API_BASE_URL = API_BASE_URL;
 export const CATALOG_API_BASE_URL = API_BASE_URL;
-export const AGENDA_API_BASE_URL = (import.meta.env.VITE_AGENDA_API_BASE_URL || API_BASE_URL)
-  .replace(/\/$/, '')
-  .replace(/\/api$/i, '');
+export const AGENDA_API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_AGENDA_API_BASE_URL, API_BASE_URL);
 export const INVENTORY_API_BASE_URL = API_BASE_URL;
 export const TOKEN_KEY = 'style_beauty_token';
 export const SESSION_USER_KEY = 'style_beauty_user';
@@ -98,6 +108,14 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
+  if (isInternalAzureUrl(config.baseURL)) {
+    config.baseURL = API_BASE_URL || PUBLIC_GATEWAY_FALLBACK;
+  }
+
+  if (isInternalAzureUrl(config.url)) {
+    throw new Error('La URL de API apunta a un dominio interno no permitido.');
+  }
+
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
