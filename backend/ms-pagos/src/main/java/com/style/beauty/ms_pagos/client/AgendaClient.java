@@ -13,7 +13,7 @@ public class AgendaClient {
 
     public AgendaClient(
             RestClient.Builder builder,
-            @Value("${ms.agenda.base-url:http://localhost:8084}") String agendaBaseUrl
+            @Value("${ms.agenda.base-url}") String agendaBaseUrl
     ) {
         this.restClient = builder.baseUrl(agendaBaseUrl).build();
     }
