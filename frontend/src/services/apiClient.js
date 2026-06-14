@@ -165,7 +165,8 @@ apiClient.interceptors.response.use(
 
     const apiError = new Error(message);
     apiError.status = error.response.status;
-    apiError.code = error.code;
+    apiError.code = responseData?.code || error.code;
+    apiError.field = responseData?.field;
     apiError.data = responseData;
     throw apiError;
   },

@@ -437,6 +437,8 @@ export function ServiceDetailPage() {
         startsAt: citaCreada.fechaHoraInicio || horarioReservado,
         endsAt: citaCreada.fechaHoraFin,
         expiresAt: citaCreada.expiracionReserva,
+        duracionServicioMin: citaCreada?.duracionServicioMin,
+        holguraMin: citaCreada?.holguraMin,
         service,
         staff: profesionalSeleccionado,
         date: fechaSeleccionada,

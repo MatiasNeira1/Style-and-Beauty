@@ -3,6 +3,7 @@ package com.style.beauty.ms_pagos.dto;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -10,12 +11,21 @@ public record CrearTransaccionRequest(
         UUID idCita,
         UUID idCliente,
         String descripcion,
+        BigDecimal total,
         List<ReservaCarrito> reservas,
         List<ProductoCarrito> productos
 ) {
 
     public record ReservaCarrito(
-            @NotNull UUID idCita
+            @NotNull UUID idCita,
+            UUID idServicio,
+            UUID idStaff,
+            String fecha,
+            OffsetDateTime horaInicio,
+            OffsetDateTime horaFin,
+            BigDecimal precio,
+            Integer duracionServicioMin,
+            Integer holguraMin
     ) {
     }
 

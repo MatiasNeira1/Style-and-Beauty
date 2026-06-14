@@ -11,6 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.style.beauty.ms_pagos.dto.CrearTransaccionRequest;
 import com.style.beauty.ms_pagos.dto.CrearTransaccionResponse;
+import com.style.beauty.ms_pagos.exception.PagosValidationException;
 import com.style.beauty.ms_pagos.service.WebpayService;
 
 import java.net.URI;
@@ -33,6 +34,8 @@ public class WebpayController {
     ) {
         try {
             return webpayService.crearTransaccion(request);
+        } catch (PagosValidationException e) {
+            throw e;
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
