@@ -69,6 +69,7 @@ public class WebpayService {
         BigDecimal monto = calcularMonto(citas, request.productos());
         String buyOrder = generarBuyOrder();
         String sessionId = idCliente.toString();
+        validarUrlPublica(returnUrl, "PUBLIC_GATEWAY_URL");
 
         try {
             WebpayPlus.Transaction transaction =
@@ -322,6 +323,16 @@ public class WebpayService {
 
     private String generarBuyOrder() {
         return "SB-" + System.currentTimeMillis();
+    }
+
+    private void validarUrlPublica(String url, String envName) {
+        if (url == null || url.isBlank()) {
+            throw new IllegalStateException(envName + " debe configurar una URL publica para WebPay");
+        }
+        String normalizada = url.trim().toLowerCase();
+        if (!normalizada.startsWith("https://") || normalizada.contains(".internal.")) {
+            throw new IllegalStateException(envName + " no puede apuntar a una URL interna");
+        }
     }
 
     private BigDecimal obtenerMontoServicio(ServicioCatalogoResumen servicio) {

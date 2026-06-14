@@ -21,17 +21,21 @@ import java.net.URI;
 public class WebpayController {
     private final WebpayService webpayService;
 
-    @Value("${frontend.success-url:http://localhost/pago/exitoso}")
+    @Value("${frontend.success-url}")
     private String frontendSuccessUrl;
 
-    @Value("${frontend.error-url:http://localhost/pago/error}")
+    @Value("${frontend.error-url}")
     private String frontendErrorUrl;
 
     @PostMapping("/crear")
     public CrearTransaccionResponse crearTransaccion(
             @Valid @RequestBody CrearTransaccionRequest request
     ) {
-        return webpayService.crearTransaccion(request);
+        try {
+            return webpayService.crearTransaccion(request);
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
 
     @GetMapping(value = "/redirigir/{idTransaccion}", produces = MediaType.TEXT_HTML_VALUE)
@@ -78,7 +82,7 @@ public class WebpayController {
 
                 return ResponseEntity
                         .status(302)
-                        .location(URI.create(frontendSuccessUrl))
+                        .location(frontendLocation(frontendSuccessUrl))
                         .build();
             }
 
@@ -88,15 +92,27 @@ public class WebpayController {
 
             return ResponseEntity
                     .status(302)
-                    .location(URI.create(frontendErrorUrl))
+                    .location(frontendLocation(frontendErrorUrl))
                     .build();
 
         } catch (Exception e) {
             log.error("Error procesando retorno Webpay", e);
             return ResponseEntity
                     .status(302)
-                    .location(URI.create(frontendErrorUrl))
+                    .location(frontendLocation(frontendErrorUrl))
                     .build();
         }
+    }
+
+    private URI frontendLocation(String configuredUrl) {
+        String fallback = "https://styleandbeauty.me/pago/retorno";
+        if (configuredUrl == null || configuredUrl.isBlank()) {
+            return URI.create(fallback);
+        }
+        String normalized = configuredUrl.trim();
+        if (normalized.toLowerCase().contains(".internal.")) {
+            return URI.create(fallback);
+        }
+        return URI.create(normalized);
     }
 }
