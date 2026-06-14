@@ -7,6 +7,8 @@ import com.style.beauty.ms_catalogo.repository.ServicioRepository;
 import com.style.beauty.ms_catalogo.repository.ServicioStaffRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
@@ -50,6 +52,7 @@ public class ServicioStaffService {
         return toResponse(servicioStaffRepository.save(relacion));
     }
 
+    @Transactional(readOnly = true)
     public List<StaffServicioResponse> listarPorServicio(UUID idServicio) {
         validarServicioExiste(idServicio);
 
@@ -59,6 +62,7 @@ public class ServicioStaffService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public boolean staffRealizaServicio(UUID idServicio, UUID idStaff) {
         validarServicioExiste(idServicio);
 
@@ -96,7 +100,7 @@ public class ServicioStaffService {
 
     private void validarServicioExiste(UUID idServicio) {
         if (idServicio == null || !servicioRepository.existsById(idServicio)) {
-            throw new IllegalArgumentException("Servicio no encontrado");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Servicio no encontrado");
         }
     }
 
