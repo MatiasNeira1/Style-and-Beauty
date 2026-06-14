@@ -1,6 +1,7 @@
 package com.style.beauty.ms_pagos.exception;
 
 import com.style.beauty.ms_pagos.dto.ApiError;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(PagosValidationException.class)
@@ -38,5 +40,17 @@ public class GlobalExceptionHandler {
                 ? "Solicitud invalida."
                 : ex.getReason();
         return ResponseEntity.status(ex.getStatusCode()).body(new ApiError(message, null, code));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiError> handleGeneric(Exception ex) {
+        log.error("Error no controlado en ms-pagos", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                new ApiError(
+                        "No se pudo procesar el pago. Intenta nuevamente o contacta soporte.",
+                        null,
+                        "PAYMENT_PROCESSING_ERROR"
+                )
+        );
     }
 }

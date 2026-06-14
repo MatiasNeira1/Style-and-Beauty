@@ -25,8 +25,8 @@ export const reservationService = {
     request({
       baseURL: AGENDA_API_BASE_URL,
       url: '/api/agenda/citas/disponibilidad',
-      method: 'POST',
-      data: normalizeAvailabilityPayload({ serviceId, professionalId, date }),
+      method: 'GET',
+      params: normalizeAvailabilityPayload({ serviceId, professionalId, date }),
     }),
 
   createReservation: ({ serviceId, professionalId, startsAt, note, clientId }) => {
