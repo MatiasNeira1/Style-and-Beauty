@@ -37,7 +37,7 @@ public class WebpayController {
         } catch (PagosValidationException e) {
             throw e;
         } catch (IllegalStateException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+            throw new PagosValidationException(e.getMessage(), "request", "PAYMENT_PAYLOAD_INVALID");
         }
     }
 

@@ -1,5 +1,6 @@
 package com.style.beauty.ms_pagos.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
@@ -18,8 +19,10 @@ public record CrearTransaccionRequest(
 
     public record ReservaCarrito(
             @NotNull UUID idCita,
-            UUID idServicio,
-            UUID idStaff,
+            @JsonAlias({"idServicio", "serviceId"})
+            UUID servicioId,
+            @JsonAlias({"idStaff", "staffId", "professionalId"})
+            UUID profesionalId,
             String fecha,
             OffsetDateTime horaInicio,
             OffsetDateTime horaFin,

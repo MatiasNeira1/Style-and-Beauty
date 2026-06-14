@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -48,11 +49,10 @@ public class WebpayService {
     private String returnUrl;
 
     public CrearTransaccionResponse crearTransaccion(CrearTransaccionRequest request) {
+        logPayloadSeguro(request);
         validarPayloadInicial(request);
         List<UUID> idsCitas = idsCitas(request);
-        List<CitaResumen> citas = idsCitas.stream()
-                .map(agendaClient::obtenerCita)
-                .toList();
+        List<CitaResumen> citas = obtenerCitasParaPago(idsCitas);
 
         validarCitasPendientes(citas);
         validarProductos(request.productos());
@@ -257,16 +257,16 @@ public class WebpayService {
         }
         productos.forEach((producto) -> {
             if (producto == null) {
-                fail("El carrito contiene un producto invalido.", "productos", "PRODUCT_REQUIRED");
+                fail("El carrito contiene un producto invalido.", "productos");
             }
             if (producto.idProducto() == null || producto.idProducto().isBlank()) {
-                fail("El carrito contiene un producto sin identificador.", "productos.idProducto", "PRODUCT_ID_REQUIRED");
+                fail("El carrito contiene un producto sin identificador.", "productos.idProducto");
             }
             if (producto.precio() == null || producto.precio().signum() <= 0) {
-                fail("El carrito contiene un producto sin precio valido.", "productos.precio", "PRODUCT_PRICE_REQUIRED");
+                fail("El carrito contiene un producto sin precio valido.", "productos.precio");
             }
             if (producto.cantidad() == null || producto.cantidad() <= 0) {
-                fail("El carrito contiene un producto sin cantidad valida.", "productos.cantidad", "PRODUCT_QUANTITY_REQUIRED");
+                fail("El carrito contiene un producto sin cantidad valida.", "productos.cantidad");
             }
         });
     }
@@ -276,12 +276,12 @@ public class WebpayService {
             UUID idCliente = citas.get(0).idCliente();
             boolean mismoCliente = citas.stream().allMatch((cita) -> idCliente.equals(cita.idCliente()));
             if (!mismoCliente) {
-                throw new IllegalStateException("Todas las reservas del carrito deben pertenecer al mismo cliente");
+                fail("Todas las reservas del carrito deben pertenecer al mismo cliente.", "reservas.idCliente");
             }
             return idCliente;
         }
         if (request.idCliente() == null) {
-            fail("No fue posible identificar al cliente para pagar el carrito.", "idCliente", "CLIENT_ID_REQUIRED");
+            fail("No fue posible identificar al cliente para pagar el carrito.", "idCliente");
         }
         return request.idCliente();
     }
@@ -301,14 +301,27 @@ public class WebpayService {
 
         BigDecimal total = montoReservas.add(montoProductos);
         if (total.signum() <= 0) {
-            fail("El carrito no tiene monto a pagar.", "total", "EMPTY_TOTAL");
+            fail("El carrito no tiene monto a pagar.", "total");
         }
         return total;
     }
 
+    private List<CitaResumen> obtenerCitasParaPago(List<UUID> idsCitas) {
+        List<CitaResumen> citas = new ArrayList<>();
+        for (int i = 0; i < idsCitas.size(); i++) {
+            UUID idCita = idsCitas.get(i);
+            try {
+                citas.add(agendaClient.obtenerCita(idCita));
+            } catch (RestClientResponseException e) {
+                fail("No se pudo obtener la reserva del carrito.", "reservas[" + i + "].idCita");
+            }
+        }
+        return citas;
+    }
+
     private void validarPayloadInicial(CrearTransaccionRequest request) {
         if (request == null) {
-            fail("El payload de pago es obligatorio.", "body", "BODY_REQUIRED");
+            fail("El payload de pago es obligatorio.", "body");
         }
 
         boolean tieneIdCitaLegacy = request.idCita() != null;
@@ -316,19 +329,52 @@ public class WebpayService {
         boolean tieneProductos = request.productos() != null && !request.productos().isEmpty();
 
         if (!tieneIdCitaLegacy && !tieneReservas && !tieneProductos) {
-            fail("El carrito no contiene reservas ni productos para pagar.", "items", "CART_EMPTY");
+            fail("El carrito no contiene reservas ni productos para pagar.", "items");
         }
 
         if (request.reservas() != null) {
             for (int i = 0; i < request.reservas().size(); i++) {
                 CrearTransaccionRequest.ReservaCarrito reserva = request.reservas().get(i);
                 if (reserva == null || reserva.idCita() == null) {
-                    fail("La reserva del carrito no tiene idCita.", "reservas[" + i + "].idCita", "RESERVATION_ID_REQUIRED");
+                    fail("Falta idCita en item reserva.", "reservas[" + i + "].idCita");
+                }
+                if (reserva.servicioId() == null) {
+                    fail("Falta servicioId en item reserva.", "reservas[" + i + "].servicioId");
+                }
+                if (reserva.profesionalId() == null) {
+                    fail("Falta profesionalId en item reserva.", "reservas[" + i + "].profesionalId");
+                }
+                if (reserva.fecha() == null || reserva.fecha().isBlank()) {
+                    fail("Falta fecha en item reserva.", "reservas[" + i + "].fecha");
+                }
+                if (reserva.horaInicio() == null) {
+                    fail("Falta horaInicio en item reserva.", "reservas[" + i + "].horaInicio");
+                }
+                if (reserva.precio() == null || reserva.precio().signum() <= 0) {
+                    fail("Falta precio valido en item reserva.", "reservas[" + i + "].precio");
                 }
             }
         }
 
         validarProductos(request.productos());
+    }
+
+    private void logPayloadSeguro(CrearTransaccionRequest request) {
+        if (request == null) {
+            log.warn("Payload Webpay recibido: body=null");
+            return;
+        }
+        List<UUID> idsReservas = idsCitas(request);
+        int reservasCount = request.reservas() == null ? 0 : request.reservas().size();
+        int productosCount = request.productos() == null ? 0 : request.productos().size();
+        log.info(
+                "Payload Webpay recibido: idCliente={} reservas={} productos={} total={} idsCitas={}",
+                request.idCliente(),
+                reservasCount,
+                productosCount,
+                request.total(),
+                idsReservas
+        );
     }
 
     private void registrarDiferenciaTotalInformado(BigDecimal totalInformado, BigDecimal totalCalculado) {
@@ -347,6 +393,10 @@ public class WebpayService {
     private void fail(String message, String field, String code) {
         log.warn("Payload Webpay invalido: code={} field={} message={}", code, field, message);
         throw new PagosValidationException(message, field, code);
+    }
+
+    private void fail(String message, String field) {
+        fail(message, field, "PAYMENT_PAYLOAD_INVALID");
     }
 
     private TransaccionPago buscarTransaccionPendienteReutilizable(List<UUID> idsCitas) {

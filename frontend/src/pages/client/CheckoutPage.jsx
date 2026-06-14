@@ -27,16 +27,16 @@ function validateReservationItem(item) {
     return { message: 'La reserva del carrito ya no es compatible. Selecciona fecha y hora nuevamente.', field: 'reservationId' };
   }
   if (!isValidUuid(item?.serviceId)) {
-    return { message: 'La reserva no tiene un servicio valido. Selecciona fecha y hora nuevamente.', field: 'serviceId' };
+    return { message: 'Falta servicioId en item reserva. Selecciona fecha y hora nuevamente.', field: 'reservas[0].servicioId' };
   }
   if (!isValidUuid(item?.staffId)) {
-    return { message: 'La reserva no tiene un profesional valido. Selecciona fecha y hora nuevamente.', field: 'staffId' };
+    return { message: 'Falta profesionalId en item reserva. Selecciona fecha y hora nuevamente.', field: 'reservas[0].profesionalId' };
   }
   if (!item?.date) {
-    return { message: 'La reserva no tiene fecha. Selecciona fecha y hora nuevamente.', field: 'date' };
+    return { message: 'Falta fecha en item reserva. Selecciona fecha y hora nuevamente.', field: 'reservas[0].fecha' };
   }
   if (!item?.time && !item?.startsAt) {
-    return { message: 'La reserva no tiene hora. Selecciona fecha y hora nuevamente.', field: 'time' };
+    return { message: 'Falta horaInicio en item reserva. Selecciona fecha y hora nuevamente.', field: 'reservas[0].horaInicio' };
   }
   return null;
 }
@@ -69,8 +69,8 @@ function cartPayload(items, idCliente) {
     .filter(isReservation)
     .map((item) => ({
       idCita: item.reservationId,
-      idServicio: item.serviceId,
-      idStaff: item.staffId,
+      servicioId: item.serviceId,
+      profesionalId: item.staffId,
       fecha: item.date,
       horaInicio: item.time || item.startsAt,
       horaFin: item.endsAt,
@@ -148,7 +148,11 @@ export function CheckoutPage() {
 
       redirigirAWebpay(urlWebpay, token);
     } catch (error) {
-      setCheckoutError(error?.message || 'No fue posible iniciar el pago del carrito.');
+      const message = error?.data?.message || error?.message || 'No fue posible iniciar el pago del carrito.';
+      setCheckoutError(message);
+      if (error?.code === 'PAYMENT_PAYLOAD_INVALID') {
+        clearCart();
+      }
     } finally {
       setIsStartingPayment(false);
     }
