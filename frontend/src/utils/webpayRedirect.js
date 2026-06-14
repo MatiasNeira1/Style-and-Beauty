@@ -1,4 +1,8 @@
 export function redirigirAWebpay(urlWebpay, token) {
+  if (String(urlWebpay || '').toLowerCase().includes('.internal.')) {
+    throw new Error('La URL de WebPay apunta a un dominio interno no permitido.');
+  }
+
   const form = document.createElement('form');
 
   form.method = 'POST';

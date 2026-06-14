@@ -30,16 +30,14 @@ public class SecurityConfig {
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                                                 .requestMatchers(
-                                                                "/api/pagos/webpay/crear",
-                                                                "/api/pagos/webpay/redirigir/**",
-                                                                "/api/pagos/webpay/retorno",
-                                                                "/error",
+                                                                "/api/pagos/**",
+                                                                "/actuator/health",
                                                                 "/v3/api-docs/**",
                                                                 "/swagger-ui/**",
                                                                 "/swagger-ui.html",
-                                                                "/actuator/health")
+                                                                "/error")
                                                 .permitAll()
-                                                .anyRequest().permitAll());
+                                                .anyRequest().denyAll());
 
                 return http.build();
         }
