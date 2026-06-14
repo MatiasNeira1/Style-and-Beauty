@@ -37,15 +37,18 @@ public class ServicioService {
     @Autowired
     private AzureBlobStorageService azureBlobStorageService;
 
+    @Transactional(readOnly = true)
     public List<Servicio> listarTodos() {
         return repository.findByActivoTrue();
     }
 
+    @Transactional(readOnly = true)
     public Optional<Servicio> buscarPorId(UUID id) {
         return repository.findById(id)
                 .filter(servicio -> Boolean.TRUE.equals(servicio.getActivo()));
     }
 
+    @Transactional(readOnly = true)
     public List<Servicio> listarPorCategoria(String categoria) {
         return repository.findByCategoriaIgnoreCaseAndActivoTrue(categoria);
     }
@@ -186,6 +189,7 @@ public class ServicioService {
     @Value("${app.ms-perfiles.base-url:http://ms-perfiles:8082}")
     private String perfilesBaseUrl;
 
+    @Transactional(readOnly = true)
     public List<Object> obtenerProfesionalesPorServicio(UUID idServicio) {
         List<UUID> idStaffs = servicioStaffRepository.findByIdServicioAndActivoTrue(idServicio).stream()
                 .map(com.style.beauty.ms_catalogo.entity.ServicioStaff::getIdStaff)
@@ -232,6 +236,7 @@ public class ServicioService {
         }
     }
 
+    @Transactional(readOnly = true)
     public List<Object> obtenerProfesionalesPorNombreServicio(String nombre) {
         Optional<Servicio> servicioOpt = repository.findAll().stream()
                 .filter(s -> s.getNombre().equalsIgnoreCase(nombre.trim()))
