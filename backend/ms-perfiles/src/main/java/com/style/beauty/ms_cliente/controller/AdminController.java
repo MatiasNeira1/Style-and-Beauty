@@ -152,10 +152,10 @@ public class AdminController {
         }
     }
 
-    // --- Método Auxiliar Interno para no repetir código ---
     private boolean esAdmin(String authHeader) {
         FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
-        String rol = (String) decodedToken.getClaims().get("rol");
+        Object rolObj = decodedToken.getClaims().get("rol");
+        String rol = rolObj == null ? null : String.valueOf(rolObj);
         return "ADMIN".equalsIgnoreCase(rol);
     }
 }

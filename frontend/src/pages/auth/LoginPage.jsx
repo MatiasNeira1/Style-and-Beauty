@@ -90,7 +90,8 @@ export function LoginPage() {
     try {
       const session = await login(form.email, form.password);
       const requestedAdminRoute = redirectTo.startsWith('/admin');
-      const destination = session.user?.rol === 'ADMIN'
+      const isAdminOrStaff = session.user?.rol === 'ADMIN' || session.user?.rol === 'STAFF';
+      const destination = isAdminOrStaff
         ? (requestedAdminRoute ? redirectTo : '/admin')
         : (requestedAdminRoute ? '/perfil' : redirectTo);
       navigate(destination, { replace: true, state: redirectState });
