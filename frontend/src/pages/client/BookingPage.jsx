@@ -189,6 +189,8 @@ export function BookingPage() {
         startsAt: created.fechaHoraInicio || time,
         endsAt: created.fechaHoraFin,
         expiresAt: created.expiracionReserva,
+        duracionServicioMin: created?.duracionServicioMin,
+        holguraMin: created?.holguraMin,
         service,
         staff: member,
         date,

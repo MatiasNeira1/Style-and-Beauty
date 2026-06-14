@@ -13,8 +13,10 @@ import com.style.beauty.ms_pagos.dto.CrearTransaccionResponse;
 import com.style.beauty.ms_pagos.dto.ServicioCatalogoResumen;
 import com.style.beauty.ms_pagos.entity.TransaccionPago;
 import com.style.beauty.ms_pagos.enums.EstadoTransaccion;
+import com.style.beauty.ms_pagos.exception.PagosValidationException;
 import com.style.beauty.ms_pagos.repository.TransaccionPagoRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +31,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class WebpayService {
     private final TransaccionPagoRepository transaccionPagoRepository;
     private final AgendaClient agendaClient;
@@ -45,6 +48,7 @@ public class WebpayService {
     private String returnUrl;
 
     public CrearTransaccionResponse crearTransaccion(CrearTransaccionRequest request) {
+        validarPayloadInicial(request);
         List<UUID> idsCitas = idsCitas(request);
         List<CitaResumen> citas = idsCitas.stream()
                 .map(agendaClient::obtenerCita)
@@ -67,6 +71,7 @@ public class WebpayService {
         }
 
         BigDecimal monto = calcularMonto(citas, request.productos());
+        registrarDiferenciaTotalInformado(request.total(), monto);
         String buyOrder = generarBuyOrder();
         String sessionId = idCliente.toString();
         validarUrlPublica(returnUrl, "PUBLIC_GATEWAY_URL");
@@ -238,10 +243,10 @@ public class WebpayService {
     private void validarCitasPendientes(List<CitaResumen> citas) {
         for (CitaResumen cita : citas) {
             if (cita == null || cita.idCliente() == null || cita.idServicio() == null) {
-                throw new IllegalStateException("No se pudo obtener la cita o sus datos de pago");
+                fail("No se pudo obtener la cita o sus datos de pago", "reservas", "RESERVATION_NOT_FOUND");
             }
             if (!"PENDIENTE_PAGO".equalsIgnoreCase(cita.estadoCita())) {
-                throw new IllegalStateException("Solo se puede crear pago para reservas pendientes de pago");
+                fail("Solo se puede crear pago para reservas pendientes de pago", "reservas.estadoCita", "RESERVATION_NOT_PAYABLE");
             }
         }
     }
@@ -251,11 +256,17 @@ public class WebpayService {
             return;
         }
         productos.forEach((producto) -> {
-            if (producto.idProducto() == null || producto.precio() == null || producto.precio().signum() <= 0) {
-                throw new IllegalStateException("El carrito contiene un producto sin precio valido");
+            if (producto == null) {
+                fail("El carrito contiene un producto invalido.", "productos", "PRODUCT_REQUIRED");
+            }
+            if (producto.idProducto() == null || producto.idProducto().isBlank()) {
+                fail("El carrito contiene un producto sin identificador.", "productos.idProducto", "PRODUCT_ID_REQUIRED");
+            }
+            if (producto.precio() == null || producto.precio().signum() <= 0) {
+                fail("El carrito contiene un producto sin precio valido.", "productos.precio", "PRODUCT_PRICE_REQUIRED");
             }
             if (producto.cantidad() == null || producto.cantidad() <= 0) {
-                throw new IllegalStateException("El carrito contiene un producto sin cantidad valida");
+                fail("El carrito contiene un producto sin cantidad valida.", "productos.cantidad", "PRODUCT_QUANTITY_REQUIRED");
             }
         });
     }
@@ -270,7 +281,7 @@ public class WebpayService {
             return idCliente;
         }
         if (request.idCliente() == null) {
-            throw new IllegalStateException("No fue posible identificar al cliente para pagar el carrito");
+            fail("No fue posible identificar al cliente para pagar el carrito.", "idCliente", "CLIENT_ID_REQUIRED");
         }
         return request.idCliente();
     }
@@ -290,9 +301,52 @@ public class WebpayService {
 
         BigDecimal total = montoReservas.add(montoProductos);
         if (total.signum() <= 0) {
-            throw new IllegalStateException("El carrito no tiene monto a pagar");
+            fail("El carrito no tiene monto a pagar.", "total", "EMPTY_TOTAL");
         }
         return total;
+    }
+
+    private void validarPayloadInicial(CrearTransaccionRequest request) {
+        if (request == null) {
+            fail("El payload de pago es obligatorio.", "body", "BODY_REQUIRED");
+        }
+
+        boolean tieneIdCitaLegacy = request.idCita() != null;
+        boolean tieneReservas = request.reservas() != null && !request.reservas().isEmpty();
+        boolean tieneProductos = request.productos() != null && !request.productos().isEmpty();
+
+        if (!tieneIdCitaLegacy && !tieneReservas && !tieneProductos) {
+            fail("El carrito no contiene reservas ni productos para pagar.", "items", "CART_EMPTY");
+        }
+
+        if (request.reservas() != null) {
+            for (int i = 0; i < request.reservas().size(); i++) {
+                CrearTransaccionRequest.ReservaCarrito reserva = request.reservas().get(i);
+                if (reserva == null || reserva.idCita() == null) {
+                    fail("La reserva del carrito no tiene idCita.", "reservas[" + i + "].idCita", "RESERVATION_ID_REQUIRED");
+                }
+            }
+        }
+
+        validarProductos(request.productos());
+    }
+
+    private void registrarDiferenciaTotalInformado(BigDecimal totalInformado, BigDecimal totalCalculado) {
+        if (totalInformado == null) {
+            return;
+        }
+        if (totalInformado.compareTo(totalCalculado) != 0) {
+            log.warn(
+                    "Total Webpay informado difiere del calculado: informado={} calculado={}",
+                    totalInformado,
+                    totalCalculado
+            );
+        }
+    }
+
+    private void fail(String message, String field, String code) {
+        log.warn("Payload Webpay invalido: code={} field={} message={}", code, field, message);
+        throw new PagosValidationException(message, field, code);
     }
 
     private TransaccionPago buscarTransaccionPendienteReutilizable(List<UUID> idsCitas) {

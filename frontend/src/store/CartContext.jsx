@@ -2,24 +2,75 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
 
 const CartContext = createContext(null);
+const CART_STORAGE_KEY = 'style_beauty_cart';
+const LEGACY_CART_KEYS = ['cart', 'carrito', 'styleBeautyCart', 'style_beauty_checkout'];
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function isReservation(item) {
   return item?.type === 'reservation';
+}
+
+function isValidUuid(value) {
+  return typeof value === 'string' && UUID_PATTERN.test(value.trim());
 }
 
 function isExpired(item, now = Date.now()) {
   return isReservation(item) && item.expiresAt && new Date(item.expiresAt).getTime() <= now;
 }
 
+function hasReservationContract(item) {
+  return isValidUuid(item?.reservationId)
+    && isValidUuid(item?.serviceId)
+    && isValidUuid(item?.staffId)
+    && Boolean(item?.date)
+    && Boolean(item?.time || item?.startsAt);
+}
+
+function sanitizeCartItems(items, now = Date.now()) {
+  if (!Array.isArray(items)) return { items: [], removedLegacy: false };
+
+  let removedLegacy = false;
+  const nextItems = items.filter((item) => {
+    if (isExpired(item, now)) return false;
+    if (isReservation(item) && !hasReservationContract(item)) {
+      removedLegacy = true;
+      return false;
+    }
+    return true;
+  });
+
+  return { items: nextItems, removedLegacy };
+}
+
 export function CartProvider({ children }) {
-  const [items, setItems] = useLocalStorage('style_beauty_cart', []);
+  const [items, setItems] = useLocalStorage(CART_STORAGE_KEY, []);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [lastCartError, setLastCartError] = useState('');
 
   useEffect(() => {
+    LEGACY_CART_KEYS.forEach((key) => window.localStorage.removeItem(key));
+    try {
+      const pending = JSON.parse(window.sessionStorage.getItem('reservaPendiente') || 'null');
+      if (pending && (!pending.idServicio || !pending.profesionalSeleccionado || !pending.fechaSeleccionada || !pending.horarioSeleccionado)) {
+        window.sessionStorage.removeItem('reservaPendiente');
+      }
+    } catch {
+      window.sessionStorage.removeItem('reservaPendiente');
+    }
+  }, []);
+
+  useEffect(() => {
     const removeExpired = () => {
       const now = Date.now();
-      setItems((current) => current.filter((item) => !isExpired(item, now)));
+      setItems((current) => {
+        const sanitized = sanitizeCartItems(current, now);
+        if (sanitized.removedLegacy) {
+          window.setTimeout(() => {
+            setLastCartError('Quitamos reservas antiguas del carrito. Selecciona nuevamente fecha y hora para pagar.');
+          }, 0);
+        }
+        return sanitized.items;
+      });
     };
 
     removeExpired();

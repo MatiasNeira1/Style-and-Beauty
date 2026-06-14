@@ -1,7 +1,13 @@
 import { AGENDA_API_BASE_URL, PROFILES_API_BASE_URL, request } from './apiClient.js';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isValidUuid(value) {
+  return typeof value === 'string' && UUID_PATTERN.test(value.trim());
+}
+
 function normalizeAvailabilityPayload({ serviceId, professionalId, date }) {
-  if (!serviceId || !professionalId || !date) {
+  if (!isValidUuid(serviceId) || !isValidUuid(professionalId) || !date) {
     throw new Error('Selecciona servicio, profesional y fecha para consultar disponibilidad.');
   }
 
@@ -27,7 +33,7 @@ export const reservationService = {
     if (!clientId) {
       throw new Error('Tu perfil de cliente debe estar completo para confirmar la reserva.');
     }
-    if (!serviceId || !professionalId || !startsAt) {
+    if (!isValidUuid(serviceId) || !isValidUuid(professionalId) || !startsAt) {
       throw new Error('Selecciona servicio, profesional y horario para continuar.');
     }
 
@@ -53,4 +59,5 @@ export const reservationService = {
       method: 'DELETE',
       authRequired: true,
     }),
+  isValidUuid,
 };
