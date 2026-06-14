@@ -3,6 +3,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage.js';
 
 const CartContext = createContext(null);
 const CART_STORAGE_KEY = 'style_beauty_cart';
+const CART_SCHEMA_VERSION = 2;
 const LEGACY_CART_KEYS = ['cart', 'carrito', 'styleBeautyCart', 'style_beauty_checkout'];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -19,7 +20,8 @@ function isExpired(item, now = Date.now()) {
 }
 
 function hasReservationContract(item) {
-  return isValidUuid(item?.reservationId)
+  return item?.cartVersion === CART_SCHEMA_VERSION
+    && isValidUuid(item?.reservationId)
     && isValidUuid(item?.serviceId)
     && isValidUuid(item?.staffId)
     && Boolean(item?.date)
@@ -111,7 +113,7 @@ export function CartProvider({ children }) {
         return activeItems;
       }
 
-      return [...activeItems, { ...reservation, type: 'reservation', quantity: 1 }];
+      return [...activeItems, { ...reservation, cartVersion: CART_SCHEMA_VERSION, type: 'reservation', quantity: 1 }];
     });
 
     if (!result.ok) {
@@ -167,6 +169,7 @@ export function CartProvider({ children }) {
       setIsCartOpen,
       lastCartError,
       setLastCartError,
+      cartSchemaVersion: CART_SCHEMA_VERSION,
     }),
     [items, addItem, addReservationItem, hasReservationForService, removeItem, removeReservationItems, updateQuantity, clearCart, total, isCartOpen, lastCartError],
   );
