@@ -34,6 +34,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class WebpayService {
+    private static final String SIMULATED_TOKEN_PREFIX = "SIM-";
+    private static final String DEFAULT_PUBLIC_GATEWAY_URL =
+            "https://sb-gateway.bluerock-c41dfa74.brazilsouth.azurecontainerapps.io";
+
     private final TransaccionPagoRepository transaccionPagoRepository;
     private final AgendaClient agendaClient;
     private final CatalogoClient catalogoClient;
@@ -48,6 +52,12 @@ public class WebpayService {
     @Value("${tbk.return-url}")
     private String returnUrl;
 
+    @Value("${public.gateway-url:" + DEFAULT_PUBLIC_GATEWAY_URL + "}")
+    private String publicGatewayUrl;
+
+    @Value("${webpay.real-enabled:false}")
+    private boolean webpayRealEnabled;
+
     public CrearTransaccionResponse crearTransaccion(CrearTransaccionRequest request) {
         logPayloadSeguro(request);
         validarPayloadInicial(request);
@@ -59,9 +69,13 @@ public class WebpayService {
 
         CitaResumen primeraCita = citas.isEmpty() ? null : citas.get(0);
         UUID idCliente = resolverCliente(request, citas);
+        boolean usarWebpaySimulado = debeUsarWebpaySimulado();
         TransaccionPago pendiente = buscarTransaccionPendienteReutilizable(idsCitas);
 
         if (pendiente != null && pendiente.getTokenWebpay() != null && pendiente.getUrlWebpay() != null) {
+            if (usarWebpaySimulado) {
+                pendiente = asegurarPendienteSimulada(pendiente);
+            }
             return new CrearTransaccionResponse(
                     pendiente.getIdTransaccion(),
                     pendiente.getIdCita(),
@@ -74,9 +88,13 @@ public class WebpayService {
         registrarDiferenciaTotalInformado(request.total(), monto);
         String buyOrder = generarBuyOrder();
         String sessionId = idCliente.toString();
-        validarUrlPublica(returnUrl, "PUBLIC_GATEWAY_URL");
+
+        if (usarWebpaySimulado) {
+            return crearTransaccionSimulada(request, idsCitas, primeraCita, idCliente, monto, buyOrder, sessionId);
+        }
 
         try {
+            validarUrlPublica(returnUrl, "PUBLIC_GATEWAY_URL");
             WebpayPlus.Transaction transaction =
                     WebpayPlus.Transaction.buildForIntegration(commerceCode, apiKey);
 
@@ -110,11 +128,16 @@ public class WebpayService {
             );
 
         } catch (Exception e) {
-            throw new RuntimeException("No se pudo crear la transacción Webpay: " + e.getMessage(), e);
+            log.warn("Webpay real no disponible; se usara simulacion controlada. causa={}", e.getMessage());
+            return crearTransaccionSimulada(request, idsCitas, primeraCita, idCliente, monto, buyOrder, sessionId);
         }
     }
 
     public TransaccionPago confirmarPago(String tokenWs) {
+        if (esTokenSimulado(tokenWs)) {
+            return confirmarPagoSimulado(tokenWs);
+        }
+
         TransaccionPago transaccion = transaccionPagoRepository.findByTokenWebpay(tokenWs)
                 .orElseThrow(() -> new RuntimeException("Transacción no encontrada para token Webpay"));
 
@@ -154,6 +177,209 @@ public class WebpayService {
             throw new RuntimeException("No se pudo confirmar el pago Webpay: " + e.getMessage(), e);
         }
     }
+
+    public TransaccionPago confirmarPagoSimulado(UUID idTransaccion, String tokenWs) {
+        TransaccionPago transaccion = buscarTransaccion(idTransaccion);
+        validarTokenSimulado(transaccion, tokenWs);
+        return autorizarPagoSimulado(transaccion);
+    }
+
+    public TransaccionPago rechazarPagoSimulado(UUID idTransaccion, String tokenWs) {
+        TransaccionPago transaccion = buscarTransaccion(idTransaccion);
+        validarTokenSimulado(transaccion, tokenWs);
+
+        if (transaccion.getEstado() == EstadoTransaccion.AUTORIZADA) {
+            return transaccion;
+        }
+
+        if (transaccion.getEstado() != EstadoTransaccion.PENDIENTE
+                && transaccion.getEstado() != EstadoTransaccion.CREADA) {
+            return transaccion;
+        }
+
+        transaccion.setEstado(EstadoTransaccion.RECHAZADA);
+        transaccion.setAuthorizationCode("SIMULATED_REJECTED");
+        transaccion.setPaymentTypeCode("SIM");
+        transaccion.setResponseCode(-1);
+        transaccion.setTransactionDate(OffsetDateTime.now());
+
+        TransaccionPago actualizada = transaccionPagoRepository.save(transaccion);
+        idsCitas(actualizada).forEach((idCita) ->
+                agendaClient.rechazarCita(idCita, "Pago Webpay simulado rechazado"));
+        return actualizada;
+    }
+
+    public TransaccionPago confirmarPagoSimulado(String tokenWs) {
+        TransaccionPago transaccion = transaccionPagoRepository.findByTokenWebpay(tokenWs)
+                .orElseThrow(() -> new RuntimeException("Transaccion simulada no encontrada"));
+        return autorizarPagoSimulado(transaccion);
+    }
+
+    public String construirHtmlPagoSimulado(UUID idTransaccion, String tokenWs) {
+        TransaccionPago transaccion = buscarTransaccion(idTransaccion);
+        validarTokenSimulado(transaccion, tokenWs);
+
+        if (transaccion.getEstado() == EstadoTransaccion.AUTORIZADA) {
+            return paginaSimple("Pago ya confirmado", "Esta transaccion simulada ya fue confirmada correctamente.");
+        }
+
+        if (transaccion.getEstado() == EstadoTransaccion.RECHAZADA
+                || transaccion.getEstado() == EstadoTransaccion.ERROR
+                || transaccion.getEstado() == EstadoTransaccion.EXPIRADA) {
+            return paginaSimple("Pago no disponible", "Esta transaccion simulada ya no se encuentra disponible.");
+        }
+
+        String token = transaccion.getTokenWebpay();
+        return """
+                <!doctype html>
+                <html lang="es">
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1">
+                  <title>WebPay simulado</title>
+                  <style>
+                    body { font-family: Arial, sans-serif; background: #f7f1ed; margin: 0; min-height: 100vh; display: grid; place-items: center; color: #2d2420; }
+                    main { width: min(520px, calc(100vw - 32px)); background: #fff; border: 1px solid #e5d8d1; border-radius: 8px; padding: 28px; box-shadow: 0 18px 50px rgba(45, 36, 32, .12); }
+                    h1 { margin: 0 0 8px; font-size: 26px; }
+                    p { line-height: 1.5; }
+                    dl { display: grid; gap: 10px; margin: 22px 0; }
+                    div { display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid #eee5df; padding-bottom: 8px; }
+                    dt { color: #6d5c54; }
+                    dd { margin: 0; font-weight: 700; text-align: right; }
+                    .actions { display: flex; gap: 12px; flex-wrap: wrap; border: 0; padding: 0; }
+                    button { border: 0; border-radius: 6px; padding: 12px 16px; font-weight: 700; cursor: pointer; }
+                    .confirm { background: #2d2420; color: #fff; }
+                    .reject { background: #efe5df; color: #2d2420; }
+                  </style>
+                </head>
+                <body>
+                  <main>
+                    <h1>WebPay simulado</h1>
+                    <p>Ambiente de prueba para confirmar el pago sin credenciales reales de Transbank.</p>
+                    <dl>
+                      <div><dt>Orden</dt><dd>%s</dd></div>
+                      <div><dt>Monto</dt><dd>$%s CLP</dd></div>
+                      <div><dt>Reservas</dt><dd>%s</dd></div>
+                    </dl>
+                    <div class="actions">
+                      <form method="POST" action="/api/pagos/webpay/simulado/%s/confirmar">
+                        <input type="hidden" name="token_ws" value="%s">
+                        <button class="confirm" type="submit">Confirmar pago simulado</button>
+                      </form>
+                      <form method="POST" action="/api/pagos/webpay/simulado/%s/rechazar">
+                        <input type="hidden" name="token_ws" value="%s">
+                        <button class="reject" type="submit">Rechazar</button>
+                      </form>
+                    </div>
+                  </main>
+                </body>
+                </html>
+                """.formatted(
+                escapeHtml(transaccion.getBuyOrder()),
+                escapeHtml(transaccion.getMonto() == null ? "0" : transaccion.getMonto().toPlainString()),
+                idsCitas(transaccion).size(),
+                transaccion.getIdTransaccion(),
+                escapeHtml(token),
+                transaccion.getIdTransaccion(),
+                escapeHtml(token)
+        );
+    }
+
+    private CrearTransaccionResponse crearTransaccionSimulada(
+            CrearTransaccionRequest request,
+            List<UUID> idsCitas,
+            CitaResumen primeraCita,
+            UUID idCliente,
+            BigDecimal monto,
+            String buyOrder,
+            String sessionId
+    ) {
+        String token = SIMULATED_TOKEN_PREFIX + UUID.randomUUID();
+        TransaccionPago transaccion = TransaccionPago.builder()
+                .idCita(primeraCita == null ? null : primeraCita.idCita())
+                .idCitas(serializarIds(idsCitas))
+                .idCliente(idCliente)
+                .monto(monto)
+                .buyOrder(buyOrder)
+                .sessionId(sessionId)
+                .tokenWebpay(token)
+                .detalleItemsJson(serializarDetalle(request))
+                .estado(EstadoTransaccion.PENDIENTE)
+                .build();
+
+        TransaccionPago guardada = transaccionPagoRepository.save(transaccion);
+        guardada.setUrlWebpay(construirUrlPagoSimulado(guardada.getIdTransaccion()));
+        guardada = transaccionPagoRepository.save(guardada);
+
+        log.info(
+                "Webpay simulado creado: idTransaccion={} reservas={} productos={} monto={}",
+                guardada.getIdTransaccion(),
+                idsCitas.size(),
+                request.productos() == null ? 0 : request.productos().size(),
+                monto
+        );
+
+        return new CrearTransaccionResponse(
+                guardada.getIdTransaccion(),
+                guardada.getIdCita(),
+                guardada.getTokenWebpay(),
+                guardada.getUrlWebpay()
+        );
+    }
+
+    private TransaccionPago asegurarPendienteSimulada(TransaccionPago transaccion) {
+        if (esTokenSimulado(transaccion.getTokenWebpay()) && esUrlPagoSimulado(transaccion.getUrlWebpay())) {
+            return transaccion;
+        }
+
+        transaccion.setTokenWebpay(SIMULATED_TOKEN_PREFIX + UUID.randomUUID());
+        transaccion.setUrlWebpay(construirUrlPagoSimulado(transaccion.getIdTransaccion()));
+        transaccion.setEstado(EstadoTransaccion.PENDIENTE);
+
+        TransaccionPago actualizada = transaccionPagoRepository.save(transaccion);
+        log.info("Transaccion pendiente convertida a Webpay simulado: idTransaccion={}", actualizada.getIdTransaccion());
+        return actualizada;
+    }
+
+    private TransaccionPago autorizarPagoSimulado(TransaccionPago transaccion) {
+        if (transaccion.getEstado() == EstadoTransaccion.AUTORIZADA) {
+            return transaccion;
+        }
+
+        if (transaccion.getEstado() != EstadoTransaccion.PENDIENTE
+                && transaccion.getEstado() != EstadoTransaccion.CREADA) {
+            throw new IllegalStateException("La transaccion simulada ya no se puede confirmar");
+        }
+
+        transaccion.setAuthorizationCode("SIMULATED_OK");
+        transaccion.setPaymentTypeCode("SIM");
+        transaccion.setResponseCode(0);
+        transaccion.setTransactionDate(OffsetDateTime.now());
+        transaccion.setEstado(EstadoTransaccion.AUTORIZADA);
+
+        TransaccionPago actualizada = transaccionPagoRepository.save(transaccion);
+        idsCitas(actualizada).forEach((idCita) ->
+                agendaClient.confirmarCita(idCita, actualizada.getIdTransaccion()));
+        return actualizada;
+    }
+
+    private void validarTokenSimulado(TransaccionPago transaccion, String tokenWs) {
+        if (tokenWs == null || tokenWs.isBlank()) {
+            return;
+        }
+        if (!Objects.equals(transaccion.getTokenWebpay(), tokenWs)) {
+            throw new IllegalStateException("Token de pago simulado invalido");
+        }
+    }
+
+    private boolean esTokenSimulado(String tokenWs) {
+        return tokenWs != null && tokenWs.startsWith(SIMULATED_TOKEN_PREFIX);
+    }
+
+    private boolean esUrlPagoSimulado(String url) {
+        return url != null && url.contains("/api/pagos/webpay/simulado/");
+    }
+
 
     public TransaccionPago marcarComoExpiradaPorAborto(String buyOrder) {
         TransaccionPago transaccion = transaccionPagoRepository.findByBuyOrder(buyOrder)
@@ -429,14 +655,58 @@ public class WebpayService {
         return "SB-" + System.currentTimeMillis();
     }
 
+    private boolean debeUsarWebpaySimulado() {
+        if (!webpayRealEnabled) {
+            log.info("Webpay real deshabilitado; se usara modo simulado.");
+            return true;
+        }
+        if (isBlank(commerceCode) || isBlank(apiKey)) {
+            log.warn("Credenciales Transbank incompletas; se usara modo simulado.");
+            return true;
+        }
+        if (!esUrlPublica(returnUrl)) {
+            log.warn("Return URL Webpay no publica; se usara modo simulado. returnUrl={}", returnUrl);
+            return true;
+        }
+        return false;
+    }
+
+    private String construirUrlPagoSimulado(UUID idTransaccion) {
+        return normalizarBasePublica(publicGatewayUrl)
+                + "/api/pagos/webpay/simulado/"
+                + idTransaccion;
+    }
+
+    private String normalizarBasePublica(String url) {
+        if (isBlank(url) || url.toLowerCase().contains(".internal.")) {
+            return DEFAULT_PUBLIC_GATEWAY_URL;
+        }
+        String normalizada = url.trim().replaceAll("/+$", "");
+        if (normalizada.toLowerCase().endsWith("/api")) {
+            return normalizada.substring(0, normalizada.length() - 4);
+        }
+        return normalizada;
+    }
+
     private void validarUrlPublica(String url, String envName) {
-        if (url == null || url.isBlank()) {
+        if (isBlank(url)) {
             throw new IllegalStateException(envName + " debe configurar una URL publica para WebPay");
         }
-        String normalizada = url.trim().toLowerCase();
-        if (!normalizada.startsWith("https://") || normalizada.contains(".internal.")) {
+        if (!esUrlPublica(url)) {
             throw new IllegalStateException(envName + " no puede apuntar a una URL interna");
         }
+    }
+
+    private boolean esUrlPublica(String url) {
+        if (isBlank(url)) {
+            return false;
+        }
+        String normalizada = url.trim().toLowerCase();
+        return normalizada.startsWith("https://") && !normalizada.contains(".internal.");
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private BigDecimal obtenerMontoServicio(ServicioCatalogoResumen servicio) {

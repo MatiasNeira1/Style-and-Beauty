@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,9 +38,33 @@ public class CitaController {
         return citaService.buscarPorId(id);
     }
 
+    @GetMapping("/disponibilidad")
+    public List<DisponibilidadSlot> disponibilidadGet(
+            @RequestParam UUID idStaff,
+            @RequestParam UUID idServicio,
+            @RequestParam LocalDate fecha,
+            @RequestParam(required = false) Integer duracionServicioMin,
+            @RequestParam(required = false) Integer holguraMin
+    ) {
+        return citaService.calcularDisponibilidad(
+                new DisponibilidadRequest(idStaff, idServicio, fecha, duracionServicioMin, holguraMin)
+        );
+    }
+
     @PostMapping("/disponibilidad")
     public List<DisponibilidadSlot> disponibilidad(@Valid @RequestBody DisponibilidadRequest request) {
         return citaService.calcularDisponibilidad(request);
+    }
+
+    @GetMapping("/disponibilidad-semanal")
+    public List<DisponibilidadMensualResponse> disponibilidadSemanalGet(
+            @RequestParam UUID idStaff,
+            @RequestParam UUID idServicio,
+            @RequestParam LocalDate fechaInicioSemana
+    ) {
+        return citaService.calcularDisponibilidadSemanal(
+                new DisponibilidadSemanalRequest(idStaff, idServicio, fechaInicioSemana)
+        );
     }
 
     @PostMapping("/disponibilidad-semanal")

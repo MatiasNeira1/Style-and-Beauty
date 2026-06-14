@@ -29,19 +29,19 @@ export const agendaService = {
     if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
     if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
     requireValue(payload?.fecha, 'Selecciona una fecha para consultar disponibilidad.');
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: payload });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'GET', params: payload });
   },
   consultarDisponibilidad: (payload) => {
     if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
     if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
     requireValue(payload?.fecha, 'Selecciona una fecha para consultar disponibilidad.');
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: payload });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'GET', params: payload });
   },
   consultarDisponibilidadSemanal: (payload) => {
     if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
     if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
     requireValue(payload?.fechaInicioSemana, 'Selecciona una semana para consultar disponibilidad.');
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad-semanal', method: 'POST', data: payload });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad-semanal', method: 'GET', params: payload });
   },
   listarStaffPorServicio: (idServicio) => {
     if (!isValidUuid(idServicio)) return Promise.resolve([]);

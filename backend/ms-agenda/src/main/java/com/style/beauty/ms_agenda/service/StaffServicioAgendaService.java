@@ -37,7 +37,7 @@ public class StaffServicioAgendaService {
         List<ServicioStaffResumen> relaciones;
         try {
             relaciones = servicioClient.obtenerStaffPorServicio(idServicio);
-        } catch (BusinessException e) {
+        } catch (BusinessException | ResourceNotFoundException e) {
             relaciones = List.of();
         }
 

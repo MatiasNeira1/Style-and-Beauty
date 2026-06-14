@@ -22,6 +22,16 @@ function isValidUuid(value) {
   return typeof value === 'string' && UUID_PATTERN.test(value.trim());
 }
 
+function reservationStart(item) {
+  if (isDateTimeLike(item?.startsAt)) return item.startsAt;
+  if (isDateTimeLike(item?.time)) return item.time;
+  return item?.startsAt || item?.time;
+}
+
+function isDateTimeLike(value) {
+  return typeof value === 'string' && value.includes('T') && !Number.isNaN(Date.parse(value));
+}
+
 function validateReservationItem(item) {
   if (!isValidUuid(item?.reservationId)) {
     return { message: 'La reserva del carrito ya no es compatible. Selecciona fecha y hora nuevamente.', field: 'reservationId' };
@@ -35,7 +45,7 @@ function validateReservationItem(item) {
   if (!item?.date) {
     return { message: 'Falta fecha en item reserva. Selecciona fecha y hora nuevamente.', field: 'reservas[0].fecha' };
   }
-  if (!item?.time && !item?.startsAt) {
+  if (!isDateTimeLike(reservationStart(item))) {
     return { message: 'Falta horaInicio en item reserva. Selecciona fecha y hora nuevamente.', field: 'reservas[0].horaInicio' };
   }
   return null;
@@ -72,7 +82,7 @@ function cartPayload(items, idCliente) {
       servicioId: item.serviceId,
       profesionalId: item.staffId,
       fecha: item.date,
-      horaInicio: item.time || item.startsAt,
+      horaInicio: reservationStart(item),
       horaFin: item.endsAt,
       precio: Number(item.price || item.precio || 0),
       duracionServicioMin: item.duracionServicioMin ?? item.service?.duracion_minutos ?? item.service?.duracionMinutos,

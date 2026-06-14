@@ -15,6 +15,14 @@ function isValidUuid(value) {
   return typeof value === 'string' && UUID_PATTERN.test(value.trim());
 }
 
+function isDateTimeLike(value) {
+  return typeof value === 'string' && value.includes('T') && !Number.isNaN(Date.parse(value));
+}
+
+function hasReservationDateTime(item) {
+  return isDateTimeLike(item?.startsAt) || isDateTimeLike(item?.time);
+}
+
 function isExpired(item, now = Date.now()) {
   return isReservation(item) && item.expiresAt && new Date(item.expiresAt).getTime() <= now;
 }
@@ -25,7 +33,7 @@ function hasReservationContract(item) {
     && isValidUuid(item?.serviceId)
     && isValidUuid(item?.staffId)
     && Boolean(item?.date)
-    && Boolean(item?.time || item?.startsAt);
+    && hasReservationDateTime(item);
 }
 
 function sanitizeCartItems(items, now = Date.now()) {
