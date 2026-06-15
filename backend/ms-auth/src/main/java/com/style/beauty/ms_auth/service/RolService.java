@@ -6,6 +6,8 @@ import com.google.firebase.auth.AuthErrorCode;
 import com.google.firebase.auth.UserRecord.CreateRequest;
 import com.google.firebase.auth.UserRecord;
 import com.google.firebase.FirebaseApp;
+import com.google.cloud.firestore.Firestore;
+import com.google.firebase.cloud.FirestoreClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -66,6 +68,9 @@ public class RolService {
         FirebaseAuth.getInstance().setCustomUserClaims(uid, existingClaims);
 
         logger.info("Rol {} asignado correctamente al UID: {}", rol, uid);
+
+        // Guardar/Actualizar documento en Firestore
+        saveUserToFirestore(user, rol);
     }
 
     public UserRecord createOrConfirmPublicClient(String email, String password) throws FirebaseAuthException {
@@ -118,7 +123,25 @@ public class RolService {
         FirebaseAuth.getInstance().setCustomUserClaims(uid, existingClaims);
 
         logger.info("Rol CLIENTE confirmado para UID desde flujo publico: {}", uid);
+
+        // Guardar/Actualizar documento en Firestore
+        saveUserToFirestore(user, "CLIENTE");
+
         return FirebaseAuth.getInstance().getUser(uid);
+    }
+
+    private void saveUserToFirestore(UserRecord user, String rol) {
+        try {
+            Firestore firestore = FirestoreClient.getFirestore();
+            Map<String, Object> userData = new HashMap<>();
+            userData.put("email", user.getEmail() != null ? user.getEmail().trim().toLowerCase() : "");
+            userData.put("rol", rol.toLowerCase());
+
+            firestore.collection("usuarios").document(user.getUid()).set(userData).get();
+            logger.info("Documento Firestore creado/actualizado en usuarios/{} con rol {}", user.getUid(), rol.toLowerCase());
+        } catch (Exception e) {
+            logger.error("Error al guardar documento en Firestore para UID {}: {}", user.getUid(), e.getMessage());
+        }
     }
 
     private void ensureFirebaseConfigured() {
