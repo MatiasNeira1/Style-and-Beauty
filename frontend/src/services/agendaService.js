@@ -14,19 +14,31 @@ function requireValue(value, message) {
 }
 
 function availabilityPayload(payload) {
-  if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
-  if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
-  requireValue(payload?.fecha, 'Selecciona una fecha para consultar disponibilidad.');
+  const data = {
+    idServicio: payload?.idServicio,
+    idStaff: payload?.idStaff,
+    fecha: payload?.fecha,
+  };
 
-  return payload;
+  if (!isValidUuid(data.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
+  if (!isValidUuid(data.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
+  requireValue(data.fecha, 'Selecciona una fecha para consultar disponibilidad.');
+
+  return data;
 }
 
 function weeklyAvailabilityPayload(payload) {
-  if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
-  if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
-  requireValue(payload?.fechaInicioSemana, 'Selecciona una semana para consultar disponibilidad.');
+  const data = {
+    idServicio: payload?.idServicio,
+    idStaff: payload?.idStaff,
+    fechaInicioSemana: payload?.fechaInicioSemana,
+  };
 
-  return payload;
+  if (!isValidUuid(data.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
+  if (!isValidUuid(data.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
+  requireValue(data.fechaInicioSemana, 'Selecciona una semana para consultar disponibilidad.');
+
+  return data;
 }
 
 export function crearCita(payload) {

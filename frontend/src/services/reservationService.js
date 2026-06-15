@@ -6,27 +6,27 @@ function isValidUuid(value) {
   return typeof value === 'string' && UUID_PATTERN.test(value.trim());
 }
 
-function normalizeAvailabilityPayload({ serviceId, professionalId, date }) {
-  if (!isValidUuid(serviceId) || !isValidUuid(professionalId) || !date) {
+function normalizeAvailabilityPayload({ idServicio, idStaff, fecha }) {
+  if (!isValidUuid(idServicio) || !isValidUuid(idStaff) || !fecha) {
     throw new Error('Selecciona servicio, profesional y fecha para consultar disponibilidad.');
   }
 
   return {
-    idServicio: serviceId,
-    idStaff: professionalId,
-    fecha: date,
+    idServicio,
+    idStaff,
+    fecha,
   };
 }
 
 export const reservationService = {
   getMe: () => request({ baseURL: PROFILES_API_BASE_URL, url: '/api/perfiles/me', authRequired: true }),
 
-  getAvailability: ({ serviceId, professionalId, date }) =>
+  getAvailability: ({ idServicio, idStaff, fecha }) =>
     request({
       baseURL: AGENDA_API_BASE_URL,
       url: '/api/agenda/citas/disponibilidad',
       method: 'POST',
-      data: normalizeAvailabilityPayload({ serviceId, professionalId, date }),
+      data: normalizeAvailabilityPayload({ idServicio, idStaff, fecha }),
     }),
 
   createReservation: ({ serviceId, professionalId, startsAt, note, clientId }) => {
