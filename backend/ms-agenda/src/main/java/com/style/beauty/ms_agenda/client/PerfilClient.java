@@ -33,7 +33,9 @@ public class PerfilClient {
     }
 
     public PerfilResumen obtenerStaff(UUID idStaff) {
-        return obtenerPerfil("/api/internal/perfiles/staff/{idStaff}", idStaff, "Staff no encontrado en ms-perfiles");
+        PerfilResumen staff = obtenerPerfil("/api/perfiles/staff/{idStaff}", idStaff, "Staff no encontrado en ms-perfiles");
+        validarStaffId(idStaff, staff);
+        return staff;
     }
 
     private PerfilResumen obtenerPerfil(String path, Object id, String mensajeError) {
@@ -62,6 +64,16 @@ public class PerfilClient {
         } catch (RestClientException e) {
             log.error("Error consultando ms-perfiles: path={}, id={}", path, id, e);
             throw new BusinessException(mensajeError, e);
+        }
+    }
+
+    private void validarStaffId(UUID idStaff, PerfilResumen staff) {
+        if (staff.idPersona() == null) {
+            throw new BusinessException("ms-perfiles no devolvio idPersona para el staff solicitado");
+        }
+
+        if (!idStaff.equals(staff.idPersona())) {
+            throw new BusinessException("El idStaff no coincide con idPersona devuelto por ms-perfiles");
         }
     }
 }
