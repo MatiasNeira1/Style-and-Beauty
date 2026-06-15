@@ -444,6 +444,17 @@ export function RegisterPage() {
         genero: form.genero.trim().toLowerCase(),
       };
 
+      try {
+        const pendingData = {
+          ...profile,
+          emailContacto: profile.emailContacto || form.emailContacto,
+        };
+        window.localStorage.setItem('style_beauty_pending_profile', JSON.stringify(pendingData));
+        window.sessionStorage.setItem('style_beauty_pending_profile', JSON.stringify(pendingData));
+      } catch (storageErr) {
+        console.warn('Failed to save pending profile data in RegisterPage:', storageErr);
+      }
+
       await registerClient({
         email: form.emailContacto,
         password,

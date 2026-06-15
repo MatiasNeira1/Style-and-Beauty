@@ -83,36 +83,60 @@ function ProfileHero({ missing = false }) {
 function BirthDateSelects({ value, onChange, error }) {
   const maxDate = getMaxBirthDateIso();
   const max = parseIsoDate(maxDate);
-  const selected = parseIsoDate(value);
+
+  const [year, setYear] = useState('');
+  const [month, setMonth] = useState('');
+  const [day, setDay] = useState('');
+
+  // Sync with outer value when it changes to a valid date
+  useEffect(() => {
+    if (value) {
+      const parsed = parseIsoDate(value);
+      if (parsed.year && parsed.month && parsed.day) {
+        setYear(parsed.year);
+        setMonth(parsed.month);
+        setDay(parsed.day);
+      }
+    } else {
+      if (!value && year && month && day) {
+        setYear('');
+        setMonth('');
+        setDay('');
+      }
+    }
+  }, [value]);
+
   const years = Array.from({ length: 101 }, (_, index) => String(Number(max.year) - index));
-  const maxMonthForYear = selected.year === max.year ? Number(max.month) : 12;
-  const availableMonths = monthOptions.filter(([month]) => Number(month) <= maxMonthForYear);
-  const maxDayForMonth = selected.year === max.year && selected.month === max.month
+  const maxMonthForYear = year === max.year ? Number(max.month) : 12;
+  const availableMonths = monthOptions.filter(([m]) => Number(m) <= maxMonthForYear);
+  const maxDayForMonth = year === max.year && month === max.month
     ? Number(max.day)
-    : daysInMonth(selected.year, selected.month);
+    : daysInMonth(year, month);
   const availableDays = Array.from({ length: maxDayForMonth }, (_, index) => String(index + 1).padStart(2, '0'));
 
-  const update = (part, nextValue) => {
-    const next = {
-      year: part === 'year' ? nextValue : selected.year,
-      month: part === 'month' ? nextValue : selected.month,
-      day: part === 'day' ? nextValue : selected.day,
-    };
+  const handleYearChange = (e) => {
+    const val = e.target.value;
+    setYear(val);
+    setMonth('');
+    setDay('');
+    onChange('');
+  };
 
-    if (part === 'year') {
-      next.month = '';
-      next.day = '';
-    }
-    if (part === 'month') {
-      next.day = '';
-    }
+  const handleMonthChange = (e) => {
+    const val = e.target.value;
+    setMonth(val);
+    setDay('');
+    onChange('');
+  };
 
-    if (!next.year || !next.month || !next.day) {
+  const handleDayChange = (e) => {
+    const val = e.target.value;
+    setDay(val);
+    if (!year || !month || !val) {
       onChange('');
       return;
     }
-
-    const isoDate = `${next.year}-${next.month}-${next.day}`;
+    const isoDate = `${year}-${month}-${val}`;
     onChange(isoDate <= maxDate ? isoDate : '');
   };
 
@@ -120,20 +144,96 @@ function BirthDateSelects({ value, onChange, error }) {
     <div className="profile-birthdate-field">
       <span>Fecha de nacimiento</span>
       <div className="profile-birthdate-grid">
-        <select aria-label="Año de nacimiento" value={selected.year || ''} onChange={(event) => update('year', event.target.value)} required>
+        <select aria-label="Año de nacimiento" value={year} onChange={handleYearChange} required>
           <option value="">Año</option>
-          {years.map((year) => <option key={year} value={year}>{year}</option>)}
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
-        <select aria-label="Mes de nacimiento" value={selected.month || ''} onChange={(event) => update('month', event.target.value)} disabled={!selected.year} required>
+        <select aria-label="Mes de nacimiento" value={month} onChange={handleMonthChange} disabled={!year} required>
           <option value="">Mes</option>
-          {availableMonths.map(([month, label]) => <option key={month} value={month}>{label}</option>)}
+          {availableMonths.map(([m, label]) => <option key={m} value={m}>{label}</option>)}
         </select>
-        <select aria-label="Día de nacimiento" value={selected.day || ''} onChange={(event) => update('day', event.target.value)} disabled={!selected.year || !selected.month} required>
+        <select aria-label="Día de nacimiento" value={day} onChange={handleDayChange} disabled={!year || !month} required>
           <option value="">Día</option>
-          {availableDays.map((day) => <option key={day} value={day}>{day}</option>)}
+          {availableDays.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
       </div>
       <small>{error || `Edad mínima: ${MIN_CLIENT_AGE} años.`}</small>
+    </div>
+  );
+}
+
+function compressImage(file, maxWidth = 80, maxHeight = 80, quality = 0.5) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        const minSize = Math.min(width, height);
+        canvas.width = maxWidth;
+        canvas.height = maxHeight;
+        const ctx = canvas.getContext('2d');
+        
+        const sx = (width - minSize) / 2;
+        const sy = (height - minSize) / 2;
+        
+        ctx.drawImage(img, sx, sy, minSize, minSize, 0, 0, maxWidth, maxHeight);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+    };
+    reader.onerror = reject;
+  });
+}
+
+function ProfilePictureUpload({ photoUrl, onPhotoChange }) {
+  const handleFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        const compressed = await compressImage(file);
+        onPhotoChange(compressed);
+      } catch (err) {
+        console.error('Error compressing image:', err);
+      }
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+      <label style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', cursor: 'pointer', display: 'block', border: '2px solid var(--color-primary-light)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', transition: 'all 0.2s ease-in-out', margin: '0 auto' }}>
+        <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+        {photoUrl ? (
+          <img src={photoUrl} alt="Foto de perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: 'rgba(212, 122, 158, 0.08)', color: 'var(--color-primary-strong)', display: 'grid', placeItems: 'center' }}>
+            <UserRound size={40} />
+          </div>
+        )}
+        <div 
+          style={{ 
+            position: 'absolute', 
+            inset: 0, 
+            background: 'rgba(0, 0, 0, 0.4)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            color: '#fff', 
+            opacity: 0, 
+            transition: 'opacity 0.2s ease' 
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+          onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+        >
+          <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>Cambiar</span>
+        </div>
+      </label>
+      <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>Haz clic para cambiar foto</span>
     </div>
   );
 }
@@ -150,6 +250,13 @@ export function ProfilePage() {
   const queryClient = useQueryClient();
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [photoPreview, setPhotoPreview] = useState('');
+
+  useEffect(() => {
+    if (user?.photoURL) {
+      setPhotoPreview(user.photoURL);
+    }
+  }, [user]);
 
   // Fetch real profile data from backend
   const { data: profile, isLoading, error: profileError } = useQuery({
@@ -183,6 +290,30 @@ export function ProfilePage() {
     }
   }, [profile, reset]);
 
+  // Pre-populate completion form with pending registration data if no profile exists
+  useEffect(() => {
+    if (isProfileNotFoundError(profileError)) {
+      try {
+        const stored = window.localStorage.getItem('style_beauty_pending_profile')
+          || window.sessionStorage.getItem('style_beauty_pending_profile');
+        if (stored) {
+          const pending = JSON.parse(stored);
+          reset({
+            rut: pending.rut || '',
+            nombre: pending.nombre || '',
+            apellidos: pending.apellidos || '',
+            emailContacto: pending.emailContacto || user?.email || '',
+            genero: pending.genero || 'no_especifica',
+            fechaNacimiento: pending.fechaNacimiento || '',
+            telefono: pending.telefono || '',
+          });
+        }
+      } catch (err) {
+        console.error('Error parsing pending profile data:', err);
+      }
+    }
+  }, [profileError, reset, user]);
+
   const updateMutation = useMutation({
     mutationFn: profileService.updateMyProfile,
     onSuccess: (updatedProfile) => {
@@ -200,6 +331,14 @@ export function ProfilePage() {
     mutationFn: async (values) => {
       if (!user?.uid) {
         throw new Error('Debes iniciar sesion para completar tu perfil.');
+      }
+      if (photoPreview && photoPreview !== user?.photoURL) {
+        try {
+          const sessionWithPhoto = await firebaseAuthService.updatePhoto(photoPreview);
+          setSession(sessionWithPhoto);
+        } catch (photoErr) {
+          console.warn('Failed to upload profile photo to Firebase Auth:', photoErr);
+        }
       }
       await authService.registerClient({ uid: user.uid });
       const session = await firebaseAuthService.refreshSession();
@@ -228,6 +367,12 @@ export function ProfilePage() {
       queryClient.setQueryData(['my-profile'], createdProfile);
       await queryClient.invalidateQueries({ queryKey: ['auth-session', user?.uid] });
       setSuccessMsg('Perfil creado correctamente.');
+      try {
+        window.localStorage.removeItem('style_beauty_pending_profile');
+        window.sessionStorage.removeItem('style_beauty_pending_profile');
+      } catch (storageErr) {
+        console.warn('Failed to remove pending profile data from storage:', storageErr);
+      }
     },
     onError: (err) => {
       setErrorMsg(profileFormErrorMessage(err));
@@ -260,27 +405,57 @@ export function ProfilePage() {
             {successMsg && <div className="success-alert">{successMsg}</div>}
 
             <form onSubmit={handleSubmit((values) => createProfileMutation.mutate(values))} className="profile-completion-form">
-              <div className="profile-form-grid">
-                <Input label="RUT" {...register('rut', { required: true })} placeholder="12.345.678-9" required />
-                <Input label="Nombre" {...register('nombre', { required: true })} placeholder="Tu nombre" required />
-                <Input label="Apellidos" {...register('apellidos')} placeholder="Tus apellidos" />
-                <Input label="Email de contacto" {...register('emailContacto', { required: true })} type="email" placeholder="tuemail@correo.com" required />
-                <input type="hidden" {...register('fechaNacimiento', {
-                  required: 'Selecciona tu fecha de nacimiento.',
-                  validate: (value) => isMinimumAge(value) || `Debes tener al menos ${MIN_CLIENT_AGE} años.`,
-                })} />
-                <BirthDateSelects
-                  value={birthDateValue}
-                  onChange={(value) => setValue('fechaNacimiento', value, { shouldValidate: true, shouldDirty: true })}
-                  error={errors.fechaNacimiento?.message}
-                />
-                <Input label="Genero" {...register('genero', { required: true })} as="select" required>
-                  <option value="femenino">Femenino</option>
-                  <option value="masculino">Masculino</option>
-                  <option value="otro">Otro</option>
-                  <option value="no_especifica">Prefiero no decirlo</option>
-                </Input>
-                <Input label="Telefono" {...register('telefono')} placeholder="+56 9 1234 5678" />
+              <ProfilePictureUpload photoUrl={photoPreview} onPhotoChange={setPhotoPreview} />
+              
+              <div style={{ marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-ink)' }}>
+                  <UserRound size={18} color="var(--color-primary-strong)" /> Información Personal
+                </h3>
+                <div className="profile-form-grid">
+                  <Input label="RUT" {...register('rut', { required: true })} placeholder="12.345.678-9" required />
+                  <Input label="Nombre" {...register('nombre', { required: true })} placeholder="Tu nombre" required />
+                  <Input label="Apellidos" {...register('apellidos')} placeholder="Tus apellidos" />
+                  <Input label="Email de contacto" {...register('emailContacto', { required: true })} type="email" placeholder="tuemail@correo.com" required />
+                  <input type="hidden" {...register('fechaNacimiento', {
+                    required: 'Selecciona tu fecha de nacimiento.',
+                    validate: (value) => isMinimumAge(value) || `Debes tener al menos ${MIN_CLIENT_AGE} años.`,
+                  })} />
+                  <BirthDateSelects
+                    value={birthDateValue}
+                    onChange={(value) => setValue('fechaNacimiento', value, { shouldValidate: true, shouldDirty: true })}
+                    error={errors.fechaNacimiento?.message}
+                  />
+                  <Input label="Genero" {...register('genero', { required: true })} as="select" required>
+                    <option value="femenino">Femenino</option>
+                    <option value="masculino">Masculino</option>
+                    <option value="otro">Otro</option>
+                    <option value="no_especifica">Prefiero no decirlo</option>
+                  </Input>
+                  <Input label="Telefono" {...register('telefono')} placeholder="+56 9 1234 5678" />
+                </div>
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1.5rem', marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'var(--color-ink)' }}>
+                  <Stethoscope size={18} color="var(--color-primary-strong)" /> Ficha Clínica (Opcional)
+                </h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', marginBottom: '1.25rem' }}>
+                  Esta información es confidencial y solo la utiliza nuestro personal profesional para adaptar tus tratamientos.
+                </p>
+                <div className="stack" style={{ gap: '1rem' }}>
+                  <div className="field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label style={{ fontSize: '0.9rem', fontWeight: 500 }}>Alergias</label>
+                    <Input as="textarea" {...register('alergias')} placeholder="Indica si tienes alergias a productos o componentes..." style={{ minHeight: '80px' }} />
+                  </div>
+                  <div className="field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label style={{ fontSize: '0.9rem', fontWeight: 500 }}>Medicamentos de consumo regular</label>
+                    <Input as="textarea" {...register('medicamentos')} placeholder="Específica medicamentos que puedan interferir con químicos o tratamientos..." style={{ minHeight: '80px' }} />
+                  </div>
+                  <div className="field" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label style={{ fontSize: '0.9rem', fontWeight: 500 }}>Afecciones de la Piel o Cuero Cabelludo</label>
+                    <Input as="textarea" {...register('afeccionesPiel')} placeholder="Ej: Rosácea, dermatitis, sensibilidad severa..." style={{ minHeight: '80px' }} />
+                  </div>
+                </div>
               </div>
 
               <div className="profile-completion-actions">
@@ -311,7 +486,15 @@ export function ProfilePage() {
     );
   }
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
+    if (photoPreview && photoPreview !== user?.photoURL) {
+      try {
+        const sessionWithPhoto = await firebaseAuthService.updatePhoto(photoPreview);
+        setSession(sessionWithPhoto);
+      } catch (photoErr) {
+        console.warn('Failed to upload profile photo to Firebase Auth:', photoErr);
+      }
+    }
     updateMutation.mutate(data);
   };
 
@@ -395,9 +578,7 @@ export function ProfilePage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         <Card className="profile-card" style={{ textAlign: 'center', padding: '2rem' }}>
-          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(212, 122, 158, 0.1)', color: 'var(--color-primary-strong)', display: 'grid', placeItems: 'center', margin: '0 auto 1.5rem' }}>
-            <UserRound size={40} />
-          </div>
+          <ProfilePictureUpload photoUrl={photoPreview} onPhotoChange={setPhotoPreview} />
           <h3 style={{ marginBottom: '0.5rem' }}>{profile?.nombre || user?.email}</h3>
           <p style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>{profileRoleLabel(user, profile)}</p>
           <Button variant="ghost" onClick={logout} style={{ width: '100%', color: '#b91c1c', borderColor: '#fca5a5' }}>
