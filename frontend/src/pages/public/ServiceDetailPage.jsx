@@ -285,7 +285,7 @@ export function ServiceDetailPage() {
       return undefined;
     }
 
-    const payload = { idStaff, idServicio, fechaInicioSemana };
+    const payload = { idServicio, idStaff, fechaInicioSemana };
 
     const loadWeeklyAvailability = async () => {
       try {
@@ -308,7 +308,7 @@ export function ServiceDetailPage() {
 
         const entries = await Promise.all(dias.map(async (dia) => {
           const fecha = formatLocalDate(dia);
-          const dailyPayload = { idStaff, idServicio, fecha };
+          const dailyPayload = { idServicio, idStaff, fecha };
           const response = await agendaService.consultarDisponibilidad(dailyPayload);
           return [fecha, Array.isArray(response) ? response : []];
         }));

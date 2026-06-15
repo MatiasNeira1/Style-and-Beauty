@@ -96,9 +96,9 @@ export function BookingPage() {
   const availabilityQuery = useQuery({
     queryKey: ['availability', selectedStaffId, selectedServiceId, date],
     queryFn: () => reservationService.getAvailability({
-      professionalId: selectedStaffId,
-      serviceId: selectedServiceId,
-      date,
+      idServicio: selectedServiceId,
+      idStaff: selectedStaffId,
+      fecha: date,
     }),
     enabled: Boolean(hasValidStaffId && hasValidServiceId && date),
   });
