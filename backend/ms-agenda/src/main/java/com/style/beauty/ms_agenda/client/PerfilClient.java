@@ -2,6 +2,7 @@ package com.style.beauty.ms_agenda.client;
 
 import com.style.beauty.ms_agenda.exception.BusinessException;
 import com.style.beauty.ms_agenda.exception.ResourceNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -12,6 +13,7 @@ import org.springframework.web.client.RestClientResponseException;
 import java.util.UUID;
 
 @Component
+@Slf4j
 public class PerfilClient {
 
     private final RestClient restClient;
@@ -36,6 +38,8 @@ public class PerfilClient {
 
     private PerfilResumen obtenerPerfil(String path, Object id, String mensajeError) {
         try {
+            log.info("Solicitando perfil a ms-perfiles: path={}, id={}", path, id);
+
             PerfilResumen perfil = restClient.get()
                     .uri(path, id)
                     .retrieve()
@@ -45,14 +49,19 @@ public class PerfilClient {
                 throw new ResourceNotFoundException(mensajeError);
             }
 
+            log.info("Perfil encontrado en ms-perfiles: path={}, id={}, idPersona={}",
+                    path, id, perfil.idPersona());
             return perfil;
         } catch (RestClientResponseException e) {
+            log.error("Error consultando ms-perfiles: path={}, id={}, status={}, body={}",
+                    path, id, e.getStatusCode().value(), e.getResponseBodyAsString(), e);
             if (HttpStatus.NOT_FOUND.value() == e.getStatusCode().value()) {
-                throw new ResourceNotFoundException(mensajeError);
+                throw new ResourceNotFoundException(mensajeError, e);
             }
-            throw new BusinessException(mensajeError);
+            throw new BusinessException(mensajeError, e);
         } catch (RestClientException e) {
-            throw new BusinessException(mensajeError);
+            log.error("Error consultando ms-perfiles: path={}, id={}", path, id, e);
+            throw new BusinessException(mensajeError, e);
         }
     }
 }

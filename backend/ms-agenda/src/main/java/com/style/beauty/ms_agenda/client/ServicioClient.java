@@ -2,6 +2,7 @@ package com.style.beauty.ms_agenda.client;
 
 import com.style.beauty.ms_agenda.exception.BusinessException;
 import com.style.beauty.ms_agenda.exception.ResourceNotFoundException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Component
+@Slf4j
 public class ServicioClient {
 
     private final RestClient restClient;
@@ -27,6 +29,8 @@ public class ServicioClient {
 
     public ServicioResumen obtenerServicio(UUID idServicio) {
         try {
+            log.info("Solicitando servicio a ms-catalogo: idServicio={}", idServicio);
+
             Map<String, Object> servicioData = restClient.get()
                     .uri("/api/servicio/{idServicio}", idServicio)
                     .retrieve()
@@ -35,45 +39,73 @@ public class ServicioClient {
 
             ServicioResumen servicio = mapServicio(servicioData);
             validarServicio(servicio);
+            log.info("Servicio encontrado en ms-catalogo: idServicio={}, duracionMinutos={}, holguraMinutos={}, categoria={}",
+                    servicio.idServicio(), servicio.duracionMinutos(), servicio.holguraMinutos(), servicio.categoria());
 
             return servicio;
 
+        } catch (RestClientResponseException e) {
+            log.error("Error consultando servicio en ms-catalogo: idServicio={}, status={}, body={}",
+                    idServicio, e.getStatusCode().value(), e.getResponseBodyAsString(), e);
+            throw new BusinessException("No se pudo obtener el servicio desde ms-catalogo", e);
         } catch (RestClientException e) {
-            throw new BusinessException("No se pudo obtener el servicio desde ms-catalogo");
+            log.error("Error consultando servicio en ms-catalogo: idServicio={}", idServicio, e);
+            throw new BusinessException("No se pudo obtener el servicio desde ms-catalogo", e);
+        } catch (IllegalArgumentException e) {
+            log.error("Respuesta invalida de ms-catalogo para servicio: idServicio={}", idServicio, e);
+            throw new BusinessException("Respuesta invalida de ms-catalogo para el servicio", e);
         }
     }
 
     public boolean staffRealizaServicio(UUID idServicio, UUID idStaff) {
         try {
+            log.info("Validando staff por servicio en ms-catalogo: idServicio={}, idStaff={}", idServicio, idStaff);
+
             Boolean realizaServicio = restClient.get()
                     .uri("/api/servicio/{idServicio}/staff/{idStaff}/validar", idServicio, idStaff)
                     .retrieve()
                     .body(Boolean.class);
 
+            log.info("Validacion staff por servicio recibida: idServicio={}, idStaff={}, realizaServicio={}",
+                    idServicio, idStaff, realizaServicio);
             return Boolean.TRUE.equals(realizaServicio);
 
+        } catch (RestClientResponseException e) {
+            log.error("Error validando staff por servicio en ms-catalogo: idServicio={}, idStaff={}, status={}, body={}",
+                    idServicio, idStaff, e.getStatusCode().value(), e.getResponseBodyAsString(), e);
+            throw new BusinessException("No se pudo validar si el profesional realiza el servicio desde ms-catalogo", e);
         } catch (RestClientException e) {
-            throw new BusinessException("No se pudo validar si el profesional realiza el servicio desde ms-catalogo");
+            log.error("Error validando staff por servicio en ms-catalogo: idServicio={}, idStaff={}",
+                    idServicio, idStaff, e);
+            throw new BusinessException("No se pudo validar si el profesional realiza el servicio desde ms-catalogo", e);
         }
     }
 
     public List<ServicioStaffResumen> obtenerStaffPorServicio(UUID idServicio) {
         try {
+            log.info("Solicitando staff por servicio a ms-catalogo: idServicio={}", idServicio);
+
             List<ServicioStaffResumen> staff = restClient.get()
                     .uri("/api/servicio/{idServicio}/staff", idServicio)
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<ServicioStaffResumen>>() {
                     });
 
-            return staff == null ? List.of() : staff;
+            List<ServicioStaffResumen> staffSeguro = staff == null ? List.of() : staff;
+            log.info("Staff por servicio recibido desde ms-catalogo: idServicio={}, cantidad={}",
+                    idServicio, staffSeguro.size());
+            return staffSeguro;
 
         } catch (RestClientResponseException e) {
+            log.error("Error obteniendo staff por servicio desde ms-catalogo: idServicio={}, status={}, body={}",
+                    idServicio, e.getStatusCode().value(), e.getResponseBodyAsString(), e);
             if (isServicioNoEncontrado(e)) {
-                throw new ResourceNotFoundException("Servicio no encontrado");
+                throw new ResourceNotFoundException("Servicio no encontrado", e);
             }
-            throw new BusinessException("No se pudo obtener el staff asociado al servicio desde ms-catalogo");
+            throw new BusinessException("No se pudo obtener el staff asociado al servicio desde ms-catalogo", e);
         } catch (RestClientException e) {
-            throw new BusinessException("No se pudo obtener el staff asociado al servicio desde ms-catalogo");
+            log.error("Error obteniendo staff por servicio desde ms-catalogo: idServicio={}", idServicio, e);
+            throw new BusinessException("No se pudo obtener el staff asociado al servicio desde ms-catalogo", e);
         }
     }
 

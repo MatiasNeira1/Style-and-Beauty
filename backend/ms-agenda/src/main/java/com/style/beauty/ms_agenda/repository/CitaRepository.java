@@ -5,6 +5,7 @@ import com.style.beauty.ms_agenda.enums.EstadoCita;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -43,7 +44,8 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
             List<EstadoCita> estadosIgnorados
     );
 
-    @Modifying
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
         UPDATE Cita c
         SET c.estadoCita = :estadoExpirada,
