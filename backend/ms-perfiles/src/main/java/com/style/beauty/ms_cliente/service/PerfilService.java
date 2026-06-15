@@ -13,6 +13,7 @@ import com.style.beauty.ms_cliente.strategy.PerfilStrategy;
 import com.style.beauty.ms_cliente.model.ClienteModel;
 import com.style.beauty.ms_cliente.model.EspecialidadModel;
 import com.style.beauty.ms_cliente.model.StaffModel;
+import com.style.beauty.ms_cliente.model.FichaTecnicaModel;
 import com.style.beauty.ms_cliente.repository.ClienteRepository;
 import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 import com.style.beauty.ms_cliente.repository.StaffRepository;
@@ -233,11 +234,15 @@ public class PerfilService {
         
         // Actualizamos la ficha técnica si es cliente
         if (persona instanceof ClienteModel cliente) {
-            if (cliente.getFichaTecnica() != null) {
-                if (dto.getAlergias() != null) cliente.getFichaTecnica().setAlergias(dto.getAlergias());
-                if (dto.getMedicamentos() != null) cliente.getFichaTecnica().setMedicamentos(dto.getMedicamentos());
-                if (dto.getAfeccionesPiel() != null) cliente.getFichaTecnica().setAfeccionesPiel(dto.getAfeccionesPiel());
+            FichaTecnicaModel ficha = cliente.getFichaTecnica();
+            if (ficha == null) {
+                ficha = new FichaTecnicaModel();
+                ficha.setCliente(cliente);
+                cliente.setFichaTecnica(ficha);
             }
+            if (dto.getAlergias() != null) ficha.setAlergias(dto.getAlergias());
+            if (dto.getMedicamentos() != null) ficha.setMedicamentos(dto.getMedicamentos());
+            if (dto.getAfeccionesPiel() != null) ficha.setAfeccionesPiel(dto.getAfeccionesPiel());
         }
         
         // Guardamos los cambios

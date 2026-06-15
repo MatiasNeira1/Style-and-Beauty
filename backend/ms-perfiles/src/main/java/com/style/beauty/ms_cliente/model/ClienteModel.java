@@ -18,6 +18,5 @@ public class ClienteModel extends PersonaModel {
 
     // Si se borra un cliente, su ficha medica se borra automáticamente (CascadeType.ALL)
     @OneToOne(mappedBy = "cliente", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonIgnore
     private FichaTecnicaModel fichaTecnica;
 }
