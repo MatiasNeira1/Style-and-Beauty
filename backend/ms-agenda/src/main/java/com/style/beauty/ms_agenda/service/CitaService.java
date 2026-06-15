@@ -23,6 +23,7 @@ import com.style.beauty.ms_agenda.repository.CitaRepository;
 import com.style.beauty.ms_agenda.repository.HistorialCitaRepository;
 import com.style.beauty.ms_agenda.repository.JornadaStaffRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -39,6 +40,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CitaService {
     private static final int MINUTOS_RESERVA_TEMPORAL = 5;
 
@@ -54,34 +56,53 @@ public class CitaService {
     private String agendaZone;
 
     public List<Cita> listar() {
+        log.info("Listando citas en ms-agenda");
         liberarReservasVencidas();
         return citaRepository.findAll();
     }
 
     public Cita buscarPorId(UUID id) {
+        log.info("Buscando cita en ms-agenda: id={}", id);
         return citaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
     }
 
     public List<DisponibilidadSlot> calcularDisponibilidad(DisponibilidadRequest request) {
+        log.info("Calculando disponibilidad: idServicio={}, idStaff={}, fecha={}",
+                request.idServicio(), request.idStaff(), request.fecha());
+
+        log.info("Liberando reservas vencidas antes de calcular disponibilidad");
         liberarReservasVencidas();
 
         // Solo valida que el staff exista.
         // Google Calendar NO se usa para bloquear disponibilidad.
         perfilClient.obtenerStaff(request.idStaff());
+        log.info("Staff encontrado para disponibilidad: idStaff={}", request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
+        log.info("Servicio encontrado para disponibilidad: idServicio={}, duracionMinutos={}, holguraMinutos={}, categoria={}",
+                request.idServicio(), servicio.duracionMinutos(), servicio.holguraMinutos(), servicio.categoria());
+
         validarStaffRealizaServicio(request.idServicio(), request.idStaff());
+        log.info("Servicio encontrado y staff validado: idServicio={}, idStaff={}",
+                request.idServicio(), request.idStaff());
 
         int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio);
 
         validarDuracionYHolgura(duracion, holgura);
 
-        return calcularDisponibilidadParaDia(request.idStaff(), request.fecha(), duracion, holgura);
+        List<DisponibilidadSlot> slots = calcularDisponibilidadParaDia(request.idStaff(), request.fecha(), duracion, holgura);
+        log.info("Disponibilidad calculada: idServicio={}, idStaff={}, fecha={}, slots={}",
+                request.idServicio(), request.idStaff(), request.fecha(), slots.size());
+        return slots;
     }
 
     public List<DisponibilidadMensualResponse> calcularDisponibilidadMensual(UUID idServicio, UUID idStaff, int anio, int mes) {
+        log.info("Calculando disponibilidad mensual: idServicio={}, idStaff={}, anio={}, mes={}",
+                idServicio, idStaff, anio, mes);
+
+        log.info("Liberando reservas vencidas antes de calcular disponibilidad mensual");
         liberarReservasVencidas();
 
         if (mes < 1 || mes > 12) {
@@ -90,9 +111,15 @@ public class CitaService {
 
         // Valida dependencias una sola vez; el calculo diario se reutiliza para cada fecha.
         perfilClient.obtenerStaff(idStaff);
+        log.info("Staff encontrado para disponibilidad mensual: idStaff={}", idStaff);
 
         ServicioResumen servicio = servicioClient.obtenerServicio(idServicio);
+        log.info("Servicio encontrado para disponibilidad mensual: idServicio={}, duracionMinutos={}, holguraMinutos={}, categoria={}",
+                idServicio, servicio.duracionMinutos(), servicio.holguraMinutos(), servicio.categoria());
+
         validarStaffRealizaServicio(idServicio, idStaff);
+        log.info("Servicio encontrado y staff validado para disponibilidad mensual: idServicio={}, idStaff={}",
+                idServicio, idStaff);
 
         int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio);
@@ -113,13 +140,23 @@ public class CitaService {
     }
 
     public List<DisponibilidadMensualResponse> calcularDisponibilidadSemanal(DisponibilidadSemanalRequest request) {
+        log.info("Calculando disponibilidad semanal: idServicio={}, idStaff={}, fechaInicioSemana={}",
+                request.idServicio(), request.idStaff(), request.fechaInicioSemana());
+
+        log.info("Liberando reservas vencidas antes de calcular disponibilidad semanal");
         liberarReservasVencidas();
 
         // Valida dependencias una sola vez y reutiliza el mismo calculo diario de disponibilidad.
         perfilClient.obtenerStaff(request.idStaff());
+        log.info("Staff encontrado para disponibilidad semanal: idStaff={}", request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
+        log.info("Servicio encontrado para disponibilidad semanal: idServicio={}, duracionMinutos={}, holguraMinutos={}, categoria={}",
+                request.idServicio(), servicio.duracionMinutos(), servicio.holguraMinutos(), servicio.categoria());
+
         validarStaffRealizaServicio(request.idServicio(), request.idStaff());
+        log.info("Servicio encontrado y staff validado para disponibilidad semanal: idServicio={}, idStaff={}",
+                request.idServicio(), request.idStaff());
 
         int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio);
@@ -138,6 +175,9 @@ public class CitaService {
     }
 
     private List<DisponibilidadSlot> calcularDisponibilidadParaDia(UUID idStaff, LocalDate fecha, int duracion, int holgura) {
+        log.info("Calculando slots para dia: idStaff={}, fecha={}, duracion={}, holgura={}",
+                idStaff, fecha, duracion, holgura);
+
         List<JornadaStaff> jornadas = jornadaStaffRepository
                 .findByIdStaffAndDiaSemanaAndActivoTrue(
                         idStaff,
@@ -145,6 +185,8 @@ public class CitaService {
                 );
 
         if (jornadas.isEmpty()) {
+            log.info("Sin jornadas activas para disponibilidad: idStaff={}, fecha={}, diaSemana={}",
+                    idStaff, fecha, fecha.getDayOfWeek().getValue());
             return List.of();
         }
 
@@ -165,6 +207,9 @@ public class CitaService {
                 inicioDia,
                 finDia
         );
+
+        log.info("Datos base disponibilidad: idStaff={}, fecha={}, jornadas={}, citas={}, bloqueos={}",
+                idStaff, fecha, jornadas.size(), citas.size(), bloqueos.size());
 
         List<DisponibilidadSlot> slots = new ArrayList<>();
 
@@ -206,11 +251,17 @@ public class CitaService {
             }
         }
 
-        return slots.stream().distinct().toList();
+        List<DisponibilidadSlot> slotsSinDuplicados = slots.stream().distinct().toList();
+        log.info("Slots calculados para dia: idStaff={}, fecha={}, slots={}",
+                idStaff, fecha, slotsSinDuplicados.size());
+        return slotsSinDuplicados;
     }
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Cita crear(CrearCitaRequest request) {
+        log.info("Creando cita: idServicio={}, idStaff={}, idCliente={}, fechaHoraInicio={}",
+                request.idServicio(), request.idStaff(), request.idCliente(), request.fechaHoraInicio());
+
         liberarReservasVencidas();
 
         if (request.idCliente() == null) {
@@ -268,6 +319,7 @@ public class CitaService {
 
     @Transactional
     public Cita actualizarEstado(UUID id, ActualizarEstadoCitaRequest request) {
+        log.info("Actualizando estado de cita: id={}, estado={}", id, request.estadoCita());
 
         Cita cita = buscarPorId(id);
 
@@ -297,6 +349,7 @@ public class CitaService {
 
     @Transactional
     public void cancelar(UUID id) {
+        log.info("Cancelando cita: id={}", id);
 
         Cita cita = buscarPorId(id);
 
@@ -324,11 +377,20 @@ public class CitaService {
 
     @Transactional
     public void liberarReservasVencidas() {
-        citaRepository.expirarReservasVencidas(
-                EstadoCita.PENDIENTE_PAGO,
-                EstadoCita.EXPIRADA,
-                OffsetDateTime.now(zoneId())
-        );
+        try {
+            int reservasExpiradas = citaRepository.expirarReservasVencidas(
+                    EstadoCita.PENDIENTE_PAGO,
+                    EstadoCita.EXPIRADA,
+                    OffsetDateTime.now(zoneId())
+            );
+
+            if (reservasExpiradas > 0) {
+                log.info("Reservas vencidas expiradas: cantidad={}", reservasExpiradas);
+            }
+        } catch (RuntimeException ex) {
+            log.error("Error completo liberando reservas vencidas", ex);
+            throw ex;
+        }
     }
 
     private Cita guardarSinSolape(Cita cita) {
