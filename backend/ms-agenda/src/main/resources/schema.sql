@@ -1,4 +1,4 @@
-CREATE EXTENSION IF NOT EXISTS btree_gist;
+CREATE EXTENSION IF NOT EXISTS btree_gist;;
 
 DO $$
 BEGIN
@@ -13,7 +13,7 @@ BEGIN
         ALTER TABLE citas
             ADD COLUMN google_calendar_event_id varchar(255);
     END IF;
-END $$;
+END $$;;
 
 DO $$
 BEGIN
@@ -25,7 +25,7 @@ BEGIN
             ADD CONSTRAINT citas_staff_inicio_unico
             UNIQUE (id_staff, fecha_hora_inicio);
     END IF;
-END $$;
+END $$;;
 
 DO $$
 BEGIN
@@ -41,4 +41,4 @@ BEGIN
             )
             WHERE (estado_cita NOT IN ('CANCELADA', 'EXPIRADA', 'RECHAZADA'));
     END IF;
-END $$;
+END $$;;

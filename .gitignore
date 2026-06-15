@@ -1,5 +1,7 @@
 serviceAccountKey.json
 **/serviceAccountKey.json
+firebase-service-account.json
+**/firebase-service-account.json
 *.pem
 *.key
 *.p12

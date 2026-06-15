@@ -66,18 +66,34 @@ export function ClientsAdminPage() {
 
   const createMutation = useMutation({
     mutationFn: async (payload) => {
-      await profileService.validateAvailability({
+      // Normalizar formato de fecha a YYYY-MM-DD (por ej. si viene DD-MM-YYYY o DD/MM/YYYY)
+      let fechaNormalizada = payload.fechaNacimiento;
+      if (fechaNormalizada && !/^\d{4}-\d{2}-\d{2}$/.test(fechaNormalizada)) {
+        const parts = fechaNormalizada.split(/[-/]/);
+        if (parts.length === 3) {
+          if (parts[0].length === 2 && parts[2].length === 4) {
+            fechaNormalizada = `${parts[2]}-${parts[1]}-${parts[0]}`;
+          }
+        }
+      }
+
+      const payloadWithNormalizedDate = {
         ...payload,
+        fechaNacimiento: fechaNormalizada || null
+      };
+
+      await profileService.validateAvailability({
+        ...payloadWithNormalizedDate,
         tipoPerfil: selectedType,
       });
 
       const user = await authService.createUser({
-        email: payload.emailContacto,
-        password: payload.password,
+        email: payloadWithNormalizedDate.emailContacto,
+        password: payloadWithNormalizedDate.password,
         rol: selectedType,
       });
 
-      const profilePayload = { ...payload };
+      const profilePayload = { ...payloadWithNormalizedDate };
       delete profilePayload.password;
       const normalizedPayload = {
         ...profilePayload,
@@ -115,6 +131,19 @@ export function ClientsAdminPage() {
     event.preventDefault();
     createMutation.mutate(form);
   };
+
+  const promoteMutation = useMutation({
+    mutationFn: async ({ idAuth, rol }) => {
+      if (!idAuth) throw new Error('El usuario no tiene una cuenta de Firebase asociada.');
+      return authService.assignRole({ uid: idAuth, rol });
+    },
+    onSuccess: () => {
+      alert('¡Rol asignado correctamente! El usuario ahora tiene permisos de administrador.');
+    },
+    onError: (error) => {
+      alert(`Error al asignar rol: ${error.message}`);
+    }
+  });
 
   const selectedQuery = selectedType === 'STAFF' ? staffQuery : clientsQuery;
   const users = Array.isArray(selectedQuery.data) ? selectedQuery.data : [];
@@ -210,6 +239,24 @@ export function ClientsAdminPage() {
             selectedType === 'STAFF'
               ? { key: 'especialidad', label: 'Especialidad', render: (row) => row.especialidad?.nombre || row.idEspecialidad || 'Sin especialidad' }
               : { key: 'puntosFidelidad', label: 'Puntos', render: (row) => row.puntosFidelidad ?? 0 },
+            { 
+              key: 'acciones', 
+              label: 'Acciones', 
+              render: (row) => (
+                <button 
+                  type="button"
+                  style={{ cursor: 'pointer', padding: '4px 8px', background: '#fce7f3', color: '#be185d', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}
+                  onClick={() => {
+                    if (window.confirm(`¿Estás seguro de inyectar el rol ADMIN a ${row.nombre || row.emailContacto}?`)) {
+                      promoteMutation.mutate({ idAuth: row.idAuth, rol: 'ADMIN' });
+                    }
+                  }}
+                  disabled={promoteMutation.isPending}
+                >
+                  Hacer ADMIN
+                </button>
+              ) 
+            }
           ]}
           rows={users}
           emptyMessage="No hay usuarios para este filtro."

@@ -87,7 +87,9 @@
 .staff-modal-form {
   display: grid;
   gap: 1.25rem;
-  padding: 1rem 0;
+  padding: 1rem 0.5rem 1rem 0;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .staff-form-section {

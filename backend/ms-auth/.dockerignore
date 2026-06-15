@@ -4,8 +4,7 @@ target
 *.log
 serviceAccountKey.json
 **/serviceAccountKey.json
-*firebase*.json
-**/*firebase*.json
+
 *credential*.json
 **/*credential*.json
 *secret*.json
