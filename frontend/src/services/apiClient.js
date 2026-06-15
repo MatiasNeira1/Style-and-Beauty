@@ -40,6 +40,7 @@ const AUTH_STORAGE_KEYS = [
   'refreshToken',
   'authToken',
   'token',
+  'style_beauty_pending_profile',
 ];
 
 export class AuthRequiredError extends Error {

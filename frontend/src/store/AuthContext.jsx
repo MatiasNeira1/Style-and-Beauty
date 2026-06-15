@@ -119,6 +119,13 @@ export function AuthProvider({ children }) {
         tipoPerfil: 'CLIENTE',
       };
 
+      try {
+        window.localStorage.setItem('style_beauty_pending_profile', JSON.stringify(normalizedProfile));
+        window.sessionStorage.setItem('style_beauty_pending_profile', JSON.stringify(normalizedProfile));
+      } catch (storageErr) {
+        console.warn('Failed to save pending profile to storage in AuthContext:', storageErr);
+      }
+
       await profileService.validateAvailability(normalizedProfile);
       const created = await firebaseAuthService.register(normalizedEmail, password);
       if (created.token) {

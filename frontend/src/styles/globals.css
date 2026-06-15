@@ -1094,14 +1094,6 @@ img { max-width: 100%; display: block; }
   position: relative;
 }
 
-.register-form-card::before {
-  background: linear-gradient(90deg, rgba(212, 122, 158, 0.26), rgba(226, 180, 126, 0.2), rgba(212, 122, 158, 0.26));
-  content: "";
-  height: 4px;
-  inset: 0 0 auto;
-  position: absolute;
-}
-
 .register-form-grid {
   align-items: start;
   display: grid;
