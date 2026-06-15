@@ -285,7 +285,7 @@ export function ServiceDetailPage() {
       return undefined;
     }
 
-    const payload = { idServicio, idStaff, fechaInicioSemana };
+    const payload = { idServicio, idStaff, fecha: fechaInicioSemana };
 
     const loadWeeklyAvailability = async () => {
       try {

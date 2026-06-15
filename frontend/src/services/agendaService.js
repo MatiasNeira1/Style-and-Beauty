@@ -31,12 +31,12 @@ function weeklyAvailabilityPayload(payload) {
   const data = {
     idServicio: payload?.idServicio,
     idStaff: payload?.idStaff,
-    fechaInicioSemana: payload?.fechaInicioSemana,
+    fecha: payload?.fecha || payload?.fechaInicioSemana,
   };
 
   if (!isValidUuid(data.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
   if (!isValidUuid(data.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
-  requireValue(data.fechaInicioSemana, 'Selecciona una semana para consultar disponibilidad.');
+  requireValue(data.fecha, 'Selecciona una semana para consultar disponibilidad.');
 
   return data;
 }
