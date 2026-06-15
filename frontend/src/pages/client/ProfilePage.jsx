@@ -13,6 +13,61 @@ import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 const MIN_CLIENT_AGE = 15;
+
+function validateRut(rut) {
+  if (!rut || typeof rut !== 'string') return false;
+  // Limpiar puntos, guiones y espacios
+  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (cleanRut.length < 2) return false;
+  
+  const body = cleanRut.slice(0, -1);
+  const dv = cleanRut.slice(-1);
+  
+  let sum = 0;
+  let multiplier = 2;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += parseInt(body[i], 10) * multiplier;
+    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  }
+  
+  const expectedDv = 11 - (sum % 11);
+  let calculatedDv = '';
+  if (expectedDv === 11) {
+    calculatedDv = '0';
+  } else if (expectedDv === 10) {
+    calculatedDv = 'K';
+  } else {
+    calculatedDv = String(expectedDv);
+  }
+  
+  return calculatedDv === dv;
+}
+
+function formatRut(value) {
+  if (!value) return '';
+  let clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (clean.length === 0) return '';
+  clean = clean.slice(0, 9);
+  
+  if (clean.length <= 1) {
+    return clean;
+  }
+  
+  const dv = clean.slice(-1);
+  const body = clean.slice(0, -1);
+  
+  let formattedBody = '';
+  if (body.length <= 3) {
+    formattedBody = body;
+  } else if (body.length <= 6) {
+    formattedBody = body.slice(0, body.length - 3) + '.' + body.slice(body.length - 3);
+  } else {
+    formattedBody = body.slice(0, body.length - 6) + '.' + body.slice(body.length - 6, body.length - 3) + '.' + body.slice(body.length - 3);
+  }
+  
+  return formattedBody + '-' + dv;
+}
+
 const monthOptions = [
   ['01', 'Enero'],
   ['02', 'Febrero'],
@@ -412,7 +467,19 @@ export function ProfilePage() {
                   <UserRound size={18} color="var(--color-primary-strong)" /> Información Personal
                 </h3>
                 <div className="profile-form-grid">
-                  <Input label="RUT" {...register('rut', { required: true })} placeholder="12.345.678-9" required />
+                  <Input 
+                    label="RUT" 
+                    {...register('rut', { 
+                      required: 'El RUT es obligatorio.',
+                      validate: (value) => validateRut(value) || 'El RUT no es válido (ej: 12.345.678-9).',
+                      onChange: (e) => {
+                        setValue('rut', formatRut(e.target.value));
+                      }
+                    })} 
+                    placeholder="12.345.678-9" 
+                    required 
+                    error={errors.rut?.message}
+                  />
                   <Input label="Nombre" {...register('nombre', { required: true })} placeholder="Tu nombre" required />
                   <Input label="Apellidos" {...register('apellidos')} placeholder="Tus apellidos" />
                   <Input label="Email de contacto" {...register('emailContacto', { required: true })} type="email" placeholder="tuemail@correo.com" required />

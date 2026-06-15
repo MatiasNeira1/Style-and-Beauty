@@ -5,8 +5,12 @@ import {
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { firebaseAuth } from './firebaseClient.js';
+
+// Configurar idioma en español para correos y plantillas de Firebase
+firebaseAuth.languageCode = 'es';
 
 function toSession(firebaseUser, tokenResult) {
   const rol = tokenResult.claims?.rol || tokenResult.claims?.role || null;
@@ -57,6 +61,10 @@ export const firebaseAuthService = {
     if (!firebaseAuth.currentUser) throw new Error('No user is logged in.');
     await updateProfile(firebaseAuth.currentUser, { photoURL });
     return this.refreshSession(firebaseAuth.currentUser);
+  },
+
+  async resetPassword(email) {
+    await sendPasswordResetEmail(firebaseAuth, email);
   },
 
   logout() {

@@ -8,8 +8,63 @@ import { Button } from '../../ui/Button.jsx';
 import { Input } from '../../ui/Input.jsx';
 import { SafeImage } from '../../ui/SafeImage.jsx';
 
+function validateRut(rut) {
+  if (!rut || typeof rut !== 'string') return false;
+  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (cleanRut.length < 2) return false;
+  
+  const body = cleanRut.slice(0, -1);
+  const dv = cleanRut.slice(-1);
+  
+  let sum = 0;
+  let multiplier = 2;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += parseInt(body[i], 10) * multiplier;
+    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  }
+  
+  const expectedDv = 11 - (sum % 11);
+  let calculatedDv = '';
+  if (expectedDv === 11) {
+    calculatedDv = '0';
+  } else if (expectedDv === 10) {
+    calculatedDv = 'K';
+  } else {
+    calculatedDv = String(expectedDv);
+  }
+  
+  return calculatedDv === dv;
+}
+
+function formatRut(value) {
+  if (!value) return '';
+  let clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (clean.length === 0) return '';
+  clean = clean.slice(0, 9);
+  
+  if (clean.length <= 1) {
+    return clean;
+  }
+  
+  const dv = clean.slice(-1);
+  const body = clean.slice(0, -1);
+  
+  let formattedBody = '';
+  if (body.length <= 3) {
+    formattedBody = body;
+  } else if (body.length <= 6) {
+    formattedBody = body.slice(0, body.length - 3) + '.' + body.slice(body.length - 3);
+  } else {
+    formattedBody = body.slice(0, body.length - 6) + '.' + body.slice(body.length - 6, body.length - 3) + '.' + body.slice(body.length - 3);
+  }
+  
+  return formattedBody + '-' + dv;
+}
+
 const staffSchema = z.object({
-  rut: z.string().min(1, 'El RUT es obligatorio'),
+  rut: z.string().min(1, 'El RUT es obligatorio').refine((val) => validateRut(val), {
+    message: 'El RUT no es válido (ej: 12.345.678-9)',
+  }),
   nombre: z.string().min(1, 'El nombre es obligatorio'),
   apellidos: z.string().optional(),
   emailContacto: z.string().email('Email inválido'),
@@ -54,6 +109,7 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: initialData
@@ -157,7 +213,11 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
               label="RUT"
               id="staff-form-rut"
               error={errors.rut?.message}
-              {...register('rut')}
+              {...register('rut', {
+                onChange: (e) => {
+                  setValue('rut', formatRut(e.target.value));
+                }
+              })}
             />
             <Input
               label="Nombre"
