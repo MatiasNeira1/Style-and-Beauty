@@ -172,6 +172,7 @@ export function ServiceDetailPage() {
   const categoryServices = grouped[category] || [];
   const service = categoryServices.find((item) => serviceMatchesSlug(item, servicio));
   const idServicio = serviceId(service);
+  const idServicioValido = reservationService.isValidUuid(idServicio);
 
   const savePendingReservation = () => {
     const pending = {
@@ -199,7 +200,7 @@ export function ServiceDetailPage() {
   };
 
   useEffect(() => {
-    if (!idServicio) return undefined;
+    if (!idServicioValido) return undefined;
 
     let active = true;
     setCargandoProfesionales(true);
@@ -225,7 +226,7 @@ export function ServiceDetailPage() {
     return () => {
       active = false;
     };
-  }, [idServicio]);
+  }, [idServicio, idServicioValido]);
 
   useEffect(() => {
     if (!idServicio || profesionales.length === 0 || profesionalSeleccionado) return;
@@ -257,7 +258,8 @@ export function ServiceDetailPage() {
 
   useEffect(() => {
     const idStaff = staffId(profesionalSeleccionado);
-    if (!idServicio || !idStaff) {
+    const idStaffValido = reservationService.isValidUuid(idStaff);
+    if (!idServicioValido || !idStaffValido) {
       setDisponibilidadSemana({});
       setFechaSeleccionada('');
       setHorariosDisponibles([]);
@@ -330,7 +332,7 @@ export function ServiceDetailPage() {
     return () => {
       active = false;
     };
-  }, [idServicio, profesionalSeleccionado, semanaInicio]);
+  }, [idServicio, idServicioValido, profesionalSeleccionado, semanaInicio]);
 
   useEffect(() => {
     const pending = pendingReservationRef.current;
@@ -384,6 +386,10 @@ export function ServiceDetailPage() {
     }
     if (!horarioSeleccionado) {
       setMensajeReserva('Selecciona una hora disponible.');
+      return;
+    }
+    if (!idServicioValido || !reservationService.isValidUuid(staffId(profesionalSeleccionado))) {
+      setMensajeReserva('Selecciona un servicio y especialista validos.');
       return;
     }
     if (!isAuthenticated) {

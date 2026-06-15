@@ -74,11 +74,14 @@ export function BookingPage() {
   const [agregandoCarrito, setAgregandoCarrito] = useState(false);
 
   const selectedServiceId = serviceId(service);
+  const selectedStaffId = staffId(member);
+  const hasValidServiceId = serviceCatalogService.isValidUuid(selectedServiceId);
+  const hasValidStaffId = reservationService.isValidUuid(selectedStaffId);
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: serviceCatalogService.listServices });
   const serviceStaffQuery = useQuery({
     queryKey: ['service-staff', selectedServiceId],
     queryFn: () => serviceCatalogService.listProfessionalsByService(selectedServiceId),
-    enabled: Boolean(selectedServiceId),
+    enabled: hasValidServiceId,
   });
   const { data: myProfile, isError: isProfileError, error: profileError } = useQuery({
     queryKey: ['my-profile'],
@@ -91,13 +94,13 @@ export function BookingPage() {
   const serviceStaff = useMemo(() => (Array.isArray(serviceStaffQuery.data) ? serviceStaffQuery.data : []), [serviceStaffQuery.data]);
 
   const availabilityQuery = useQuery({
-    queryKey: ['availability', staffId(member), selectedServiceId, date],
+    queryKey: ['availability', selectedStaffId, selectedServiceId, date],
     queryFn: () => reservationService.getAvailability({
-      professionalId: staffId(member),
+      professionalId: selectedStaffId,
       serviceId: selectedServiceId,
       date,
     }),
-    enabled: Boolean(member && date && selectedServiceId),
+    enabled: Boolean(hasValidStaffId && hasValidServiceId && date),
   });
 
   const selectedSlot = useMemo(() => {
@@ -123,6 +126,10 @@ export function BookingPage() {
 
     if (!service || !member || !date || !time) {
       setConfirmError('Selecciona servicio, profesional, fecha y horario para continuar.');
+      return;
+    }
+    if (!hasValidServiceId || !hasValidStaffId) {
+      setConfirmError('Selecciona servicio y profesional validos para continuar.');
       return;
     }
     if (isProfileError) {
@@ -166,7 +173,7 @@ export function BookingPage() {
 
       created = await bookingMutation.mutateAsync({
         clientId: myProfile?.idPersona,
-        professionalId: staffId(member),
+        professionalId: selectedStaffId,
         serviceId: selectedServiceId,
         startsAt: time,
       });
@@ -183,7 +190,7 @@ export function BookingPage() {
         id: `reservation:${created.idCita}`,
         reservationId: created.idCita,
         serviceId: selectedServiceId,
-        staffId: staffId(member),
+        staffId: selectedStaffId,
         name: service?.nombre || service?.name || 'Reserva',
         price: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
         startsAt: created.fechaHoraInicio || time,

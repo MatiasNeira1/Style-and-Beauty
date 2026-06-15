@@ -1,6 +1,11 @@
 import { AGENDA_API_BASE_URL, PROFILES_API_BASE_URL, request } from './apiClient.js';
 
 const portfolioUnavailableMessage = 'Portfolio temporalmente no disponible hasta habilitar almacenamiento de imágenes.';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isValidUuid(value) {
+  return typeof value === 'string' && UUID_PATTERN.test(value.trim());
+}
 
 function imageFormData(file) {
   const formData = new FormData();
@@ -42,20 +47,25 @@ export const staffService = {
     request({ baseURL: PROFILES_API_BASE_URL, url: '/api/admin/especialidades', method: 'GET', authRequired: true }),
 
   // ── Jornadas Laborales ─────────────────────────────
-  listSchedules: (staffId) =>
-    request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/jornadas/staff/${staffId}`, method: 'GET', authRequired: true }),
+  listSchedules: (staffId) => {
+    if (!isValidUuid(staffId)) return Promise.resolve([]);
+    return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/jornadas/staff/${staffId}`, method: 'GET', authRequired: true });
+  },
 
-  saveSchedules: (staffId, jornadas) => Promise.all(
-    jornadas
-      .filter((jornada) => jornada.activo !== false)
-      .map((jornada) => request({
-        baseURL: AGENDA_API_BASE_URL,
-        url: '/api/agenda/jornadas',
-        method: 'POST',
-        authRequired: true,
-        data: { ...jornada, idStaff: staffId },
-      })),
-  ),
+  saveSchedules: (staffId, jornadas) => {
+    if (!isValidUuid(staffId)) return Promise.reject(new Error('Selecciona un profesional valido para guardar jornadas.'));
+    return Promise.all(
+      jornadas
+        .filter((jornada) => jornada.activo !== false)
+        .map((jornada) => request({
+          baseURL: AGENDA_API_BASE_URL,
+          url: '/api/agenda/jornadas',
+          method: 'POST',
+          authRequired: true,
+          data: { ...jornada, idStaff: staffId },
+        })),
+    );
+  },
 
   // ── Portfolio (Fotos de trabajos) ──────────────────
   listPortfolio: async () => [],
@@ -67,4 +77,5 @@ export const staffService = {
   deletePortfolioImage: async () => {
     throw new Error(portfolioUnavailableMessage);
   },
+  isValidUuid,
 };

@@ -33,11 +33,6 @@ public class CitaController {
         return citaService.listar();
     }
 
-    @GetMapping("/{id}")
-    public Cita buscarPorId(@PathVariable UUID id) {
-        return citaService.buscarPorId(id);
-    }
-
     @GetMapping("/disponibilidad")
     public List<DisponibilidadSlot> disponibilidadGet(
             @RequestParam UUID idStaff,
@@ -72,6 +67,11 @@ public class CitaController {
         return citaService.calcularDisponibilidadSemanal(request);
     }
 
+    @GetMapping("/{id:[0-9a-fA-F-]+}")
+    public Cita buscarPorId(@PathVariable UUID id) {
+        return citaService.buscarPorId(id);
+    }
+
     @PostMapping
     public Cita crear(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
@@ -81,14 +81,14 @@ public class CitaController {
         return citaService.crear(request.withCliente(cliente.idPersona()));
     }
 
-    @PatchMapping("/{id}/estado")
+    @PatchMapping("/{id:[0-9a-fA-F-]+}/estado")
     public Cita actualizarEstado(
             @PathVariable UUID id,
             @Valid @RequestBody ActualizarEstadoCitaRequest request) {
         return citaService.actualizarEstado(id, request);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9a-fA-F-]+}")
     public void cancelar(@PathVariable UUID id) {
         citaService.cancelar(id);
     }

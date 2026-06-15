@@ -13,6 +13,22 @@ function requireValue(value, message) {
   return value;
 }
 
+function availabilityPayload(payload) {
+  if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
+  if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
+  requireValue(payload?.fecha, 'Selecciona una fecha para consultar disponibilidad.');
+
+  return payload;
+}
+
+function weeklyAvailabilityPayload(payload) {
+  if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
+  if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
+  requireValue(payload?.fechaInicioSemana, 'Selecciona una semana para consultar disponibilidad.');
+
+  return payload;
+}
+
 export function crearCita(payload) {
   if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para reservar.');
   if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para reservar.');
@@ -26,22 +42,13 @@ export const agendaService = {
   createBooking: crearCita,
   crearCita,
   getAvailability: (payload) => {
-    if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
-    if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
-    requireValue(payload?.fecha, 'Selecciona una fecha para consultar disponibilidad.');
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'GET', params: payload });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: availabilityPayload(payload) });
   },
   consultarDisponibilidad: (payload) => {
-    if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
-    if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
-    requireValue(payload?.fecha, 'Selecciona una fecha para consultar disponibilidad.');
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'GET', params: payload });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: availabilityPayload(payload) });
   },
   consultarDisponibilidadSemanal: (payload) => {
-    if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
-    if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
-    requireValue(payload?.fechaInicioSemana, 'Selecciona una semana para consultar disponibilidad.');
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad-semanal', method: 'GET', params: payload });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad-semanal', method: 'POST', data: weeklyAvailabilityPayload(payload) });
   },
   listarStaffPorServicio: (idServicio) => {
     if (!isValidUuid(idServicio)) return Promise.resolve([]);
@@ -56,8 +63,18 @@ export const agendaService = {
       params: { anio, mes },
     });
   },
-  updateBookingStatus: (idCita, payload) => request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/citas/${idCita}/estado`, method: 'PATCH', authRequired: true, data: payload }),
-  cancelBooking: (idCita) => request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/citas/${idCita}`, method: 'DELETE', authRequired: true }),
-  listBlocksByStaff: (idStaff) => request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/bloqueos/staff/${idStaff}`, authRequired: true }),
+  updateBookingStatus: (idCita, payload) => {
+    if (!isValidUuid(idCita)) throw new Error('La reserva seleccionada no es valida.');
+    return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/citas/${idCita}/estado`, method: 'PATCH', authRequired: true, data: payload });
+  },
+  cancelBooking: (idCita) => {
+    if (!isValidUuid(idCita)) throw new Error('La reserva seleccionada no es valida.');
+    return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/citas/${idCita}`, method: 'DELETE', authRequired: true });
+  },
+  listBlocksByStaff: (idStaff) => {
+    if (!isValidUuid(idStaff)) return Promise.resolve([]);
+    return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/bloqueos/staff/${idStaff}`, authRequired: true });
+  },
   createBlock: (payload) => request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/bloqueos', method: 'POST', authRequired: true, data: payload }),
+  isValidUuid,
 };
