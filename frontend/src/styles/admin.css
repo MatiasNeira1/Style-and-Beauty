@@ -1597,6 +1597,283 @@
   padding: 0.9rem 1rem;
 }
 
+.admin-data-table-shell.compact .admin-data-table {
+  min-width: 680px;
+}
+
+.admin-data-table-shell.compact .admin-data-table th,
+.admin-data-table-shell.compact .admin-data-table td {
+  padding: 0.72rem 0.85rem;
+}
+
+.admin-data-table-shell.compact .admin-data-table td {
+  font-size: 0.84rem;
+}
+
+.admin-clickable-row {
+  cursor: pointer;
+  outline: 0;
+}
+
+.admin-clickable-row:focus-visible {
+  box-shadow: inset 0 0 0 2px rgba(191, 91, 132, 0.38);
+}
+
+.admin-table-main-cell {
+  display: grid;
+  gap: 0.18rem;
+  max-width: min(34rem, 42vw);
+  min-width: 0;
+}
+
+.admin-table-main-cell strong {
+  color: var(--color-ink);
+  font-weight: 950;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-table-main-cell span {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-media-cell.compact {
+  gap: 0.65rem;
+}
+
+.admin-media-cell.compact img {
+  border-radius: 12px;
+  height: 2.55rem;
+  width: 2.55rem;
+}
+
+.admin-table-danger {
+  color: #9f1239;
+  font-weight: 950;
+}
+
+.compact-panel {
+  padding: 1rem;
+}
+
+.admin-modal-form,
+.admin-detail-modal {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-modal-section {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.admin-modal-hint {
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  font-weight: 750;
+  margin: 0;
+}
+
+.admin-modal-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  justify-content: flex-end;
+}
+
+.admin-modal-steps {
+  background: rgba(25, 20, 23, 0.035);
+  border: 1px solid rgba(25, 20, 23, 0.06);
+  border-radius: 14px;
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.35rem;
+}
+
+.admin-modal-steps button {
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 950;
+  padding: 0.5rem 0.7rem;
+  white-space: nowrap;
+}
+
+.admin-modal-steps button.active {
+  background: white;
+  box-shadow: 0 8px 18px rgba(84, 50, 62, 0.08);
+  color: var(--color-primary-strong);
+}
+
+.admin-modal-steps button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.admin-check-list {
+  display: grid;
+  gap: 0.55rem;
+  max-height: min(22rem, 48vh);
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.admin-check-list label,
+.admin-checkbox-row {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(25, 20, 23, 0.07);
+  border-radius: 14px;
+  display: flex;
+  gap: 0.65rem;
+  padding: 0.72rem;
+}
+
+.admin-check-list span {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.admin-check-list strong {
+  color: var(--color-ink);
+  font-size: 0.9rem;
+}
+
+.admin-check-list small {
+  color: var(--color-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.admin-detail-hero {
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(25, 20, 23, 0.08);
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-bottom: 1rem;
+}
+
+.admin-detail-hero.with-media {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.admin-detail-hero img {
+  border-radius: 16px;
+  height: 4.8rem;
+  object-fit: cover;
+  width: 4.8rem;
+}
+
+.admin-detail-hero span {
+  color: var(--color-primary-strong);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-detail-hero h3 {
+  color: var(--color-ink);
+  font-size: 1.35rem;
+  margin: 0.15rem 0 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-detail-hero p,
+.admin-detail-modal section p {
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-detail-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-detail-grid > div {
+  background: rgba(25, 20, 23, 0.035);
+  border: 1px solid rgba(25, 20, 23, 0.055);
+  border-radius: 14px;
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.78rem;
+}
+
+.admin-detail-grid span,
+.admin-detail-modal h4 {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.admin-detail-grid strong {
+  color: var(--color-ink);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.admin-chip-row span {
+  background: rgba(191, 91, 132, 0.1);
+  border: 1px solid rgba(191, 91, 132, 0.14);
+  border-radius: 999px;
+  color: var(--color-primary-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 0.4rem 0.58rem;
+}
+
+.admin-filter-combo {
+  display: grid;
+  gap: 0.42rem;
+}
+
+.admin-filter-combo input,
+.admin-filter-combo select {
+  min-width: 0;
+}
+
+.admin-compact-forms .admin-panel {
+  align-content: start;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.form-grid.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.modal-detail-panel {
+  max-height: min(70vh, 44rem);
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
 .admin-scrim {
   display: none;
 }
