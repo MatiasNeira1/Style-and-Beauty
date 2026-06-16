@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LogOut, Save, ShieldCheck, UserRound } from 'lucide-react';
+import { Camera, LogOut, Save, ShieldCheck, UserRound } from 'lucide-react';
 import { AdminErrorState, AdminPageHeader, AdminSkeleton } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
+import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { profileService } from '../../services/profileService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
@@ -40,6 +41,51 @@ function getProfileRole(profile, user) {
   return profile?.rol || profile?.tipoPerfil || user?.rol || user?.role || 'No disponible';
 }
 
+function validateRut(rut) {
+  if (!rut || typeof rut !== 'string') return false;
+  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (cleanRut.length < 2) return false;
+  const body = cleanRut.slice(0, -1);
+  const dv = cleanRut.slice(-1);
+  let sum = 0;
+  let multiplier = 2;
+  for (let i = body.length - 1; i >= 0; i -= 1) {
+    sum += parseInt(body[i], 10) * multiplier;
+    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  }
+  const expectedDv = 11 - (sum % 11);
+  const calculatedDv = expectedDv === 11 ? '0' : expectedDv === 10 ? 'K' : String(expectedDv);
+  return calculatedDv === dv;
+}
+
+function validatePhone(value) {
+  if (!value) return true;
+  return /^\+?[0-9\s-]{8,18}$/.test(value.trim());
+}
+
+function compressProfileImage(file, size = 96, quality = 0.55) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+        const minSize = Math.min(image.width, image.height);
+        const sx = (image.width - minSize) / 2;
+        const sy = (image.height - minSize) / 2;
+        canvas.width = size;
+        canvas.height = size;
+        canvas.getContext('2d').drawImage(image, sx, sy, minSize, minSize, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      image.onerror = reject;
+      image.src = event.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 function ReadOnlyItem({ label, value }) {
   return (
     <div className="admin-readonly-item">
@@ -50,11 +96,12 @@ function ReadOnlyItem({ label, value }) {
 }
 
 export function AdminProfilePage() {
-  const { user, logout } = useAuth();
+  const { user, logout, setSession } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [photoPreview, setPhotoPreview] = useState(user?.photoURL || '');
 
   const profileQuery = useQuery({
     queryKey: ['my-profile'],
@@ -68,28 +115,68 @@ export function AdminProfilePage() {
   const displayName = joinName(profile, user);
   const initials = getInitials(displayName) || 'AD';
   const email = getProfileEmail(profile, user);
+  const hasRealEmail = Boolean(email && email !== 'No disponible');
   const role = getProfileRole(profile, user);
   const createdAt = profile.fechaCreacion || profile.createdAt || profile.fechaRegistro || profile.created_at;
   const canEditProfile = Boolean(profileQuery.data) && !profileQuery.isError;
+  const missingIdentityFields = canEditProfile
+    ? [
+        !profile.nombre && 'nombre',
+        !profile.apellidos && 'apellido',
+        !profile.rut && 'RUT',
+        !hasRealEmail && 'email',
+      ].filter(Boolean)
+    : [];
+  const hasMissingIdentity = missingIdentityFields.length > 0;
 
   const defaultValues = useMemo(() => ({
     nombre: profile.nombre || '',
     apellidos: profile.apellidos || '',
+    rut: profile.rut || '',
+    emailContacto: email === 'No disponible' ? '' : email,
     telefono: profile.telefono || '',
-  }), [profile.apellidos, profile.nombre, profile.telefono]);
+  }), [email, profile.apellidos, profile.nombre, profile.rut, profile.telefono]);
 
   const { register, handleSubmit, reset } = useForm({ defaultValues });
+
+  useEffect(() => {
+    setPhotoPreview(user?.photoURL || '');
+  }, [user?.photoURL]);
 
   useEffect(() => {
     reset(defaultValues);
   }, [defaultValues, reset]);
 
   const updateMutation = useMutation({
-    mutationFn: (values) => profileService.updateMyProfile({
-      nombre: values.nombre?.trim() || '',
-      apellidos: values.apellidos?.trim() || '',
-      telefono: values.telefono?.trim() || '',
-    }),
+    mutationFn: async (values) => {
+      if (!validatePhone(values.telefono)) {
+        throw new Error('Ingresa un telefono valido, por ejemplo +56 9 1234 5678.');
+      }
+
+      if (hasMissingIdentity) {
+        if (!values.nombre?.trim() || !values.apellidos?.trim() || !values.rut?.trim()) {
+          throw new Error('Faltan datos obligatorios por completar.');
+        }
+        if (!validateRut(values.rut)) {
+          throw new Error('Ingresa un RUT valido, por ejemplo 12.345.678-9.');
+        }
+        const idAuth = profile.idAuth || user?.uid;
+        if (!idAuth) {
+          throw new Error('El backend no entrego idAuth para completar identidad.');
+        }
+        return profileService.updateProfileByAuthId(idAuth, {
+          nombre: values.nombre.trim(),
+          apellidos: values.apellidos.trim(),
+          rut: values.rut.trim(),
+          emailContacto: values.emailContacto || user?.email,
+          telefono: values.telefono?.trim() || '',
+        });
+      }
+
+      return profileService.updateMyProfile({
+        telefono: values.telefono?.trim() || '',
+      });
+    },
     onSuccess: (updatedProfile) => {
       const mergedProfile = { ...profile, ...updatedProfile };
       queryClient.setQueryData(['my-profile'], mergedProfile);
@@ -100,6 +187,29 @@ export function AdminProfilePage() {
     onError: (err) => {
       setSuccessMsg('');
       setErrorMsg(err?.message || 'Error al actualizar perfil.');
+    },
+  });
+
+  const photoMutation = useMutation({
+    mutationFn: async (file) => {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        throw new Error('Solo se permiten imagenes JPG, PNG o WEBP.');
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('La imagen no puede superar 5 MB.');
+      }
+      const compressed = await compressProfileImage(file);
+      return firebaseAuthService.updatePhoto(compressed);
+    },
+    onSuccess: (session) => {
+      setSession(session);
+      setPhotoPreview(session?.user?.photoURL || '');
+      setErrorMsg('');
+      setSuccessMsg('Foto de perfil actualizada.');
+    },
+    onError: (err) => {
+      setSuccessMsg('');
+      setErrorMsg(err?.message || 'No se pudo actualizar la foto.');
     },
   });
 
@@ -148,6 +258,12 @@ export function AdminProfilePage() {
         </div>
       )}
 
+      {hasMissingIdentity && (
+        <div className="admin-alert" role="alert">
+          Faltan datos obligatorios por completar.
+        </div>
+      )}
+
       {profileQuery.isError && !profileNotFound && (
         <AdminErrorState
           title="No fue posible cargar el perfil"
@@ -161,9 +277,19 @@ export function AdminProfilePage() {
 
       <div className="admin-profile-grid">
         <aside className="admin-profile-card admin-profile-summary">
-          <div className="admin-profile-avatar-large" aria-hidden="true">
-            {initials}
-          </div>
+          <label className="admin-profile-avatar-large admin-profile-avatar-upload" title="Cambiar foto de perfil">
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                if (file) photoMutation.mutate(file);
+              }}
+            />
+            {photoPreview ? <img src={photoPreview} alt="Foto de perfil" /> : initials}
+            <span><Camera size={14} /> Cambiar</span>
+          </label>
           <div>
             <h3>{displayName}</h3>
             <p>{email}</p>
@@ -199,16 +325,31 @@ export function AdminProfilePage() {
               <Input
                 id="admin-profile-nombre"
                 label="Nombre"
-                placeholder="Nombre"
-                disabled={!canEditProfile || updateMutation.isPending}
+                placeholder="Camila"
+                disabled={!canEditProfile || updateMutation.isPending || Boolean(profile.nombre)}
                 {...register('nombre')}
               />
               <Input
                 id="admin-profile-apellidos"
-                label="Apellido"
-                placeholder="Apellido"
-                disabled={!canEditProfile || updateMutation.isPending}
+                label="Apellidos"
+                placeholder="Gonzalez Perez"
+                disabled={!canEditProfile || updateMutation.isPending || Boolean(profile.apellidos)}
                 {...register('apellidos')}
+              />
+              <Input
+                id="admin-profile-rut"
+                label="RUT"
+                placeholder="12.345.678-9"
+                disabled={!canEditProfile || updateMutation.isPending || Boolean(profile.rut)}
+                {...register('rut')}
+              />
+              <Input
+                id="admin-profile-email"
+                label="Email"
+                placeholder="correo@dominio.cl"
+                type="email"
+                disabled
+                {...register('emailContacto')}
               />
               <Input
                 id="admin-profile-telefono"

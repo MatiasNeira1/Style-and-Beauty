@@ -22,6 +22,7 @@ import {
   AdminSkeleton,
   AdminStatusBadge,
 } from '../../components/admin/AdminPrimitives.jsx';
+import { AdminAutocomplete } from '../../components/admin/AdminAutocomplete.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { agendaService } from '../../services/agendaService.js';
@@ -123,13 +124,10 @@ function BookingCard({ booking, service, client, staffMember, statusDraft, onSta
 
 export function AgendaAdminPage() {
   const queryClient = useQueryClient();
-  const [selectedMonth, setSelectedMonth] = useState(monthValue());
-  const [selectedDay, setSelectedDay] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('TODOS');
   const [staffFilter, setStaffFilter] = useState('TODOS');
   const [serviceFilter, setServiceFilter] = useState('TODOS');
-  const [staffSearch, setStaffSearch] = useState('');
-  const [serviceSearch, setServiceSearch] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('Lista');
   const [statusDrafts, setStatusDrafts] = useState({});
@@ -158,49 +156,32 @@ export function AgendaAdminPage() {
     return acc;
   }, {}), [staff]);
 
-  const filteredStaffOptions = useMemo(() => {
-    const needle = staffSearch.trim().toLowerCase();
-    if (!needle) return staff;
-    return staff.filter((member) => fullName(member)?.toLowerCase().includes(needle)
-      || member.emailContacto?.toLowerCase().includes(needle)
-      || member.especialidad?.nombre?.toLowerCase().includes(needle));
-  }, [staff, staffSearch]);
-
-  const filteredServiceOptions = useMemo(() => {
-    const needle = serviceSearch.trim().toLowerCase();
-    if (!needle) return services;
-    return services.filter((service) => service.nombre?.toLowerCase().includes(needle)
-      || service.categoria?.toLowerCase().includes(needle));
-  }, [serviceSearch, services]);
-
   const monthBookings = useMemo(() => {
     const bookings = Array.isArray(bookingsQuery.data) ? bookingsQuery.data : [];
+    const selectedMonth = selectedDate ? selectedDate.slice(0, 7) : monthValue();
     return bookings
       .filter((booking) => sameLocalMonth(booking.fechaHoraInicio, selectedMonth))
       .sort((a, b) => new Date(a.fechaHoraInicio) - new Date(b.fechaHoraInicio));
-  }, [bookingsQuery.data, selectedMonth]);
+  }, [bookingsQuery.data, selectedDate]);
 
   const filteredBookings = useMemo(() => (
     monthBookings.filter((booking) => {
-      const service = servicesById[booking.idServicio];
       const client = clientsById[booking.idCliente];
-      const staffMember = staffById[booking.idStaff];
       const haystack = [
         getBookingId(booking),
-        booking.estadoCita,
-        service?.nombre,
-        service?.categoria,
         fullName(client),
-        fullName(staffMember),
+        client?.emailContacto,
+        client?.email,
+        client?.correo,
       ].filter(Boolean).join(' ').toLowerCase();
-      const matchesDay = selectedDay ? sameLocalDay(booking.fechaHoraInicio, selectedDay) : true;
+      const matchesDate = selectedDate ? sameLocalDay(booking.fechaHoraInicio, selectedDate) : true;
       const matchesStatus = statusFilter === 'TODOS' ? true : booking.estadoCita === statusFilter;
       const matchesStaff = staffFilter === 'TODOS' ? true : String(booking.idStaff) === String(staffFilter);
       const matchesService = serviceFilter === 'TODOS' ? true : String(booking.idServicio) === String(serviceFilter);
       const matchesSearch = searchTerm.trim() ? haystack.includes(searchTerm.trim().toLowerCase()) : true;
-      return matchesDay && matchesStatus && matchesStaff && matchesService && matchesSearch;
+      return matchesDate && matchesStatus && matchesStaff && matchesService && matchesSearch;
     })
-  ), [clientsById, monthBookings, searchTerm, selectedDay, serviceFilter, servicesById, staffById, staffFilter, statusFilter]);
+  ), [clientsById, monthBookings, searchTerm, selectedDate, serviceFilter, staffFilter, statusFilter]);
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ idCita, estadoCita }) => agendaService.updateBookingStatus(idCita, { estadoCita }),
@@ -222,12 +203,12 @@ export function AgendaAdminPage() {
   const cancelledCount = monthBookings.filter((booking) => booking.estadoCita === 'CANCELADA').length;
   const finishedCount = monthBookings.filter((booking) => booking.estadoCita === 'FINALIZADA').length;
   const estimatedRevenue = monthBookings.reduce((sum, booking) => sum + Number(servicesById[booking.idServicio]?.precio_total || 0), 0);
-  const todayBookings = monthBookings.filter((booking) => sameLocalDay(booking.fechaHoraInicio, selectedDay || todayValue()));
+  const todayBookings = monthBookings.filter((booking) => sameLocalDay(booking.fechaHoraInicio, selectedDate || todayValue()));
   const occupancy = monthBookings.length ? Math.round(((confirmedCount + finishedCount) / monthBookings.length) * 100) : 0;
 
-  const hasActiveFilters = Boolean(selectedDay || searchTerm || statusFilter !== 'TODOS' || staffFilter !== 'TODOS' || serviceFilter !== 'TODOS');
+  const hasActiveFilters = Boolean(selectedDate || searchTerm || statusFilter !== 'TODOS' || staffFilter !== 'TODOS' || serviceFilter !== 'TODOS');
   const activeChips = [
-    selectedDay && { label: `Dia ${formatDate(selectedDay, { day: '2-digit', month: 'short' })}`, onClear: () => setSelectedDay('') },
+    selectedDate && { label: `Fecha ${formatDate(selectedDate, { day: '2-digit', month: 'short' })}`, onClear: () => setSelectedDate('') },
     statusFilter !== 'TODOS' && { label: statusFilter, onClear: () => setStatusFilter('TODOS') },
     staffFilter !== 'TODOS' && { label: fullName(staffById[staffFilter]) || 'Profesional', onClear: () => setStaffFilter('TODOS') },
     serviceFilter !== 'TODOS' && { label: servicesById[serviceFilter]?.nombre || 'Servicio', onClear: () => setServiceFilter('TODOS') },
@@ -235,12 +216,10 @@ export function AgendaAdminPage() {
   ].filter(Boolean);
 
   const clearFilters = () => {
-    setSelectedDay('');
+    setSelectedDate('');
     setStatusFilter('TODOS');
     setStaffFilter('TODOS');
     setServiceFilter('TODOS');
-    setStaffSearch('');
-    setServiceSearch('');
     setSearchTerm('');
   };
 
@@ -277,7 +256,7 @@ export function AgendaAdminPage() {
         )}
         actions={(
           <>
-            <button type="button" className="admin-secondary-action" onClick={() => setSelectedDay(todayValue())}>
+            <button type="button" className="admin-secondary-action" onClick={() => setSelectedDate(todayValue())}>
               <CalendarDays size={16} />
               Ver hoy
             </button>
@@ -316,42 +295,47 @@ export function AgendaAdminPage() {
         <header>
           <div>
             <h3>Filtros operativos</h3>
-            <p>Combina fecha, estado, profesional, servicio y busqueda para encontrar una reserva rapidamente.</p>
+            <p>Combina fecha, estado, profesional, servicio y busqueda por cliente o ID de cita.</p>
           </div>
           {hasActiveFilters && <button type="button" className="admin-text-button" onClick={clearFilters}>Limpiar filtros</button>}
         </header>
         <div className="admin-agenda-filter-grid">
-          <Input label="Mes" id="agenda-month" type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value || monthValue())} />
-          <Input label="Dia" id="agenda-day" type="date" value={selectedDay} onChange={(event) => setSelectedDay(event.target.value)} />
+          <Input label="Fecha" id="agenda-date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} hint="Vacío muestra el mes actual." />
           <Input as="select" label="Estado" id="agenda-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="TODOS">Todos los estados</option>
             {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
           </Input>
-          <label className="field admin-filter-combo">
-            <span>Profesional</span>
-            <input value={staffSearch} onChange={(event) => setStaffSearch(event.target.value)} placeholder="Filtrar profesional" />
-            <select id="agenda-staff" value={staffFilter} onChange={(event) => setStaffFilter(event.target.value)}>
-              <option value="TODOS">Todos los profesionales</option>
-              {filteredStaffOptions.map((member) => (
-                <option key={getPersonId(member)} value={getPersonId(member)}>{fullName(member) || 'Profesional'}</option>
-              ))}
-            </select>
-          </label>
-          <label className="field admin-filter-combo">
-            <span>Servicio</span>
-            <input value={serviceSearch} onChange={(event) => setServiceSearch(event.target.value)} placeholder="Filtrar servicio" />
-            <select id="agenda-service" value={serviceFilter} onChange={(event) => setServiceFilter(event.target.value)}>
-              <option value="TODOS">Todos los servicios</option>
-              {filteredServiceOptions.map((service) => (
-                <option key={getServiceId(service)} value={getServiceId(service)}>{service.nombre || 'Servicio'}</option>
-              ))}
-            </select>
-          </label>
+          <AdminAutocomplete
+            id="agenda-staff"
+            label="Profesional"
+            options={staff}
+            selectedValue={staffFilter === 'TODOS' ? '' : staffFilter}
+            placeholder="Buscar profesional"
+            getOptionValue={getPersonId}
+            getOptionLabel={(member) => fullName(member) || 'Profesional'}
+            getOptionMeta={(member) => member.especialidad?.nombre || member.emailContacto || 'Sin especialidad'}
+            getOptionSearchText={(member) => [fullName(member), member.emailContacto, member.especialidad?.nombre].filter(Boolean).join(' ')}
+            onSelect={setStaffFilter}
+            onClear={() => setStaffFilter('TODOS')}
+          />
+          <AdminAutocomplete
+            id="agenda-service"
+            label="Servicio"
+            options={services}
+            selectedValue={serviceFilter === 'TODOS' ? '' : serviceFilter}
+            placeholder="Buscar servicio"
+            getOptionValue={getServiceId}
+            getOptionLabel={(service) => service.nombre || 'Servicio'}
+            getOptionMeta={(service) => service.categoria || 'Sin categoria'}
+            getOptionSearchText={(service) => [service.nombre, service.categoria].filter(Boolean).join(' ')}
+            onSelect={setServiceFilter}
+            onClear={() => setServiceFilter('TODOS')}
+          />
           <label className="field admin-search-field">
             <span>Buscar</span>
             <div className="admin-filter-search">
               <Search size={16} />
-              <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Cliente, servicio o ID" />
+              <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Cliente, email o ID de cita" />
             </div>
           </label>
         </div>
@@ -428,7 +412,7 @@ export function AgendaAdminPage() {
               <header>
                 <div>
                   <h3>Agenda del dia</h3>
-                  <p>{selectedDay ? formatDate(selectedDay, { dateStyle: 'full' }) : 'Selecciona un dia o revisa hoy.'}</p>
+                  <p>{selectedDate ? formatDate(selectedDate, { dateStyle: 'full' }) : 'Selecciona una fecha o revisa hoy.'}</p>
                 </div>
               </header>
               <div className="admin-day-strip">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Camera, Edit3, Package, PackagePlus, Plus, PowerOff, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, Camera, Edit3, Package, PackagePlus, Plus, PowerOff, Save, Search, Trash2, X } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
@@ -22,13 +22,6 @@ const initialStockForm = {
   cantidadActual: '',
   unidadMedida: 'unidad',
   stockMinimo: '',
-};
-
-const initialMovementForm = {
-  idProducto: '',
-  tipoMovimiento: 'ENTRADA',
-  cantidad: '',
-  motivo: '',
 };
 
 function getProductId(product) {
@@ -66,10 +59,10 @@ function ProductFormModal({
     <Modal open={open} title={title} onClose={onClose}>
       <form className="admin-modal-form" onSubmit={onSubmit}>
         <div className="admin-modal-section form-grid">
-          <Input label="Nombre" id="inventory-name" name="nombre" value={form.nombre} onChange={onChange} required />
-          <Input label="Categoria" id="inventory-category" name="categoria" value={form.categoria} onChange={onChange} required />
-          <Input label="Precio" id="inventory-price" name="precio" type="number" min="0" step="100" value={form.precio} onChange={onChange} required />
-          <Input label="Descripcion" id="inventory-description" name="descripcion" value={form.descripcion} onChange={onChange} />
+          <Input label="Nombre" id="inventory-name" name="nombre" value={form.nombre} onChange={onChange} placeholder="Crema hidratante" required />
+          <Input label="Categoria" id="inventory-category" name="categoria" value={form.categoria} onChange={onChange} placeholder="Cuidado facial" required />
+          <Input label="Precio" id="inventory-price" name="precio" type="number" min="0" step="100" value={form.precio} onChange={onChange} placeholder="Precio ($xx.xxx)" required />
+          <Input label="Descripcion" id="inventory-description" name="descripcion" value={form.descripcion} onChange={onChange} placeholder="Breve descripcion visible para clientes" />
         </div>
         <div className="admin-image-field compact">
           <SafeImage src={imagePreview} alt="Imagen del producto" />
@@ -87,6 +80,39 @@ function ProductFormModal({
             <Save size={16} />
             {isSaving ? 'Guardando...' : 'Guardar producto'}
           </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function StockFormModal({
+  open,
+  form,
+  products,
+  isSaving,
+  error,
+  onChange,
+  onClose,
+  onSubmit,
+}) {
+  return (
+    <Modal open={open} title="Registrar stock inicial" onClose={onClose}>
+      <form className="admin-modal-form" onSubmit={onSubmit}>
+        <div className="admin-modal-section form-grid">
+          <Input as="select" label="Producto" id="stock-product" name="idProducto" value={form.idProducto} onChange={onChange} required>
+            <option value="">Seleccionar producto</option>
+            {products.map((product) => <option key={getProductId(product)} value={getProductId(product)}>{product.nombre}</option>)}
+          </Input>
+          <Input label="Cantidad" id="stock-qty" name="cantidadActual" type="number" min="0" value={form.cantidadActual} onChange={onChange} placeholder="Ej. 12" required />
+          <Input label="Unidad" id="stock-unit" name="unidadMedida" value={form.unidadMedida} onChange={onChange} placeholder="unidad, ml, gr" required />
+          <Input label="Stock minimo" id="stock-min" name="stockMinimo" type="number" min="0" value={form.stockMinimo} onChange={onChange} placeholder="Ej. 5" />
+        </div>
+        <p className="admin-modal-hint">Usa este modal solo para cargar la existencia inicial del producto. Los movimientos avanzados se habilitaran cuando existan sucursales.</p>
+        {error && <p className="admin-alert">{error.message}</p>}
+        <div className="admin-modal-actions">
+          <Button type="button" variant="ghost" onClick={onClose}><X size={16} /> Cancelar</Button>
+          <Button type="submit" disabled={isSaving}><PackagePlus size={16} /> {isSaving ? 'Registrando...' : 'Registrar stock'}</Button>
         </div>
       </form>
     </Modal>
@@ -150,12 +176,15 @@ export function InventoryAdminPage() {
   const [productImagePreview, setProductImagePreview] = useState('');
   const [productImageError, setProductImageError] = useState('');
   const [stockForm, setStockForm] = useState(initialStockForm);
-  const [movementForm, setMovementForm] = useState(initialMovementForm);
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('TODAS');
+  const [statusFilter, setStatusFilter] = useState('TODOS');
 
   const productsQuery = useQuery({ queryKey: ['inventory-admin'], queryFn: inventoryService.listProducts });
   const stockQuery = useQuery({ queryKey: ['inventory-stock'], queryFn: inventoryService.listStock });
 
-  const products = Array.isArray(productsQuery.data) ? productsQuery.data : [];
+  const products = useMemo(() => (Array.isArray(productsQuery.data) ? productsQuery.data : []), [productsQuery.data]);
   const stockByProduct = useMemo(() => {
     const stockRows = Array.isArray(stockQuery.data) ? stockQuery.data : [];
     return stockRows.reduce((acc, stock) => {
@@ -163,6 +192,34 @@ export function InventoryAdminPage() {
       return acc;
     }, {});
   }, [stockQuery.data]);
+  const productCategories = useMemo(() => [...new Set(products.map((product) => product.categoria).filter(Boolean))].sort(), [products]);
+  const filteredProducts = useMemo(() => {
+    const needle = inventorySearch.trim().toLowerCase();
+    return products.filter((product) => {
+      const productId = getProductId(product);
+      const stock = stockByProduct[productId];
+      const qty = Number(stock?.cantidadActual ?? 0);
+      const min = Number(stock?.stockMinimo ?? 0);
+      const haystack = [
+        product.nombre,
+        product.categoria,
+        product.descripcion,
+        productId,
+      ].filter(Boolean).join(' ').toLowerCase();
+      const matchesSearch = needle ? haystack.includes(needle) : true;
+      const matchesCategory = categoryFilter === 'TODAS' ? true : product.categoria === categoryFilter;
+      const matchesStatus = statusFilter === 'TODOS'
+        ? true
+        : statusFilter === 'ACTIVO'
+          ? product.activo !== false
+          : statusFilter === 'INACTIVO'
+            ? product.activo === false
+            : statusFilter === 'BAJO_STOCK'
+              ? qty <= min
+              : qty === 0;
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [categoryFilter, inventorySearch, products, statusFilter, stockByProduct]);
 
   const invalidateInventory = () => {
     queryClient.invalidateQueries({ queryKey: ['inventory-admin'] });
@@ -184,6 +241,11 @@ export function InventoryAdminPage() {
     setProductImageFile(null);
     setProductImagePreview('');
     setProductImageError('');
+  };
+
+  const resetStockModal = () => {
+    setStockModalOpen(false);
+    setStockForm(initialStockForm);
   };
 
   const openCreateProduct = () => {
@@ -251,14 +313,7 @@ export function InventoryAdminPage() {
     }),
     onSuccess: () => {
       setStockForm(initialStockForm);
-      invalidateInventory();
-    },
-  });
-
-  const movementMutation = useMutation({
-    mutationFn: (payload) => inventoryService.registerMovement({ ...payload, cantidad: Number(payload.cantidad) }),
-    onSuccess: () => {
-      setMovementForm(initialMovementForm);
+      setStockModalOpen(false);
       invalidateInventory();
     },
   });
@@ -324,47 +379,60 @@ export function InventoryAdminPage() {
         <AdminKpiCard icon={PackagePlus} title="Valor estimado" value={formatCurrencyCLP(estimatedValue)} trend={0} microcopy="Precio x cantidad actual" tone="sage" />
       </AdminKpiGrid>
 
-      <div className="grid-list admin-compact-forms">
-        <form className="admin-panel" onSubmit={(event) => {
-          event.preventDefault();
-          createStockMutation.mutate(stockForm);
-        }}>
-          <h3>Registrar stock inicial</h3>
-          <div className="form-grid compact">
-            <Input as="select" label="Producto" id="stock-product" name="idProducto" value={stockForm.idProducto} onChange={(event) => setStockForm((current) => ({ ...current, idProducto: event.target.value }))} required>
-              <option value="">Seleccionar producto</option>
-              {products.map((product) => <option key={getProductId(product)} value={getProductId(product)}>{product.nombre}</option>)}
-            </Input>
-            <Input label="Cantidad" id="stock-qty" name="cantidadActual" type="number" min="0" value={stockForm.cantidadActual} onChange={(event) => setStockForm((current) => ({ ...current, cantidadActual: event.target.value }))} required />
-            <Input label="Unidad" id="stock-unit" name="unidadMedida" value={stockForm.unidadMedida} onChange={(event) => setStockForm((current) => ({ ...current, unidadMedida: event.target.value }))} required />
-            <Input label="Stock minimo" id="stock-min" name="stockMinimo" type="number" min="0" value={stockForm.stockMinimo} onChange={(event) => setStockForm((current) => ({ ...current, stockMinimo: event.target.value }))} />
+      <section className="admin-panel compact-panel admin-inventory-actions">
+        <header>
+          <div>
+            <h3>Acciones de inventario</h3>
+            <p>Registra stock inicial desde un modal. Los movimientos se habilitaran cuando existan sucursales.</p>
           </div>
-          {createStockMutation.isError && <p className="admin-alert">{createStockMutation.error.message}</p>}
-          <Button type="submit" disabled={createStockMutation.isPending}><PackagePlus size={16} /> Registrar stock</Button>
-        </form>
+          <div className="admin-action-row">
+            <Button type="button" size="sm" onClick={() => setStockModalOpen(true)}><PackagePlus size={16} /> Registrar stock inicial</Button>
+            <Button type="button" size="sm" variant="secondary" disabled><Save size={16} /> Movimiento de stock - Proximamente</Button>
+          </div>
+        </header>
+      </section>
 
-        <form className="admin-panel" onSubmit={(event) => {
-          event.preventDefault();
-          movementMutation.mutate(movementForm);
-        }}>
-          <h3>Movimiento de stock</h3>
-          <div className="form-grid compact">
-            <Input as="select" label="Producto" id="movement-product" name="idProducto" value={movementForm.idProducto} onChange={(event) => setMovementForm((current) => ({ ...current, idProducto: event.target.value }))} required>
-              <option value="">Seleccionar producto</option>
-              {products.map((product) => <option key={getProductId(product)} value={getProductId(product)}>{product.nombre}</option>)}
-            </Input>
-            <Input as="select" label="Tipo" id="movement-type" name="tipoMovimiento" value={movementForm.tipoMovimiento} onChange={(event) => setMovementForm((current) => ({ ...current, tipoMovimiento: event.target.value }))} required>
-              <option value="ENTRADA">Entrada</option>
-              <option value="SALIDA">Salida</option>
-              <option value="AJUSTE">Ajuste</option>
-            </Input>
-            <Input label="Cantidad" id="movement-qty" name="cantidad" type="number" min="1" value={movementForm.cantidad} onChange={(event) => setMovementForm((current) => ({ ...current, cantidad: event.target.value }))} required />
-            <Input label="Motivo" id="movement-reason" name="motivo" value={movementForm.motivo} onChange={(event) => setMovementForm((current) => ({ ...current, motivo: event.target.value }))} />
+      <section className="admin-panel compact-panel">
+        <header>
+          <div>
+            <h3>Busqueda y filtros</h3>
+            <p>Busca por producto, categoria, descripcion o ID.</p>
           </div>
-          {movementMutation.isError && <p className="admin-alert">{movementMutation.error.message}</p>}
-          <Button type="submit" disabled={movementMutation.isPending}><Save size={16} /> Aplicar movimiento</Button>
-        </form>
-      </div>
+          {(inventorySearch || categoryFilter !== 'TODAS' || statusFilter !== 'TODOS') && (
+            <button
+              type="button"
+              className="admin-text-button"
+              onClick={() => {
+                setInventorySearch('');
+                setCategoryFilter('TODAS');
+                setStatusFilter('TODOS');
+              }}
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </header>
+        <div className="admin-local-filter-grid">
+          <label className="field admin-search-field">
+            <span>Buscar</span>
+            <div className="admin-filter-search">
+              <Search size={16} />
+              <input value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} placeholder="Producto, categoria o ID" />
+            </div>
+          </label>
+          <Input as="select" label="Categoria" id="inventory-category-filter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+            <option value="TODAS">Todas las categorias</option>
+            {productCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+          </Input>
+          <Input as="select" label="Estado" id="inventory-status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="TODOS">Todos los estados</option>
+            <option value="ACTIVO">Activos</option>
+            <option value="INACTIVO">Inactivos</option>
+            <option value="BAJO_STOCK">Bajo stock</option>
+            <option value="SIN_STOCK">Sin stock</option>
+          </Input>
+        </div>
+      </section>
 
       {isLoading ? (
         <AdminSkeleton rows={5} />
@@ -404,7 +472,7 @@ export function InventoryAdminPage() {
             },
             { key: 'activo', label: 'Estado', render: (row) => <AdminStatusBadge status={row.activo ? 'ACTIVO' : 'INACTIVO'} /> },
           ]}
-          rows={products}
+          rows={filteredProducts}
           emptyMessage="No hay productos registrados. Agrega un producto para comenzar a controlar inventario."
         />
       )}
@@ -425,6 +493,23 @@ export function InventoryAdminPage() {
         onImageChange={validateAndSetProductImage}
         onClose={resetProductModal}
         onSubmit={handleProductSubmit}
+      />
+
+      <StockFormModal
+        open={stockModalOpen}
+        form={stockForm}
+        products={products}
+        isSaving={createStockMutation.isPending}
+        error={createStockMutation.error}
+        onChange={(event) => {
+          const { name, value } = event.target;
+          setStockForm((current) => ({ ...current, [name]: value }));
+        }}
+        onClose={resetStockModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          createStockMutation.mutate(stockForm);
+        }}
       />
 
       <ProductDetailModal
