@@ -38,6 +38,7 @@ function PremiumTooltip({ active, payload, label, currency = false }) {
 
 export function RevenueChart({ data = [] }) {
   if (!data.length) return <AdminEmptyState compact title="Sin ingresos para graficar" description="Cuando existan pagos, veras la evolucion del periodo aqui." />;
+  const hasPreviousPeriod = data.some((item) => Number(item.anterior || 0) > 0);
   return (
     <div className="admin-chart-height">
       <ResponsiveContainer width="100%" height="100%">
@@ -53,7 +54,7 @@ export function RevenueChart({ data = [] }) {
           <YAxis tickFormatter={(value) => `$${Math.round(value / 1000)}k`} tickLine={false} axisLine={false} tick={axisTick} width={54} />
           <Tooltip content={<PremiumTooltip currency />} />
           <Legend iconType="circle" wrapperStyle={{ color: '#51474c', fontWeight: 800, fontSize: 12, paddingTop: 12 }} />
-          <Area type="monotone" dataKey="anterior" name="Periodo anterior" stroke="#e2b47e" strokeWidth={2} fill="transparent" strokeDasharray="5 5" />
+          {hasPreviousPeriod && <Area type="monotone" dataKey="anterior" name="Periodo anterior" stroke="#e2b47e" strokeWidth={2} fill="transparent" strokeDasharray="5 5" />}
           <Area type="monotone" dataKey="ingresos" name="Ingresos" stroke="#bf5b84" strokeWidth={3} fill="url(#revenueFill)" />
         </AreaChart>
       </ResponsiveContainer>

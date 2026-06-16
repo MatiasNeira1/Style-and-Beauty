@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, Camera, Eye, Image, Pencil, Plus, Power, Trash2, Users } from 'lucide-react';
+import { CalendarClock, Camera, Eye, Image, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton } from '../../components/admin/AdminPrimitives.jsx';
 import { StaffDeleteDialog } from '../../components/admin/staff/StaffDeleteDialog.jsx';
@@ -10,6 +10,7 @@ import { StaffProfileCard } from '../../components/admin/staff/StaffProfileCard.
 import { StaffWorkSchedule } from '../../components/admin/staff/StaffWorkSchedule.jsx';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { Button } from '../../components/ui/Button.jsx';
+import { Modal } from '../../components/ui/Modal.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { authService } from '../../services/authService.js';
 import { staffService } from '../../services/staffService.js';
@@ -135,14 +136,6 @@ export function StaffAdminPage() {
     },
   });
 
-  const statusMutation = useMutation({
-    mutationFn: ({ staffId, active }) => staffService.updateStaffStatus(staffId, active),
-    onSuccess: (updatedStaff) => {
-      setSelectedStaff((current) => (getStaffId(current) === getStaffId(updatedStaff) ? updatedStaff : current));
-      invalidateStaff();
-    },
-  });
-
   const scheduleMutation = useMutation({
     mutationFn: (jornadas) => staffService.saveSchedules(getStaffId(selectedStaff), jornadas),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-schedules', getStaffId(selectedStaff)] }),
@@ -212,33 +205,6 @@ export function StaffAdminPage() {
       label: 'Estado',
       render: (row) => <Badge tone={row.activo === false ? 'neutral' : 'success'}>{row.activo === false ? 'Inactivo' : 'Activo'}</Badge>,
     },
-    {
-      key: 'acciones',
-      label: 'Acciones',
-      render: (row) => (
-        <div className="staff-table-row-actions">
-          <button type="button" className="staff-action-btn" onClick={() => { setSelectedStaff(row); setActiveTab(TABS.PROFILE); }} aria-label={`Ver perfil de ${row.nombre}`} title="Ver perfil">
-            <Eye size={15} />
-          </button>
-          <button type="button" className="staff-action-btn" onClick={() => { setEditingStaff(row); setShowFormModal(true); }} aria-label={`Editar ${row.nombre}`} title="Editar">
-            <Pencil size={15} />
-          </button>
-          <label className="staff-action-btn" aria-label={`Cambiar foto de ${row.nombre}`} title="Cambiar foto">
-            <Camera size={15} />
-            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handlePhotoChange(row, event)} />
-          </label>
-          <button type="button" className="staff-action-btn" onClick={() => deleteStaffPhotoMutation.mutate(getStaffId(row))} disabled={deleteStaffPhotoMutation.isPending || !staffPhoto(row)} aria-label={`Eliminar foto de ${row.nombre}`} title="Eliminar foto">
-            <Image size={15} />
-          </button>
-          <button type="button" className="staff-action-btn" onClick={() => statusMutation.mutate({ staffId: getStaffId(row), active: row.activo === false })} disabled={statusMutation.isPending} aria-label={`${row.activo === false ? 'Activar' : 'Desactivar'} ${row.nombre}`} title={row.activo === false ? 'Activar' : 'Desactivar'}>
-            <Power size={15} />
-          </button>
-          <button type="button" className="staff-action-btn danger" onClick={() => setStaffToDelete(row)} aria-label={`Eliminar ${row.nombre}`} title="Eliminar">
-            <Trash2 size={15} />
-          </button>
-        </div>
-      ),
-    },
   ];
 
   return (
@@ -256,7 +222,7 @@ export function StaffAdminPage() {
             size="sm"
           >
             <Plus size={16} />
-            Nuevo Profesional
+            Agregar profesional
           </Button>
         )}
       />
@@ -267,25 +233,30 @@ export function StaffAdminPage() {
         <AdminKpiCard icon={Image} title="Portfolio" value={portfolio.length} trend={3} microcopy="Trabajos visibles" tone="gold" />
       </AdminKpiGrid>
 
-      {(createMutation.isError || updateMutation.isError || deleteMutation.isError || staffPhotoMutation.isError || deleteStaffPhotoMutation.isError || statusMutation.isError) && (
+      {(createMutation.isError || updateMutation.isError || deleteMutation.isError || staffPhotoMutation.isError || deleteStaffPhotoMutation.isError) && (
         <p className="admin-alert">
-          {createMutation.error?.message || updateMutation.error?.message || deleteMutation.error?.message || staffPhotoMutation.error?.message || deleteStaffPhotoMutation.error?.message || statusMutation.error?.message}
+          {createMutation.error?.message || updateMutation.error?.message || deleteMutation.error?.message || staffPhotoMutation.error?.message || deleteStaffPhotoMutation.error?.message}
         </p>
       )}
 
-      <div className={`staff-admin-detail-layout ${selectedStaff ? 'has-drawer' : ''}`}>
-        <div>
-          {staffQuery.isLoading ? (
-            <AdminSkeleton rows={5} />
-          ) : staffQuery.isError ? (
-            <p className="admin-alert">{staffQuery.error.message}</p>
-          ) : (
-            <DataTable columns={columns} rows={staff} />
-          )}
-        </div>
+      {staffQuery.isLoading ? (
+        <AdminSkeleton rows={5} />
+      ) : staffQuery.isError ? (
+        <p className="admin-alert">{staffQuery.error.message}</p>
+      ) : (
+        <DataTable
+          compact
+          columns={columns}
+          rows={staff}
+          onRowClick={(row) => { setSelectedStaff(row); setActiveTab(TABS.PROFILE); }}
+          getRowKey={(row) => getStaffId(row)}
+          getRowLabel={(row) => `Ver detalle de ${staffFullName(row)}`}
+        />
+      )}
 
+      <Modal open={Boolean(selectedStaff)} title="Detalle profesional" onClose={() => setSelectedStaff(null)}>
         {selectedStaff && (
-          <div className="stack staff-profile-drawer">
+          <div className="stack staff-profile-drawer modal-detail-panel">
             <div className="staff-tabs">
               <button type="button" className={`staff-tab ${activeTab === TABS.PROFILE ? 'active' : ''}`} onClick={() => setActiveTab(TABS.PROFILE)}>
                 <Eye size={13} /> Perfil
@@ -309,8 +280,8 @@ export function StaffAdminPage() {
               <Button type="button" size="sm" variant="ghost" onClick={() => deleteStaffPhotoMutation.mutate(getStaffId(selectedStaff))} disabled={deleteStaffPhotoMutation.isPending || !staffPhoto(selectedStaff)}>
                 <Image size={14} /> Eliminar foto
               </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => statusMutation.mutate({ staffId: getStaffId(selectedStaff), active: selectedStaff.activo === false })} disabled={statusMutation.isPending}>
-                <Power size={14} /> {selectedStaff.activo === false ? 'Activar' : 'Desactivar'}
+              <Button type="button" size="sm" variant="ghost" onClick={() => setStaffToDelete(selectedStaff)}>
+                <Trash2 size={14} /> Eliminar
               </Button>
             </div>
 
@@ -332,11 +303,11 @@ export function StaffAdminPage() {
             )}
 
             <Button variant="ghost" size="sm" onClick={() => setSelectedStaff(null)} className="admin-centered-action">
-              Cerrar panel
+              Cerrar
             </Button>
           </div>
         )}
-      </div>
+      </Modal>
 
       <StaffFormModal
         open={showFormModal}

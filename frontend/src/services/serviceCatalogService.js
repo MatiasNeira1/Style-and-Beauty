@@ -28,6 +28,23 @@ export const serviceCatalogService = {
     if (!isValidUuid(id)) return Promise.resolve([]);
     return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/servicios/${id}/staff` });
   },
+  listCatalogStaffByService: (id) => {
+    if (!isValidUuid(id)) return Promise.resolve([]);
+    return request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}/staff`, method: 'GET' });
+  },
+  assignStaffToService: (idServicio, idStaff) => request({
+    baseURL: CATALOG_API_BASE_URL,
+    url: '/api/servicio-staff',
+    method: 'POST',
+    authRequired: true,
+    data: { idServicio, idStaff },
+  }),
+  removeStaffFromService: (idServicio, idStaff) => request({
+    baseURL: CATALOG_API_BASE_URL,
+    url: `/api/servicio/${idServicio}/staff/${idStaff}`,
+    method: 'DELETE',
+    authRequired: true,
+  }),
   createService: (payload) => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: payload, authRequired: true }),
   createServiceWithImage: (payload, file) => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: imageFormData(file, payload), authRequired: true }),
   updateService: (id, payload) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'PUT', data: payload, authRequired: true }),

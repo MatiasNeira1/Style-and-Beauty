@@ -1,9 +1,21 @@
 import { memo } from 'react';
 import { Inbox } from 'lucide-react';
 
-export const DataTable = memo(function DataTable({ columns = [], rows = [], emptyMessage = 'No hay registros disponibles.' }) {
+function defaultRowKey(row, index) {
+  return row.id || row.idCita || row.idProducto || row.idPersona || row.idTransaccion || index;
+}
+
+export const DataTable = memo(function DataTable({
+  columns = [],
+  rows = [],
+  emptyMessage = 'No hay registros disponibles.',
+  onRowClick,
+  getRowKey = defaultRowKey,
+  getRowLabel,
+  compact = false,
+}) {
   return (
-    <div className="admin-data-table-shell">
+    <div className={`admin-data-table-shell ${compact ? 'compact' : ''}`.trim()}>
       <div className="admin-data-table-scroll">
         <table className="admin-data-table">
           <thead>
@@ -26,7 +38,20 @@ export const DataTable = memo(function DataTable({ columns = [], rows = [], empt
               </tr>
             ) : (
               rows.map((row, index) => (
-                <tr key={row.id || row.idCita || row.idProducto || row.idPersona || index}>
+                <tr
+                  key={getRowKey(row, index)}
+                  className={onRowClick ? 'admin-clickable-row' : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  role={onRowClick ? 'button' : undefined}
+                  aria-label={onRowClick ? getRowLabel?.(row) || 'Ver detalle' : undefined}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  onKeyDown={onRowClick ? (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onRowClick(row);
+                    }
+                  } : undefined}
+                >
                   {columns.map((column) => (
                     <td key={column.key}>
                       {column.render

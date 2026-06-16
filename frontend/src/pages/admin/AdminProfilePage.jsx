@@ -6,6 +6,7 @@ import { LogOut, Save, ShieldCheck, UserRound } from 'lucide-react';
 import { AdminErrorState, AdminPageHeader, AdminSkeleton } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
+import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { profileService } from '../../services/profileService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 
@@ -63,6 +64,7 @@ export function AdminProfilePage() {
   });
 
   const profile = profileQuery.data || {};
+  const profileNotFound = profileQuery.isError && isProfileNotFoundError(profileQuery.error);
   const displayName = joinName(profile, user);
   const initials = getInitials(displayName) || 'AD';
   const email = getProfileEmail(profile, user);
@@ -140,7 +142,13 @@ export function AdminProfilePage() {
         )}
       />
 
-      {profileQuery.isError && (
+      {profileNotFound && (
+        <div className="admin-success-alert" role="status">
+          Esta cuenta administrativa no tiene un perfil cliente asociado. Puedes operar con los datos de autenticacion; la edicion se habilitara cuando exista un perfil compatible.
+        </div>
+      )}
+
+      {profileQuery.isError && !profileNotFound && (
         <AdminErrorState
           title="No fue posible cargar el perfil"
           message={profileQuery.error?.message || 'Intenta nuevamente cuando el backend este disponible.'}

@@ -128,6 +128,8 @@ export function AgendaAdminPage() {
   const [statusFilter, setStatusFilter] = useState('TODOS');
   const [staffFilter, setStaffFilter] = useState('TODOS');
   const [serviceFilter, setServiceFilter] = useState('TODOS');
+  const [staffSearch, setStaffSearch] = useState('');
+  const [serviceSearch, setServiceSearch] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('Lista');
   const [statusDrafts, setStatusDrafts] = useState({});
@@ -155,6 +157,21 @@ export function AgendaAdminPage() {
     acc[getPersonId(member)] = member;
     return acc;
   }, {}), [staff]);
+
+  const filteredStaffOptions = useMemo(() => {
+    const needle = staffSearch.trim().toLowerCase();
+    if (!needle) return staff;
+    return staff.filter((member) => fullName(member)?.toLowerCase().includes(needle)
+      || member.emailContacto?.toLowerCase().includes(needle)
+      || member.especialidad?.nombre?.toLowerCase().includes(needle));
+  }, [staff, staffSearch]);
+
+  const filteredServiceOptions = useMemo(() => {
+    const needle = serviceSearch.trim().toLowerCase();
+    if (!needle) return services;
+    return services.filter((service) => service.nombre?.toLowerCase().includes(needle)
+      || service.categoria?.toLowerCase().includes(needle));
+  }, [serviceSearch, services]);
 
   const monthBookings = useMemo(() => {
     const bookings = Array.isArray(bookingsQuery.data) ? bookingsQuery.data : [];
@@ -222,6 +239,8 @@ export function AgendaAdminPage() {
     setStatusFilter('TODOS');
     setStaffFilter('TODOS');
     setServiceFilter('TODOS');
+    setStaffSearch('');
+    setServiceSearch('');
     setSearchTerm('');
   };
 
@@ -308,18 +327,26 @@ export function AgendaAdminPage() {
             <option value="TODOS">Todos los estados</option>
             {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
           </Input>
-          <Input as="select" label="Profesional" id="agenda-staff" value={staffFilter} onChange={(event) => setStaffFilter(event.target.value)}>
-            <option value="TODOS">Todos los profesionales</option>
-            {staff.map((member) => (
-              <option key={getPersonId(member)} value={getPersonId(member)}>{fullName(member) || 'Profesional'}</option>
-            ))}
-          </Input>
-          <Input as="select" label="Servicio" id="agenda-service" value={serviceFilter} onChange={(event) => setServiceFilter(event.target.value)}>
-            <option value="TODOS">Todos los servicios</option>
-            {services.map((service) => (
-              <option key={getServiceId(service)} value={getServiceId(service)}>{service.nombre || 'Servicio'}</option>
-            ))}
-          </Input>
+          <label className="field admin-filter-combo">
+            <span>Profesional</span>
+            <input value={staffSearch} onChange={(event) => setStaffSearch(event.target.value)} placeholder="Filtrar profesional" />
+            <select id="agenda-staff" value={staffFilter} onChange={(event) => setStaffFilter(event.target.value)}>
+              <option value="TODOS">Todos los profesionales</option>
+              {filteredStaffOptions.map((member) => (
+                <option key={getPersonId(member)} value={getPersonId(member)}>{fullName(member) || 'Profesional'}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field admin-filter-combo">
+            <span>Servicio</span>
+            <input value={serviceSearch} onChange={(event) => setServiceSearch(event.target.value)} placeholder="Filtrar servicio" />
+            <select id="agenda-service" value={serviceFilter} onChange={(event) => setServiceFilter(event.target.value)}>
+              <option value="TODOS">Todos los servicios</option>
+              {filteredServiceOptions.map((service) => (
+                <option key={getServiceId(service)} value={getServiceId(service)}>{service.nombre || 'Servicio'}</option>
+              ))}
+            </select>
+          </label>
           <label className="field admin-search-field">
             <span>Buscar</span>
             <div className="admin-filter-search">

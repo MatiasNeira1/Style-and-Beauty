@@ -2796,12 +2796,13 @@ img { max-width: 100%; display: block; }
   border: 1px solid var(--color-line);
   border-radius: var(--radius-md);
   box-shadow: 0 25px 80px rgba(0,0,0,0.1);
-  max-width: 520px;
+  max-width: min(760px, calc(100vw - 2rem));
   padding: 1.5rem;
   width: 100%;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+  overflow: auto;
 }
 
 .modal header {
