@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.UUID;
 
 @Entity
-@Table(name = "servicio")
+@Table(name = "servicio", schema = "public")
 @Data
 public class Servicio {
 
@@ -29,7 +29,7 @@ public class Servicio {
     @Column(name = "manual_uso_url", columnDefinition = "TEXT")
     private String manual_uso_url;
 
-    @Column(name = "imagen_url", columnDefinition = "TEXT")
+    @Transient
     private String imagenUrl;
 
     @Column(name = "duracion_minutos", nullable = false)
