@@ -33,6 +33,7 @@ public class WebpayController {
     public CrearTransaccionResponse crearTransaccion(
             @Valid @RequestBody CrearTransaccionRequest request
     ) {
+        log.info("POST /api/pagos/webpay/crear received");
         try {
             return webpayService.crearTransaccion(request);
         } catch (PagosValidationException e) {
