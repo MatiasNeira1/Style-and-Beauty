@@ -37,14 +37,12 @@ public class ClienteStrategy implements PerfilStrategy {
         cliente.setEmailContacto(dto.getEmailContacto());
         cliente.setPuntosFidelidad(0);
 
-        ClienteModel clienteGuardado = clienteRepository.save(cliente);
+        // Creamos su Ficha Técnica vacía y establecemos la relación bidireccional
+        FichaTecnicaModel ficha = new FichaTecnicaModel();
+        ficha.setCliente(cliente);
+        cliente.setFichaTecnica(ficha);
 
-        // aqui se crea crea su Ficha Técnica vacía y la vinculamos
-       // FichaTecnicaModel ficha = new FichaTecnicaModel();
-        //ficha.setCliente(clienteGuardado);
-        //fichaTecnicaRepository.save(ficha); LA COMENTÉ PORQUE ME DABA ERROR DE CON LA CREACION DEL CLIENTE 
-
-        return clienteGuardado;
+        return clienteRepository.save(cliente);
     }
 
 }

@@ -1,5 +1,6 @@
 package com.style.beauty.ms_cliente.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 public class FichaTecnicaModel {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_cliente", nullable = false, unique = true)//crea la columna id_cliente en esta tabla.
+    @JsonIgnore
     private ClienteModel cliente;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
