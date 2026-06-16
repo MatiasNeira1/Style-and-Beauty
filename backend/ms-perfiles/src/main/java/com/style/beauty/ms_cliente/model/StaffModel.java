@@ -33,7 +33,7 @@ public class StaffModel extends PersonaModel {
     @Column(name = "experiencia_anios")
     private Integer experienciaAnios;
 
-    @Column(nullable = false)
+    @Transient
     private Boolean activo = true;
 
     @OneToMany(mappedBy = "staff", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
