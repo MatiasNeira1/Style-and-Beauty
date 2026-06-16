@@ -169,7 +169,7 @@ export function CheckoutPage() {
   };
 
   return (
-    <section className="page-section two-column client-view checkout-page">
+    <section className="page-section standalone-page-section two-column client-view checkout-page">
       <div className="stack">
         <SectionTitle eyebrow="Pago seguro" title="Confirma tu carrito">
           Revisa reservas y productos antes de iniciar el pago total.

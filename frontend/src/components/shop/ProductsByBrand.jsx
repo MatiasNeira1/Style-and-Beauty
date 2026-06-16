@@ -31,6 +31,7 @@ export function ProductsByBrand({ brand, products = [], onBack, onAdd }) {
           )}
           <div>
             <span className="card-kicker">Productos disponibles</span>
+            <h2>{brand.nombre}</h2>
             <p>{brand.descripcion}</p>
           </div>
         </div>

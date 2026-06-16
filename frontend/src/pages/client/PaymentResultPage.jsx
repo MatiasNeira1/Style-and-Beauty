@@ -18,7 +18,7 @@ export function PaymentResultPage({ status = 'success' }) {
   }, [clearCart, isSuccess, removeReservationItems]);
 
   return (
-    <section className="page-section client-view">
+    <section className="page-section standalone-page-section client-view payment-result-page">
       <Card className="summary-card">
         <Icon size={34} />
         <h1>{isSuccess ? 'Pago confirmado' : 'No se pudo confirmar el pago'}</h1>

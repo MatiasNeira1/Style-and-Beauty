@@ -18,7 +18,7 @@ export function ExtraordinaryBookingPage() {
   const submit = form.handleSubmit((values) => mutation.mutate(values));
 
   return (
-    <section className="page-section">
+    <section className="page-section standalone-page-section client-view extraordinary-page">
       <SectionTitle eyebrow="Extraordinarias" title="Solicitud especial">Coordina horarios, servicios o condiciones fuera del flujo regular.</SectionTitle>
       <ExtraordinaryRequest register={form.register} errors={form.formState.errors} onSubmit={submit} isSubmitting={mutation.isPending} />
     </section>

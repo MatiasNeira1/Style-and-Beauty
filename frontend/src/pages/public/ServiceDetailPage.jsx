@@ -493,7 +493,7 @@ export function ServiceDetailPage() {
 
   if (servicesQuery.isLoading) {
     return (
-      <section className="page-section">
+      <section className="page-section standalone-page-section">
         <Loader />
       </section>
     );
@@ -501,7 +501,7 @@ export function ServiceDetailPage() {
 
   if (servicesQuery.isError) {
     return (
-      <section className="page-section">
+      <section className="page-section standalone-page-section">
         <p className="admin-alert">{servicesQuery.error?.message}</p>
       </section>
     );
@@ -509,7 +509,7 @@ export function ServiceDetailPage() {
 
   if (!service) {
     return (
-      <section className="page-section">
+      <section className="page-section standalone-page-section">
         <Link className="text-link service-back-link" to="/servicios">
           <ArrowLeft size={16} />
           Servicios

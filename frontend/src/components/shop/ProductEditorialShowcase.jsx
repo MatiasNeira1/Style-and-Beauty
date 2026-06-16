@@ -57,7 +57,7 @@ export const ProductEditorialShowcase = memo(function ProductEditorialShowcase({
             className={`product-editorial ${isReversed ? 'is-reversed' : ''}`}
           >
             <div className="product-editorial-media">
-              <SafeImage src={image} alt={name} />
+              <SafeImage src={image} alt={name} loading={index === 0 ? 'eager' : 'lazy'} />
             </div>
 
             <div className="product-editorial-copy">

@@ -89,13 +89,13 @@ public class WebpayController {
             webpayService.confirmarPagoSimulado(idTransaccion, tokenWs);
             return ResponseEntity
                     .status(302)
-                    .location(frontendLocation(frontendSuccessUrl))
+                    .location(frontendLocation(frontendSuccessUrl, "/pago/exitoso"))
                     .build();
         } catch (Exception e) {
             log.error("Error confirmando Webpay simulado", e);
             return ResponseEntity
                     .status(302)
-                    .location(frontendLocation(frontendErrorUrl))
+                    .location(frontendLocation(frontendErrorUrl, "/pago/error"))
                     .build();
         }
     }
@@ -112,7 +112,7 @@ public class WebpayController {
         }
         return ResponseEntity
                 .status(302)
-                .location(frontendLocation(frontendErrorUrl))
+                .location(frontendLocation(frontendErrorUrl, "/pago/error"))
                 .build();
     }
 
@@ -146,7 +146,7 @@ public class WebpayController {
 
                 return ResponseEntity
                         .status(302)
-                        .location(frontendLocation(frontendSuccessUrl))
+                        .location(frontendLocation(frontendSuccessUrl, "/pago/exitoso"))
                         .build();
             }
 
@@ -156,20 +156,20 @@ public class WebpayController {
 
             return ResponseEntity
                     .status(302)
-                    .location(frontendLocation(frontendErrorUrl))
+                    .location(frontendLocation(frontendErrorUrl, "/pago/error"))
                     .build();
 
         } catch (Exception e) {
             log.error("Error procesando retorno Webpay", e);
             return ResponseEntity
                     .status(302)
-                    .location(frontendLocation(frontendErrorUrl))
+                    .location(frontendLocation(frontendErrorUrl, "/pago/error"))
                     .build();
         }
     }
 
-    private URI frontendLocation(String configuredUrl) {
-        String fallback = "https://styleandbeauty.me/pago/retorno";
+    private URI frontendLocation(String configuredUrl, String fallbackPath) {
+        String fallback = "https://styleandbeauty.me" + fallbackPath;
         if (configuredUrl == null || configuredUrl.isBlank()) {
             return URI.create(fallback);
         }
