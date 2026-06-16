@@ -178,6 +178,7 @@ services:
       TBK_API_KEY: ${TBK_API_KEY:-}
       MS_AGENDA_BASE_URL: ${MS_AGENDA_BASE_URL:-${MS_AGENDA_URI:-http://ms-agenda:8084}}
       MS_CATALOGO_BASE_URL: ${MS_CATALOGO_BASE_URL:-${MS_CATALOGO_URI:-http://ms-catalogo:8083}}
+      MS_PERFILES_BASE_URL: ${MS_PERFILES_BASE_URL:-${MS_PERFILES_URI:-http://ms-perfiles:8082}}
     expose:
       - "8086"
 

@@ -60,6 +60,38 @@ public class ServicioService {
     }
 
     @Transactional
+    public Servicio guardarConImagen(
+            String nombre,
+            String descripcion,
+            String detallerservicio,
+            String categoria,
+            String manualUsoUrl,
+            Integer duracionMinutos,
+            Integer holguraMinutos,
+            Double precioTotal,
+            Double montoFianza,
+            Boolean activo,
+            MultipartFile file) {
+        Servicio servicio = new Servicio();
+        servicio.setNombre(nombre);
+        servicio.setDescripcion(descripcion);
+        servicio.setDetallerservicio(detallerservicio);
+        servicio.setCategoria(categoria);
+        servicio.setManual_uso_url(manualUsoUrl);
+        servicio.setDuracion_minutos(duracionMinutos);
+        servicio.setHolgura_minutos(holguraMinutos);
+        servicio.setPrecio_total(precioTotal);
+        servicio.setMonto_fianza(montoFianza);
+        servicio.setActivo(activo);
+
+        prepararServicio(servicio);
+        validarServicioBase(servicio);
+        servicio.setImagenUrl(azureBlobStorageService.upload(file, "servicios"));
+        validarServicio(servicio);
+        return repository.save(servicio);
+    }
+
+    @Transactional
     public Optional<Servicio> actualizar(UUID id, Servicio cambios) {
         return repository.findById(id).map(existente -> {
 
@@ -96,11 +128,7 @@ public class ServicioService {
     @Transactional
     public Optional<Servicio> eliminarImagen(UUID id) {
         return repository.findById(id).map(servicio -> {
-            if (servicio.getImagenUrl() != null && !servicio.getImagenUrl().isBlank()) {
-                azureBlobStorageService.delete(servicio.getImagenUrl());
-            }
-            servicio.setImagenUrl(null);
-            return repository.save(servicio);
+            throw new IllegalArgumentException("Los servicios deben mantener una imagen publicada.");
         });
     }
 
@@ -118,7 +146,7 @@ public class ServicioService {
             Integer holguraCategoria = obtenerHolguraCategoria(servicio.getCategoria());
 
             if (holguraCategoria == null) {
-                throw new RuntimeException("El servicio no tiene holgura configurada y la categoría tampoco tiene holgura por defecto");
+                throw new IllegalArgumentException("El servicio no tiene holgura configurada y la categoría tampoco tiene holgura por defecto");
             }
 
             servicio.setHolgura_minutos(holguraCategoria);
@@ -153,33 +181,41 @@ public class ServicioService {
     }
 
     private void validarServicio(Servicio servicio) {
+        validarServicioBase(servicio);
+
+        if (servicio.getImagenUrl() == null || servicio.getImagenUrl().isBlank()) {
+            throw new IllegalArgumentException("La imagen del servicio es obligatoria");
+        }
+    }
+
+    private void validarServicioBase(Servicio servicio) {
 
         if (servicio.getNombre() == null || servicio.getNombre().isBlank()) {
-            throw new RuntimeException("El nombre del servicio es obligatorio");
+            throw new IllegalArgumentException("El nombre del servicio es obligatorio");
         }
 
         if (servicio.getCategoria() == null || servicio.getCategoria().isBlank()) {
-            throw new RuntimeException("La categoría del servicio es obligatoria");
+            throw new IllegalArgumentException("La categoría del servicio es obligatoria");
         }
 
         if (servicio.getDuracion_minutos() == null || servicio.getDuracion_minutos() <= 0) {
-            throw new RuntimeException("La duración del servicio debe ser mayor a 0");
+            throw new IllegalArgumentException("La duración del servicio debe ser mayor a 0");
         }
 
         if (servicio.getHolgura_minutos() == null) {
-            throw new RuntimeException("La holgura del servicio es obligatoria");
+            throw new IllegalArgumentException("La holgura del servicio es obligatoria");
         }
 
         if (servicio.getHolgura_minutos() < 0) {
-            throw new RuntimeException("La holgura del servicio no puede ser negativa");
+            throw new IllegalArgumentException("La holgura del servicio no puede ser negativa");
         }
 
         if (servicio.getPrecio_total() == null || servicio.getPrecio_total() < 0) {
-            throw new RuntimeException("El precio total del servicio debe ser válido");
+            throw new IllegalArgumentException("El precio total del servicio debe ser válido");
         }
 
         if (servicio.getMonto_fianza() == null || servicio.getMonto_fianza() < 0) {
-            throw new RuntimeException("El monto de fianza debe ser válido");
+            throw new IllegalArgumentException("El monto de fianza debe ser válido");
         }
     }
 

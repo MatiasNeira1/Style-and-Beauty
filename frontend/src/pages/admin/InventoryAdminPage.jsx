@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Camera, Edit3, Image as ImageIcon, Package, PackagePlus, PowerOff, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, Camera, Edit3, Package, PackagePlus, PowerOff, Save, Trash2, X } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
@@ -97,15 +97,13 @@ export function InventoryAdminPage() {
       let savedProduct;
       if (editingProductId) {
         savedProduct = await inventoryService.updateProduct(editingProductId, payload);
+        if (productImageFile) {
+          return inventoryService.uploadProductImage(editingProductId, productImageFile);
+        }
+        return savedProduct;
       } else {
-        savedProduct = await inventoryService.createProduct(payload);
+        return inventoryService.createProductWithImage(payload, productImageFile);
       }
-
-      if (productImageFile) {
-        return inventoryService.uploadProductImage(getProductId(savedProduct) || editingProductId, productImageFile);
-      }
-
-      return savedProduct;
     },
     onSuccess: () => {
       setProductForm(initialProductForm);
@@ -157,11 +155,6 @@ export function InventoryAdminPage() {
     onSuccess: invalidateInventory,
   });
 
-  const deleteProductImageMutation = useMutation({
-    mutationFn: inventoryService.deleteProductImage,
-    onSuccess: invalidateInventory,
-  });
-
   const handleProductChange = (event) => {
     const { name, value } = event.target;
     setProductForm((current) => ({ ...current, [name]: value }));
@@ -180,6 +173,10 @@ export function InventoryAdminPage() {
   const handleProductSubmit = (event) => {
     event.preventDefault();
     if (productImageError) return;
+    if (!productImageFile && !productImagePreview) {
+      setProductImageError('Selecciona una imagen para publicar el producto.');
+      return;
+    }
     saveProductMutation.mutate({
       ...productForm,
       precio: Number(productForm.precio),
@@ -267,7 +264,7 @@ export function InventoryAdminPage() {
           {productImageError && <p className="admin-alert compact">{productImageError}</p>}
         </div>
         {saveProductMutation.isError && <p className="admin-alert">{saveProductMutation.error.message}</p>}
-        {(productImageMutation.isError || deleteProductImageMutation.isError) && <p className="admin-alert">{productImageMutation.error?.message || deleteProductImageMutation.error?.message}</p>}
+        {productImageMutation.isError && <p className="admin-alert">{productImageMutation.error?.message}</p>}
         <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={saveProductMutation.isPending}>
             <Save size={16} />
@@ -408,10 +405,6 @@ export function InventoryAdminPage() {
                       <span className="button-content"><Camera size={14} /> Imagen</span>
                       <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleTableProductImageChange(row, event)} />
                     </label>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => deleteProductImageMutation.mutate(productId)} disabled={deleteProductImageMutation.isPending || !productImage(row)}>
-                      <ImageIcon size={14} />
-                      Quitar
-                    </Button>
                     {row.activo && (
                       <Button type="button" size="sm" variant="ghost" onClick={() => deactivateMutation.mutate(productId)} disabled={deactivateMutation.isPending}>
                         <PowerOff size={14} />

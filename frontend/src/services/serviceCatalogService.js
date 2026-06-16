@@ -10,8 +10,13 @@ function isValidUuid(value) {
   return typeof value === 'string' && UUID_PATTERN.test(value.trim());
 }
 
-function imageFormData(file) {
+function imageFormData(file, fields = {}) {
   const formData = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      formData.append(key, value);
+    }
+  });
   formData.append('file', file);
   return formData;
 }
@@ -24,6 +29,7 @@ export const serviceCatalogService = {
     return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/servicios/${id}/staff` });
   },
   createService: (payload) => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: payload, authRequired: true }),
+  createServiceWithImage: (payload, file) => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: imageFormData(file, payload), authRequired: true }),
   updateService: (id, payload) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'PUT', data: payload, authRequired: true }),
   deleteService: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'DELETE', authRequired: true }),
   uploadServiceImage: (id, file) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicios/${id}/imagen`, method: 'POST', data: imageFormData(file), authRequired: true }),

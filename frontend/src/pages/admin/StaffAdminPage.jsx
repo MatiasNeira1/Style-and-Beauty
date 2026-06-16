@@ -60,7 +60,7 @@ export function StaffAdminPage() {
 
   const createMutation = useMutation({
     mutationFn: async (payload) => {
-      const { fotoFile, password, ...profilePayload } = payload;
+      const { fotoFile, password, sinImagenPorAhora, ...profilePayload } = payload;
       const user = await authService.createUser({
         email: payload.emailContacto,
         password,
@@ -68,6 +68,7 @@ export function StaffAdminPage() {
       });
       const createdStaff = await staffService.createStaff({
         ...profilePayload,
+        sinImagenPorAhora: Boolean(sinImagenPorAhora || fotoFile),
         idAuth: user.uid || user.idAuth || user.id,
         idEspecialidad: Number(profilePayload.idEspecialidad),
         experienciaAnios: profilePayload.experienciaAnios ? Number(profilePayload.experienciaAnios) : null,
@@ -87,9 +88,10 @@ export function StaffAdminPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ idAuth, staffId, data }) => {
-      const { fotoFile, ...profilePayload } = data;
+      const { fotoFile, sinImagenPorAhora, ...profilePayload } = data;
       const updatedStaff = await staffService.updateStaff(idAuth, {
         ...profilePayload,
+        sinImagenPorAhora: Boolean(sinImagenPorAhora),
         idEspecialidad: Number(profilePayload.idEspecialidad),
         experienciaAnios: profilePayload.experienciaAnios ? Number(profilePayload.experienciaAnios) : null,
       });

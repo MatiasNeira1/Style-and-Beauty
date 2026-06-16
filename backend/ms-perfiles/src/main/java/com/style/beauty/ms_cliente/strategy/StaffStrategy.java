@@ -1,6 +1,7 @@
 package com.style.beauty.ms_cliente.strategy;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
@@ -18,6 +19,9 @@ public class StaffStrategy implements PerfilStrategy{
     @Autowired
     private EspecialidadRepository especialidadRepository;
 
+    @Value("${app.company-logo-url:${APP_COMPANY_LOGO_URL:https://stylebeautyimages.blob.core.windows.net/stylebeauty/logo.jpg}}")
+    private String companyLogoUrl;
+
     @Override
     public String getTipoPerfil() {
         return "STAFF";
@@ -33,7 +37,7 @@ public class StaffStrategy implements PerfilStrategy{
         staff.setGenero(dto.getGenero());
         staff.setTelefono(dto.getTelefono());
         staff.setEmailContacto(dto.getEmailContacto());
-        staff.setFotoUrl(dto.getFotoUrl());
+        staff.setFotoUrl(resolverFotoUrl(dto));
         staff.setCvUrl(dto.getCvUrl());
         staff.setDescripcionPerfil(dto.getDescripcionPerfil());
         staff.setExperienciaAnios(dto.getExperienciaAnios());
@@ -51,6 +55,16 @@ public class StaffStrategy implements PerfilStrategy{
         staff.setEspecialidad(especialidad);
 
         return staffRepository.save(staff);
+    }
+
+    private String resolverFotoUrl(PerfilRequestDTO dto) {
+        if (dto.getFotoUrl() != null && !dto.getFotoUrl().isBlank()) {
+            return dto.getFotoUrl();
+        }
+        if (Boolean.TRUE.equals(dto.getSinImagenPorAhora())) {
+            return companyLogoUrl;
+        }
+        throw new IllegalArgumentException("La foto del profesional es obligatoria o debes marcar 'Sin imagen por ahora'.");
     }
 
 }

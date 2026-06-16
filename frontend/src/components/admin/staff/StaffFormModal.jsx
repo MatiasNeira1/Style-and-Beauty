@@ -75,6 +75,7 @@ const staffSchema = z.object({
   idEspecialidad: z.string().min(1, 'Selecciona una especialidad'),
   descripcionPerfil: z.string().optional(),
   experienciaAnios: z.string().optional(),
+  sinImagenPorAhora: z.boolean().optional(),
 });
 
 const defaultValues = {
@@ -89,6 +90,7 @@ const defaultValues = {
   idEspecialidad: '',
   descripcionPerfil: '',
   experienciaAnios: '',
+  sinImagenPorAhora: false,
 };
 
 export function StaffFormModal({ open, onClose, onSubmit, initialData, specialties = [], isLoading }) {
@@ -171,11 +173,17 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
     }
 
     setSelectedPhoto(file);
+    setValue('sinImagenPorAhora', false);
   };
 
   const onFormSubmit = (data) => {
     if (photoError) return;
-    onSubmit({ ...data, fotoFile: selectedPhoto }, isEditMode);
+    const existingPhoto = initialData?.fotoUrl || initialData?.imageUrl || '';
+    if (!selectedPhoto && !existingPhoto && !data.sinImagenPorAhora) {
+      setPhotoError('Sube una foto o marca Sin imagen por ahora.');
+      return;
+    }
+    onSubmit({ ...data, sinImagenPorAhora: Boolean(data.sinImagenPorAhora), fotoFile: selectedPhoto }, isEditMode);
     reset(defaultValues);
     setSelectedPhoto(null);
   };
@@ -205,6 +213,10 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
               <SafeImage src={photoPreview} alt="Foto del profesional" />
               <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoChange} />
               <span><ImagePlus size={15} /> Cambiar foto</span>
+            </label>
+            <label className="staff-no-photo-option">
+              <input type="checkbox" {...register('sinImagenPorAhora')} disabled={Boolean(selectedPhoto)} />
+              <span>Sin imagen por ahora</span>
             </label>
             {photoError && <p className="staff-photo-error">{photoError}</p>}
           </div>

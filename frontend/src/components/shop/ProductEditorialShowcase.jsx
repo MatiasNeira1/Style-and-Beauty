@@ -34,7 +34,7 @@ function productDescription(product) {
 }
 
 function productImage(product) {
-  return product.imagenUrl || product.imagen_url || product.imageUrl || product.image;
+  return product.imagenUrl || product.imagen_url || product.imageUrl || product.image || product.imagen;
 }
 
 function benefitsFor(product) {

@@ -5,6 +5,7 @@ export const catalogService = {
   getService: serviceCatalogService.getService,
   listProfessionalsByService: serviceCatalogService.listProfessionalsByService,
   createService: serviceCatalogService.createService,
+  createServiceWithImage: serviceCatalogService.createServiceWithImage,
   updateService: serviceCatalogService.updateService,
   deleteService: serviceCatalogService.deleteService,
   uploadServiceImage: serviceCatalogService.uploadServiceImage,

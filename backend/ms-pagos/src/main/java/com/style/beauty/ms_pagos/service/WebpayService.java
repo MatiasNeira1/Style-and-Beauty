@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.style.beauty.ms_pagos.client.AgendaClient;
 import com.style.beauty.ms_pagos.client.CatalogoClient;
+import com.style.beauty.ms_pagos.client.PerfilClient;
 import com.style.beauty.ms_pagos.dto.CitaResumen;
 import com.style.beauty.ms_pagos.dto.CrearTransaccionRequest;
 import com.style.beauty.ms_pagos.dto.CrearTransaccionResponse;
@@ -41,6 +42,7 @@ public class WebpayService {
     private final TransaccionPagoRepository transaccionPagoRepository;
     private final AgendaClient agendaClient;
     private final CatalogoClient catalogoClient;
+    private final PerfilClient perfilClient;
     private final ObjectMapper objectMapper;
 
     @Value("${tbk.commerce-code}")
@@ -141,6 +143,10 @@ public class WebpayService {
         TransaccionPago transaccion = transaccionPagoRepository.findByTokenWebpay(tokenWs)
                 .orElseThrow(() -> new RuntimeException("Transacción no encontrada para token Webpay"));
 
+        if (transaccion.getEstado() == EstadoTransaccion.AUTORIZADA) {
+            return transaccion;
+        }
+
         try {
             WebpayPlus.Transaction transaction =
                     WebpayPlus.Transaction.buildForIntegration(commerceCode, apiKey);
@@ -160,6 +166,7 @@ public class WebpayService {
                 TransaccionPago actualizada = transaccionPagoRepository.save(transaccion);
                 idsCitas(actualizada).forEach((idCita) ->
                         agendaClient.confirmarCita(idCita, actualizada.getIdTransaccion()));
+                acumularPuntosFidelidad(actualizada);
                 return actualizada;
             }
 
@@ -360,7 +367,34 @@ public class WebpayService {
         TransaccionPago actualizada = transaccionPagoRepository.save(transaccion);
         idsCitas(actualizada).forEach((idCita) ->
                 agendaClient.confirmarCita(idCita, actualizada.getIdTransaccion()));
+        acumularPuntosFidelidad(actualizada);
         return actualizada;
+    }
+
+    private void acumularPuntosFidelidad(TransaccionPago transaccion) {
+        List<UUID> reservas = idsCitas(transaccion);
+        if (transaccion.getIdCliente() == null || reservas.isEmpty()) {
+            return;
+        }
+
+        int puntos = reservas.size();
+        try {
+            perfilClient.acumularPuntosFidelidad(transaccion.getIdCliente(), puntos);
+            log.info(
+                    "Puntos de fidelidad acumulados: idCliente={} puntos={} idTransaccion={}",
+                    transaccion.getIdCliente(),
+                    puntos,
+                    transaccion.getIdTransaccion()
+            );
+        } catch (Exception e) {
+            log.warn(
+                    "No se pudieron acumular puntos de fidelidad: idCliente={} puntos={} idTransaccion={} causa={}",
+                    transaccion.getIdCliente(),
+                    puntos,
+                    transaccion.getIdTransaccion(),
+                    e.getMessage()
+            );
+        }
     }
 
     private void validarTokenSimulado(TransaccionPago transaccion, String tokenWs) {

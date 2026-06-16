@@ -154,6 +154,15 @@
   gap: 0.4rem;
 }
 
+.staff-no-photo-option {
+  align-items: center;
+  color: var(--color-ink-soft);
+  display: inline-flex;
+  font-size: 0.84rem;
+  font-weight: 800;
+  gap: 0.45rem;
+}
+
 .staff-photo-error {
   color: #b42318;
   font-size: 0.82rem;

@@ -2404,6 +2404,7 @@ a.contact-info-card:hover {
   gap: clamp(1.35rem, 3.5vw, 3.25rem);
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   isolation: isolate;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   padding: clamp(0.85rem, 2vw, 1.25rem);
@@ -2438,11 +2439,14 @@ a.contact-info-card:hover {
 }
 
 .product-editorial-media {
+  align-self: stretch;
   aspect-ratio: 5 / 6;
   background: #fff;
   border: 1px solid rgba(255, 255, 255, 0.88);
   border-radius: var(--radius-sm);
   box-shadow: 0 20px 55px rgba(25, 20, 23, 0.11);
+  justify-self: stretch;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   position: relative;
@@ -2477,9 +2481,14 @@ a.contact-info-card:hover {
   gap: clamp(0.72rem, 1.5vw, 1rem);
   max-width: 100%;
   min-width: 0;
+  overflow-wrap: anywhere;
   padding-block: clamp(0.6rem, 3vw, 2.25rem);
   position: relative;
   z-index: 1;
+}
+
+.product-editorial-copy > * {
+  min-width: 0;
 }
 
 .product-editorial-kicker,
@@ -2494,7 +2503,10 @@ a.contact-info-card:hover {
   font-size: 0.74rem;
   font-weight: 900;
   letter-spacing: 0.14em;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   text-transform: uppercase;
+  white-space: normal;
 }
 
 .product-editorial-copy h3 {
@@ -2507,6 +2519,8 @@ a.contact-info-card:hover {
   margin: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
+  text-wrap: balance;
+  word-break: break-word;
 }
 
 .product-editorial-copy p {
@@ -2516,6 +2530,7 @@ a.contact-info-card:hover {
   margin: 0;
   max-width: 62ch;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .product-editorial-benefits {
@@ -2557,6 +2572,7 @@ a.contact-info-card:hover {
   font-size: clamp(1.28rem, 2.3vw, 1.85rem);
   font-weight: 500;
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .product-editorial-actions .button {

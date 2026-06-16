@@ -373,6 +373,7 @@ export function ProfilePage() {
     mutationFn: profileService.updateMyProfile,
     onSuccess: (updatedProfile) => {
       queryClient.setQueryData(['myProfile'], updatedProfile);
+      queryClient.setQueryData(['my-profile'], updatedProfile);
       setSuccessMsg('Perfil actualizado correctamente.');
       setTimeout(() => setSuccessMsg(''), 3000);
     },
@@ -562,8 +563,14 @@ export function ProfilePage() {
         console.warn('Failed to upload profile photo to Firebase Auth:', photoErr);
       }
     }
-    updateMutation.mutate(data);
+    updateMutation.mutate({
+      telefono: data.telefono,
+      alergias: data.alergias,
+      medicamentos: data.medicamentos,
+      afeccionesPiel: data.afeccionesPiel,
+    });
   };
+  const loyaltyPoints = Number(profile?.puntosFidelidad ?? 0);
 
   return (
     <>
@@ -595,21 +602,32 @@ export function ProfilePage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="field">
                 <label>Nombre</label>
-                <Input {...register('nombre')} placeholder="Tu nombre" />
+                <Input value={profile?.nombre || ''} readOnly aria-readonly="true" />
               </div>
               <div className="field">
                 <label>Apellidos</label>
-                <Input {...register('apellidos')} placeholder="Tus apellidos" />
+                <Input value={profile?.apellidos || ''} readOnly aria-readonly="true" />
+              </div>
+              <div className="field">
+                <label>RUT</label>
+                <Input value={profile?.rut || ''} readOnly aria-readonly="true" />
+              </div>
+              <div className="field">
+                <label>Email de contacto</label>
+                <Input value={profile?.emailContacto || user?.email || ''} type="email" readOnly aria-readonly="true" />
               </div>
               <div className="field">
                 <label>Teléfono</label>
                 <Input {...register('telefono')} placeholder="+56 9 5861 2677" />
               </div>
               <div className="field">
-                <label>Email de Contacto</label>
-                <Input {...register('emailContacto')} type="email" placeholder="ejemplo@correo.com" />
+                <label>Fecha de nacimiento</label>
+                <Input value={profile?.fechaNacimiento || ''} readOnly aria-readonly="true" />
               </div>
             </div>
+            <p style={{ color: 'var(--color-muted)', fontSize: '0.9rem', marginTop: '1rem' }}>
+              Los datos de identidad quedan bloqueados despues de crear el perfil. Si necesitas corregirlos, solicita el cambio al equipo administrativo.
+            </p>
           </Card>
 
           <Card>
@@ -653,16 +671,14 @@ export function ProfilePage() {
           </Button>
         </Card>
 
-        {profile?.puntosFidelidad !== undefined && (
-          <Card style={{ padding: '1.5rem' }}>
-            <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-ink)' }}>
-              <Activity size={18} color="var(--color-primary-strong)" /> Puntos de Fidelidad
-            </h4>
-            <p style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--color-primary-strong)' }}>
-              {profile.puntosFidelidad} <span style={{ fontSize: '1rem', color: 'var(--color-muted)', fontWeight: 500 }}>pts</span>
-            </p>
-          </Card>
-        )}
+        <Card style={{ padding: '1.5rem' }}>
+          <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-ink)' }}>
+            <Activity size={18} color="var(--color-primary-strong)" /> Puntos de Fidelidad
+          </h4>
+          <p style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--color-primary-strong)' }}>
+            {loyaltyPoints} <span style={{ fontSize: '1rem', color: 'var(--color-muted)', fontWeight: 500 }}>pts</span>
+          </p>
+        </Card>
         </div>
       </section>
     </>

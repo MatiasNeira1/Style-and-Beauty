@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Camera, Clock, Edit3, Image as ImageIcon, Save, Scissors, Tag, Trash2, X } from 'lucide-react';
+import { Camera, Clock, Edit3, Save, Scissors, Tag, Trash2, X } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
@@ -94,15 +94,13 @@ export function ServicesAdminPage() {
       let savedService;
       if (editingServiceId) {
         savedService = await catalogService.updateService(editingServiceId, servicePayload);
+        if (imageFile) {
+          return catalogService.uploadServiceImage(editingServiceId, imageFile);
+        }
+        return savedService;
       } else {
-        savedService = await catalogService.createService(servicePayload);
+        return catalogService.createServiceWithImage(servicePayload, imageFile);
       }
-
-      if (imageFile) {
-        return catalogService.uploadServiceImage(getServiceId(savedService) || editingServiceId, imageFile);
-      }
-
-      return savedService;
     },
     onSuccess: () => {
       setForm(initialForm);
@@ -124,11 +122,6 @@ export function ServicesAdminPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services-admin'] }),
   });
 
-  const deleteImageMutation = useMutation({
-    mutationFn: catalogService.deleteServiceImage,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services-admin'] }),
-  });
-
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
@@ -137,6 +130,10 @@ export function ServicesAdminPage() {
   const handleSubmit = (event) => {
     event.preventDefault();
     if (imageError) return;
+    if (!imageFile && !imagePreview) {
+      setImageError('Selecciona una imagen para publicar el servicio.');
+      return;
+    }
     saveMutation.mutate(form);
   };
 
@@ -193,7 +190,7 @@ export function ServicesAdminPage() {
         <h3>{editingServiceId ? 'Editar servicio' : 'Crear servicio'}</h3>
         <div className="form-grid">
           <Input label="Nombre" id="service-name" name="nombre" value={form.nombre} onChange={handleChange} required />
-          <Input label="Categoria" id="service-category" name="categoria" value={form.categoria} onChange={handleChange} />
+          <Input label="Categoria" id="service-category" name="categoria" value={form.categoria} onChange={handleChange} required />
           <Input label="Duracion minutos" id="service-duration" name="duracion_minutos" type="number" min="1" value={form.duracion_minutos} onChange={handleChange} required />
           <Input label="Holgura minutos" id="service-buffer" name="holgura_minutos" type="number" min="0" value={form.holgura_minutos} onChange={handleChange} />
           <Input label="Precio total" id="service-price" name="precio_total" type="number" min="0" step="100" value={form.precio_total} onChange={handleChange} required />
@@ -215,7 +212,7 @@ export function ServicesAdminPage() {
           {imageError && <p className="admin-alert compact">{imageError}</p>}
         </div>
         {saveMutation.isError && <p className="admin-alert">{saveMutation.error.message}</p>}
-        {(imageMutation.isError || deleteImageMutation.isError) && <p className="admin-alert">{imageMutation.error?.message || deleteImageMutation.error?.message}</p>}
+        {imageMutation.isError && <p className="admin-alert">{imageMutation.error?.message}</p>}
         <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={saveMutation.isPending}>
             <Save size={16} />
@@ -310,10 +307,6 @@ export function ServicesAdminPage() {
                       <span className="button-content"><Camera size={14} /> Imagen</span>
                       <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleTableImageChange(row, event)} />
                     </label>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => deleteImageMutation.mutate(serviceId)} disabled={deleteImageMutation.isPending || !serviceImage(row)}>
-                      <ImageIcon size={14} />
-                      Quitar
-                    </Button>
                     <Button type="button" size="sm" variant="ghost" onClick={() => deleteMutation.mutate(serviceId)} disabled={deleteMutation.isPending}>
                       <Trash2 size={14} />
                       Eliminar

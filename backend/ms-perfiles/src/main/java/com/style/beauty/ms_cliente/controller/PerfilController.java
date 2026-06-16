@@ -105,7 +105,7 @@ public class PerfilController {
     @GetMapping("/staff/{idStaff}")
     public ResponseEntity<?> obtenerStaffPublico(@PathVariable UUID idStaff) {
         try {
-            return ResponseEntity.ok(perfilService.obtenerStaffPorId(idStaff));
+            return ResponseEntity.ok(perfilService.obtenerStaffPorIdConFallback(idStaff));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }

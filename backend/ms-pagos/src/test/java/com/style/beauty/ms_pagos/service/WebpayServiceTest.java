@@ -3,6 +3,7 @@ package com.style.beauty.ms_pagos.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.style.beauty.ms_pagos.client.AgendaClient;
 import com.style.beauty.ms_pagos.client.CatalogoClient;
+import com.style.beauty.ms_pagos.client.PerfilClient;
 import com.style.beauty.ms_pagos.entity.TransaccionPago;
 import com.style.beauty.ms_pagos.enums.EstadoTransaccion;
 import com.style.beauty.ms_pagos.repository.TransaccionPagoRepository;
@@ -20,7 +21,8 @@ class WebpayServiceTest {
     private final TransaccionPagoRepository repository = mock(TransaccionPagoRepository.class);
     private final AgendaClient agendaClient = mock(AgendaClient.class);
     private final CatalogoClient catalogoClient = mock(CatalogoClient.class);
-    private final WebpayService service = new WebpayService(repository, agendaClient, catalogoClient, new ObjectMapper());
+    private final PerfilClient perfilClient = mock(PerfilClient.class);
+    private final WebpayService service = new WebpayService(repository, agendaClient, catalogoClient, perfilClient, new ObjectMapper());
 
     @Test
     void redireccionWebpayDevuelveHtmlConFormularioPostYTokenWs() {

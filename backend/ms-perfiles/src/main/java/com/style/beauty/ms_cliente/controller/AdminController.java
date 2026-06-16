@@ -89,7 +89,7 @@ public class AdminController {
             if (!esAdmin(authHeader)) return ResponseEntity.status(403).body("Acceso denegado. Solo Administradores.");
 
             // Usamos el idAuth que viene en la URL, no el del Admin
-            PersonaModel perfilActualizado = perfilService.actualizarMiPerfil(idAuthTarget, requestDTO);
+            PersonaModel perfilActualizado = perfilService.actualizarPerfilComoAdmin(idAuthTarget, requestDTO);
             return ResponseEntity.ok(perfilActualizado);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error al actualizar: " + e.getMessage());
