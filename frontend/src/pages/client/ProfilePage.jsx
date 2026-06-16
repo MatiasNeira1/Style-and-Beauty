@@ -68,6 +68,11 @@ function formatRut(value) {
   return formattedBody + '-' + dv;
 }
 
+function validatePhone(value) {
+  if (!value) return true;
+  return /^\+?[0-9\s-]{8,18}$/.test(value.trim());
+}
+
 const monthOptions = [
   ['01', 'Enero'],
   ['02', 'Febrero'],
@@ -159,7 +164,7 @@ function BirthDateSelects({ value, onChange, error }) {
         setDay('');
       }
     }
-  }, [value]);
+  }, [day, month, value, year]);
 
   const years = Array.from({ length: 101 }, (_, index) => String(Number(max.year) - index));
   const maxMonthForYear = year === max.year ? Number(max.month) : 12;
@@ -329,6 +334,7 @@ export function ProfilePage() {
     },
   });
   const birthDateValue = watch('fechaNacimiento');
+  const watchedValues = watch();
 
   // Reset form when profile data loads
   useEffect(() => {
@@ -445,6 +451,9 @@ export function ProfilePage() {
   }
 
   if (isProfileNotFoundError(profileError)) {
+    const isMissingIdentity = ['rut', 'nombre', 'apellidos', 'emailContacto', 'fechaNacimiento']
+      .some((field) => !String(watchedValues?.[field] || '').trim());
+
     return (
       <>
         <ProfileHero missing />
@@ -456,6 +465,7 @@ export function ProfilePage() {
               <p>Tu cuenta ya existe. Guardaremos estos datos para asociarla a reservas, contacto y beneficios.</p>
             </div>
 
+            {isMissingIdentity && <div className="admin-alert">Faltan datos obligatorios por completar.</div>}
             {errorMsg && <div className="admin-alert">{errorMsg}</div>}
 
             {successMsg && <div className="success-alert">{successMsg}</div>}
@@ -481,9 +491,31 @@ export function ProfilePage() {
                     required 
                     error={errors.rut?.message}
                   />
-                  <Input label="Nombre" {...register('nombre', { required: true })} placeholder="Tu nombre" required />
-                  <Input label="Apellidos" {...register('apellidos')} placeholder="Tus apellidos" />
-                  <Input label="Email de contacto" {...register('emailContacto', { required: true })} type="email" placeholder="tuemail@correo.com" required />
+                  <Input
+                    label="Nombre"
+                    {...register('nombre', { required: 'El nombre es obligatorio.' })}
+                    placeholder="Camila"
+                    required
+                    error={errors.nombre?.message}
+                  />
+                  <Input
+                    label="Apellidos"
+                    {...register('apellidos', { required: 'El apellido es obligatorio.' })}
+                    placeholder="Gonzalez Perez"
+                    required
+                    error={errors.apellidos?.message}
+                  />
+                  <Input
+                    label="Email de contacto"
+                    {...register('emailContacto', {
+                      required: 'El email es obligatorio.',
+                      pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Formato esperado: correo@dominio.cl.' },
+                    })}
+                    type="email"
+                    placeholder="correo@dominio.cl"
+                    required
+                    error={errors.emailContacto?.message}
+                  />
                   <input type="hidden" {...register('fechaNacimiento', {
                     required: 'Selecciona tu fecha de nacimiento.',
                     validate: (value) => isMinimumAge(value) || `Debes tener al menos ${MIN_CLIENT_AGE} años.`,
@@ -499,7 +531,14 @@ export function ProfilePage() {
                     <option value="otro">Otro</option>
                     <option value="no_especifica">Prefiero no decirlo</option>
                   </Input>
-                  <Input label="Telefono" {...register('telefono')} placeholder="+56 9 1234 5678" />
+                  <Input
+                    label="Telefono"
+                    {...register('telefono', {
+                      validate: (value) => validatePhone(value) || 'Formato esperado: +56 9 1234 5678.',
+                    })}
+                    placeholder="+56 9 1234 5678"
+                    error={errors.telefono?.message}
+                  />
                 </div>
               </div>
 
@@ -571,6 +610,15 @@ export function ProfilePage() {
     });
   };
   const loyaltyPoints = Number(profile?.puntosFidelidad ?? 0);
+  const existingProfileEmail = profile?.emailContacto || user?.email || '';
+  const missingIdentityFields = [
+    !profile?.nombre && 'nombre',
+    !profile?.apellidos && 'apellido',
+    !profile?.rut && 'RUT',
+    !existingProfileEmail && 'email',
+    !profile?.fechaNacimiento && 'fecha de nacimiento',
+  ].filter(Boolean);
+  const hasMissingIdentity = missingIdentityFields.length > 0;
 
   return (
     <>
@@ -590,6 +638,12 @@ export function ProfilePage() {
         {errorMsg && (
           <div style={{ background: '#fef2f2', color: '#991b1b', padding: '1rem', borderRadius: 'var(--radius-sm)' }}>
             {errorMsg}
+          </div>
+        )}
+
+        {hasMissingIdentity && (
+          <div className="admin-alert">
+            Faltan datos obligatorios por completar. Los campos de identidad existentes quedan bloqueados; para completar datos faltantes se requiere soporte del backend para edicion de identidad.
           </div>
         )}
 
@@ -618,7 +672,13 @@ export function ProfilePage() {
               </div>
               <div className="field">
                 <label>Teléfono</label>
-                <Input {...register('telefono')} placeholder="+56 9 5861 2677" />
+                <Input
+                  {...register('telefono', {
+                    validate: (value) => validatePhone(value) || 'Formato esperado: +56 9 1234 5678.',
+                  })}
+                  placeholder="+56 9 1234 5678"
+                  error={errors.telefono?.message}
+                />
               </div>
               <div className="field">
                 <label>Fecha de nacimiento</label>

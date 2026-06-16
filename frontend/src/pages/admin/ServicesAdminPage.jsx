@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Clock, Edit3, Plus, Save, Scissors, Tag, Trash2, Users, X } from 'lucide-react';
+import { Camera, Clock, Edit3, Plus, Save, Scissors, Search, Tag, Trash2, Users, X } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminEmptyState, AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { catalogService } from '../../services/catalogService.js';
 import { profileService } from '../../services/profileService.js';
 import { formatCurrencyCLP, fullName } from '../../utils/adminFormatters.js';
@@ -31,6 +32,20 @@ function getStaffId(staff) {
   return staff.idPersona || staff.idStaff || staff.id;
 }
 
+function serviceImage(service) {
+  return service?.imagenUrl || service?.imageUrl || service?.imagen_url || service?.imagen || '';
+}
+
+function isValidHttpUrl(value) {
+  if (!value) return true;
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol);
+  } catch {
+    return false;
+  }
+}
+
 function toServicePayload(form) {
   return {
     nombre: form.nombre.trim(),
@@ -44,6 +59,20 @@ function toServicePayload(form) {
     monto_fianza: form.monto_fianza === '' ? 0 : Number(form.monto_fianza),
     activo: form.activo === 'true',
   };
+}
+
+function validateServiceForm(form, selectedStaffIds, imageFile, hasExistingImage, mode) {
+  if (!form.categoria?.trim()) return 'Selecciona o genera una categoria para el servicio.';
+  if (!form.nombre?.trim()) return 'El nombre del servicio es obligatorio.';
+  if (Number(form.duracion_minutos) <= 0) return 'La duracion debe ser mayor a 0 minutos.';
+  if (form.holgura_minutos !== '' && Number(form.holgura_minutos) < 0) return 'La holgura no puede ser negativa.';
+  if (Number(form.precio_total) < 0 || form.precio_total === '') return 'El precio debe ser valido.';
+  if (form.monto_fianza !== '' && Number(form.monto_fianza) < 0) return 'La fianza debe ser valida.';
+  if (!isValidHttpUrl(form.manual_uso_url?.trim())) return 'La URL manual debe comenzar con https:// o http://.';
+  if (!selectedStaffIds.length) return 'Selecciona al menos un profesional para este servicio.';
+  if (mode === 'create' && !imageFile) return 'Selecciona una imagen para crear el servicio.';
+  if (mode === 'edit' && !imageFile && !hasExistingImage) return 'Selecciona una imagen para guardar cambios en este servicio.';
+  return '';
 }
 
 function formFromService(service) {
@@ -81,10 +110,48 @@ function ServiceFormModal({
   selectedStaffIds,
   onToggleStaff,
   categories,
+  imageFile,
+  imagePreview,
+  imageError,
+  formError,
+  onImageChange,
   isSaving,
   error,
 }) {
   const title = mode === 'edit' ? 'Editar servicio' : 'Agregar servicio';
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [categoryDraft, setCategoryDraft] = useState('');
+  const [categoryError, setCategoryError] = useState('');
+  const [staffSearch, setStaffSearch] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setCreatingCategory(false);
+    setCategoryDraft('');
+    setCategoryError('');
+    setStaffSearch('');
+  }, [open]);
+
+  const visibleCategories = useMemo(() => {
+    const base = [...categories];
+    if (form.categoria && !base.some((category) => category.toLowerCase() === form.categoria.toLowerCase())) {
+      base.push(form.categoria);
+    }
+    return base.sort((a, b) => a.localeCompare(b, 'es'));
+  }, [categories, form.categoria]);
+
+  const filteredStaff = useMemo(() => {
+    const needle = staffSearch.trim().toLowerCase();
+    if (!needle) return staff;
+    return staff.filter((member) => [
+      fullName(member),
+      member.emailContacto,
+      member.email,
+      member.especialidad?.nombre,
+      member.nombreEspecialidad,
+    ].filter(Boolean).join(' ').toLowerCase().includes(needle));
+  }, [staff, staffSearch]);
+
   const canGoInfo = Boolean(form.categoria);
   const canGoStaff = Boolean(
     form.nombre
@@ -92,19 +159,36 @@ function ServiceFormModal({
     && Number(form.duracion_minutos) > 0
     && Number(form.precio_total) >= 0
   );
-  const canSave = canGoStaff && selectedStaffIds.length > 0;
+  const hasImage = Boolean(imageFile || imagePreview);
+  const canGoImage = canGoStaff && selectedStaffIds.length > 0;
+  const canSave = canGoImage && (mode === 'create' ? Boolean(imageFile) : hasImage);
+  const selectedNames = selectedStaffNames(staff, selectedStaffIds);
+
+  const selectGeneratedCategory = () => {
+    const value = categoryDraft.trim().replace(/\s+/g, ' ');
+    if (value.length < 3) {
+      setCategoryError('Usa una categoria de al menos 3 caracteres.');
+      return;
+    }
+
+    const existing = categories.find((category) => category.toLowerCase() === value.toLowerCase());
+    onChange({ target: { name: 'categoria', value: existing || value } });
+    setCategoryDraft('');
+    setCategoryError(existing ? 'La categoria ya existia. La dejamos seleccionada.' : '');
+    setCreatingCategory(false);
+  };
 
   return (
     <Modal open={open} title={title} onClose={onClose}>
       <form className="admin-modal-form" onSubmit={onSubmit}>
         <div className="admin-modal-steps" aria-label="Pasos del servicio">
-          {['Categoria', 'Informacion', 'Profesionales'].map((label, index) => (
+          {['Categoria', 'Informacion', 'Profesionales', 'Imagen'].map((label, index) => (
             <button
               key={label}
               type="button"
               className={step === index + 1 ? 'active' : ''}
               onClick={() => onStepChange(index + 1)}
-              disabled={(index + 1 === 2 && !canGoInfo) || (index + 1 === 3 && !canGoStaff)}
+              disabled={(index + 1 === 2 && !canGoInfo) || (index + 1 === 3 && !canGoStaff) || (index + 1 === 4 && !canGoImage)}
             >
               {index + 1}. {label}
             </button>
@@ -121,38 +205,77 @@ function ServiceFormModal({
               name="categoria"
               value={form.categoria}
               onChange={onChange}
+              hint="Ej. Spa, Facial, Cabello"
               required
             >
               <option value="">Seleccionar categoria</option>
-              {categories.map((category) => <option key={category} value={category}>{category}</option>)}
-              {!categories.includes(form.categoria) && form.categoria && <option value={form.categoria}>{form.categoria}</option>}
+              {visibleCategories.map((category) => <option key={category} value={category}>{category}</option>)}
             </Input>
-            <Input label="Nueva categoria" id="service-category-new" name="categoria" value={form.categoria} onChange={onChange} placeholder="Ej. Facial premium" />
+            <div className="admin-category-generator">
+              <button type="button" className="admin-secondary-action" onClick={() => setCreatingCategory((current) => !current)}>
+                <Tag size={15} />
+                Generar nueva categoria
+              </button>
+              {creatingCategory && (
+                <div className="admin-category-inline">
+                  <Input
+                    label="Nueva categoria"
+                    id="service-category-new"
+                    value={categoryDraft}
+                    onChange={(event) => {
+                      setCategoryDraft(event.target.value);
+                      setCategoryError('');
+                    }}
+                    placeholder="Facial premium"
+                    hint="Evita duplicados; si ya existe, se selecciona la categoria existente."
+                  />
+                  <Button type="button" size="sm" onClick={selectGeneratedCategory}>Usar categoria</Button>
+                </div>
+              )}
+              {categoryError && <p className="admin-modal-hint">{categoryError}</p>}
+            </div>
           </div>
         )}
 
         {step === 2 && (
           <div className="admin-modal-section form-grid">
-            <Input label="Nombre" id="service-name" name="nombre" value={form.nombre} onChange={onChange} required />
-            <Input label="Duracion minutos" id="service-duration" name="duracion_minutos" type="number" min="1" value={form.duracion_minutos} onChange={onChange} required />
-            <Input label="Holgura minutos" id="service-buffer" name="holgura_minutos" type="number" min="0" value={form.holgura_minutos} onChange={onChange} />
-            <Input label="Precio total" id="service-price" name="precio_total" type="number" min="0" step="100" value={form.precio_total} onChange={onChange} required />
-            <Input label="Monto fianza" id="service-deposit" name="monto_fianza" type="number" min="0" step="100" value={form.monto_fianza} onChange={onChange} />
+            <Input label="Nombre" id="service-name" name="nombre" value={form.nombre} onChange={onChange} placeholder="Masaje relajante" required />
+            <Input label="Duracion" id="service-duration" name="duracion_minutos" type="number" min="1" value={form.duracion_minutos} onChange={onChange} placeholder="Duracion (min)" required />
+            <Input label="Holgura" id="service-buffer" name="holgura_minutos" type="number" min="0" value={form.holgura_minutos} onChange={onChange} placeholder="Holgura (min)" />
+            <Input label="Precio" id="service-price" name="precio_total" type="number" min="0" step="100" value={form.precio_total} onChange={onChange} placeholder="Precio ($xx.xxx)" required />
+            <Input label="Fianza" id="service-deposit" name="monto_fianza" type="number" min="0" step="100" value={form.monto_fianza} onChange={onChange} placeholder="Fianza ($xx.xxx)" />
             <Input as="select" label="Estado" id="service-active" name="activo" value={form.activo} onChange={onChange}>
               <option value="true">Activo</option>
               <option value="false">Inactivo</option>
             </Input>
-            <Input label="Manual URL" id="service-manual" name="manual_uso_url" value={form.manual_uso_url} onChange={onChange} />
-            <Input label="Descripcion" id="service-description" name="descripcion" value={form.descripcion} onChange={onChange} />
-            <Input label="Detalles del servicio" id="service-details" name="detallerservicio" value={form.detallerservicio} onChange={onChange} />
+            <Input label="Manual URL" id="service-manual" name="manual_uso_url" value={form.manual_uso_url} onChange={onChange} placeholder="https://..." />
+            <Input label="Descripcion" id="service-description" name="descripcion" value={form.descripcion} onChange={onChange} placeholder="Breve descripcion visible para clientes" />
+            <Input label="Detalles" id="service-details" name="detallerservicio" as="textarea" rows={3} value={form.detallerservicio} onChange={onChange} placeholder="Incluye preparacion, recomendaciones o condiciones" />
           </div>
         )}
 
         {step === 3 && (
           <div className="admin-modal-section">
             <p className="admin-modal-hint">Selecciona al menos un profesional. Esta asociacion alimenta la reserva publica por servicio.</p>
+            <label className="field admin-search-field">
+              <span>Buscar profesional</span>
+              <div className="admin-filter-search">
+                <Search size={16} />
+                <input
+                  value={staffSearch}
+                  onFocus={() => setStaffSearch('')}
+                  onChange={(event) => setStaffSearch(event.target.value)}
+                  placeholder="Nombre, especialidad o email"
+                />
+              </div>
+            </label>
+            {selectedNames.length > 0 && (
+              <div className="admin-chip-row" aria-label="Profesionales seleccionados">
+                {selectedNames.map((name) => <span key={name}>{name}</span>)}
+              </div>
+            )}
             <div className="admin-check-list">
-              {staff.length ? staff.map((member) => {
+              {filteredStaff.length ? filteredStaff.map((member) => {
                 const id = getStaffId(member);
                 const checked = selectedStaffIds.map(String).includes(String(id));
                 return (
@@ -165,19 +288,38 @@ function ServiceFormModal({
                   </label>
                 );
               }) : (
-                <AdminEmptyState compact title="Sin profesionales disponibles" description="Crea profesionales antes de asociarlos a servicios." />
+                <AdminEmptyState compact title="Sin profesionales disponibles" description="Crea profesionales o ajusta la busqueda antes de asociarlos a servicios." />
               )}
             </div>
           </div>
         )}
 
+        {step === 4 && (
+          <div className="admin-modal-section">
+            <p className="admin-modal-hint">Selecciona una imagen JPG, PNG o WEBP. La base actual requiere migracion para persistirla en GET /api/servicio.</p>
+            <div className="admin-image-field admin-service-image-step">
+              <SafeImage src={imagePreview} alt="Imagen del servicio" />
+              <label className="button button-ghost button-sm staff-file-button">
+                <span className="button-content"><Camera size={14} /> Seleccionar imagen</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onImageChange(event.target.files?.[0])} />
+              </label>
+              <span className="admin-modal-hint">{mode === 'edit' ? 'Selecciona una imagen si el servicio no tiene una disponible.' : 'La imagen es obligatoria para crear el servicio.'}</span>
+            </div>
+            <div className="admin-warning-alert">
+              La imagen se enviara al endpoint multipart, pero para persistencia real falta agregar <code>public.servicio.imagen_url</code> y mapearla en backend.
+            </div>
+          </div>
+        )}
+
+        {imageError && <p className="admin-alert compact">{imageError}</p>}
+        {formError && <p className="admin-alert">{formError}</p>}
         {error && <p className="admin-alert">{error.message}</p>}
 
         <div className="admin-modal-actions">
           <Button type="button" variant="ghost" onClick={onClose}><X size={16} /> Cancelar</Button>
           {step > 1 && <Button type="button" variant="ghost" onClick={() => onStepChange(step - 1)}>Volver</Button>}
-          {step < 3 ? (
-            <Button type="button" onClick={() => onStepChange(step + 1)} disabled={(step === 1 && !canGoInfo) || (step === 2 && !canGoStaff)}>
+          {step < 4 ? (
+            <Button type="button" onClick={() => onStepChange(step + 1)} disabled={(step === 1 && !canGoInfo) || (step === 2 && !canGoStaff) || (step === 3 && !canGoImage)}>
               Continuar
             </Button>
           ) : (
@@ -247,6 +389,13 @@ export function ServicesAdminPage() {
   const [selectedService, setSelectedService] = useState(null);
   const [editingService, setEditingService] = useState(null);
   const [selectedStaffIds, setSelectedStaffIds] = useState([]);
+  const [serviceImageFile, setServiceImageFile] = useState(null);
+  const [serviceImagePreview, setServiceImagePreview] = useState('');
+  const [serviceImageError, setServiceImageError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [serviceSearch, setServiceSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('TODAS');
+  const [serviceStatusFilter, setServiceStatusFilter] = useState('TODOS');
 
   const servicesQuery = useQuery({ queryKey: ['services-admin'], queryFn: catalogService.listServices });
   const staffQuery = useQuery({ queryKey: ['profiles-staff'], queryFn: profileService.listStaff });
@@ -261,12 +410,40 @@ export function ServicesAdminPage() {
   const relations = useMemo(() => (Array.isArray(detailRelationsQuery.data) ? detailRelationsQuery.data : []), [detailRelationsQuery.data]);
   const activeServices = services.filter((service) => service.activo !== false);
   const categories = useMemo(() => [...new Set(services.map((service) => service.categoria).filter(Boolean))].sort(), [services]);
+  const filteredServices = useMemo(() => {
+    const needle = serviceSearch.trim().toLowerCase();
+    return services.filter((service) => {
+      const serviceId = getServiceId(service);
+      const haystack = [
+        service.nombre,
+        service.categoria,
+        service.descripcion,
+        service.detallerservicio,
+        serviceId,
+      ].filter(Boolean).join(' ').toLowerCase();
+      const matchesSearch = needle ? haystack.includes(needle) : true;
+      const matchesCategory = categoryFilter === 'TODAS' ? true : service.categoria === categoryFilter;
+      const matchesStatus = serviceStatusFilter === 'TODOS'
+        ? true
+        : serviceStatusFilter === 'ACTIVO'
+          ? service.activo !== false
+          : service.activo === false;
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [categoryFilter, serviceSearch, serviceStatusFilter, services]);
 
   useEffect(() => {
     if (modalOpen && modalMode === 'edit' && relations.length) {
       setSelectedStaffIds(relations.map((relation) => relation.idStaff).filter(Boolean));
     }
   }, [modalMode, modalOpen, relations]);
+
+  useEffect(() => {
+    if (!serviceImageFile) return undefined;
+    const objectUrl = URL.createObjectURL(serviceImageFile);
+    setServiceImagePreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [serviceImageFile]);
 
   const resetModal = () => {
     setModalOpen(false);
@@ -275,12 +452,20 @@ export function ServicesAdminPage() {
     setEditingService(null);
     setForm(initialForm);
     setSelectedStaffIds([]);
+    setServiceImageFile(null);
+    setServiceImagePreview('');
+    setServiceImageError('');
+    setFormError('');
   };
 
   const openCreate = () => {
     setSelectedService(null);
     setForm(initialForm);
     setSelectedStaffIds([]);
+    setServiceImageFile(null);
+    setServiceImagePreview('');
+    setServiceImageError('');
+    setFormError('');
     setModalMode('create');
     setModalStep(1);
     setModalOpen(true);
@@ -291,6 +476,10 @@ export function ServicesAdminPage() {
     setEditingService(service);
     setForm(formFromService(service));
     setSelectedStaffIds([]);
+    setServiceImageFile(null);
+    setServiceImagePreview(serviceImage(service));
+    setServiceImageError('');
+    setFormError('');
     setModalMode('edit');
     setModalStep(1);
     setModalOpen(true);
@@ -314,10 +503,23 @@ export function ServicesAdminPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = toServicePayload(form);
-      const savedService = modalMode === 'edit'
-        ? await catalogService.updateService(getServiceId(editingService), payload)
-        : await catalogService.createService(payload);
+      let savedService;
+      if (modalMode === 'edit') {
+        const serviceId = getServiceId(editingService);
+        let payloadWithImage = { ...payload };
+        if (serviceImageFile) {
+          const updatedImageService = await catalogService.uploadServiceImage(serviceId, serviceImageFile);
+          const uploadedImage = serviceImage(updatedImageService);
+          if (uploadedImage) payloadWithImage = { ...payloadWithImage, imagenUrl: uploadedImage };
+        } else if (serviceImagePreview) {
+          payloadWithImage = { ...payloadWithImage, imagenUrl: serviceImagePreview };
+        }
+        savedService = await catalogService.updateService(serviceId, payloadWithImage);
+      } else {
+        savedService = await catalogService.createServiceWithImage(payload, serviceImageFile);
+      }
       const serviceId = getServiceId(savedService) || getServiceId(editingService);
+      if (!serviceId) throw new Error('El backend no devolvio el ID del servicio guardado.');
       await syncStaffAssignments(serviceId, selectedStaffIds);
       return savedService;
     },
@@ -341,6 +543,26 @@ export function ServicesAdminPage() {
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+    setFormError('');
+  };
+
+  const validateAndSetServiceImage = (file) => {
+    setServiceImageError('');
+    if (!file) {
+      setServiceImageFile(null);
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setServiceImageFile(null);
+      setServiceImageError('Solo se permiten imagenes JPG, PNG o WEBP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setServiceImageFile(null);
+      setServiceImageError('La imagen no puede superar 5 MB.');
+      return;
+    }
+    setServiceImageFile(file);
   };
 
   const toggleStaff = (idStaff) => {
@@ -353,6 +575,22 @@ export function ServicesAdminPage() {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    const validationMessage = validateServiceForm(
+      form,
+      selectedStaffIds,
+      serviceImageFile,
+      Boolean(serviceImagePreview),
+      modalMode,
+    );
+    if (validationMessage) {
+      setFormError(validationMessage);
+      if (!form.categoria) setModalStep(1);
+      else if (!form.nombre || Number(form.duracion_minutos) <= 0 || form.precio_total === '') setModalStep(2);
+      else if (!selectedStaffIds.length) setModalStep(3);
+      else setModalStep(4);
+      return;
+    }
+    setFormError('');
     saveMutation.mutate();
   };
 
@@ -371,6 +609,46 @@ export function ServicesAdminPage() {
         <AdminKpiCard icon={Clock} title="Duracion media" value={`${Math.round(services.reduce((sum, item) => sum + Number(item.duracion_minutos || 0), 0) / Math.max(services.length, 1))} min`} trend={0} microcopy="Base para agenda" tone="sage" />
         <AdminKpiCard icon={Users} title="Equipo disponible" value={staff.length} trend={0} microcopy="Profesionales reales" tone="ink" />
       </AdminKpiGrid>
+
+      <section className="admin-panel compact-panel">
+        <header>
+          <div>
+            <h3>Busqueda y filtros</h3>
+            <p>Busca por nombre, categoria, descripcion o ID del servicio.</p>
+          </div>
+          {(serviceSearch || categoryFilter !== 'TODAS' || serviceStatusFilter !== 'TODOS') && (
+            <button
+              type="button"
+              className="admin-text-button"
+              onClick={() => {
+                setServiceSearch('');
+                setCategoryFilter('TODAS');
+                setServiceStatusFilter('TODOS');
+              }}
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </header>
+        <div className="admin-local-filter-grid">
+          <label className="field admin-search-field">
+            <span>Buscar</span>
+            <div className="admin-filter-search">
+              <Search size={16} />
+              <input value={serviceSearch} onChange={(event) => setServiceSearch(event.target.value)} placeholder="Nombre, categoria o ID" />
+            </div>
+          </label>
+          <Input as="select" label="Categoria" id="services-category-filter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+            <option value="TODAS">Todas las categorias</option>
+            {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+          </Input>
+          <Input as="select" label="Estado" id="services-status-filter" value={serviceStatusFilter} onChange={(event) => setServiceStatusFilter(event.target.value)}>
+            <option value="TODOS">Todos los estados</option>
+            <option value="ACTIVO">Activos</option>
+            <option value="INACTIVO">Inactivos</option>
+          </Input>
+        </div>
+      </section>
 
       {servicesQuery.isLoading ? (
         <AdminSkeleton rows={5} />
@@ -398,7 +676,7 @@ export function ServicesAdminPage() {
             { key: 'precio_total', label: 'Precio', render: (row) => formatCurrencyCLP(row.precio_total || 0) },
             { key: 'activo', label: 'Estado', render: (row) => <AdminStatusBadge status={row.activo === false ? 'INACTIVO' : 'ACTIVO'} /> },
           ]}
-          rows={services}
+          rows={filteredServices}
           emptyMessage="No hay servicios registrados. Agrega un servicio y asocialo a profesionales para habilitar reservas."
         />
       )}
@@ -416,6 +694,11 @@ export function ServicesAdminPage() {
         selectedStaffIds={selectedStaffIds}
         onToggleStaff={toggleStaff}
         categories={categories}
+        imageFile={serviceImageFile}
+        imagePreview={serviceImagePreview}
+        imageError={serviceImageError}
+        formError={formError}
+        onImageChange={validateAndSetServiceImage}
         isSaving={saveMutation.isPending}
         error={saveMutation.error}
       />

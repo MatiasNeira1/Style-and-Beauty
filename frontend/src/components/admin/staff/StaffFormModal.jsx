@@ -69,8 +69,12 @@ const staffSchema = z.object({
   apellidos: z.string().optional(),
   emailContacto: z.string().email('Email inválido'),
   password: z.string().min(6, 'Mínimo 6 caracteres').optional().or(z.literal('')),
-  telefono: z.string().optional(),
-  fechaNacimiento: z.string().optional(),
+  telefono: z.string().optional().refine((value) => !value || /^\+?[0-9\s-]{8,18}$/.test(value), {
+    message: 'Formato esperado: +56 9 1234 5678',
+  }),
+  fechaNacimiento: z.string().optional().refine((value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value), {
+    message: 'Formato esperado: AAAA-MM-DD',
+  }),
   genero: z.string().optional(),
   idEspecialidad: z.string().min(1, 'Selecciona una especialidad'),
   descripcionPerfil: z.string().optional(),
@@ -224,6 +228,7 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
             <Input
               label="RUT"
               id="staff-form-rut"
+              placeholder="12.345.678-9"
               error={errors.rut?.message}
               {...register('rut', {
                 onChange: (e) => {
@@ -234,12 +239,14 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
             <Input
               label="Nombre"
               id="staff-form-nombre"
+              placeholder="Valentina"
               error={errors.nombre?.message}
               {...register('nombre')}
             />
             <Input
               label="Apellidos"
               id="staff-form-apellidos"
+              placeholder="Rojas Soto"
               error={errors.apellidos?.message}
               {...register('apellidos')}
             />
@@ -247,6 +254,7 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
               label="Fecha de Nacimiento"
               id="staff-form-fecha"
               type="date"
+              hint="Formato AAAA-MM-DD"
               {...register('fechaNacimiento')}
             />
             <Input
@@ -274,12 +282,14 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
               label="Email"
               id="staff-form-email"
               type="email"
+              placeholder="correo@dominio.cl"
               error={errors.emailContacto?.message}
               {...register('emailContacto')}
             />
             <Input
               label="Teléfono"
               id="staff-form-telefono"
+              placeholder="+56 9 1234 5678"
               error={errors.telefono?.message}
               {...register('telefono')}
             />
@@ -288,6 +298,7 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
                 label="Contraseña temporal"
                 id="staff-form-password"
                 type="password"
+                placeholder="Minimo 6 caracteres"
                 error={errors.password?.message}
                 {...register('password')}
               />
@@ -321,6 +332,7 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
               id="staff-form-experiencia"
               type="number"
               min="0"
+              placeholder="Ej. 4"
               {...register('experienciaAnios')}
             />
           </div>
@@ -329,7 +341,7 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
             id="staff-form-bio"
             as="textarea"
             rows={3}
-            placeholder="Describe la experiencia y habilidades del profesional..."
+            placeholder="Incluye experiencia, certificaciones, especialidades o condiciones"
             {...register('descripcionPerfil')}
           />
         </div>
