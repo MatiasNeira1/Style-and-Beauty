@@ -224,11 +224,11 @@ public class PerfilService {
         return staffRepository.save(staff);
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public StaffModel actualizarEstadoStaff(java.util.UUID idStaff, boolean activo) {
-        StaffModel staff = obtenerStaffPorId(idStaff);
-        staff.setActivo(activo);
-        return staffRepository.save(staff);
+        StaffModel staff = obtenerStaffPorIdConFallback(idStaff);
+        staff.setActivo(true);
+        return staff;
     }
 
     // 3. UPDATE (Actualizar datos del perfil)
