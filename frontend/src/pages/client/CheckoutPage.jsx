@@ -169,38 +169,50 @@ export function CheckoutPage() {
   };
 
   return (
-    <section className="page-section standalone-page-section two-column client-view checkout-page">
-      <div className="stack">
-        <SectionTitle eyebrow="Pago seguro" title="Confirma tu carrito">
-          Revisa reservas y productos antes de iniciar el pago total.
-        </SectionTitle>
+    <>
+      <section className="page-hero page-hero-checkout">
+        <div className="page-hero-media" />
+        <div className="page-hero-overlay" />
+        <div className="page-hero-content">
+          <span className="card-kicker">Pago seguro</span>
+          <h1>Confirma tu carrito</h1>
+          <p>Revisa reservas y productos antes de iniciar el pago total.</p>
+        </div>
+      </section>
 
-        <Card className="checkout-assurance">
-          <ShieldCheck size={24} />
-          <div>
-            <h3>Pago consolidado</h3>
-            <p>WebPay se inicia solo desde el carrito. Las reservas se confirman cuando el pago queda aprobado.</p>
-          </div>
-        </Card>
+      <section className="page-section two-column client-view checkout-page">
+        <div className="stack">
+          <SectionTitle eyebrow="Pago seguro" title="Confirma tu carrito">
+            Revisa reservas y productos antes de iniciar el pago total.
+          </SectionTitle>
 
-        {hasReservations && (
-          <p className="admin-alert">
-            Las reservas del carrito mantienen su hora retenida por 5 minutos. Si expiran, vuelve a seleccionar horario.
-          </p>
-        )}
+          <Card className="checkout-assurance">
+            <ShieldCheck size={24} />
+            <div>
+              <h3>Pago consolidado</h3>
+              <p>WebPay se inicia solo desde el carrito. Las reservas se confirman cuando el pago queda aprobado.</p>
+            </div>
+          </Card>
 
-        {profileQuery.isError && (
-          <p className="admin-alert">No pudimos cargar tu perfil de cliente. Completa tu perfil antes de pagar.</p>
-        )}
-        {checkoutError && <p className="admin-alert">{checkoutError}</p>}
-      </div>
+          {hasReservations && (
+            <p className="admin-alert">
+              Las reservas del carrito mantienen su hora retenida por 5 minutos. Si expiran, vuelve a seleccionar horario.
+            </p>
+          )}
 
-      <aside className="stack summary-card">
-        <CheckoutSummary items={items} />
-        <Button disabled={!canPay} onClick={startPayment}>
-          <CreditCard size={18} /> {isStartingPayment ? 'Iniciando WebPay...' : 'Pagar carrito'}
-        </Button>
-      </aside>
-    </section>
+          {profileQuery.isError && (
+            <p className="admin-alert">No pudimos cargar tu perfil de cliente. Completa tu perfil antes de pagar.</p>
+          )}
+          {checkoutError && <p className="admin-alert">{checkoutError}</p>}
+        </div>
+
+        <aside className="stack summary-card">
+          <CheckoutSummary items={items} />
+          <Button disabled={!canPay} onClick={startPayment}>
+            <CreditCard size={18} /> {isStartingPayment ? 'Iniciando WebPay...' : 'Pagar carrito'}
+          </Button>
+        </aside>
+      </section>
+    </>
   );
 }

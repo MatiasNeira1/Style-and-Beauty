@@ -570,6 +570,14 @@ img { max-width: 100%; display: block; }
   --page-hero-image: url("/hero-salon.png");
 }
 
+.page-hero-products,
+.page-hero-checkout,
+.page-hero-payment,
+.page-hero-extraordinary {
+  --page-hero-image: url("/hero-salon.png");
+  --page-hero-position: center 42%;
+}
+
 .page-hero-contact {
   --page-hero-image: url("/hero-salon.png");
   --page-hero-position: center;

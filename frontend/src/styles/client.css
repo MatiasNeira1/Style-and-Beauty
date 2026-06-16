@@ -1756,6 +1756,10 @@ a.contact-info-card:hover {
 .page-hero-contact,
 .page-hero-about,
 .page-hero-professionals,
+.page-hero-products,
+.page-hero-checkout,
+.page-hero-payment,
+.page-hero-extraordinary,
 .products-hero {
   min-height: clamp(17rem, 34vh, 25rem);
   padding-bottom: clamp(2rem, 4vw, 2.75rem);
@@ -1767,6 +1771,10 @@ a.contact-info-card:hover {
 .page-hero-contact .page-hero-content h1,
 .page-hero-about .page-hero-content h1,
 .page-hero-professionals .page-hero-content h1,
+.page-hero-products .page-hero-content h1,
+.page-hero-checkout .page-hero-content h1,
+.page-hero-payment .page-hero-content h1,
+.page-hero-extraordinary .page-hero-content h1,
 .products-hero-content h1 {
   font-size: clamp(2.15rem, 5.3vw, 4.6rem);
   max-width: 760px;
@@ -1778,6 +1786,10 @@ a.contact-info-card:hover {
 .page-hero-contact .page-hero-content p,
 .page-hero-about .page-hero-content p,
 .page-hero-professionals .page-hero-content p,
+.page-hero-products .page-hero-content p,
+.page-hero-checkout .page-hero-content p,
+.page-hero-payment .page-hero-content p,
+.page-hero-extraordinary .page-hero-content p,
 .products-hero-content p {
   font-size: clamp(0.98rem, 1.6vw, 1.12rem);
   max-width: 520px;
@@ -3064,6 +3076,10 @@ img[data-fallback="true"] {
   .page-hero-contact,
   .page-hero-about,
   .page-hero-professionals,
+  .page-hero-products,
+  .page-hero-checkout,
+  .page-hero-payment,
+  .page-hero-extraordinary,
   .products-hero {
     min-height: 19rem;
     padding-top: 6.2rem;

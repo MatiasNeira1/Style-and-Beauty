@@ -92,10 +92,10 @@ export function ProductsPage() {
 
   return (
     <>
-      <section className="products-hero">
-        <div className="products-hero-media" />
-        <div className="products-hero-overlay" />
-        <div className="products-hero-content">
+      <section className="page-hero page-hero-products">
+        <div className="page-hero-media" />
+        <div className="page-hero-overlay" />
+        <div className="page-hero-content">
           <span className="card-kicker">Shop</span>
           <h1>{heroTitle}</h1>
           <p>{heroSubtitle}</p>
