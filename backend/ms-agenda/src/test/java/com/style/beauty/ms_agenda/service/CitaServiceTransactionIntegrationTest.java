@@ -35,7 +35,8 @@ import static org.mockito.Mockito.when;
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
         "spring.jpa.open-in-view=false",
-        "spring.sql.init.mode=never"
+        "spring.sql.init.mode=never",
+        "app.agenda.max-dias-anticipacion=2000"
 })
 class CitaServiceTransactionIntegrationTest {
 
@@ -72,7 +73,8 @@ class CitaServiceTransactionIntegrationTest {
                         "Silva",
                         "renata@example.test",
                         null,
-                        true
+                        true,
+                        null
                 ));
         when(servicioClient.obtenerServicio(ID_SERVICIO))
                 .thenReturn(new ServicioResumen(

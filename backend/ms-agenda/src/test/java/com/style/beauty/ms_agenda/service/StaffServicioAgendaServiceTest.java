@@ -31,7 +31,7 @@ class StaffServicioAgendaServiceTest {
         when(servicioClient.obtenerStaffPorServicio(ID_SERVICIO))
                 .thenReturn(List.of(new ServicioStaffResumen(ID_SERVICIO, ID_STAFF, true)));
         when(perfilClient.obtenerStaff(ID_STAFF))
-                .thenReturn(new PerfilResumen(ID_STAFF, "auth-1", "1-9", "Camila", "Rojas", "camila@email.com", "https://storage.example/camila.webp", true));
+                .thenReturn(new PerfilResumen(ID_STAFF, "auth-1", "1-9", "Camila", "Rojas", "camila@email.com", "https://storage.example/camila.webp", true, null));
 
         List<StaffServicioDetalleResponse> staff = service.listarStaffPorServicio(ID_SERVICIO);
 
@@ -54,7 +54,7 @@ class StaffServicioAgendaServiceTest {
                         new ServicioStaffResumen(ID_SERVICIO, ID_STAFF_FALTANTE, true)
                 ));
         when(perfilClient.obtenerStaff(ID_STAFF_INACTIVO))
-                .thenReturn(new PerfilResumen(ID_STAFF_INACTIVO, "auth-2", "2-7", "Fernanda", "Munoz", "fer@email.com", null, false));
+                .thenReturn(new PerfilResumen(ID_STAFF_INACTIVO, "auth-2", "2-7", "Fernanda", "Munoz", "fer@email.com", null, false, null));
         when(perfilClient.obtenerStaff(ID_STAFF_FALTANTE))
                 .thenThrow(new BusinessException("Staff no encontrado en ms-perfiles"));
 

@@ -42,7 +42,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class CitaService {
-    private static final int MINUTOS_RESERVA_TEMPORAL = 5;
+    private static final int DEFAULT_RESERVA_EXPIRACION_MINUTOS = 15;
 
     private final CitaRepository citaRepository;
     private final JornadaStaffRepository jornadaStaffRepository;
@@ -54,6 +54,12 @@ public class CitaService {
 
     @Value("${app.agenda.zone:America/Santiago}")
     private String agendaZone;
+
+    @Value("${app.reserva.expiracion-minutos:${APP_RESERVA_EXPIRACION_MINUTOS:15}}")
+    private int minutosReservaTemporal = DEFAULT_RESERVA_EXPIRACION_MINUTOS;
+
+    @Value("${app.agenda.max-dias-anticipacion:${APP_AGENDA_MAX_DIAS_ANTICIPACION:30}}")
+    private int maxDiasAnticipacion = 30;
 
     public List<Cita> listar() {
         log.info("Listando citas en ms-agenda");
@@ -73,10 +79,11 @@ public class CitaService {
 
         log.info("Liberando reservas vencidas antes de calcular disponibilidad");
         liberarReservasVencidas();
+        validarFechaReservable(request.fecha());
 
         // Solo valida que el staff exista.
         // Google Calendar NO se usa para bloquear disponibilidad.
-        perfilClient.obtenerStaff(request.idStaff());
+        var staff = perfilClient.obtenerStaff(request.idStaff());
         log.info("Staff encontrado para disponibilidad: idStaff={}", request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
@@ -88,7 +95,7 @@ public class CitaService {
                 request.idServicio(), request.idStaff());
 
         int duracion = duracionServicio(servicio);
-        int holgura = holguraService.calcularHolguraMin(servicio);
+        int holgura = holguraService.calcularHolguraMin(servicio, staff.holguraCitaMinutos());
 
         validarDuracionYHolgura(duracion, holgura);
 
@@ -110,7 +117,7 @@ public class CitaService {
         }
 
         // Valida dependencias una sola vez; el calculo diario se reutiliza para cada fecha.
-        perfilClient.obtenerStaff(idStaff);
+        var staff = perfilClient.obtenerStaff(idStaff);
         log.info("Staff encontrado para disponibilidad mensual: idStaff={}", idStaff);
 
         ServicioResumen servicio = servicioClient.obtenerServicio(idServicio);
@@ -122,17 +129,24 @@ public class CitaService {
                 idServicio, idStaff);
 
         int duracion = duracionServicio(servicio);
-        int holgura = holguraService.calcularHolguraMin(servicio);
+        int holgura = holguraService.calcularHolguraMin(servicio, staff.holguraCitaMinutos());
 
         validarDuracionYHolgura(duracion, holgura);
 
         LocalDate inicioMes = LocalDate.of(anio, mes, 1);
+        LocalDate hoy = fechaActualAgenda();
+        LocalDate maxFecha = fechaMaximaReserva();
+        if (inicioMes.isAfter(maxFecha) || inicioMes.withDayOfMonth(inicioMes.lengthOfMonth()).isBefore(hoy)) {
+            throw new BusinessException("La disponibilidad solo puede consultarse entre hoy y los proximos " + maxDiasAnticipacion + " dias");
+        }
         int diasDelMes = inicioMes.lengthOfMonth();
         List<DisponibilidadMensualResponse> disponibilidad = new ArrayList<>();
 
         for (int dia = 1; dia <= diasDelMes; dia++) {
             LocalDate fecha = inicioMes.withDayOfMonth(dia);
-            List<DisponibilidadSlot> slots = calcularDisponibilidadParaDia(idStaff, fecha, duracion, holgura);
+            List<DisponibilidadSlot> slots = fechaDentroRangoReservable(fecha)
+                    ? calcularDisponibilidadParaDia(idStaff, fecha, duracion, holgura)
+                    : List.of();
             disponibilidad.add(new DisponibilidadMensualResponse(fecha, slots));
         }
 
@@ -145,9 +159,10 @@ public class CitaService {
 
         log.info("Liberando reservas vencidas antes de calcular disponibilidad semanal");
         liberarReservasVencidas();
+        validarSemanaReservable(request.fechaInicioSemana());
 
         // Valida dependencias una sola vez y reutiliza el mismo calculo diario de disponibilidad.
-        perfilClient.obtenerStaff(request.idStaff());
+        var staff = perfilClient.obtenerStaff(request.idStaff());
         log.info("Staff encontrado para disponibilidad semanal: idStaff={}", request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
@@ -159,7 +174,7 @@ public class CitaService {
                 request.idServicio(), request.idStaff());
 
         int duracion = duracionServicio(servicio);
-        int holgura = holguraService.calcularHolguraMin(servicio);
+        int holgura = holguraService.calcularHolguraMin(servicio, staff.holguraCitaMinutos());
 
         validarDuracionYHolgura(duracion, holgura);
 
@@ -167,7 +182,9 @@ public class CitaService {
 
         for (int offset = 0; offset < 7; offset++) {
             LocalDate fecha = request.fechaInicioSemana().plusDays(offset);
-            List<DisponibilidadSlot> slots = calcularDisponibilidadParaDia(request.idStaff(), fecha, duracion, holgura);
+            List<DisponibilidadSlot> slots = fechaDentroRangoReservable(fecha)
+                    ? calcularDisponibilidadParaDia(request.idStaff(), fecha, duracion, holgura)
+                    : List.of();
             disponibilidad.add(new DisponibilidadMensualResponse(fecha, slots));
         }
 
@@ -269,24 +286,26 @@ public class CitaService {
         }
 
         perfilClient.obtenerCliente(request.idCliente());
-        perfilClient.obtenerStaff(request.idStaff());
+        var staff = perfilClient.obtenerStaff(request.idStaff());
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
         validarStaffRealizaServicio(request.idServicio(), request.idStaff());
 
         int duracion = duracionServicio(servicio);
-        int holgura = holguraService.calcularHolguraMin(servicio);
+        int holgura = holguraService.calcularHolguraMin(servicio, staff.holguraCitaMinutos());
 
         validarDuracionYHolgura(duracion, holgura);
 
         OffsetDateTime inicio = normalizarAZoneAgenda(request.fechaHoraInicio());
         OffsetDateTime finVisible = inicio.plusMinutes(duracion);
         OffsetDateTime finAtencion = finVisible.minusMinutes(holgura);
-        OffsetDateTime expiracionReserva = OffsetDateTime.now(zoneId()).plusMinutes(MINUTOS_RESERVA_TEMPORAL);
+        OffsetDateTime expiracionReserva = OffsetDateTime.now(zoneId()).plusMinutes(minutosReservaTemporal);
 
+        validarFechaReservable(inicio.toLocalDate());
         validarJornada(request.idStaff(), inicio, finVisible);
         validarBloqueos(request.idStaff(), inicio, finVisible);
         validarChoqueCitas(request.idStaff(), inicio, finVisible);
+        validarChoqueCliente(request.idCliente(), inicio, finVisible);
         validarHorarioDisponible(request.idStaff(), inicio, finVisible, duracion, holgura);
 
         Cita cita = Cita.builder()
@@ -311,7 +330,7 @@ public class CitaService {
                 AccionHistorial.CREADA,
                 null,
                 guardada.getEstadoCita().name(),
-                "Reserva temporal agregada al carrito. Expira en " + MINUTOS_RESERVA_TEMPORAL + " minutos"
+                "Reserva temporal agregada al carrito. Expira en " + minutosReservaTemporal + " minutos"
         );
 
         return guardada;
@@ -473,6 +492,19 @@ public class CitaService {
         }
     }
 
+    private void validarChoqueCliente(UUID idCliente, OffsetDateTime inicio, OffsetDateTime finVisible) {
+
+        List<EstadoCita> ignorados = estadosIgnoradosParaDisponibilidad();
+
+        boolean existeChoque = !citaRepository
+                .buscarChoquesCliente(idCliente, inicio, finVisible, ignorados)
+                .isEmpty();
+
+        if (existeChoque) {
+            throw new BusinessException("El cliente ya tiene una cita que se solapa con el horario solicitado");
+        }
+    }
+
     private void validarHorarioDisponible(
             UUID idStaff,
             OffsetDateTime inicio,
@@ -543,6 +575,35 @@ public class CitaService {
 
     private ZoneId zoneId() {
         return ZoneId.of(agendaZone);
+    }
+
+    private LocalDate fechaActualAgenda() {
+        return LocalDate.now(zoneId());
+    }
+
+    private LocalDate fechaMaximaReserva() {
+        return fechaActualAgenda().plusDays(maxDiasAnticipacion);
+    }
+
+    private boolean fechaDentroRangoReservable(LocalDate fecha) {
+        return !fecha.isBefore(fechaActualAgenda()) && !fecha.isAfter(fechaMaximaReserva());
+    }
+
+    private void validarFechaReservable(LocalDate fecha) {
+        if (fecha.isBefore(fechaActualAgenda())) {
+            throw new BusinessException("No se pueden reservar ni consultar fechas anteriores a hoy");
+        }
+
+        if (fecha.isAfter(fechaMaximaReserva())) {
+            throw new BusinessException("Solo se puede reservar hasta " + maxDiasAnticipacion + " dias desde hoy");
+        }
+    }
+
+    private void validarSemanaReservable(LocalDate fechaInicioSemana) {
+        LocalDate finSemana = fechaInicioSemana.plusDays(6);
+        if (finSemana.isBefore(fechaActualAgenda()) || fechaInicioSemana.isAfter(fechaMaximaReserva())) {
+            throw new BusinessException("La disponibilidad solo puede consultarse entre hoy y los proximos " + maxDiasAnticipacion + " dias");
+        }
     }
 
     private List<EstadoCita> estadosIgnoradosParaDisponibilidad() {

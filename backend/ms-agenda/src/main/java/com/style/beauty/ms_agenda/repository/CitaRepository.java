@@ -32,6 +32,20 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
 
     @Query("""
         SELECT c FROM Cita c
+        WHERE c.idCliente = :idCliente
+        AND c.estadoCita NOT IN :estadosIgnorados
+        AND c.fechaHoraInicio < :fin
+        AND c.fechaHoraFin > :inicio
+    """)
+    List<Cita> buscarChoquesCliente(
+            UUID idCliente,
+            OffsetDateTime inicio,
+            OffsetDateTime fin,
+            List<EstadoCita> estadosIgnorados
+    );
+
+    @Query("""
+        SELECT c FROM Cita c
         WHERE c.idStaff = :idStaff
         AND c.estadoCita NOT IN :estadosIgnorados
         AND c.fechaHoraInicio < :fin

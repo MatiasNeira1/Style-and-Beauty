@@ -73,6 +73,8 @@ class CitaServiceTest {
                 servicioClient,
                 new HolguraService());
         ReflectionTestUtils.setField(citaService, "agendaZone", "America/Santiago");
+        ReflectionTestUtils.setField(citaService, "maxDiasAnticipacion", 2000);
+        ReflectionTestUtils.setField(citaService, "minutosReservaTemporal", 15);
 
         when(perfilClient.obtenerCliente(ID_CLIENTE)).thenReturn(perfil(ID_CLIENTE, "Cliente", "Demo", "cliente@example.com"));
         when(perfilClient.obtenerStaff(ID_STAFF)).thenReturn(perfil(ID_STAFF, "Staff", "Demo", "staff@example.com"));
@@ -82,6 +84,7 @@ class CitaServiceTest {
                 .thenReturn(List.of(jornada(LocalTime.of(8, 0), LocalTime.of(13, 0))));
         when(bloqueoAgendaRepository.buscarBloqueosEnRango(any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarChoquesCliente(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.saveAndFlush(any(Cita.class))).thenAnswer(invocation -> {
             Cita cita = invocation.getArgument(0);
@@ -200,6 +203,19 @@ class CitaServiceTest {
     }
 
     @Test
+    void rechazaCrearCitaSiClienteTieneCitaSolapada() {
+        Cita citaExistente = cita(at(9, 0), at(10, 0), at(10, 30));
+        when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarChoquesCliente(any(), any(), any(), any())).thenReturn(List.of(citaExistente));
+
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 30), null, null, null);
+
+        assertThatThrownBy(() -> citaService.crear(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("cliente ya tiene una cita");
+    }
+
+    @Test
     void rechazaCrearCitaSiStaffNoRealizaServicio() {
         when(servicioClient.staffRealizaServicio(ID_SERVICIO, ID_STAFF)).thenReturn(false);
 
@@ -215,6 +231,7 @@ class CitaServiceTest {
     @Test
     void permiteCrearCitaExactamenteDespuesDeDuracionMasHolgura() {
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarChoquesCliente(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarCitasEnRango(any(), any(), any(), any()))
                 .thenReturn(List.of(cita(at(9, 0), at(10, 0), at(10, 30))));
 
@@ -305,9 +322,42 @@ class CitaServiceTest {
         assertThat(creada.getDuracionServicioMin()).isEqualTo(60);
         assertThat(creada.getHolguraMin()).isEqualTo(30);
         assertThat(creada.getEstadoCita()).isEqualTo(EstadoCita.PENDIENTE_PAGO);
-        assertThat(creada.getExpiracionReserva()).isAfter(OffsetDateTime.now(ZONE).plusMinutes(4));
-        assertThat(creada.getExpiracionReserva()).isBefore(OffsetDateTime.now(ZONE).plusMinutes(6));
+        assertThat(creada.getExpiracionReserva()).isAfter(OffsetDateTime.now(ZONE).plusMinutes(14));
+        assertThat(creada.getExpiracionReserva()).isBefore(OffsetDateTime.now(ZONE).plusMinutes(16));
         assertThat(creada.getGoogleCalendarEventId()).isNull();
+    }
+
+    @Test
+    void rechazaDisponibilidadEnFechaPasada() {
+        LocalDate ayer = LocalDate.now(ZONE).minusDays(1);
+
+        assertThatThrownBy(() -> citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, ayer, null, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("anteriores a hoy");
+    }
+
+    @Test
+    void rechazaDisponibilidadMasAllaDeTreintaDias() {
+        ReflectionTestUtils.setField(citaService, "maxDiasAnticipacion", 30);
+        LocalDate fueraDeRango = LocalDate.now(ZONE).plusDays(31);
+
+        assertThatThrownBy(() -> citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, fueraDeRango, null, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("30 dias");
+    }
+
+    @Test
+    void crearUsaHolguraStaffCuandoServicioNoTieneHolguraNiCategoriaConocida() {
+        when(perfilClient.obtenerStaff(ID_STAFF)).thenReturn(
+                new PerfilResumen(ID_STAFF, "auth-staff", "1-9", "Staff", "Demo", "staff@example.com", null, true, 10));
+        when(servicioClient.obtenerServicio(ID_SERVICIO))
+                .thenReturn(new ServicioResumen(ID_SERVICIO, "Diagnostico", "Otra", 45, null));
+
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(8, 0), null, null, null));
+
+        assertThat(creada.getHolguraMin()).isEqualTo(10);
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(8, 45));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(8, 35));
     }
 
     @Test
@@ -334,7 +384,7 @@ class CitaServiceTest {
     }
 
     private PerfilResumen perfil(UUID id, String nombre, String apellidos, String email) {
-        return new PerfilResumen(id, "auth-" + id, "1-9", nombre, apellidos, email, null, true);
+        return new PerfilResumen(id, "auth-" + id, "1-9", nombre, apellidos, email, null, true, null);
     }
 
     private JornadaStaff jornada(LocalTime inicio, LocalTime fin) {

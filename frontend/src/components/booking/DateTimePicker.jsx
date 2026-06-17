@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Clock, Moon, Sunrise, Sun } from 'lucide-react';
 import { Card } from '../ui/Card.jsx';
+import { formatLocalDate, isBookingDateAllowed, maxBookingDate, minBookingDate } from '../../utils/bookingDateRules.js';
 
 const WEEKDAYS = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
 const MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -48,8 +49,8 @@ export function DateTimePicker({ date, time, slots = [], isLoading = false, erro
     const month = currentMonth.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = minBookingDate();
+    const maxDate = maxBookingDate();
     const days = Array.from({ length: firstDay }, () => null);
 
     for (let day = 1; day <= daysInMonth; day += 1) {
@@ -58,8 +59,8 @@ export function DateTimePicker({ date, time, slots = [], isLoading = false, erro
       normalized.setHours(0, 0, 0, 0);
       days.push({
         day,
-        date: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
-        isPast: normalized < today,
+        date: formatLocalDate(value),
+        isDisabled: normalized < today || normalized > maxDate,
         isToday: normalized.getTime() === today.getTime(),
       });
     }
@@ -74,8 +75,14 @@ export function DateTimePicker({ date, time, slots = [], isLoading = false, erro
     })).filter((block) => block.slots.length > 0);
   }, [slots]);
 
-  const handlePrevMonth = () => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
-  const handleNextMonth = () => setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
+  const canGoPrevMonth = currentMonth > new Date(minBookingDate().getFullYear(), minBookingDate().getMonth(), 1);
+  const canGoNextMonth = currentMonth < new Date(maxBookingDate().getFullYear(), maxBookingDate().getMonth(), 1);
+  const handlePrevMonth = () => {
+    if (canGoPrevMonth) setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1));
+  };
+  const handleNextMonth = () => {
+    if (canGoNextMonth) setCurrentMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1));
+  };
 
   return (
     <div className="datetime-picker">
@@ -83,10 +90,10 @@ export function DateTimePicker({ date, time, slots = [], isLoading = false, erro
         <div className="calendar-header">
           <h3>{MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}</h3>
           <div className="calendar-controls">
-            <button type="button" onClick={handlePrevMonth} className="icon-link" aria-label="Mes anterior">
+            <button type="button" onClick={handlePrevMonth} className="icon-link" aria-label="Mes anterior" disabled={!canGoPrevMonth}>
               <ChevronLeft size={18} />
             </button>
-            <button type="button" onClick={handleNextMonth} className="icon-link" aria-label="Mes siguiente">
+            <button type="button" onClick={handleNextMonth} className="icon-link" aria-label="Mes siguiente" disabled={!canGoNextMonth}>
               <ChevronRight size={18} />
             </button>
           </div>
@@ -104,9 +111,10 @@ export function DateTimePicker({ date, time, slots = [], isLoading = false, erro
               <button
                 key={day.date}
                 type="button"
-                disabled={day.isPast}
+                disabled={day.isDisabled}
                 className={`calendar-day ${isSelected ? 'active' : ''} ${day.isToday ? 'today' : ''}`}
                 onClick={() => {
+                  if (!isBookingDateAllowed(day.date)) return;
                   onDateChange?.(day.date);
                   onTimeChange?.('');
                 }}

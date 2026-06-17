@@ -56,7 +56,7 @@ export function ProfessionalsPage() {
   const [search, setSearch] = useState('');
   const [specialty, setSpecialty] = useState('Todos');
   const [availability, setAvailability] = useState('Todos');
-  const [branch, setBranch] = useState('Providencia');
+  const [branch, setBranch] = useState('Todos');
   const [selectedProfessional, setSelectedProfessional] = useState(null);
 
   const filters = useMemo(() => ({
@@ -64,14 +64,14 @@ export function ProfessionalsPage() {
   }), [professionals]);
 
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = normalizeText(search.trim());
     const result = professionals.filter((professional) => {
       const haystack = [
         professional.fullName,
         professional.especialidad,
         professional.cargo,
         professional.sucursal,
-      ].join(' ').toLowerCase();
+      ].map(normalizeText).join(' ');
 
       return (!query || haystack.includes(query))
         && matches(professional.especialidad, specialty)
@@ -85,6 +85,14 @@ export function ProfessionalsPage() {
 
     return result;
   }, [professionals, search, specialty, availability, branch]);
+
+  const hasActiveFilters = search || specialty !== 'Todos' || availability !== 'Todos' || branch !== 'Todos';
+  const clearFilters = () => {
+    setSearch('');
+    setSpecialty('Todos');
+    setAvailability('Todos');
+    setBranch('Todos');
+  };
 
   return (
     <>
@@ -112,8 +120,13 @@ export function ProfessionalsPage() {
           <div className="professionals-filter-grid">
             <PremiumSelect id="filter-specialty" label="Especialidad" value={specialty} options={filters.specialties} onChange={setSpecialty} />
             <PremiumSelect id="filter-availability" label="Disponibilidad" value={availability} options={availabilityOptions} onChange={setAvailability} />
-            <PremiumSelect id="filter-branch" label="Sucursal" value={branch} options={branchOptions} onChange={setBranch} />
+            <PremiumSelect id="filter-branch" label="Sucursal" value={branch} options={unique(branchOptions.map((option) => option.value))} onChange={setBranch} />
           </div>
+          {hasActiveFilters && (
+            <button type="button" className="admin-text-button" onClick={clearFilters}>
+              Limpiar filtros
+            </button>
+          )}
         </div>
 
         {isLoading ? (

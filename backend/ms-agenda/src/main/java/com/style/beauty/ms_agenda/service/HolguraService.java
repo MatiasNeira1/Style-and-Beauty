@@ -13,6 +13,7 @@ import java.util.Map;
 public class HolguraService {
 
     private static final int MINUTOS_ATENCION_MINIMA = 5;
+    private static final int HOLGURA_FALLBACK_MINUTOS = 15;
     private static final Map<String, Integer> HOLGURA_POR_CATEGORIA = Map.of(
             "cabello", 30,
             "maquillaje", 15,
@@ -22,6 +23,10 @@ public class HolguraService {
     );
 
     public int calcularHolguraMin(ServicioResumen servicio) {
+        return calcularHolguraMin(servicio, null);
+    }
+
+    public int calcularHolguraMin(ServicioResumen servicio, Integer holguraStaffMinutos) {
 
         if (servicio == null) {
             throw new BusinessException("No se pudo obtener la información del servicio");
@@ -33,10 +38,12 @@ public class HolguraService {
 
         Integer holguraConfigurada = servicio.holguraMinutos() != null
                 ? servicio.holguraMinutos()
-                : holguraPorCategoria(servicio.categoria());
+                : holguraStaffMinutos != null
+                    ? holguraStaffMinutos
+                    : holguraPorCategoria(servicio.categoria());
 
         if (holguraConfigurada == null) {
-            throw new BusinessException("La holgura del servicio debe estar configurada en ms-catalogo");
+            holguraConfigurada = HOLGURA_FALLBACK_MINUTOS;
         }
 
         if (holguraConfigurada < 0) {
