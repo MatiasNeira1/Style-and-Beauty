@@ -16,6 +16,7 @@ import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useCart } from '../../store/CartContext.jsx';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
+import { isBookingDateAllowed, maxBookingDate, RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
 
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
@@ -468,7 +469,7 @@ export function ServiceDetailPage() {
       availabilityWeekCache.current.delete(`${idServicio}:${staffId(profesionalSeleccionado)}:${formatLocalDate(semanaInicio)}`);
       await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
       await queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
-      setMensajeReserva('Reserva agregada al carrito. Tienes 5 minutos para confirmarla antes de que el horario se libere.');
+      setMensajeReserva(`Reserva agregada al carrito. Tienes ${RESERVATION_EXPIRATION_MINUTES} minutos para confirmarla antes de que el horario se libere.`);
       setObservacionCliente('');
     } catch (error) {
       const message = error.message || '';
@@ -490,6 +491,11 @@ export function ServiceDetailPage() {
     && !errorDisponibilidad
     && semanaCargada
     && fechasSemana.every((fecha) => (disponibilidadSemana[fecha] || []).length === 0);
+  const nextWeekStart = addDays(semanaInicio, 7);
+  const previousWeekEnd = addDays(semanaInicio, -1);
+  const today = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  const canGoNextWeek = nextWeekStart <= maxBookingDate();
+  const canGoPrevWeek = previousWeekEnd >= today;
 
   if (servicesQuery.isLoading) {
     return (
@@ -569,7 +575,7 @@ export function ServiceDetailPage() {
 
             <div className="service-booking-panel">
               <div className="service-week-header">
-                <button type="button" className="button button-sm button-secondary" onClick={() => handleWeekChange(-1)}>
+                <button type="button" className="button button-sm button-secondary" onClick={() => handleWeekChange(-1)} disabled={!canGoPrevWeek}>
                   Semana anterior
                 </button>
                 <div>
@@ -577,7 +583,7 @@ export function ServiceDetailPage() {
                   <h3>Selecciona tu hora</h3>
                   <p>Semana desde el {weekRangeLabel(semanaInicio)}</p>
                 </div>
-                <button type="button" className="button button-sm button-secondary" onClick={() => handleWeekChange(1)}>
+                <button type="button" className="button button-sm button-secondary" onClick={() => handleWeekChange(1)} disabled={!canGoNextWeek}>
                   Semana siguiente
                 </button>
               </div>
@@ -592,7 +598,8 @@ export function ServiceDetailPage() {
                   {diasSemana.map((dia) => {
                     const fecha = formatLocalDate(dia);
                     const slots = disponibilidadSemana[fecha] || [];
-                    const available = slots.length > 0;
+                    const dateAllowed = isBookingDateAllowed(fecha);
+                    const available = dateAllowed && slots.length > 0;
                     const selected = fechaSeleccionada === fecha;
 
                     return (
@@ -600,6 +607,7 @@ export function ServiceDetailPage() {
                         key={fecha}
                         type="button"
                         className={selected ? 'service-week-day is-selected' : 'service-week-day'}
+                        disabled={!dateAllowed}
                         onClick={() => handleSelectDay(fecha)}
                       >
                         <strong>{new Intl.DateTimeFormat('es-CL', { weekday: 'short' }).format(dia)}</strong>

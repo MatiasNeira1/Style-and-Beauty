@@ -24,5 +24,8 @@ public record PerfilResumen(
         String fotoUrl,
 
         @JsonAlias({"activo", "active"})
-        Boolean activo) {
+        Boolean activo,
+
+        @JsonAlias({"holguraCitaMinutos", "holgura_cita_minutos", "holguraMinutos", "holgura_minutos"})
+        Integer holguraCitaMinutos) {
 }

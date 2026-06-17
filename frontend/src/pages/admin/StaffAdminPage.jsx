@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, Camera, Eye, Image, Pencil, Plus, Trash2, Users } from 'lucide-react';
+import { CalendarClock, Camera, Eye, Image, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton } from '../../components/admin/AdminPrimitives.jsx';
 import { StaffDeleteDialog } from '../../components/admin/staff/StaffDeleteDialog.jsx';
@@ -10,6 +10,7 @@ import { StaffProfileCard } from '../../components/admin/staff/StaffProfileCard.
 import { StaffWorkSchedule } from '../../components/admin/staff/StaffWorkSchedule.jsx';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { Button } from '../../components/ui/Button.jsx';
+import { Input } from '../../components/ui/Input.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { authService } from '../../services/authService.js';
@@ -33,6 +34,10 @@ function staffPhoto(staff) {
   return staff?.fotoUrl || staff?.imageUrl || staff?.foto;
 }
 
+function normalizeText(value = '') {
+  return String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 export function StaffAdminPage() {
   const queryClient = useQueryClient();
   const [showFormModal, setShowFormModal] = useState(false);
@@ -40,6 +45,8 @@ export function StaffAdminPage() {
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [staffToDelete, setStaffToDelete] = useState(null);
   const [activeTab, setActiveTab] = useState(TABS.PROFILE);
+  const [staffSearch, setStaffSearch] = useState('');
+  const [staffStatusFilter, setStaffStatusFilter] = useState('TODOS');
 
   const staffQuery = useQuery({ queryKey: ['staff-list'], queryFn: staffService.listStaff });
   const specialtiesQuery = useQuery({ queryKey: ['staff-specialties'], queryFn: staffService.listSpecialties });
@@ -169,10 +176,30 @@ export function StaffAdminPage() {
   const handleUpload = useCallback((file) => uploadImageMutation.mutateAsync(file), [uploadImageMutation]);
   const handleDeleteImage = useCallback((imageId) => deleteImageMutation.mutate(imageId), [deleteImageMutation]);
 
-  const staff = Array.isArray(staffQuery.data) ? staffQuery.data : [];
-  const specialties = Array.isArray(specialtiesQuery.data) ? specialtiesQuery.data : [];
-  const schedules = Array.isArray(scheduleQuery.data) ? scheduleQuery.data : [];
-  const portfolio = Array.isArray(portfolioQuery.data) ? portfolioQuery.data : [];
+  const staff = useMemo(() => (Array.isArray(staffQuery.data) ? staffQuery.data : []), [staffQuery.data]);
+  const specialties = useMemo(() => (Array.isArray(specialtiesQuery.data) ? specialtiesQuery.data : []), [specialtiesQuery.data]);
+  const schedules = useMemo(() => (Array.isArray(scheduleQuery.data) ? scheduleQuery.data : []), [scheduleQuery.data]);
+  const portfolio = useMemo(() => (Array.isArray(portfolioQuery.data) ? portfolioQuery.data : []), [portfolioQuery.data]);
+  const filteredStaff = useMemo(() => {
+    const needle = normalizeText(staffSearch.trim());
+    return staff.filter((member) => {
+      const haystack = [
+        staffFullName(member),
+        member.emailContacto,
+        member.telefono,
+        member.especialidad?.nombre,
+        member.nombreEspecialidad,
+      ].map(normalizeText).join(' ');
+      const matchesSearch = needle ? haystack.includes(needle) : true;
+      const matchesStatus = staffStatusFilter === 'TODOS'
+        ? true
+        : staffStatusFilter === 'ACTIVO'
+          ? member.activo !== false
+          : member.activo === false;
+      return matchesSearch && matchesStatus;
+    });
+  }, [staff, staffSearch, staffStatusFilter]);
+  const hasActiveStaffFilters = staffSearch || staffStatusFilter !== 'TODOS';
 
   const columns = [
     {
@@ -239,6 +266,41 @@ export function StaffAdminPage() {
         </p>
       )}
 
+      <section className="admin-panel compact-panel">
+        <header>
+          <div>
+            <h3>Busqueda y filtros</h3>
+            <p>Busca por nombre, especialidad, email o telefono.</p>
+          </div>
+          {hasActiveStaffFilters && (
+            <button
+              type="button"
+              className="admin-text-button"
+              onClick={() => {
+                setStaffSearch('');
+                setStaffStatusFilter('TODOS');
+              }}
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </header>
+        <div className="admin-local-filter-grid">
+          <label className="field admin-search-field">
+            <span>Buscar</span>
+            <div className="admin-filter-search">
+              <Search size={16} />
+              <input value={staffSearch} onChange={(event) => setStaffSearch(event.target.value)} placeholder="Nombre, especialidad o email" />
+            </div>
+          </label>
+          <Input as="select" label="Estado" id="staff-status-filter" value={staffStatusFilter} onChange={(event) => setStaffStatusFilter(event.target.value)}>
+            <option value="TODOS">Todos los estados</option>
+            <option value="ACTIVO">Activos</option>
+            <option value="INACTIVO">Inactivos</option>
+          </Input>
+        </div>
+      </section>
+
       {staffQuery.isLoading ? (
         <AdminSkeleton rows={5} />
       ) : staffQuery.isError ? (
@@ -247,7 +309,8 @@ export function StaffAdminPage() {
         <DataTable
           compact
           columns={columns}
-          rows={staff}
+          rows={filteredStaff}
+          emptyMessage="No hay profesionales para este filtro."
           onRowClick={(row) => { setSelectedStaff(row); setActiveTab(TABS.PROFILE); }}
           getRowKey={(row) => getStaffId(row)}
           getRowLabel={(row) => `Ver detalle de ${staffFullName(row)}`}

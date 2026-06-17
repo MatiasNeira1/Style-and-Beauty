@@ -19,6 +19,7 @@ import { HOME_HERO_IMAGE_URL } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
 import { useCart } from '../../store/CartContext.jsx';
+import { RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
 
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
@@ -210,7 +211,7 @@ export function BookingPage() {
         return;
       }
 
-      setConfirmError('Reserva agregada al carrito. Tienes 5 minutos para confirmarla antes de que el horario se libere.');
+      setConfirmError(`Reserva agregada al carrito. Tienes ${RESERVATION_EXPIRATION_MINUTES} minutos para confirmarla antes de que el horario se libere.`);
     } catch (error) {
       setConfirmError(bookingErrorMessage(error));
       return;

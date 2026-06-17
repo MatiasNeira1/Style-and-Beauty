@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/Card.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { crearTransaccionWebpay } from '../../services/pagosService.js';
 import { reservationService } from '../../services/reservationService.js';
+import { RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
 import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { useCart } from '../../store/CartContext.jsx';
 import { useAuth } from '../../store/AuthContext.jsx';
@@ -196,7 +197,7 @@ export function CheckoutPage() {
 
           {hasReservations && (
             <p className="admin-alert">
-              Las reservas del carrito mantienen su hora retenida por 5 minutos. Si expiran, vuelve a seleccionar horario.
+              Las reservas del carrito mantienen su hora retenida por {RESERVATION_EXPIRATION_MINUTES} minutos. Si expiran, vuelve a seleccionar horario.
             </p>
           )}
 

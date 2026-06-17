@@ -1,4 +1,5 @@
 import { AGENDA_API_BASE_URL, PROFILES_API_BASE_URL, request } from './apiClient.js';
+import { assertBookingDateAllowed } from '../utils/bookingDateRules.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -10,6 +11,7 @@ function normalizeAvailabilityPayload({ idServicio, idStaff, fecha }) {
   if (!isValidUuid(idServicio) || !isValidUuid(idStaff) || !fecha) {
     throw new Error('Selecciona servicio, profesional y fecha para consultar disponibilidad.');
   }
+  assertBookingDateAllowed(fecha);
 
   return {
     idServicio,
@@ -36,6 +38,7 @@ export const reservationService = {
     if (!isValidUuid(serviceId) || !isValidUuid(professionalId) || !startsAt) {
       throw new Error('Selecciona servicio, profesional y horario para continuar.');
     }
+    assertBookingDateAllowed(startsAt.slice(0, 10));
 
     return request({
       baseURL: AGENDA_API_BASE_URL,
