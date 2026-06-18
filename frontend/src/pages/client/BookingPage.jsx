@@ -6,6 +6,7 @@ import { Badge } from '../../components/ui/Badge.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
+import { Modal } from '../../components/ui/Modal.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { BookingSummary } from '../../components/booking/BookingSummary.jsx';
 import { DateTimePicker } from '../../components/booking/DateTimePicker.jsx';
@@ -68,6 +69,7 @@ export function BookingPage() {
   const initialProfessional = location.state?.professional || null;
   const initialHour = location.state?.selectedHour || '';
   const initialDate = location.state?.selectedDate || '';
+  const initialContinuationMode = Boolean(location.state?.continuationMode && initialDate);
 
   const [service, setService] = useState(initialService);
   const [member, setMember] = useState(initialProfessional);
@@ -81,7 +83,7 @@ export function BookingPage() {
   const [confirmError, setConfirmError] = useState('');
   const [agregandoCarrito, setAgregandoCarrito] = useState(false);
   const [sameDayPromptOpen, setSameDayPromptOpen] = useState(false);
-  const [continuationMode, setContinuationMode] = useState(false);
+  const [continuationMode, setContinuationMode] = useState(initialContinuationMode);
 
   const selectedServiceId = serviceId(service);
   const selectedStaffId = staffId(member);
@@ -103,6 +105,37 @@ export function BookingPage() {
   const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
   const serviceStaff = useMemo(() => (Array.isArray(serviceStaffQuery.data) ? serviceStaffQuery.data : []), [serviceStaffQuery.data]);
   const idCliente = myProfile?.idPersona;
+  const serviceStaffIdsKey = useMemo(
+    () => serviceStaff.map((item) => staffId(item)).filter(Boolean).join(','),
+    [serviceStaff],
+  );
+
+  const continuationStaffAvailabilityQuery = useQuery({
+    queryKey: ['continuation-staff-availability', selectedServiceId, date, idCliente || 'anon', serviceStaffIdsKey],
+    queryFn: async () => {
+      const entries = await Promise.all(serviceStaff.map(async (item) => {
+        const idStaff = staffId(item);
+        if (!reservationService.isValidUuid(idStaff)) return [idStaff || 'invalid', []];
+        const slots = await reservationService.getAvailability({
+          idServicio: selectedServiceId,
+          idStaff,
+          fecha: date,
+          idCliente,
+        });
+        return [idStaff, filterBookableSlots(Array.isArray(slots) ? slots : [])];
+      }));
+      return Object.fromEntries(entries);
+    },
+    enabled: Boolean(continuationMode && hasValidServiceId && date && idCliente && serviceStaff.length > 0),
+  });
+
+  const staffOptions = useMemo(() => {
+    if (!continuationMode || !continuationStaffAvailabilityQuery.data) return serviceStaff;
+    return serviceStaff.filter((item) => {
+      const idStaff = staffId(item);
+      return (continuationStaffAvailabilityQuery.data[idStaff] || []).length > 0;
+    });
+  }, [continuationMode, continuationStaffAvailabilityQuery.data, serviceStaff]);
 
   const availabilityQuery = useQuery({
     queryKey: ['availability', selectedStaffId, selectedServiceId, date, idCliente || 'anon'],
@@ -168,7 +201,6 @@ export function BookingPage() {
       const message = 'Ya tienes una reserva temporal para este servicio en el carrito.';
       setConfirmError(message);
       setLastCartError(message);
-      setIsCartOpen(true);
       return;
     }
 
@@ -235,7 +267,7 @@ export function BookingPage() {
         return;
       }
 
-      setConfirmError(`Reserva agregada al carrito. Tienes ${RESERVATION_EXPIRATION_MINUTES} minutos para confirmarla antes de que el horario se libere.`);
+      setConfirmError('');
       setSameDayPromptOpen(true);
     } catch (error) {
       setConfirmError(bookingErrorMessage(error));
@@ -306,11 +338,17 @@ export function BookingPage() {
               <Loader />
             ) : serviceStaffQuery.isError ? (
               <p className="admin-alert">No fue posible cargar profesionales.</p>
+            ) : continuationMode && continuationStaffAvailabilityQuery.isLoading ? (
+              <Loader />
+            ) : continuationMode && continuationStaffAvailabilityQuery.isError ? (
+              <p className="admin-alert">No fue posible validar profesionales para la cita consecutiva.</p>
             ) : serviceStaff.length === 0 ? (
               <p className="admin-alert">No hay profesionales asociados a este servicio por el momento.</p>
+            ) : staffOptions.length === 0 ? (
+              <p className="admin-alert">No hay profesionales disponibles inmediatamente después de tu cita anterior para este servicio.</p>
             ) : (
               <StaffSelector
-                staff={serviceStaff}
+                staff={staffOptions}
                 selectedId={staffId(member)}
                 onSelect={(value) => {
                   setMember(value);
@@ -376,44 +414,50 @@ export function BookingPage() {
           </aside>
         )}
       </section>
-      {sameDayPromptOpen && (
-        <div className="modal-backdrop">
-          <div className="modal booking-followup-modal" role="dialog" aria-modal="true" aria-labelledby="booking-followup-title">
-            <header>
-              <h2 id="booking-followup-title">¿Deseas realizar otra cita para el mismo día?</h2>
-            </header>
-            <div className="modal-body">
-              <p>Tu siguiente cita comenzará después de la anterior, respetando la holgura del servicio.</p>
-              <div className="auth-reservation-actions">
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setSameDayPromptOpen(false);
-                    setContinuationMode(true);
-                    setService(null);
-                    setMember(null);
-                    setTime('');
-                    setStep(1);
-                  }}
-                >
-                  Sí, agregar otra cita
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setSameDayPromptOpen(false);
-                    setIsCartOpen(false);
-                    navigate('/checkout');
-                  }}
-                >
-                  No, ir al resumen
-                </Button>
-              </div>
-            </div>
-          </div>
+      <Modal
+        open={sameDayPromptOpen}
+        title="Reserva agregada al carrito"
+        onClose={() => setSameDayPromptOpen(false)}
+        className="booking-followup-modal"
+      >
+        <p>Tienes {RESERVATION_EXPIRATION_MINUTES} minutos para confirmarla antes de que el horario se libere.</p>
+        <p>¿Deseas realizar otra cita para el mismo día?</p>
+        <div className="auth-reservation-actions">
+          <Button
+            type="button"
+            onClick={() => {
+              setSameDayPromptOpen(false);
+              setContinuationMode(true);
+              setService(null);
+              setMember(null);
+              setTime('');
+              setStep(1);
+            }}
+          >
+            Agregar otra cita
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setSameDayPromptOpen(false);
+              setIsCartOpen(true);
+            }}
+          >
+            Ir al carrito
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setSameDayPromptOpen(false);
+              navigate('/servicios');
+            }}
+          >
+            Seguir viendo servicios
+          </Button>
         </div>
-      )}
+      </Modal>
     </>
   );
 }

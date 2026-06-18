@@ -44,7 +44,9 @@ import static org.mockito.Mockito.when;
 class CitaServiceTest {
 
     private static final UUID ID_CLIENTE = UUID.fromString("10000000-0000-0000-0000-000000000001");
+    private static final UUID ID_CLIENTE_OTRO = UUID.fromString("10000000-0000-0000-0000-000000000002");
     private static final UUID ID_STAFF = UUID.fromString("20000000-0000-0000-0000-000000000001");
+    private static final UUID ID_STAFF_ANTERIOR = UUID.fromString("20000000-0000-0000-0000-000000000002");
     private static final UUID ID_SERVICIO = UUID.fromString("30000000-0000-0000-0000-000000000001");
     private static final LocalDate FECHA = LocalDate.of(2030, 1, 7);
     private static final ZoneId ZONE = ZoneId.of("America/Santiago");
@@ -411,6 +413,64 @@ class CitaServiceTest {
     }
 
     @Test
+    void disponibilidadConClienteNoBloqueaDiaSiSlotConsecutivoNoAlineaConGrillaDelStaff() {
+        when(servicioClient.obtenerServicio(ID_SERVICIO))
+                .thenReturn(new ServicioResumen(ID_SERVICIO, "Manicure", "Nails", 45, 15));
+        when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(ID_STAFF, FECHA.getDayOfWeek().getValue()))
+                .thenReturn(List.of(jornada(LocalTime.of(9, 0), LocalTime.of(18, 0))));
+
+        Cita citaAnterior = cita(ID_CLIENTE, ID_STAFF_ANTERIOR, at(9, 0), at(10, 0), at(10, 15), 60, 15);
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarCitasClienteEnRango(any(), any(), any(), any())).thenReturn(List.of(citaAnterior));
+
+        List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(
+                new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null, ID_CLIENTE));
+
+        assertThat(slots).extracting(DisponibilidadSlot::inicio)
+                .containsExactly(at(10, 15));
+        assertThat(slots.get(0).finAtencion()).isEqualTo(at(11, 0));
+        assertThat(slots.get(0).finVisible()).isEqualTo(at(11, 15));
+    }
+
+    @Test
+    void disponibilidadConClienteDevuelveVacioSiStaffNoTieneSlotConsecutivo() {
+        when(servicioClient.obtenerServicio(ID_SERVICIO))
+                .thenReturn(new ServicioResumen(ID_SERVICIO, "Manicure", "Nails", 45, 15));
+        when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(ID_STAFF, FECHA.getDayOfWeek().getValue()))
+                .thenReturn(List.of(jornada(LocalTime.of(9, 0), LocalTime.of(18, 0))));
+
+        Cita citaAnterior = cita(ID_CLIENTE, ID_STAFF_ANTERIOR, at(9, 0), at(10, 0), at(10, 15), 60, 15);
+        Cita citaStaff = cita(ID_CLIENTE_OTRO, ID_STAFF, at(10, 0), at(10, 45), at(11, 15), 45, 30);
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of(citaStaff));
+        when(citaRepository.buscarCitasClienteEnRango(any(), any(), any(), any())).thenReturn(List.of(citaAnterior));
+
+        List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(
+                new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null, ID_CLIENTE));
+
+        assertThat(slots).isEmpty();
+    }
+
+    @Test
+    void crearPermiteCitaConsecutivaAunqueNoAlineeConGrillaNormalDelStaff() {
+        when(servicioClient.obtenerServicio(ID_SERVICIO))
+                .thenReturn(new ServicioResumen(ID_SERVICIO, "Manicure", "Nails", 45, 15));
+        when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(ID_STAFF, FECHA.getDayOfWeek().getValue()))
+                .thenReturn(List.of(jornada(LocalTime.of(9, 0), LocalTime.of(18, 0))));
+
+        Cita citaAnterior = cita(ID_CLIENTE, ID_STAFF_ANTERIOR, at(9, 0), at(10, 0), at(10, 15), 60, 15);
+        when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarChoquesCliente(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarCitasClienteEnRango(any(), any(), any(), any())).thenReturn(List.of(citaAnterior));
+
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(10, 15), null, null, null));
+
+        assertThat(creada.getFechaHoraInicio()).isEqualTo(at(10, 15));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(11, 0));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(11, 15));
+    }
+
+    @Test
     void rechazaCitaMismoDiaNoConsecutiva() {
         Cita citaExistente = cita(at(9, 0), at(10, 0), at(10, 30));
         when(citaRepository.buscarCitasClienteEnRango(any(), any(), any(), any())).thenReturn(List.of(citaExistente));
@@ -488,15 +548,27 @@ class CitaServiceTest {
     }
 
     private Cita cita(OffsetDateTime inicio, OffsetDateTime finAtencion, OffsetDateTime finVisible) {
+        return cita(ID_CLIENTE, ID_STAFF, inicio, finAtencion, finVisible, 60, 30);
+    }
+
+    private Cita cita(
+            UUID idCliente,
+            UUID idStaff,
+            OffsetDateTime inicio,
+            OffsetDateTime finAtencion,
+            OffsetDateTime finVisible,
+            int duracion,
+            int holgura
+    ) {
         return Cita.builder()
-                .idCliente(ID_CLIENTE)
-                .idStaff(ID_STAFF)
+                .idCliente(idCliente)
+                .idStaff(idStaff)
                 .idServicio(ID_SERVICIO)
                 .fechaHoraInicio(inicio)
                 .fechaHoraFin(finVisible)
                 .fechaHoraFinAtencion(finAtencion)
-                .duracionServicioMin(60)
-                .holguraMin(30)
+                .duracionServicioMin(duracion)
+                .holguraMin(holgura)
                 .estadoCita(EstadoCita.PENDIENTE_PAGO)
                 .tipoCita(TipoCita.NORMAL)
                 .build();
