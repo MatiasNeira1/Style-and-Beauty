@@ -2304,7 +2304,9 @@ a.contact-info-card:hover {
 .product-brand-detail {
   display: grid;
   gap: clamp(2rem, 5vw, 4rem);
+  max-width: 100%;
   min-width: 0;
+  overflow-x: clip;
   width: 100%;
 }
 
@@ -2392,6 +2394,7 @@ a.contact-info-card:hover {
   display: grid;
   gap: clamp(2.6rem, 6vw, 5.2rem);
   min-width: 0;
+  overflow-x: clip;
   width: 100%;
 }
 
@@ -2479,6 +2482,7 @@ a.contact-info-card:hover {
   align-content: center;
   display: grid;
   gap: clamp(0.72rem, 1.5vw, 1rem);
+  inline-size: 100%;
   max-width: 100%;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -2530,6 +2534,7 @@ a.contact-info-card:hover {
   margin: 0;
   max-width: 62ch;
   overflow-wrap: anywhere;
+  text-wrap: pretty;
   word-break: break-word;
 }
 
@@ -2538,6 +2543,7 @@ a.contact-info-card:hover {
   flex-wrap: wrap;
   gap: 0.45rem;
   max-width: 560px;
+  min-width: 0;
 }
 
 .product-editorial-benefits span {
@@ -2551,6 +2557,7 @@ a.contact-info-card:hover {
   min-width: 0;
   overflow-wrap: anywhere;
   padding: 0.42rem 0.62rem;
+  white-space: normal;
 }
 
 .product-editorial-benefits svg {
@@ -2580,6 +2587,7 @@ a.contact-info-card:hover {
   box-shadow: 0 12px 28px rgba(169, 52, 84, 0.14);
   min-height: 2.75rem;
   padding-inline: 1.15rem;
+  white-space: normal;
 }
 
 .page-section {

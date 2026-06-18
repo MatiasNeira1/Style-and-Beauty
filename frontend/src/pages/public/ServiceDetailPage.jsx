@@ -16,7 +16,7 @@ import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useCart } from '../../store/CartContext.jsx';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
-import { isBookingDateAllowed, maxBookingDate, RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
+import { filterBookableSlots, isBookingDateAllowed, maxBookingDate, RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
 
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
@@ -132,6 +132,21 @@ function profileErrorMessage(error) {
   return error?.message || 'No se pudo cargar tu perfil de cliente.';
 }
 
+function bookingErrorMessage(error) {
+  const message = String(error?.message || '').toLowerCase();
+  if (message.includes('anteriores a hoy')) return 'No puedes reservar fechas anteriores a hoy.';
+  if (message.includes('30') || message.includes('anticipacion') || message.includes('anticipación')) return 'Solo puedes reservar hasta 30 días de anticipación.';
+  if (message.includes('domingo')) return 'No atendemos los domingos.';
+  if (message.includes('16:00')) return 'Los sábados atendemos solo hasta las 16:00.';
+  if (message.includes('solapa') || message.includes('consecutivo') || message.includes('ya tienes una cita')) {
+    return 'Ya tienes una cita en ese horario. Elige el horario consecutivo disponible.';
+  }
+  if (message.includes('perfil') || message.includes('cliente')) {
+    return 'No se pudo identificar tu perfil de cliente. Inicia sesion nuevamente o completa tu registro.';
+  }
+  return error?.message || 'No se pudo agregar la reserva al carrito. Intenta nuevamente.';
+}
+
 export function ServiceDetailPage() {
   const { categoria, servicio } = useParams();
   const navigate = useNavigate();
@@ -174,6 +189,7 @@ export function ServiceDetailPage() {
   const service = categoryServices.find((item) => serviceMatchesSlug(item, servicio));
   const idServicio = serviceId(service);
   const idServicioValido = reservationService.isValidUuid(idServicio);
+  const idClientePerfil = profileQuery.data?.idPersona;
 
   const savePendingReservation = () => {
     const pending = {
@@ -260,7 +276,15 @@ export function ServiceDetailPage() {
   useEffect(() => {
     const idStaff = staffId(profesionalSeleccionado);
     const idStaffValido = reservationService.isValidUuid(idStaff);
+    const idCliente = idClientePerfil;
     if (!idServicioValido || !idStaffValido) {
+      setDisponibilidadSemana({});
+      setFechaSeleccionada('');
+      setHorariosDisponibles([]);
+      setHorarioSeleccionado(null);
+      return undefined;
+    }
+    if (isAuthenticated && profileQuery.isLoading) {
       setDisponibilidadSemana({});
       setFechaSeleccionada('');
       setHorariosDisponibles([]);
@@ -278,7 +302,7 @@ export function ServiceDetailPage() {
 
     const dias = weekDays(semanaInicio);
     const fechaInicioSemana = formatLocalDate(semanaInicio);
-    const weekKey = `${idServicio}:${idStaff}:${fechaInicioSemana}`;
+    const weekKey = `${idServicio}:${idStaff}:${fechaInicioSemana}:${idCliente || 'anon'}`;
 
     if (availabilityWeekCache.current.has(weekKey)) {
       setDisponibilidadSemana(availabilityWeekCache.current.get(weekKey));
@@ -286,7 +310,7 @@ export function ServiceDetailPage() {
       return undefined;
     }
 
-    const payload = { idServicio, idStaff, fecha: fechaInicioSemana };
+    const payload = { idServicio, idStaff, fecha: fechaInicioSemana, idCliente };
 
     const loadWeeklyAvailability = async () => {
       try {
@@ -296,7 +320,7 @@ export function ServiceDetailPage() {
         if (Array.isArray(response)) {
           response.forEach((dia) => {
             if (dia?.fecha) {
-              weeklyAvailability[dia.fecha] = Array.isArray(dia.slots) ? dia.slots : [];
+              weeklyAvailability[dia.fecha] = filterBookableSlots(Array.isArray(dia.slots) ? dia.slots : []);
             }
           });
         }
@@ -309,9 +333,9 @@ export function ServiceDetailPage() {
 
         const entries = await Promise.all(dias.map(async (dia) => {
           const fecha = formatLocalDate(dia);
-          const dailyPayload = { idServicio, idStaff, fecha };
+          const dailyPayload = { idServicio, idStaff, fecha, idCliente };
           const response = await agendaService.consultarDisponibilidad(dailyPayload);
-          return [fecha, Array.isArray(response) ? response : []];
+          return [fecha, filterBookableSlots(Array.isArray(response) ? response : [])];
         }));
 
         return Object.fromEntries(entries);
@@ -333,7 +357,7 @@ export function ServiceDetailPage() {
     return () => {
       active = false;
     };
-  }, [idServicio, idServicioValido, profesionalSeleccionado, semanaInicio]);
+  }, [idServicio, idServicioValido, profesionalSeleccionado, semanaInicio, isAuthenticated, idClientePerfil, profileQuery.isLoading]);
 
   useEffect(() => {
     const pending = pendingReservationRef.current;
@@ -368,8 +392,10 @@ export function ServiceDetailPage() {
   };
 
   const handleSelectDay = (fecha) => {
+    const slots = disponibilidadSemana[fecha] || [];
+    if (!isBookingDateAllowed(fecha) || slots.length === 0) return;
     setFechaSeleccionada(fecha);
-    setHorariosDisponibles(disponibilidadSemana[fecha] || []);
+    setHorariosDisponibles(slots);
     setHorarioSeleccionado(null);
     setMensajeReserva('');
   };
@@ -442,7 +468,8 @@ export function ServiceDetailPage() {
         name: service?.nombre || service?.name || 'Reserva',
         price: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
         startsAt: citaCreada.fechaHoraInicio || horarioReservado,
-        endsAt: citaCreada.fechaHoraFin,
+        endsAt: citaCreada.fechaHoraFinAtencion || horarioSeleccionado.finAtencion || citaCreada.fechaHoraFin,
+        blockedUntil: citaCreada.fechaHoraFin,
         expiresAt: citaCreada.expiracionReserva,
         duracionServicioMin: citaCreada?.duracionServicioMin,
         holguraMin: citaCreada?.holguraMin,
@@ -466,18 +493,16 @@ export function ServiceDetailPage() {
       }));
       setHorariosDisponibles(horariosActualizados);
       setHorarioSeleccionado(null);
-      availabilityWeekCache.current.delete(`${idServicio}:${staffId(profesionalSeleccionado)}:${formatLocalDate(semanaInicio)}`);
+      availabilityWeekCache.current.delete(`${idServicio}:${staffId(profesionalSeleccionado)}:${formatLocalDate(semanaInicio)}:${idClientePerfil || 'anon'}`);
       await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
       await queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
       setMensajeReserva(`Reserva agregada al carrito. Tienes ${RESERVATION_EXPIRATION_MINUTES} minutos para confirmarla antes de que el horario se libere.`);
       setObservacionCliente('');
+      window.setTimeout(() => {
+        navigate('/servicios', { state: { reservationAdded: true } });
+      }, 1200);
     } catch (error) {
-      const message = error.message || '';
-      if (message.toLowerCase().includes('perfil') || message.toLowerCase().includes('cliente')) {
-        setMensajeReserva('No se pudo identificar tu perfil de cliente. Inicia sesion nuevamente o completa tu registro.');
-      } else {
-        setMensajeReserva(message || 'No se pudo agregar la reserva al carrito. Intenta nuevamente.');
-      }
+      setMensajeReserva(bookingErrorMessage(error));
     } finally {
       setCreandoCita(false);
     }
@@ -606,8 +631,8 @@ export function ServiceDetailPage() {
                       <button
                         key={fecha}
                         type="button"
-                        className={selected ? 'service-week-day is-selected' : 'service-week-day'}
-                        disabled={!dateAllowed}
+                        className={`${selected ? 'service-week-day is-selected' : 'service-week-day'} ${!available ? 'is-disabled' : ''}`}
+                        disabled={!available}
                         onClick={() => handleSelectDay(fecha)}
                       >
                         <strong>{new Intl.DateTimeFormat('es-CL', { weekday: 'short' }).format(dia)}</strong>
@@ -649,7 +674,7 @@ export function ServiceDetailPage() {
                       className={horarioSeleccionado?.inicio === horario.inicio ? 'service-slot is-selected' : 'service-slot'}
                       onClick={() => setHorarioSeleccionado(horario)}
                     >
-                      {formatSlotTime(horario.inicio)} - {formatSlotTime(horario.finVisible)}
+                      {formatSlotTime(horario.inicio)} - {formatSlotTime(horario.finAtencion || horario.finVisible)}
                     </button>
                   ))}
                 </div>
@@ -673,7 +698,7 @@ export function ServiceDetailPage() {
                     </div>
                     <div>
                       <dt>Hora</dt>
-                      <dd>{formatSlotTime(horarioSeleccionado.inicio)} a {formatSlotTime(horarioSeleccionado.finVisible)}</dd>
+                      <dd>{formatSlotTime(horarioSeleccionado.inicio)} a {formatSlotTime(horarioSeleccionado.finAtencion || horarioSeleccionado.finVisible)}</dd>
                     </div>
                     <div>
                       <dt>Duracion</dt>
@@ -701,7 +726,7 @@ export function ServiceDetailPage() {
                 type="button"
                 className="button"
                 onClick={handleCreateBooking}
-                disabled={creandoCita || (isAuthenticated && (profileQuery.isLoading || profileQuery.isError || !profileQuery.data?.idPersona))}
+                disabled={creandoCita || !horarioSeleccionado || (isAuthenticated && (profileQuery.isLoading || profileQuery.isError || !profileQuery.data?.idPersona))}
               >
                 <CalendarDays size={17} />
                 {creandoCita ? 'Agregando...' : 'Agregar al carrito'}

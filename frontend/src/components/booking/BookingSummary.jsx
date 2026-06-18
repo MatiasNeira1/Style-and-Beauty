@@ -16,13 +16,15 @@ function servicePrice(service) {
 }
 
 export function BookingSummary({ service, staff, date, time, slot }) {
+  const endTime = slot?.finAtencion || slot?.finVisible || slot?.fin;
+
   return (
     <Card className="summary-card">
       <h3>Resumen</h3>
       <p>Servicio: {service?.nombre || service?.name || 'Pendiente'}</p>
       <p>Profesional: {staff?.nombre || staff?.name || 'Pendiente'}</p>
       <p>Fecha: {date ? formatDate(`${date}T00:00:00`) : 'Pendiente'}</p>
-      <p>Hora: {formatTime(time)}</p>
+      <p>Hora: {formatTime(time)}{endTime ? ` - ${formatTime(endTime)}` : ''}</p>
       <p>Duracion: {slot?.duracionServicioMin || service?.duracion_minutos || service?.duracion || 'Pendiente'} min</p>
       <strong>Total estimado: {servicePrice(service)}</strong>
     </Card>

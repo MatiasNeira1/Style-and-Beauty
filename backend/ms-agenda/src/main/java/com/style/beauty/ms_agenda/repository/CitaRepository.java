@@ -58,6 +58,36 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
             List<EstadoCita> estadosIgnorados
     );
 
+    @Query("""
+        SELECT c FROM Cita c
+        WHERE c.idCliente = :idCliente
+        AND c.estadoCita NOT IN :estadosIgnorados
+        AND c.fechaHoraInicio < :fin
+        AND c.fechaHoraFin > :inicio
+        ORDER BY c.fechaHoraInicio ASC
+    """)
+    List<Cita> buscarCitasClienteEnRango(
+            UUID idCliente,
+            OffsetDateTime inicio,
+            OffsetDateTime fin,
+            List<EstadoCita> estadosIgnorados
+    );
+
+    @Transactional
+    @Modifying(flushAutomatically = true)
+    @Query("""
+        UPDATE Cita c
+        SET c.expiracionReserva = :expiracion
+        WHERE c.idCliente = :idCliente
+        AND c.estadoCita = :estadoPendiente
+        AND c.expiracionReserva IS NOT NULL
+    """)
+    int actualizarExpiracionReservasPendientesCliente(
+            UUID idCliente,
+            EstadoCita estadoPendiente,
+            OffsetDateTime expiracion
+    );
+
     @Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

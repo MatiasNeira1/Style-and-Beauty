@@ -14,6 +14,33 @@ function formatRemaining(expiresAt, now) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+function isDateTimeLike(value) {
+  return typeof value === 'string' && value.includes('T') && !Number.isNaN(Date.parse(value));
+}
+
+function formatDate(value) {
+  if (!value) return 'Fecha por confirmar';
+  const date = isDateTimeLike(value) ? new Date(value) : new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return 'Fecha por confirmar';
+  return new Intl.DateTimeFormat('es-CL', { weekday: 'short', day: '2-digit', month: 'short' }).format(date);
+}
+
+function formatTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+}
+
+function professionalName(item) {
+  const staff = item?.staff || {};
+  return `${staff.nombre || ''} ${staff.apellidos || ''}`.trim()
+    || staff.fullName
+    || item?.professionalName
+    || item?.staffName
+    || 'Profesional por confirmar';
+}
+
 export function CartDrawer() {
   const { items, total, isCartOpen, setIsCartOpen, removeItem, updateQuantity, lastCartError, setLastCartError } = useCart();
   const [now, setNow] = useState(Date.now());
@@ -66,10 +93,15 @@ export function CartDrawer() {
                   <span className="cart-item-name">{item.name || item.nombre}</span>
                   <span className="cart-item-price">${Number(item.price || item.precio || 0).toLocaleString('es-CL')}</span>
                   {item.type === 'reservation' && (
-                    <span className="cart-item-timer">
-                      <Clock size={14} />
-                      Expira en {formatRemaining(item.expiresAt, now)}
-                    </span>
+                    <div className="cart-reservation-summary">
+                      <span>{professionalName(item)}</span>
+                      <span>{formatDate(item.date || item.startsAt)} · {formatTime(item.startsAt || item.time)} - {formatTime(item.endsAt)}</span>
+                      <span>{item.duracionServicioMin || item.service?.duracion_minutos || item.service?.duracionMinutos || 'Duracion'} min</span>
+                      <span className="cart-item-timer">
+                        <Clock size={14} />
+                        Expira en {formatRemaining(item.expiresAt, now)}
+                      </span>
+                    </div>
                   )}
                 </div>
                 <div className="cart-line-actions">

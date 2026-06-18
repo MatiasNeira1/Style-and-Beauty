@@ -121,7 +121,13 @@ export function CartProvider({ children }) {
         return activeItems;
       }
 
-      return [...activeItems, { ...reservation, cartVersion: CART_SCHEMA_VERSION, type: 'reservation', quantity: 1 }];
+      const refreshedItems = reservation.expiresAt
+        ? activeItems.map((item) => (
+          isReservation(item) ? { ...item, expiresAt: reservation.expiresAt } : item
+        ))
+        : activeItems;
+
+      return [...refreshedItems, { ...reservation, cartVersion: CART_SCHEMA_VERSION, type: 'reservation', quantity: 1 }];
     });
 
     if (!result.ok) {

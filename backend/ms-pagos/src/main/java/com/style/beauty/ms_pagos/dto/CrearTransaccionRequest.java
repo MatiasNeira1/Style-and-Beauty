@@ -23,6 +23,10 @@ public record CrearTransaccionRequest(
             UUID servicioId,
             @JsonAlias({"idStaff", "staffId", "professionalId"})
             UUID profesionalId,
+            @JsonAlias({"servicio", "serviceName", "nombreServicio"})
+            String servicioNombre,
+            @JsonAlias({"profesional", "professionalName", "nombreProfesional"})
+            String profesionalNombre,
             String fecha,
             OffsetDateTime horaInicio,
             OffsetDateTime horaFin,

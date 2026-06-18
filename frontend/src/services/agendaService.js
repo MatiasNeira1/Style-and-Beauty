@@ -20,6 +20,9 @@ function availabilityPayload(payload) {
     idStaff: payload?.idStaff,
     fecha: payload?.fecha,
   };
+  if (isValidUuid(payload?.idCliente)) {
+    data.idCliente = payload.idCliente;
+  }
 
   if (!isValidUuid(data.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
   if (!isValidUuid(data.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
@@ -35,6 +38,9 @@ function weeklyAvailabilityPayload(payload) {
     idStaff: payload?.idStaff,
     fecha: payload?.fecha || payload?.fechaInicioSemana,
   };
+  if (isValidUuid(payload?.idCliente)) {
+    data.idCliente = payload.idCliente;
+  }
 
   if (!isValidUuid(data.idStaff)) throw new Error('Selecciona un profesional para consultar disponibilidad.');
   if (!isValidUuid(data.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
