@@ -42,14 +42,15 @@ public class CitaController {
             @RequestParam UUID idServicio,
             @RequestParam LocalDate fecha,
             @RequestParam(required = false) Integer duracionServicioMin,
-            @RequestParam(required = false) Integer holguraMin
+            @RequestParam(required = false) Integer holguraMin,
+            @RequestParam(required = false) UUID idCliente
     ) {
         log.info("Entrando a endpoint GET /api/agenda/citas/disponibilidad");
         log.info("Request recibido disponibilidad: idServicio={}, idStaff={}, fecha={}",
                 idServicio, idStaff, fecha);
 
         return citaService.calcularDisponibilidad(
-                new DisponibilidadRequest(idStaff, idServicio, fecha, duracionServicioMin, holguraMin)
+                new DisponibilidadRequest(idStaff, idServicio, fecha, duracionServicioMin, holguraMin, idCliente)
         );
     }
 
@@ -66,14 +67,15 @@ public class CitaController {
     public List<DisponibilidadMensualResponse> disponibilidadSemanalGet(
             @RequestParam UUID idStaff,
             @RequestParam UUID idServicio,
-            @RequestParam LocalDate fechaInicioSemana
+            @RequestParam LocalDate fechaInicioSemana,
+            @RequestParam(required = false) UUID idCliente
     ) {
         log.info("Entrando a endpoint GET /api/agenda/citas/disponibilidad-semanal");
         log.info("Request recibido disponibilidad semanal: idServicio={}, idStaff={}, fechaInicioSemana={}",
                 idServicio, idStaff, fechaInicioSemana);
 
         return citaService.calcularDisponibilidadSemanal(
-                new DisponibilidadSemanalRequest(idStaff, idServicio, fechaInicioSemana)
+                new DisponibilidadSemanalRequest(idStaff, idServicio, fechaInicioSemana, idCliente)
         );
     }
 

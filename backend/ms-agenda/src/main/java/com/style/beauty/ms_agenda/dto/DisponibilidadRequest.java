@@ -1,5 +1,6 @@
 package com.style.beauty.ms_agenda.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
@@ -10,5 +11,16 @@ public record DisponibilidadRequest(
         @NotNull UUID idServicio,
         @NotNull LocalDate fecha,
         Integer duracionServicioMin,
-        Integer holguraMin) {
+        Integer holguraMin,
+        @JsonAlias({"idCliente", "clientId"})
+        UUID idCliente) {
+    public DisponibilidadRequest(
+            UUID idStaff,
+            UUID idServicio,
+            LocalDate fecha,
+            Integer duracionServicioMin,
+            Integer holguraMin
+    ) {
+        this(idStaff, idServicio, fecha, duracionServicioMin, holguraMin, null);
+    }
 }

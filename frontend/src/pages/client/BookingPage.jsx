@@ -19,7 +19,7 @@ import { HOME_HERO_IMAGE_URL } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
 import { useCart } from '../../store/CartContext.jsx';
-import { RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
+import { filterBookableSlots, RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
 
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
@@ -44,6 +44,13 @@ function bookingErrorMessage(error) {
   if (error?.status === 503) return 'El servicio de autenticacion de reservas no esta configurado. Intenta mas tarde.';
   if (message.includes('firebaseapp') || message.includes('firebase admin')) {
     return 'El servicio de autenticacion de reservas no esta disponible. Intenta mas tarde.';
+  }
+  if (message.includes('anteriores a hoy')) return 'No puedes reservar fechas anteriores a hoy.';
+  if (message.includes('30') || message.includes('anticipacion') || message.includes('anticipación')) return 'Solo puedes reservar hasta 30 días de anticipación.';
+  if (message.includes('domingo')) return 'No atendemos los domingos.';
+  if (message.includes('16:00')) return 'Los sábados atendemos solo hasta las 16:00.';
+  if (message.includes('solapa') || message.includes('consecutivo') || message.includes('ya tienes una cita')) {
+    return 'Ya tienes una cita en ese horario. Elige el horario consecutivo disponible.';
   }
 
   return error?.message || 'No se pudo agregar la reserva al carrito. Intenta nuevamente.';
@@ -73,6 +80,8 @@ export function BookingPage() {
   });
   const [confirmError, setConfirmError] = useState('');
   const [agregandoCarrito, setAgregandoCarrito] = useState(false);
+  const [sameDayPromptOpen, setSameDayPromptOpen] = useState(false);
+  const [continuationMode, setContinuationMode] = useState(false);
 
   const selectedServiceId = serviceId(service);
   const selectedStaffId = staffId(member);
@@ -93,26 +102,40 @@ export function BookingPage() {
 
   const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
   const serviceStaff = useMemo(() => (Array.isArray(serviceStaffQuery.data) ? serviceStaffQuery.data : []), [serviceStaffQuery.data]);
+  const idCliente = myProfile?.idPersona;
 
   const availabilityQuery = useQuery({
-    queryKey: ['availability', selectedStaffId, selectedServiceId, date],
+    queryKey: ['availability', selectedStaffId, selectedServiceId, date, idCliente || 'anon'],
     queryFn: () => reservationService.getAvailability({
       idServicio: selectedServiceId,
       idStaff: selectedStaffId,
       fecha: date,
+      idCliente,
     }),
-    enabled: Boolean(hasValidStaffId && hasValidServiceId && date),
+    enabled: Boolean(hasValidStaffId && hasValidServiceId && date && idCliente),
   });
 
+  const availableSlots = useMemo(
+    () => filterBookableSlots(Array.isArray(availabilityQuery.data) ? availabilityQuery.data : []),
+    [availabilityQuery.data],
+  );
+
   const selectedSlot = useMemo(() => {
-    const slots = Array.isArray(availabilityQuery.data) ? availabilityQuery.data : [];
-    return slots.find((slot) => slot.inicio === time);
-  }, [availabilityQuery.data, time]);
+    return availableSlots.find((slot) => slot.inicio === time);
+  }, [availableSlots, time]);
+
+  const availabilityError = useMemo(() => {
+    if (availabilityQuery.error) return availabilityQuery.error.message || 'No fue posible cargar horarios.';
+    if (continuationMode && date && member && !availabilityQuery.isLoading && !availabilityQuery.isFetching && availableSlots.length === 0) {
+      return 'Este profesional no tiene disponibilidad inmediata después de tu cita anterior. Selecciona otro profesional o cambia el servicio.';
+    }
+    return '';
+  }, [availabilityQuery.error, availabilityQuery.isFetching, availabilityQuery.isLoading, availableSlots.length, continuationMode, date, member]);
 
   const bookingMutation = useMutation({
     mutationFn: reservationService.createReservation,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['availability', staffId(member), selectedServiceId, date] });
+      await queryClient.invalidateQueries({ queryKey: ['availability', staffId(member), selectedServiceId, date, idCliente || 'anon'] });
       await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
       await queryClient.invalidateQueries({ queryKey: ['admin-bookings'] });
     },
@@ -155,7 +178,7 @@ export function BookingPage() {
       return;
     }
 
-    const freshSlots = Array.isArray(freshAvailability.data) ? freshAvailability.data : [];
+    const freshSlots = filterBookableSlots(Array.isArray(freshAvailability.data) ? freshAvailability.data : []);
     const stillAvailable = freshSlots.some((slot) => slot.inicio === time);
 
     if (!stillAvailable) {
@@ -195,7 +218,8 @@ export function BookingPage() {
         name: service?.nombre || service?.name || 'Reserva',
         price: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
         startsAt: created.fechaHoraInicio || time,
-        endsAt: created.fechaHoraFin,
+        endsAt: created.fechaHoraFinAtencion || created.fechaHoraFin,
+        blockedUntil: created.fechaHoraFin,
         expiresAt: created.expiracionReserva,
         duracionServicioMin: created?.duracionServicioMin,
         holguraMin: created?.holguraMin,
@@ -212,6 +236,7 @@ export function BookingPage() {
       }
 
       setConfirmError(`Reserva agregada al carrito. Tienes ${RESERVATION_EXPIRATION_MINUTES} minutos para confirmarla antes de que el horario se libere.`);
+      setSameDayPromptOpen(true);
     } catch (error) {
       setConfirmError(bookingErrorMessage(error));
       return;
@@ -265,7 +290,7 @@ export function BookingPage() {
                 onSelect={(value) => {
                   setService(value);
                   setMember(null);
-                  setDate('');
+                  if (!continuationMode) setDate('');
                   setTime('');
                   setConfirmError('');
                   setStep(2);
@@ -289,7 +314,7 @@ export function BookingPage() {
                 selectedId={staffId(member)}
                 onSelect={(value) => {
                   setMember(value);
-                  setDate('');
+                  if (!continuationMode) setDate('');
                   setTime('');
                   setConfirmError('');
                   setStep(3);
@@ -303,12 +328,22 @@ export function BookingPage() {
               <DateTimePicker
                 date={date}
                 time={time}
-                slots={Array.isArray(availabilityQuery.data) ? availabilityQuery.data : []}
+                slots={availableSlots}
                 isLoading={availabilityQuery.isLoading}
-                error={availabilityQuery.error ? availabilityQuery.error.message || 'No fue posible cargar horarios.' : ''}
-                onDateChange={(value) => { setDate(value); setTime(''); setConfirmError(''); }}
+                error={availabilityError}
+                onDateChange={(value) => {
+                  if (continuationMode && date) return;
+                  setDate(value);
+                  setTime('');
+                  setConfirmError('');
+                }}
                 onTimeChange={(value) => { setTime(value); setConfirmError(''); }}
               />
+              {continuationMode && (
+                <p className="admin-alert">
+                  Tu siguiente cita comenzará después de la anterior, respetando la holgura del servicio.
+                </p>
+              )}
             </div>
           )}
 
@@ -341,6 +376,44 @@ export function BookingPage() {
           </aside>
         )}
       </section>
+      {sameDayPromptOpen && (
+        <div className="modal-backdrop">
+          <div className="modal booking-followup-modal" role="dialog" aria-modal="true" aria-labelledby="booking-followup-title">
+            <header>
+              <h2 id="booking-followup-title">¿Deseas realizar otra cita para el mismo día?</h2>
+            </header>
+            <div className="modal-body">
+              <p>Tu siguiente cita comenzará después de la anterior, respetando la holgura del servicio.</p>
+              <div className="auth-reservation-actions">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setSameDayPromptOpen(false);
+                    setContinuationMode(true);
+                    setService(null);
+                    setMember(null);
+                    setTime('');
+                    setStep(1);
+                  }}
+                >
+                  Sí, agregar otra cita
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setSameDayPromptOpen(false);
+                    setIsCartOpen(false);
+                    navigate('/checkout');
+                  }}
+                >
+                  No, ir al resumen
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

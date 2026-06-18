@@ -24,6 +24,7 @@ import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,6 +37,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class WebpayService {
     private static final String SIMULATED_TOKEN_PREFIX = "SIM-";
+    private static final DateTimeFormatter WEBPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter WEBPAY_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
     private static final String DEFAULT_PUBLIC_GATEWAY_URL =
             "https://sb-gateway.bluerock-c41dfa74.brazilsouth.azurecontainerapps.io";
 
@@ -237,6 +240,7 @@ public class WebpayService {
         }
 
         String token = transaccion.getTokenWebpay();
+        String resumenReservas = construirResumenReservasSimulado(transaccion);
         return """
                 <!doctype html>
                 <html lang="es">
@@ -253,6 +257,10 @@ public class WebpayService {
                     div { display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid #eee5df; padding-bottom: 8px; }
                     dt { color: #6d5c54; }
                     dd { margin: 0; font-weight: 700; text-align: right; }
+                    .reservation-list { display: grid; gap: 10px; margin: 18px 0 22px; padding: 0; list-style: none; }
+                    .reservation-list li { border: 1px solid #eee5df; border-radius: 6px; padding: 10px 12px; }
+                    .reservation-list strong, .reservation-list span { display: block; }
+                    .reservation-list span { color: #6d5c54; font-size: 13px; line-height: 1.45; margin-top: 3px; }
                     .actions { display: flex; gap: 12px; flex-wrap: wrap; border: 0; padding: 0; }
                     button { border: 0; border-radius: 6px; padding: 12px 16px; font-weight: 700; cursor: pointer; }
                     .confirm { background: #2d2420; color: #fff; }
@@ -268,6 +276,7 @@ public class WebpayService {
                       <div><dt>Monto</dt><dd>$%s CLP</dd></div>
                       <div><dt>Reservas</dt><dd>%s</dd></div>
                     </dl>
+                    %s
                     <div class="actions">
                       <form method="POST" action="/api/pagos/webpay/simulado/%s/confirmar">
                         <input type="hidden" name="token_ws" value="%s">
@@ -285,11 +294,69 @@ public class WebpayService {
                 escapeHtml(transaccion.getBuyOrder()),
                 escapeHtml(transaccion.getMonto() == null ? "0" : transaccion.getMonto().toPlainString()),
                 idsCitas(transaccion).size(),
+                resumenReservas,
                 transaccion.getIdTransaccion(),
                 escapeHtml(token),
                 transaccion.getIdTransaccion(),
                 escapeHtml(token)
         );
+    }
+
+    private String construirResumenReservasSimulado(TransaccionPago transaccion) {
+        CrearTransaccionRequest detalle = leerDetalleItems(transaccion);
+        if (detalle == null || detalle.reservas() == null || detalle.reservas().isEmpty()) {
+            return "<p>No hay reservas asociadas a esta orden.</p>";
+        }
+
+        String items = detalle.reservas().stream()
+                .map(this::reservaSimuladaHtml)
+                .collect(Collectors.joining());
+        return "<ul class=\"reservation-list\">" + items + "</ul>";
+    }
+
+    private String reservaSimuladaHtml(CrearTransaccionRequest.ReservaCarrito reserva) {
+        String servicio = escapeHtml(isBlank(reserva.servicioNombre()) ? "Servicio" : reserva.servicioNombre());
+        String profesional = escapeHtml(isBlank(reserva.profesionalNombre()) ? "Profesional" : reserva.profesionalNombre());
+        String fecha = escapeHtml(formatearFechaReserva(reserva));
+        String horario = escapeHtml(formatearHorarioReserva(reserva));
+        String precio = escapeHtml(reserva.precio() == null ? "0" : reserva.precio().toPlainString());
+
+        return """
+                <li>
+                  <strong>%s</strong>
+                  <span>%s</span>
+                  <span>%s · %s</span>
+                  <span>$%s CLP</span>
+                </li>
+                """.formatted(servicio, profesional, fecha, horario, precio);
+    }
+
+    private CrearTransaccionRequest leerDetalleItems(TransaccionPago transaccion) {
+        if (transaccion.getDetalleItemsJson() == null || transaccion.getDetalleItemsJson().isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(transaccion.getDetalleItemsJson(), CrearTransaccionRequest.class);
+        } catch (JsonProcessingException e) {
+            log.warn("No se pudo leer detalle de items para Webpay simulado: idTransaccion={}", transaccion.getIdTransaccion());
+            return null;
+        }
+    }
+
+    private String formatearFechaReserva(CrearTransaccionRequest.ReservaCarrito reserva) {
+        if (reserva.horaInicio() != null) {
+            return reserva.horaInicio().format(WEBPAY_DATE_FORMAT);
+        }
+        return isBlank(reserva.fecha()) ? "Fecha por confirmar" : reserva.fecha();
+    }
+
+    private String formatearHorarioReserva(CrearTransaccionRequest.ReservaCarrito reserva) {
+        if (reserva.horaInicio() == null) {
+            return "Hora por confirmar";
+        }
+        String inicio = reserva.horaInicio().format(WEBPAY_TIME_FORMAT);
+        String fin = reserva.horaFin() == null ? "" : reserva.horaFin().format(WEBPAY_TIME_FORMAT);
+        return fin.isBlank() ? inicio : inicio + " - " + fin;
     }
 
     private CrearTransaccionResponse crearTransaccionSimulada(

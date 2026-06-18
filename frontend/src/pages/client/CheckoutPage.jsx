@@ -29,6 +29,15 @@ function reservationStart(item) {
   return item?.startsAt || item?.time;
 }
 
+function professionalName(item) {
+  const staff = item?.staff || {};
+  return `${staff.nombre || ''} ${staff.apellidos || ''}`.trim()
+    || staff.fullName
+    || item?.professionalName
+    || item?.staffName
+    || 'Profesional';
+}
+
 function isDateTimeLike(value) {
   return typeof value === 'string' && value.includes('T') && !Number.isNaN(Date.parse(value));
 }
@@ -82,6 +91,8 @@ function cartPayload(items, idCliente) {
       idCita: item.reservationId,
       servicioId: item.serviceId,
       profesionalId: item.staffId,
+      servicioNombre: item.name || item.nombre || item.service?.nombre || item.service?.name,
+      profesionalNombre: professionalName(item),
       fecha: item.date,
       horaInicio: reservationStart(item),
       horaFin: item.endsAt,

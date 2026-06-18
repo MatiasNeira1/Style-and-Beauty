@@ -1653,6 +1653,16 @@ img { max-width: 100%; display: block; }
     top: 5rem;
     max-width: min(330px, calc(100vw - 2rem));
   }
+
+  .cart-line-details {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .cart-line-actions {
+    justify-content: space-between;
+    width: 100%;
+  }
 }
 
 .cart-drawer header {
@@ -2401,6 +2411,17 @@ img { max-width: 100%; display: block; }
   transform: translateY(-1px);
 }
 
+.service-week-day:disabled,
+.service-week-day.is-disabled {
+  background: rgba(255, 255, 255, 0.48);
+  border-color: rgba(25, 20, 23, 0.08);
+  box-shadow: none;
+  color: var(--color-muted);
+  cursor: not-allowed;
+  opacity: 0.66;
+  transform: none;
+}
+
 .service-booking-grid {
   display: grid;
   gap: 1rem;
@@ -2696,6 +2717,7 @@ img { max-width: 100%; display: block; }
   display: grid;
   gap: 0.15rem;
   flex: 1;
+  min-width: 0;
 }
 
 .cart-item-name {
@@ -2720,10 +2742,57 @@ img { max-width: 100%; display: block; }
   line-height: 1.2;
 }
 
+.cart-reservation-summary {
+  color: var(--color-muted);
+  display: grid;
+  font-size: 0.78rem;
+  font-weight: 750;
+  gap: 0.18rem;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.cart-reservation-summary span {
+  overflow-wrap: anywhere;
+}
+
 .cart-line-actions {
   align-items: center;
   display: flex;
   gap: 0.65rem;
+}
+
+.checkout-summary-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-block: 0.75rem;
+}
+
+.checkout-summary-line {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.65rem;
+}
+
+.checkout-summary-line strong,
+.checkout-summary-line span,
+.checkout-summary-line em {
+  overflow-wrap: anywhere;
+}
+
+.checkout-summary-line span {
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  font-weight: 750;
+}
+
+.checkout-summary-line em {
+  color: var(--color-ink);
+  font-style: normal;
+  font-weight: 900;
 }
 
 .quantity-controls {

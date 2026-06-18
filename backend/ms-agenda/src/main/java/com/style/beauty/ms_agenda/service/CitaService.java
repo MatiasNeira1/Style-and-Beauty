@@ -31,11 +31,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -43,6 +46,13 @@ import java.util.UUID;
 @Slf4j
 public class CitaService {
     private static final int DEFAULT_RESERVA_EXPIRACION_MINUTOS = 15;
+    private static final int DEFAULT_HOLGURA_MINUTOS = 15;
+    private static final int SABADO_HORA_CIERRE = 16;
+    private static final String MSG_FECHA_PASADA = "No puedes reservar fechas anteriores a hoy.";
+    private static final String MSG_DOMINGO = "No atendemos los domingos.";
+    private static final String MSG_SABADO_16 = "Los sábados atendemos solo hasta las 16:00.";
+    private static final String MSG_CLIENTE_SOLAPE = "Ya tienes una cita en ese horario. Elige el horario consecutivo disponible.";
+    private static final String MSG_CADENA = "Para reservar otro servicio el mismo dia debes elegir el horario consecutivo disponible.";
 
     private final CitaRepository citaRepository;
     private final JornadaStaffRepository jornadaStaffRepository;
@@ -99,7 +109,13 @@ public class CitaService {
 
         validarDuracionYHolgura(duracion, holgura);
 
-        List<DisponibilidadSlot> slots = calcularDisponibilidadParaDia(request.idStaff(), request.fecha(), duracion, holgura);
+        List<DisponibilidadSlot> slots = calcularDisponibilidadParaDia(
+                request.idStaff(),
+                request.fecha(),
+                duracion,
+                holgura,
+                request.idCliente()
+        );
         log.info("Disponibilidad calculada: idServicio={}, idStaff={}, fecha={}, slots={}",
                 request.idServicio(), request.idStaff(), request.fecha(), slots.size());
         return slots;
@@ -144,8 +160,8 @@ public class CitaService {
 
         for (int dia = 1; dia <= diasDelMes; dia++) {
             LocalDate fecha = inicioMes.withDayOfMonth(dia);
-            List<DisponibilidadSlot> slots = fechaDentroRangoReservable(fecha)
-                    ? calcularDisponibilidadParaDia(idStaff, fecha, duracion, holgura)
+            List<DisponibilidadSlot> slots = fechaDisponibleParaListado(fecha)
+                    ? calcularDisponibilidadParaDia(idStaff, fecha, duracion, holgura, null)
                     : List.of();
             disponibilidad.add(new DisponibilidadMensualResponse(fecha, slots));
         }
@@ -182,8 +198,8 @@ public class CitaService {
 
         for (int offset = 0; offset < 7; offset++) {
             LocalDate fecha = request.fechaInicioSemana().plusDays(offset);
-            List<DisponibilidadSlot> slots = fechaDentroRangoReservable(fecha)
-                    ? calcularDisponibilidadParaDia(request.idStaff(), fecha, duracion, holgura)
+            List<DisponibilidadSlot> slots = fechaDisponibleParaListado(fecha)
+                    ? calcularDisponibilidadParaDia(request.idStaff(), fecha, duracion, holgura, request.idCliente())
                     : List.of();
             disponibilidad.add(new DisponibilidadMensualResponse(fecha, slots));
         }
@@ -191,7 +207,13 @@ public class CitaService {
         return disponibilidad;
     }
 
-    private List<DisponibilidadSlot> calcularDisponibilidadParaDia(UUID idStaff, LocalDate fecha, int duracion, int holgura) {
+    private List<DisponibilidadSlot> calcularDisponibilidadParaDia(
+            UUID idStaff,
+            LocalDate fecha,
+            int duracion,
+            int holgura,
+            UUID idCliente
+    ) {
         log.info("Calculando slots para dia: idStaff={}, fecha={}, duracion={}, holgura={}",
                 idStaff, fecha, duracion, holgura);
 
@@ -241,13 +263,22 @@ public class CitaService {
                     .atTime(jornada.getHoraFin())
                     .atZone(zoneId())
                     .toOffsetDateTime();
+            if (fecha.getDayOfWeek() == DayOfWeek.SATURDAY) {
+                OffsetDateTime cierreSabado = fecha
+                        .atTime(SABADO_HORA_CIERRE, 0)
+                        .atZone(zoneId())
+                        .toOffsetDateTime();
+                if (finJornada.isAfter(cierreSabado)) {
+                    finJornada = cierreSabado;
+                }
+            }
 
             OffsetDateTime ahora = OffsetDateTime.now(zoneId());
 
-            while (!cursor.plusMinutes(duracion).isAfter(finJornada)) {
+            while (!cursor.plusMinutes(duracion).plusMinutes(holgura).isAfter(finJornada)) {
 
-                OffsetDateTime finVisible = cursor.plusMinutes(duracion);
-                OffsetDateTime finAtencion = finVisible.minusMinutes(holgura);
+                OffsetDateTime finAtencion = cursor.plusMinutes(duracion);
+                OffsetDateTime finVisible = finAtencion.plusMinutes(holgura);
 
                 boolean disponible = !cursor.isBefore(ahora)
                         && !tieneChoque(cursor, finVisible, citas, bloqueos);
@@ -268,7 +299,7 @@ public class CitaService {
             }
         }
 
-        List<DisponibilidadSlot> slotsSinDuplicados = slots.stream().distinct().toList();
+        List<DisponibilidadSlot> slotsSinDuplicados = aplicarCadenaCliente(idCliente, fecha, slots.stream().distinct().toList());
         log.info("Slots calculados para dia: idStaff={}, fecha={}, slots={}",
                 idStaff, fecha, slotsSinDuplicados.size());
         return slotsSinDuplicados;
@@ -297,16 +328,18 @@ public class CitaService {
         validarDuracionYHolgura(duracion, holgura);
 
         OffsetDateTime inicio = normalizarAZoneAgenda(request.fechaHoraInicio());
-        OffsetDateTime finVisible = inicio.plusMinutes(duracion);
-        OffsetDateTime finAtencion = finVisible.minusMinutes(holgura);
+        OffsetDateTime finAtencion = inicio.plusMinutes(duracion);
+        OffsetDateTime finVisible = finAtencion.plusMinutes(holgura);
         OffsetDateTime expiracionReserva = OffsetDateTime.now(zoneId()).plusMinutes(minutosReservaTemporal);
 
         validarFechaReservable(inicio.toLocalDate());
+        validarFechaHoraReservable(inicio, finVisible);
         validarJornada(request.idStaff(), inicio, finVisible);
         validarBloqueos(request.idStaff(), inicio, finVisible);
         validarChoqueCitas(request.idStaff(), inicio, finVisible);
         validarChoqueCliente(request.idCliente(), inicio, finVisible);
-        validarHorarioDisponible(request.idStaff(), inicio, finVisible, duracion, holgura);
+        validarCadenaConsecutivaCliente(request.idCliente(), inicio);
+        validarHorarioDisponible(request.idStaff(), request.idCliente(), inicio, finVisible, duracion, holgura);
 
         Cita cita = Cita.builder()
                 .idCliente(request.idCliente())
@@ -324,6 +357,7 @@ public class CitaService {
                 .build();
 
         Cita guardada = guardarSinSolape(cita);
+        refrescarExpiracionReservasPendientesCliente(guardada.getIdCliente(), expiracionReserva);
 
         registrarHistorial(
                 guardada.getIdCita(),
@@ -488,7 +522,7 @@ public class CitaService {
                 .isEmpty();
 
         if (existeChoque) {
-            throw new BusinessException("El horario solicitado se solapa con otra cita");
+            throw new BusinessException("El profesional ya tiene una cita en ese horario. Elige otra hora.");
         }
     }
 
@@ -501,12 +535,13 @@ public class CitaService {
                 .isEmpty();
 
         if (existeChoque) {
-            throw new BusinessException("El cliente ya tiene una cita que se solapa con el horario solicitado");
+            throw new BusinessException(MSG_CLIENTE_SOLAPE);
         }
     }
 
     private void validarHorarioDisponible(
             UUID idStaff,
+            UUID idCliente,
             OffsetDateTime inicio,
             OffsetDateTime finVisible,
             int duracion,
@@ -516,7 +551,8 @@ public class CitaService {
                 idStaff,
                 inicio.toLocalDate(),
                 duracion,
-                holgura
+                holgura,
+                idCliente
         );
 
         boolean existeSlot = slots.stream()
@@ -526,6 +562,80 @@ public class CitaService {
         if (!existeSlot) {
             throw new BusinessException("El horario seleccionado ya no esta disponible");
         }
+    }
+
+    private List<DisponibilidadSlot> aplicarCadenaCliente(
+            UUID idCliente,
+            LocalDate fecha,
+            List<DisponibilidadSlot> slots
+    ) {
+        if (idCliente == null || slots.isEmpty()) {
+            return slots;
+        }
+
+        Optional<OffsetDateTime> proximoInicio = proximoInicioCadenaCliente(idCliente, fecha);
+        if (proximoInicio.isEmpty()) {
+            return slots;
+        }
+
+        OffsetDateTime requerido = proximoInicio.get();
+        return slots.stream()
+                .filter(slot -> slot.inicio().isEqual(requerido))
+                .toList();
+    }
+
+    private void validarCadenaConsecutivaCliente(UUID idCliente, OffsetDateTime inicio) {
+        Optional<OffsetDateTime> proximoInicio = proximoInicioCadenaCliente(idCliente, inicio.toLocalDate());
+        if (proximoInicio.isEmpty()) {
+            return;
+        }
+
+        if (!inicio.isEqual(proximoInicio.get())) {
+            throw new BusinessException(MSG_CADENA);
+        }
+    }
+
+    private Optional<OffsetDateTime> proximoInicioCadenaCliente(UUID idCliente, LocalDate fecha) {
+        List<Cita> citasCliente = citasClienteDelDia(idCliente, fecha);
+        return citasCliente.stream()
+                .max(Comparator.comparing(this::finBloqueoCliente))
+                .map(this::finBloqueoCliente);
+    }
+
+    private List<Cita> citasClienteDelDia(UUID idCliente, LocalDate fecha) {
+        if (idCliente == null) {
+            return List.of();
+        }
+
+        OffsetDateTime inicioDia = atDateTime(fecha, 0, 0);
+        OffsetDateTime finDia = inicioDia.plusDays(1);
+        return citaRepository.buscarCitasClienteEnRango(
+                idCliente,
+                inicioDia,
+                finDia,
+                estadosIgnoradosParaDisponibilidad()
+        );
+    }
+
+    private OffsetDateTime finBloqueoCliente(Cita cita) {
+        int holgura = cita.getHolguraMin() == null ? DEFAULT_HOLGURA_MINUTOS : Math.max(0, cita.getHolguraMin());
+        if (cita.getFechaHoraFinAtencion() != null) {
+            return cita.getFechaHoraFinAtencion().plusMinutes(holgura);
+        }
+        return cita.getFechaHoraFin();
+    }
+
+    private void refrescarExpiracionReservasPendientesCliente(UUID idCliente, OffsetDateTime expiracionReserva) {
+        if (idCliente == null || expiracionReserva == null) {
+            return;
+        }
+
+        int actualizadas = citaRepository.actualizarExpiracionReservasPendientesCliente(
+                idCliente,
+                EstadoCita.PENDIENTE_PAGO,
+                expiracionReserva
+        );
+        log.info("Expiracion de reservas pendientes refrescada: idCliente={}, reservas={}", idCliente, actualizadas);
     }
 
     private boolean tieneChoque(
@@ -589,13 +699,28 @@ public class CitaService {
         return !fecha.isBefore(fechaActualAgenda()) && !fecha.isAfter(fechaMaximaReserva());
     }
 
+    private boolean fechaDisponibleParaListado(LocalDate fecha) {
+        return fechaDentroRangoReservable(fecha) && fecha.getDayOfWeek() != DayOfWeek.SUNDAY;
+    }
+
     private void validarFechaReservable(LocalDate fecha) {
         if (fecha.isBefore(fechaActualAgenda())) {
-            throw new BusinessException("No se pueden reservar ni consultar fechas anteriores a hoy");
+            throw new BusinessException(MSG_FECHA_PASADA);
         }
 
         if (fecha.isAfter(fechaMaximaReserva())) {
-            throw new BusinessException("Solo se puede reservar hasta " + maxDiasAnticipacion + " dias desde hoy");
+            throw new BusinessException("Solo puedes reservar hasta " + maxDiasAnticipacion + " días de anticipación.");
+        }
+
+        if (fecha.getDayOfWeek() == DayOfWeek.SUNDAY) {
+            throw new BusinessException(MSG_DOMINGO);
+        }
+    }
+
+    private void validarFechaHoraReservable(OffsetDateTime inicio, OffsetDateTime finVisible) {
+        if (inicio.getDayOfWeek() == DayOfWeek.SATURDAY
+                && finVisible.toLocalTime().isAfter(java.time.LocalTime.of(SABADO_HORA_CIERRE, 0))) {
+            throw new BusinessException(MSG_SABADO_16);
         }
     }
 
