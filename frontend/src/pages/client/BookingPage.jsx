@@ -21,6 +21,7 @@ import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
 import { useCart } from '../../store/CartContext.jsx';
 import { filterBookableSlots, RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
+import { RESERVATION_DEPOSIT_CLP } from '../../utils/priceUtils.js';
 
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
@@ -249,6 +250,9 @@ export function BookingPage() {
         staffId: selectedStaffId,
         name: service?.nombre || service?.name || 'Reserva',
         price: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
+        serviceValue: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
+        abono: RESERVATION_DEPOSIT_CLP,
+        depositAmount: RESERVATION_DEPOSIT_CLP,
         startsAt: created.fechaHoraInicio || time,
         endsAt: created.fechaHoraFinAtencion || created.fechaHoraFin,
         blockedUntil: created.fechaHoraFin,

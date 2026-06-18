@@ -41,6 +41,92 @@
   padding: clamp(3rem, 5vw, 5rem) var(--page-x);
 }
 
+.profile-readonly-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.upcoming-appointments-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.upcoming-appointments-card h4 {
+  align-items: center;
+  color: var(--color-ink);
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.profile-empty-state {
+  color: var(--color-muted);
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.upcoming-appointments-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.upcoming-appointment-item {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.85rem;
+}
+
+.upcoming-appointment-item strong,
+.upcoming-appointment-item span,
+.upcoming-appointment-item dd {
+  overflow-wrap: anywhere;
+}
+
+.upcoming-appointment-item span {
+  color: var(--color-muted);
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.upcoming-appointment-item dl {
+  display: grid;
+  gap: 0.45rem 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.upcoming-appointment-item dl div {
+  min-width: 0;
+}
+
+.upcoming-appointment-item dt {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.upcoming-appointment-item dd {
+  color: var(--color-ink);
+  font-size: 0.86rem;
+  font-weight: 760;
+  margin: 0;
+}
+
 .profile-completion-section {
   display: grid;
   place-items: center;
@@ -2867,6 +2953,10 @@ img[data-fallback="true"] {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .profile-readonly-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .profile-birthdate-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3044,8 +3134,13 @@ img[data-fallback="true"] {
   .calendar-card,
   .availability-panel,
   .summary-card,
-  .client-auth-card {
+  .client-auth-card,
+  .upcoming-appointments-card {
     padding: 1rem;
+  }
+
+  .upcoming-appointment-item dl {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .calendar-weekdays,

@@ -2,8 +2,7 @@ import { memo } from 'react';
 import { CheckCircle2, ShoppingBag, Sparkles } from 'lucide-react';
 import { Button } from '../ui/Button.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
-
-const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' });
+import { formatCLP } from '../../utils/priceUtils.js';
 
 const benefitMap = {
   cabello: ['Brillo de salon', 'Uso profesional', 'Acabado liviano'],
@@ -72,7 +71,7 @@ export const ProductEditorialShowcase = memo(function ProductEditorialShowcase({
               </div>
 
               <div className="product-editorial-actions">
-                <strong>{currency.format(price)}</strong>
+                <strong>{formatCLP(price)}</strong>
                 <Button
                   type="button"
                   onClick={() => onAdd?.({ ...product, id: productId(product), name, price })}

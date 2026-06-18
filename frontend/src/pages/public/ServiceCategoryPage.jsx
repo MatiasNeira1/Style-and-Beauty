@@ -6,11 +6,12 @@ import { Loader } from '../../components/ui/Loader.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { catalogService } from '../../services/catalogService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
+import { formatCLP } from '../../utils/priceUtils.js';
 
 function servicePrice(service) {
   const value = service.precio_total ?? service.precio ?? service.price;
   if (value === undefined || value === null || value === '') return 'Consultar';
-  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
+  return formatCLP(value);
 }
 
 export function ServiceCategoryPage() {

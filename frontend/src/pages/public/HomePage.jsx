@@ -9,6 +9,7 @@ import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useProfessionals } from '../../hooks/useProfessionals.js';
 import { catalogService } from '../../services/catalogService.js';
 import { HOME_HERO_IMAGE_URL } from '../../services/apiClient.js';
+import { formatCLP } from '../../utils/priceUtils.js';
 
 const features = [
   { icon: Sparkles, title: 'Diagnóstico experto', desc: 'Servicios seleccionados por necesidad, estilo y rutina personal.' },
@@ -34,7 +35,7 @@ const serviceIcons = [Scissors, Heart, Star];
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
   if (value === undefined || value === null || value === '') return 'Consultar';
-  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
+  return formatCLP(value);
 }
 
 export function HomePage() {
@@ -114,7 +115,7 @@ export function HomePage() {
       </section>
 
       {/* ═══ SERVICES PREVIEW ═══ */}
-      <section className="experience-band">
+      <section className="experience-band services-preview-band">
         <div className="parallax-layer" />
         <Reveal>
           <SectionTitle eyebrow="Catálogo" title="Nuestros servicios">
