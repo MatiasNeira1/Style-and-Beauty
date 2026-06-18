@@ -160,9 +160,9 @@ export function StaffAdminPage() {
 
   const handleFormSubmit = (data, isEdit) => {
     if (isEdit && editingStaff) {
-      updateMutation.mutate({ idAuth: editingStaff.idAuth, staffId: getStaffId(editingStaff), data });
+      return updateMutation.mutateAsync({ idAuth: editingStaff.idAuth, staffId: getStaffId(editingStaff), data });
     } else {
-      createMutation.mutate(data);
+      return createMutation.mutateAsync(data);
     }
   };
 
@@ -382,6 +382,7 @@ export function StaffAdminPage() {
         initialData={editingStaff}
         specialties={specialties}
         isLoading={createMutation.isPending || updateMutation.isPending}
+        errorMessage={createMutation.error?.message || updateMutation.error?.message}
       />
 
       <StaffDeleteDialog

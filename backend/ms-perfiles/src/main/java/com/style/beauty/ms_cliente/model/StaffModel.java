@@ -36,6 +36,9 @@ public class StaffModel extends PersonaModel {
     @Transient
     private Boolean activo = true;
 
+    @Transient
+    private List<StaffPortfolioImageModel> portfolioImages;
+
     @OneToMany(mappedBy = "staff", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     private List<ContratoModel> contratos;

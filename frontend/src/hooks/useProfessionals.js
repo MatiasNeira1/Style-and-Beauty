@@ -41,6 +41,13 @@ function specialtyName(member, index) {
   return hasMedicalTerm(value) ? fallback(index).especialidad : value;
 }
 
+function portfolioImages(member) {
+  const images = member.portfolioImages || member.portfolio || member.trabajos || member.galeria || [];
+  return Array.isArray(images)
+    ? images.map((image) => (typeof image === 'string' ? image : image.urlFoto || image.url || image.imageUrl)).filter(Boolean)
+    : [];
+}
+
 export function normalizeProfessional(member, index = 0) {
   const specialty = specialtyName(member, index);
   const rawCargo = member.cargo || member.rol || specialty;
@@ -56,11 +63,16 @@ export function normalizeProfessional(member, index = 0) {
     especialidad: specialty,
     descripcion: member.descripcionPerfil || member.descripcion || member.bio || member.resumen || fallbackProfessional.descripcion,
     trayectoria: member.descripcionPerfil || member.trayectoria || fallbackProfessional.trayectoria,
+    biografiaProfesional: member.biografiaProfesional || member.descripcionPerfil || member.descripcion || member.bio || member.resumen,
+    perfilCurricular: member.perfilCurricular || member.descripcionPerfil || member.trayectoria,
     sucursal: member.sucursal || member.sede || fallbackProfessional.sucursal,
     modalidad: member.modalidad || fallbackProfessional.modalidad,
     estado: hasMedicalTerm(member.estado) ? fallbackProfessional.estado : member.estado || fallbackProfessional.estado,
     proximaHora: member.proximaHora || proximasHoras[0],
     proximasHoras,
+    horariosPublicos: member.horariosPublicos || member.jornadasPublicas || [],
+    serviciosAsociados: member.serviciosAsociados || member.servicios || member.services || [],
+    portfolioImages: portfolioImages(member),
     fotoUrl: member.fotoUrl || member.foto || member.avatar || fallbackProfessional.fotoUrl,
     colorEspecialidad: member.colorEspecialidad || fallbackProfessional.colorEspecialidad,
     raw: member,

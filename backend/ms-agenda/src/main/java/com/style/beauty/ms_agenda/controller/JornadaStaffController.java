@@ -28,6 +28,14 @@ public class JornadaStaffController {
         return jornadaStaffService.listarPorStaff(idStaff);
     }
 
+    @PutMapping("/staff/{idStaff}")
+    public List<JornadaStaff> reemplazarPorStaff(
+            @PathVariable UUID idStaff,
+            @Valid @RequestBody List<CrearJornadaStaffRequest> request
+    ) {
+        return jornadaStaffService.reemplazarPorStaff(idStaff, request);
+    }
+
     @GetMapping("/staff/{idStaff}/dia/{diaSemana}")
     public List<JornadaStaff> listarPorStaffYDia(
             @PathVariable UUID idStaff,

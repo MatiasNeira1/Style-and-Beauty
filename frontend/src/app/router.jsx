@@ -56,9 +56,14 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    path: '/staff',
+    element: protectedRoute(lazyRoute(() => import('../pages/staff/StaffPortalPage.jsx'), 'StaffPortalPage'), ['STAFF', 'ADMIN']),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
     path: '/admin',
     element: (
-      <RequireAuth roles={['ADMIN', 'STAFF']}>
+      <RequireAuth roles={['ADMIN']}>
         <AdminLayout />
       </RequireAuth>
     ),

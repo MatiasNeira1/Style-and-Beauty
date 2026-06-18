@@ -77,6 +77,12 @@ public class CitaService {
         return citaRepository.findAll();
     }
 
+    public List<Cita> listarPorStaff(UUID idStaff) {
+        log.info("Listando citas en ms-agenda para staff: idStaff={}", idStaff);
+        liberarReservasVencidas();
+        return citaRepository.findByIdStaff(idStaff);
+    }
+
     public Cita buscarPorId(UUID id) {
         log.info("Buscando cita en ms-agenda: id={}", id);
         return citaRepository.findById(id)

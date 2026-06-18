@@ -2881,6 +2881,7 @@ img { max-width: 100%; display: block; }
   justify-content: center;
   padding: 1rem;
   position: fixed;
+  overscroll-behavior: contain;
   z-index: 1000;
 }
 
@@ -2907,7 +2908,10 @@ img { max-width: 100%; display: block; }
 }
 
 .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   padding-right: 0.15rem;
 }
 
