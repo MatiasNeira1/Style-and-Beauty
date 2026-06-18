@@ -19,11 +19,12 @@ import { useAuth } from '../../store/AuthContext.jsx';
 import { useCart } from '../../store/CartContext.jsx';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
 import { filterBookableSlots, isBookingDateAllowed, maxBookingDate, RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
+import { RESERVATION_DEPOSIT_CLP, formatCLP } from '../../utils/priceUtils.js';
 
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
   if (value === undefined || value === null || value === '') return 'Consultar';
-  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
+  return formatCLP(value);
 }
 
 function serviceDuration(service) {
@@ -469,6 +470,9 @@ export function ServiceDetailPage() {
         staffId: staffId(profesionalSeleccionado),
         name: service?.nombre || service?.name || 'Reserva',
         price: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
+        serviceValue: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
+        abono: RESERVATION_DEPOSIT_CLP,
+        depositAmount: RESERVATION_DEPOSIT_CLP,
         startsAt: citaCreada.fechaHoraInicio || horarioReservado,
         endsAt: citaCreada.fechaHoraFinAtencion || horarioSeleccionado.finAtencion || citaCreada.fechaHoraFin,
         blockedUntil: citaCreada.fechaHoraFin,

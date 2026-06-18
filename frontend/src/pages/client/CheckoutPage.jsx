@@ -12,6 +12,12 @@ import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { useCart } from '../../store/CartContext.jsx';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { redirigirAWebpay } from '../../utils/webpayRedirect.js';
+import {
+  RESERVATION_DEPOSIT_CLP,
+  getCartItemServiceValue,
+  getCartPaymentTotal,
+  getReservationDeposit,
+} from '../../utils/priceUtils.js';
 
 function isReservation(item) {
   return item?.type === 'reservation';
@@ -81,9 +87,7 @@ function validateCartForPayment(items) {
 }
 
 function cartPayload(items, idCliente) {
-  const total = items.reduce((sum, item) => (
-    sum + Number(item.price || item.precio || 0) * Number(item.quantity || 1)
-  ), 0);
+  const total = getCartPaymentTotal(items);
 
   const reservas = items
     .filter(isReservation)
@@ -96,7 +100,8 @@ function cartPayload(items, idCliente) {
       fecha: item.date,
       horaInicio: reservationStart(item),
       horaFin: item.endsAt,
-      precio: Number(item.price || item.precio || 0),
+      precio: getCartItemServiceValue(item),
+      abono: getReservationDeposit(item) || RESERVATION_DEPOSIT_CLP,
       duracionServicioMin: item.duracionServicioMin ?? item.service?.duracion_minutos ?? item.service?.duracionMinutos,
       holguraMin: item.holguraMin ?? item.service?.holgura_minutos ?? item.service?.holguraMinutos,
     }));
@@ -188,14 +193,14 @@ export function CheckoutPage() {
         <div className="page-hero-content">
           <span className="card-kicker">Pago seguro</span>
           <h1>Confirma tu carrito</h1>
-          <p>Revisa reservas y productos antes de iniciar el pago total.</p>
+          <p>Revisa abonos de reservas y productos antes de iniciar WebPay.</p>
         </div>
       </section>
 
       <section className="page-section two-column client-view checkout-page">
         <div className="stack">
           <SectionTitle eyebrow="Pago seguro" title="Confirma tu carrito">
-            Revisa reservas y productos antes de iniciar el pago total.
+            Las reservas se pagan con abono fijo y el saldo del servicio se paga en el local.
           </SectionTitle>
 
           <Card className="checkout-assurance">

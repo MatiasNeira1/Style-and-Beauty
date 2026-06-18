@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClientResponseException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.math.BigDecimal;
 
 @Component
 @Slf4j
@@ -125,7 +126,8 @@ public class ServicioClient {
                 readString(servicioData, "nombre", "name"),
                 readString(servicioData, "categoria", "category"),
                 readInteger(servicioData, "duracion_minutos", "duracionMinutos", "duracionServicioMin", "duracion"),
-                readInteger(servicioData, "holgura_minutos", "holguraMinutos", "holguraMin")
+                readInteger(servicioData, "holgura_minutos", "holguraMinutos", "holguraMin"),
+                readBigDecimal(servicioData, "precio_total", "precioTotal", "precio", "price")
         );
     }
 
@@ -154,6 +156,20 @@ public class ServicioClient {
             return number.intValue();
         }
         return Integer.valueOf(String.valueOf(value));
+    }
+
+    private BigDecimal readBigDecimal(Map<String, Object> data, String... keys) {
+        Object value = readValue(data, keys);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof BigDecimal number) {
+            return number;
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        return new BigDecimal(String.valueOf(value));
     }
 
     private Object readValue(Map<String, Object> data, String... keys) {

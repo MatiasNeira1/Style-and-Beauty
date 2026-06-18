@@ -1,6 +1,7 @@
 package com.style.beauty.ms_agenda.service;
 
 import com.style.beauty.ms_agenda.client.PerfilClient;
+import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
@@ -9,6 +10,7 @@ import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
+import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.entity.HistorialCita;
@@ -35,6 +37,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -47,6 +50,7 @@ import java.util.UUID;
 public class CitaService {
     private static final int DEFAULT_RESERVA_EXPIRACION_MINUTOS = 15;
     private static final int DEFAULT_HOLGURA_MINUTOS = 15;
+    private static final BigDecimal ABONO_RESERVA_CLP = BigDecimal.valueOf(10_000);
     private static final int SABADO_HORA_CIERRE = 16;
     private static final String MSG_FECHA_PASADA = "No puedes reservar fechas anteriores a hoy.";
     private static final String MSG_DOMINGO = "No atendemos los domingos.";
@@ -87,6 +91,22 @@ public class CitaService {
         log.info("Buscando cita en ms-agenda: id={}", id);
         return citaRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada"));
+    }
+
+    public List<ProximaCitaClienteResponse> listarProximasCliente(UUID idCliente) {
+        if (idCliente == null) {
+            throw new BusinessException("No fue posible identificar al cliente autenticado");
+        }
+
+        liberarReservasVencidas();
+        return citaRepository.buscarProximasCitasCliente(
+                        idCliente,
+                        OffsetDateTime.now(zoneId()),
+                        estadosIgnoradosParaDisponibilidad()
+                )
+                .stream()
+                .map(this::toProximaCitaClienteResponse)
+                .toList();
     }
 
     public List<DisponibilidadSlot> calcularDisponibilidad(DisponibilidadRequest request) {
@@ -801,6 +821,37 @@ public class CitaService {
                 EstadoCita.EXPIRADA,
                 EstadoCita.RECHAZADA
         );
+    }
+
+    private ProximaCitaClienteResponse toProximaCitaClienteResponse(Cita cita) {
+        ServicioResumen servicio = servicioClient.obtenerServicio(cita.getIdServicio());
+        PerfilResumen staff = perfilClient.obtenerStaff(cita.getIdStaff());
+
+        return new ProximaCitaClienteResponse(
+                cita.getIdCita(),
+                cita.getIdServicio(),
+                servicio.nombre(),
+                cita.getIdStaff(),
+                nombreCompleto(staff),
+                cita.getFechaHoraInicio(),
+                cita.getFechaHoraFin(),
+                cita.getFechaHoraFinAtencion(),
+                cita.getDuracionServicioMin(),
+                cita.getHolguraMin(),
+                cita.getEstadoCita() == null ? null : cita.getEstadoCita().name(),
+                servicio.precioTotal(),
+                ABONO_RESERVA_CLP
+        );
+    }
+
+    private String nombreCompleto(PerfilResumen perfil) {
+        String nombre = perfil == null ? "" : String.valueOf(perfil.nombre() == null ? "" : perfil.nombre()).trim();
+        String apellidos = perfil == null ? "" : String.valueOf(perfil.apellidos() == null ? "" : perfil.apellidos()).trim();
+        String completo = (nombre + " " + apellidos).trim();
+        if (!completo.isBlank()) {
+            return completo;
+        }
+        return perfil == null || perfil.emailContacto() == null ? "Profesional" : perfil.emailContacto();
     }
 
     private void registrarHistorial(

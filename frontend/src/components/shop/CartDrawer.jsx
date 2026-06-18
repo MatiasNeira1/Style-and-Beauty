@@ -5,6 +5,12 @@ import { Button } from '../ui/Button.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  formatCLP,
+  getCartItemServiceValue,
+  getCartItemUnitPayable,
+  getReservationDeposit,
+} from '../../utils/priceUtils.js';
 
 function formatRemaining(expiresAt, now) {
   if (!expiresAt) return '';
@@ -91,11 +97,16 @@ export function CartDrawer() {
               <div className="cart-line-details">
                 <div className="cart-line-info">
                   <span className="cart-item-name">{item.name || item.nombre}</span>
-                  <span className="cart-item-price">${Number(item.price || item.precio || 0).toLocaleString('es-CL')}</span>
+                  <span className="cart-item-price">
+                    {item.type === 'reservation'
+                      ? `Valor servicio: ${formatCLP(getCartItemServiceValue(item))}`
+                      : formatCLP(getCartItemUnitPayable(item))}
+                  </span>
                   {item.type === 'reservation' && (
                     <div className="cart-reservation-summary">
                       <span>{professionalName(item)}</span>
                       <span>{formatDate(item.date || item.startsAt)} · {formatTime(item.startsAt || item.time)} - {formatTime(item.endsAt)}</span>
+                      <span>Abono WebPay: {formatCLP(getReservationDeposit(item))}</span>
                       <span>{item.duracionServicioMin || item.service?.duracion_minutos || item.service?.duracionMinutos || 'Duracion'} min</span>
                       <span className="cart-item-timer">
                         <Clock size={14} />
@@ -123,7 +134,8 @@ export function CartDrawer() {
       </div>
 
       <footer>
-        <strong>Total ${total.toLocaleString('es-CL')}</strong>
+        <strong>Total a abonar hoy {formatCLP(total)}</strong>
+        {items.some((item) => item.type === 'reservation') && <small>Saldo restante se paga en el local.</small>}
         <Button disabled={items.length === 0} onClick={() => {
           setLastCartError('');
           setIsCartOpen(false);

@@ -7,6 +7,7 @@ import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
+import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.entity.JornadaStaff;
@@ -20,9 +21,11 @@ import com.style.beauty.ms_agenda.repository.HistorialCitaRepository;
 import com.style.beauty.ms_agenda.repository.JornadaStaffRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -516,6 +519,36 @@ class CitaServiceTest {
                 eq(EstadoCita.PENDIENTE_PAGO),
                 eq(EstadoCita.EXPIRADA),
                 any(OffsetDateTime.class)
+        );
+    }
+
+    @Test
+    void listarProximasClienteExcluyeEstadosIgnoradosYMapeaDetalle() {
+        Cita cita = cita(at(9, 0), at(10, 0), at(10, 15));
+        cita.setIdCita(UUID.randomUUID());
+        cita.setEstadoCita(EstadoCita.CONFIRMADA);
+        when(servicioClient.obtenerServicio(ID_SERVICIO))
+                .thenReturn(new ServicioResumen(ID_SERVICIO, "Uñas permanentes", "Nails", 60, 15, BigDecimal.valueOf(28_990)));
+        when(perfilClient.obtenerStaff(ID_STAFF)).thenReturn(perfil(ID_STAFF, "Camila", "Rojas", "staff@example.com"));
+        when(citaRepository.buscarProximasCitasCliente(eq(ID_CLIENTE), any(OffsetDateTime.class), any()))
+                .thenReturn(List.of(cita));
+
+        List<ProximaCitaClienteResponse> proximas = citaService.listarProximasCliente(ID_CLIENTE);
+
+        assertThat(proximas).hasSize(1);
+        assertThat(proximas.get(0).servicioNombre()).isEqualTo("Uñas permanentes");
+        assertThat(proximas.get(0).profesionalNombre()).isEqualTo("Camila Rojas");
+        assertThat(proximas.get(0).estadoCita()).isEqualTo("CONFIRMADA");
+        assertThat(proximas.get(0).valorServicio()).isEqualByComparingTo("28990");
+        assertThat(proximas.get(0).abonoReserva()).isEqualByComparingTo("10000");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<EstadoCita>> estadosCaptor = ArgumentCaptor.forClass(List.class);
+        verify(citaRepository).buscarProximasCitasCliente(eq(ID_CLIENTE), any(OffsetDateTime.class), estadosCaptor.capture());
+        assertThat(estadosCaptor.getValue()).containsExactly(
+                EstadoCita.CANCELADA,
+                EstadoCita.EXPIRADA,
+                EstadoCita.RECHAZADA
         );
     }
 

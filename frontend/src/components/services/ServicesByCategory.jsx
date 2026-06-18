@@ -2,8 +2,7 @@ import { ArrowLeft, CalendarDays, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../ui/Button.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
-
-const currency = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' });
+import { formatCLP } from '../../utils/priceUtils.js';
 
 export function ServicesByCategory({ category, services = [], onBack }) {
   return (
@@ -33,7 +32,7 @@ export function ServicesByCategory({ category, services = [], onBack }) {
               <p>{service.descripcion}</p>
               <div className="service-showcase-meta">
                 <span>{service.duracion}</span>
-                <strong>{currency.format(service.precio)}</strong>
+                <strong>{formatCLP(service.precio)}</strong>
               </div>
               <div className="catalog-item-footer">
                 <Link to="/reservar">
