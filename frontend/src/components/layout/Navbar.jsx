@@ -20,16 +20,19 @@ export function Navbar() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
+  const userRole = String(user?.rol || user?.role || '').toUpperCase();
+  const isAdmin = userRole === 'ADMIN';
+  const isStaff = userRole === 'STAFF' || userRole === 'EMPLOYEE';
 
   const handleProfileClick = (event) => {
     event.preventDefault();
     setMobileOpen(false);
     if (!isAuthenticated) {
       navigate('/login');
-    } else if (user?.role === 'admin' || user?.role === 'ADMIN') {
+    } else if (isAdmin) {
       navigate('/admin');
-    } else if (user?.role === 'employee' || user?.role === 'STAFF') {
-      navigate('/employee');
+    } else if (isStaff) {
+      navigate('/staff');
     } else {
       navigate('/perfil');
     }
@@ -62,6 +65,11 @@ export function Navbar() {
               {label}
             </NavLink>
           ))}
+          {isAuthenticated && (isStaff || isAdmin) && (
+            <NavLink to="/staff" onClick={(event) => handleNavClick(event, '/staff')}>
+              Mi Panel Staff
+            </NavLink>
+          )}
         </nav>
 
         <div className="navbar-actions">
@@ -108,6 +116,11 @@ export function Navbar() {
                 {label}
               </NavLink>
             ))}
+            {isAuthenticated && (isStaff || isAdmin) && (
+              <NavLink to="/staff" onClick={() => setMobileOpen(false)}>
+                Mi Panel Staff
+              </NavLink>
+            )}
             {!isAuthenticated ? (
               <NavLink to="/login" onClick={() => setMobileOpen(false)} className="mobile-menu-login">
                 Iniciar sesión

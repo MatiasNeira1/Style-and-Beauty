@@ -36,6 +36,12 @@ public class CitaController {
         return citaService.listar();
     }
 
+    @GetMapping("/staff/{idStaff}")
+    public List<Cita> listarPorStaff(@PathVariable UUID idStaff) {
+        log.info("Entrando a endpoint GET /api/agenda/citas/staff/{idStaff}: idStaff={}", idStaff);
+        return citaService.listarPorStaff(idStaff);
+    }
+
     @GetMapping("/disponibilidad")
     public List<DisponibilidadSlot> disponibilidadGet(
             @RequestParam UUID idStaff,

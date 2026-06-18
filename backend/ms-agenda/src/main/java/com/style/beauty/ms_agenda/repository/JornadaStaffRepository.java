@@ -10,4 +10,6 @@ public interface JornadaStaffRepository extends JpaRepository<JornadaStaff, UUID
     List<JornadaStaff> findByIdStaffAndDiaSemanaAndActivoTrue(UUID idStaff, Integer diaSemana);
 
     List<JornadaStaff> findByIdStaff(UUID idStaff);
+
+    void deleteByIdStaff(UUID idStaff);
 }
