@@ -253,6 +253,7 @@ export function StaffPortalPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showFormModal, setShowFormModal] = useState(false);
   const [showPublicPreview, setShowPublicPreview] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState(() => viewFromSearch(searchParams.get('view')));
   const [portfolioBio, setPortfolioBio] = useState('');
 
@@ -644,7 +645,7 @@ export function StaffPortalPage() {
   };
 
   return (
-    <section className="staff-shell animate-fade-in">
+    <section className={`staff-shell animate-fade-in ${isSidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
       <aside className="staff-sidebar">
         <div className="staff-sidebar-brand">
           <div className="staff-brand-mark">
@@ -702,7 +703,13 @@ export function StaffPortalPage() {
       <main className="staff-main">
         <header className="staff-topbar">
           <div className="staff-topbar-title">
-            <button className="staff-icon-button" type="button" aria-label="Menu staff">
+            <button
+              className="staff-icon-button"
+              type="button"
+              aria-label={isSidebarOpen ? 'Ocultar menu staff' : 'Mostrar menu staff'}
+              aria-expanded={isSidebarOpen}
+              onClick={() => setIsSidebarOpen((open) => !open)}
+            >
               <Menu size={18} />
             </button>
             <div>
