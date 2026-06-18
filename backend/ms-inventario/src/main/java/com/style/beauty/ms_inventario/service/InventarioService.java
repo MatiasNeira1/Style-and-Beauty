@@ -15,7 +15,9 @@ import com.style.beauty.ms_inventario.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +28,7 @@ public class InventarioService {
     private final ProductoRepository productoRepository;
     private final StockRepository stockRepository;
     private final MovimientoStockRepository movimientoStockRepository;
+    private final AzureBlobStorageService azureBlobStorageService;
 
     public List<Producto> listarProductos() {
         return productoRepository.findAll();
@@ -46,10 +49,28 @@ public class InventarioService {
                 .nombre(request.nombre())
                 .categoria(request.categoria())
                 .descripcion(request.descripcion())
+                .imagenUrl(request.imagenUrl())
                 .precio(request.precio())
                 .activo(true)
                 .build();
 
+        validarProducto(producto);
+        return productoRepository.save(producto);
+    }
+
+    @Transactional
+    public Producto crearProductoConImagen(String nombre, String categoria, String descripcion, BigDecimal precio, MultipartFile file) {
+        Producto producto = Producto.builder()
+                .nombre(nombre)
+                .categoria(categoria)
+                .descripcion(descripcion)
+                .precio(precio)
+                .activo(true)
+                .build();
+
+        validarProductoBase(producto);
+        producto.setImagenUrl(azureBlobStorageService.upload(file, "productos"));
+        validarProducto(producto);
         return productoRepository.save(producto);
     }
 
@@ -60,9 +81,27 @@ public class InventarioService {
         producto.setNombre(request.nombre());
         producto.setCategoria(request.categoria());
         producto.setDescripcion(request.descripcion());
+        if (request.imagenUrl() != null) {
+            producto.setImagenUrl(request.imagenUrl());
+        }
         producto.setPrecio(request.precio());
 
+        validarProducto(producto);
         return productoRepository.save(producto);
+    }
+
+    @Transactional
+    public Producto actualizarImagenProducto(UUID id, MultipartFile file) {
+        Producto producto = buscarProducto(id);
+        String imageUrl = azureBlobStorageService.replace(producto.getImagenUrl(), file, "productos");
+        producto.setImagenUrl(imageUrl);
+        return productoRepository.save(producto);
+    }
+
+    @Transactional
+    public Producto eliminarImagenProducto(UUID id) {
+        buscarProducto(id);
+        throw new BusinessException("Los productos deben mantener una imagen publicada.");
     }
 
     @Transactional
@@ -150,5 +189,24 @@ public class InventarioService {
     public List<MovimientoStock> listarMovimientosPorProducto(UUID idProducto) {
         buscarProducto(idProducto);
         return movimientoStockRepository.findByIdProducto(idProducto);
+    }
+
+    private void validarProducto(Producto producto) {
+        validarProductoBase(producto);
+        if (producto.getImagenUrl() == null || producto.getImagenUrl().isBlank()) {
+            throw new BusinessException("La imagen del producto es obligatoria.");
+        }
+    }
+
+    private void validarProductoBase(Producto producto) {
+        if (producto.getNombre() == null || producto.getNombre().isBlank()) {
+            throw new BusinessException("El nombre del producto es obligatorio.");
+        }
+        if (producto.getCategoria() == null || producto.getCategoria().isBlank()) {
+            throw new BusinessException("La categoria del producto es obligatoria.");
+        }
+        if (producto.getPrecio() == null || producto.getPrecio().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("El precio del producto debe ser valido.");
+        }
     }
 }

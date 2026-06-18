@@ -2,12 +2,15 @@ import { serviceCatalogService } from './serviceCatalogService.js';
 
 export const catalogService = {
   listServices: serviceCatalogService.listServices,
-  listarServicios: serviceCatalogService.listServices,
   getService: serviceCatalogService.getService,
-  obtenerServicio: serviceCatalogService.getService,
-  listServicesByCategory: serviceCatalogService.listServicesByCategory,
-  listarServiciosPorCategoria: serviceCatalogService.listServicesByCategory,
+  listProfessionalsByService: serviceCatalogService.listProfessionalsByService,
+  listCatalogStaffByService: serviceCatalogService.listCatalogStaffByService,
+  assignStaffToService: serviceCatalogService.assignStaffToService,
+  removeStaffFromService: serviceCatalogService.removeStaffFromService,
   createService: serviceCatalogService.createService,
+  createServiceWithImage: serviceCatalogService.createServiceWithImage,
   updateService: serviceCatalogService.updateService,
   deleteService: serviceCatalogService.deleteService,
+  uploadServiceImage: serviceCatalogService.uploadServiceImage,
+  deleteServiceImage: serviceCatalogService.deleteServiceImage,
 };

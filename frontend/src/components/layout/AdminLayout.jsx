@@ -10,7 +10,6 @@ import {
   Package,
   Plus,
   Scissors,
-  Search,
   ShieldCheck,
   Sparkles,
   UserRound,
@@ -52,6 +51,7 @@ export function AdminLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
   const [isOpen, setIsOpen] = useState(false);
   const profileQuery = useQuery({
     queryKey: ['my-profile'],
@@ -166,10 +166,6 @@ export function AdminLayout() {
             <span className="admin-date">{today}</span>
             <h1>Panel administrativo</h1>
           </div>
-          <label className="admin-search">
-            <Search size={17} />
-            <input type="search" placeholder="Buscar reservas, clientes o servicios" aria-label="Buscar dentro del admin" />
-          </label>
           <div className="admin-topbar-actions">
             <button type="button" className="admin-icon-button" aria-label="Ver notificaciones">
               <Bell size={18} />

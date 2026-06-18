@@ -38,7 +38,7 @@ services:
       SERVER_PORT: 8080
       SERVER_FORWARD_HEADERS_STRATEGY: framework
       JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://styleandbeauty.me,https://www.styleandbeauty.me,http://localhost,http://localhost:80,http://localhost:5173}
       MS_AUTH_URI: http://ms-auth:8081
       MS_PERFILES_URI: http://ms-perfiles:8082
       MS_CATALOGO_URI: http://ms-catalogo:8083
@@ -76,7 +76,6 @@ services:
     environment:
       SERVER_PORT: 8081
       JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/firebase-service-account.json}
@@ -102,10 +101,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MS_PERFILES_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-stylebeauty}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/firebase-service-account.json}
     volumes:
       - ./backend/ms-perfiles/src/main/resources/serviceAccountKey.json:/run/secrets/firebase-service-account.json:ro
     ports:
@@ -138,7 +138,8 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-stylebeauty}
     ports:
       - "127.0.0.1:${MS_CATALOGO_PORT:-8083}:8083"
     depends_on:
@@ -166,6 +167,8 @@ services:
       MS_PERFILES_URL: http://ms-perfiles:8082
       MS_CATALOGO_URL: http://ms-catalogo:8083
       APP_AGENDA_ZONE: ${APP_AGENDA_ZONE:-America/Santiago}
+      APP_AGENDA_MAX_DIAS_ANTICIPACION: ${APP_AGENDA_MAX_DIAS_ANTICIPACION:-30}
+      APP_RESERVA_EXPIRACION_MINUTOS: ${APP_RESERVA_EXPIRACION_MINUTOS:-15}
       GOOGLE_CALENDAR_ENABLED: ${GOOGLE_CALENDAR_ENABLED:-false}
       GOOGLE_CALENDAR_FAIL_ON_ERROR: ${GOOGLE_CALENDAR_FAIL_ON_ERROR:-false}
       GOOGLE_CALENDAR_CREDENTIALS_JSON: ${GOOGLE_CALENDAR_CREDENTIALS_JSON:-}
@@ -177,12 +180,11 @@ services:
       MS_AGENDA_DATASOURCE_PASSWORD: ${MS_AGENDA_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/firebase-service-account.json}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_SQL_INIT_MODE: ${SPRING_SQL_INIT_MODE:-always}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     ports:
       - "127.0.0.1:${MS_AGENDA_PORT:-8084}:8084"
     volumes:
@@ -213,7 +215,8 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
+      AZURE_STORAGE_CONNECTION_STRING: ${AZURE_STORAGE_CONNECTION_STRING:-}
+      AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-stylebeauty}
     depends_on:
       postgres-master:
         condition: service_healthy
@@ -239,16 +242,78 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MS_PAGOS_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       MS_AGENDA_BASE_URL: http://ms-agenda:8084
       MS_CATALOGO_BASE_URL: http://ms-catalogo:8083
+      MS_PERFILES_BASE_URL: http://ms-perfiles:8082
+      TBK_COMMERCE_CODE: ${TBK_COMMERCE_CODE:-597055555532}
+      TBK_API_KEY: ${TBK_API_KEY:-579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C}
+      TBK_RETURN_URL: ${TBK_RETURN_URL:-http://localhost:8080/api/pagos/webpay/retorno}
       FRONTEND_SUCCESS_URL: ${FRONTEND_SUCCESS_URL:-http://localhost/pago/exitoso}
       FRONTEND_ERROR_URL: ${FRONTEND_ERROR_URL:-http://localhost/pago/error}
-      SPRING_SECURITY_USER_NAME: ${SPRING_SECURITY_USER_NAME:-admin}
-      SPRING_SECURITY_USER_PASSWORD: ${SPRING_SECURITY_USER_PASSWORD:-admin123}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
-      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-https://midominio.com,https://www.midominio.com}
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8086/ >/dev/null || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    networks:
+      - style-beauty-net
+
+  ms-extra:
+    image: watoncitoxx/style-and-beauty-extra:latest
+    container_name: style-beauty-ms-extra
+    restart: unless-stopped
+    environment:
+      <<: *hikari-env
+      SERVER_PORT: 8087
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
+      SPRING_DATASOURCE_URL: ${MS_EXTRA_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
+      SPRING_DATASOURCE_USERNAME: ${MS_EXTRA_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
+      SPRING_DATASOURCE_PASSWORD: ${MS_EXTRA_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
+      SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
+      SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://127.0.0.1:8087/ >/dev/null || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    networks:
+      - style-beauty-net
+
+  ms-notificacion-audit:
+    image: watoncitoxx/style-and-beauty-notificacion-audit:latest
+    container_name: style-beauty-ms-notificacion-audit
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8088
+      JAVA_TOOL_OPTIONS: "-Dfile.encoding=UTF-8"
+      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/${MONGO_DB:-style_beauty_audit}
+      SPRING_SECURITY_USER_NAME: admin
+      SPRING_SECURITY_USER_PASSWORD: admin123
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://127.0.0.1:8088/ >/dev/null || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    networks:
+      - style-beauty-net
+
+  mongo:
+    image: mongo:7
+    container_name: style-beauty-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-style_beauty_audit}
+    expose:
+      - "27017"
+    volumes:
+      - mongo-audit-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok' | grep 1 >/dev/null"]
       interval: 20s
       timeout: 5s
       retries: 10
@@ -301,6 +366,7 @@ services:
 
 volumes:
   postgres-master-data:
+  mongo-audit-data:
 
 networks:
   style-beauty-net:

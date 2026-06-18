@@ -31,7 +31,7 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 ```
 
-El archivo `frontend/public/_redirects` habilita rutas SPA de React Router. El archivo `frontend/public/_headers` agrega headers basicos de seguridad y cache immutable para assets.
+Cloudflare Pages sirve rutas SPA de React Router automaticamente cuando no existe un `404.html` de nivel raiz en el build. No agregar un `_redirects` global como `/* /index.html 200`: Cloudflare lo rechaza como loop. El archivo `frontend/public/_headers` agrega headers basicos de seguridad y cache immutable para assets.
 
 ## Ejecucion local
 
@@ -43,6 +43,29 @@ docker compose logs -f ms-agenda
 ```
 
 Con `FRONTEND_PORT=80`, el frontend queda en `http://localhost/` y usa el proxy Nginx interno hacia `api-gateway:8080`.
+
+## Firebase Admin
+
+Los servicios `ms-auth`, `ms-perfiles` y `ms-agenda` inicializan Firebase Admin con estas alternativas, en este orden:
+
+- `FIREBASE_SERVICE_ACCOUNT_JSON`: JSON completo de la service account en una sola linea. Es la opcion mas simple para Docker Compose local.
+- `FIREBASE_SERVICE_ACCOUNT_PATH`: ruta absoluta a un archivo JSON accesible por el proceso Java.
+- `GOOGLE_APPLICATION_CREDENTIALS`: ruta absoluta compatible con Google ADC.
+- `serviceAccountKey.json` en resources: solo fallback local; no debe versionarse.
+
+Para desarrollo local con Docker Compose, usa preferentemente:
+
+```env
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"..."}
+```
+
+Si usas una ruta local, el archivo debe existir y ser accesible dentro del contenedor. En ejecucion Java directa puede ser una ruta del host, por ejemplo `C:\secrets\style-beauty\firebase-service-account.json`. En contenedores productivos debe ser una ruta montada dentro del contenedor, por ejemplo `/run/secrets/firebase-service-account.json`.
+
+Para Azure, la recomendacion es inyectar `FIREBASE_SERVICE_ACCOUNT_JSON` desde Key Vault/App Service settings o montar el secreto como archivo y configurar `FIREBASE_SERVICE_ACCOUNT_PATH=/run/secrets/firebase-service-account.json`. No commitear `.env`, `serviceAccountKey.json`, `*firebase*.json`, `*credential*.json`, `*.pem`, `*.key`, `*.p12` ni `*.jks`.
+
+## Seed local de validacion
+
+Para validar agenda/disponibilidad con datos reales en desarrollo existe el script manual `scripts/seed-local-validation.sql`. Crea un servicio, un profesional, relacion servicio-staff, jornadas, un bloqueo y una cita de prueba. Antes de ejecutarlo, reemplaza `REEMPLAZAR_CON_FIREBASE_UID_CLIENTE_REAL` por el UID del usuario Firebase que usaras para login. El script no se ejecuta automaticamente y no debe aplicarse en produccion sin revision.
 
 ## Despliegue en Ubuntu
 

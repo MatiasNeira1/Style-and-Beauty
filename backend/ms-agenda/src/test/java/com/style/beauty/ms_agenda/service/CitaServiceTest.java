@@ -4,14 +4,12 @@ import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
-import com.style.beauty.ms_agenda.dto.ConfirmarPagoRequest;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.entity.JornadaStaff;
-import com.style.beauty.ms_agenda.entity.StaffCalendarConfig;
 import com.style.beauty.ms_agenda.enums.EstadoCita;
 import com.style.beauty.ms_agenda.enums.TipoBloqueo;
 import com.style.beauty.ms_agenda.enums.TipoCita;
@@ -25,17 +23,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -55,8 +55,6 @@ class CitaServiceTest {
     private HistorialCitaRepository historialCitaRepository;
     private PerfilClient perfilClient;
     private ServicioClient servicioClient;
-    private GoogleCalendarService googleCalendarService;
-    private StaffCalendarConfigService staffCalendarConfigService;
     private CitaService citaService;
 
     @BeforeEach
@@ -67,8 +65,6 @@ class CitaServiceTest {
         historialCitaRepository = mock(HistorialCitaRepository.class);
         perfilClient = mock(PerfilClient.class);
         servicioClient = mock(ServicioClient.class);
-        googleCalendarService = mock(GoogleCalendarService.class);
-        staffCalendarConfigService = mock(StaffCalendarConfigService.class);
 
         citaService = new CitaService(
                 citaRepository,
@@ -77,10 +73,10 @@ class CitaServiceTest {
                 historialCitaRepository,
                 perfilClient,
                 servicioClient,
-                new HolguraService(),
-                googleCalendarService,
-                staffCalendarConfigService);
+                new HolguraService());
         ReflectionTestUtils.setField(citaService, "agendaZone", "America/Santiago");
+        ReflectionTestUtils.setField(citaService, "maxDiasAnticipacion", 2000);
+        ReflectionTestUtils.setField(citaService, "minutosReservaTemporal", 15);
 
         when(perfilClient.obtenerCliente(ID_CLIENTE)).thenReturn(perfil(ID_CLIENTE, "Cliente", "Demo", "cliente@example.com"));
         when(perfilClient.obtenerStaff(ID_STAFF)).thenReturn(perfil(ID_STAFF, "Staff", "Demo", "staff@example.com"));
@@ -90,15 +86,10 @@ class CitaServiceTest {
                 .thenReturn(List.of(jornada(LocalTime.of(8, 0), LocalTime.of(13, 0))));
         when(bloqueoAgendaRepository.buscarBloqueosEnRango(any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarChoquesCliente(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarCitasClienteEnRango(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.saveAndFlush(any(Cita.class))).thenAnswer(invocation -> {
-            Cita cita = invocation.getArgument(0);
-            if (cita.getIdCita() == null) {
-                cita.setIdCita(UUID.randomUUID());
-            }
-            return cita;
-        });
-        when(citaRepository.save(any(Cita.class))).thenAnswer(invocation -> {
             Cita cita = invocation.getArgument(0);
             if (cita.getIdCita() == null) {
                 cita.setIdCita(UUID.randomUUID());
@@ -114,7 +105,7 @@ class CitaServiceTest {
         List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null));
 
         assertThat(slots).extracting(DisponibilidadSlot::inicio)
-                .containsExactly(at(8, 0), at(9, 0), at(10, 0), at(11, 0), at(12, 0));
+                .containsExactly(at(8, 0), at(9, 30), at(11, 0));
         assertThat(slots).extracting(DisponibilidadSlot::inicio)
                 .doesNotContain(at(8, 15), at(8, 30), at(8, 45));
         assertThat(slots).extracting(DisponibilidadSlot::finVisible)
@@ -134,22 +125,19 @@ class CitaServiceTest {
         assertThat(slots).extracting(DisponibilidadSlot::inicio)
                 .containsExactly(
                         at(9, 0),
-                        at(9, 45),
-                        at(10, 30),
-                        at(11, 15),
+                        at(10, 0),
+                        at(11, 0),
                         at(12, 0),
-                        at(12, 45),
-                        at(13, 30),
-                        at(14, 15),
+                        at(13, 0),
+                        at(14, 0),
                         at(15, 0),
-                        at(15, 45),
-                        at(16, 30),
-                        at(17, 15)
+                        at(16, 0),
+                        at(17, 0)
                 );
         assertThat(slots).extracting(DisponibilidadSlot::inicio)
-                .doesNotContain(at(9, 15), at(9, 30), at(10, 0), at(10, 15));
-        assertThat(slots.get(0).finVisible()).isEqualTo(at(9, 45));
-        assertThat(slots.get(0).finAtencion()).isEqualTo(at(9, 30));
+                .doesNotContain(at(9, 15), at(9, 30), at(9, 45), at(10, 15));
+        assertThat(slots.get(0).finVisible()).isEqualTo(at(10, 0));
+        assertThat(slots.get(0).finAtencion()).isEqualTo(at(9, 45));
     }
 
     @Test
@@ -173,8 +161,8 @@ class CitaServiceTest {
                 new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, 999, 0));
 
         assertThat(slots).isNotEmpty();
-        assertThat(slots.get(0).finVisible()).isEqualTo(slots.get(0).inicio().plusMinutes(50));
-        assertThat(slots.get(0).finAtencion()).isEqualTo(slots.get(0).inicio().plusMinutes(20));
+        assertThat(slots.get(0).finAtencion()).isEqualTo(slots.get(0).inicio().plusMinutes(50));
+        assertThat(slots.get(0).finVisible()).isEqualTo(slots.get(0).inicio().plusMinutes(80));
     }
 
     @Test
@@ -185,7 +173,7 @@ class CitaServiceTest {
         List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null));
 
         assertThat(slots).extracting(DisponibilidadSlot::inicio)
-                .containsExactly(at(8, 0), at(9, 0), at(11, 0), at(12, 0));
+                .containsExactly(at(8, 0), at(11, 0));
         assertThat(slots).extracting(DisponibilidadSlot::inicio).doesNotContain(at(9, 15), at(10, 0), at(10, 30));
     }
 
@@ -211,7 +199,20 @@ class CitaServiceTest {
 
         assertThatThrownBy(() -> citaService.crear(request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("solapa");
+                .hasMessageContaining("profesional ya tiene una cita");
+    }
+
+    @Test
+    void rechazaCrearCitaSiClienteTieneCitaSolapada() {
+        Cita citaExistente = cita(at(9, 0), at(10, 0), at(10, 30));
+        when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarChoquesCliente(any(), any(), any(), any())).thenReturn(List.of(citaExistente));
+
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 30), null, null, null);
+
+        assertThatThrownBy(() -> citaService.crear(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Ya tienes una cita");
     }
 
     @Test
@@ -229,15 +230,19 @@ class CitaServiceTest {
 
     @Test
     void permiteCrearCitaExactamenteDespuesDeDuracionMasHolgura() {
+        Cita citaExistente = cita(at(9, 0), at(10, 0), at(10, 30));
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
+        when(citaRepository.buscarChoquesCliente(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarCitasEnRango(any(), any(), any(), any()))
-                .thenReturn(List.of(cita(at(9, 0), at(10, 0), at(10, 30))));
+                .thenReturn(List.of(citaExistente));
+        when(citaRepository.buscarCitasClienteEnRango(any(), any(), any(), any()))
+                .thenReturn(List.of(citaExistente));
 
         Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(10, 30), null, null, null));
 
         assertThat(creada.getFechaHoraInicio()).isEqualTo(at(10, 30));
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(11, 30));
-        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(11, 0));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(11, 30));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(12, 0));
     }
 
     @Test
@@ -249,8 +254,21 @@ class CitaServiceTest {
 
         assertThat(creada.getDuracionServicioMin()).isEqualTo(50);
         assertThat(creada.getHolguraMin()).isEqualTo(30);
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(8, 50));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(8, 50));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(9, 20));
+    }
+
+    @Test
+    void crearCitaAjustaHolguraSiCatalogoTieneHolguraMayorALaDuracion() {
+        when(servicioClient.obtenerServicio(ID_SERVICIO))
+                .thenReturn(new ServicioResumen(ID_SERVICIO, "Corte express", "Cabello", 20, 30));
+
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(8, 0), null, null, null));
+
+        assertThat(creada.getDuracionServicioMin()).isEqualTo(20);
+        assertThat(creada.getHolguraMin()).isEqualTo(15);
         assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(8, 20));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(8, 35));
     }
 
     @Test
@@ -266,12 +284,13 @@ class CitaServiceTest {
 
     @Test
     void normalizaHoraRecibidaAUsoHorarioDeAgendaAntesDeGuardar() {
-        OffsetDateTime inicioUtc = at(9, 0).withOffsetSameInstant(java.time.ZoneOffset.UTC);
+        OffsetDateTime inicioUtc = at(9, 30).withOffsetSameInstant(java.time.ZoneOffset.UTC);
 
         Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, inicioUtc, null, null, null));
 
-        assertThat(creada.getFechaHoraInicio()).isEqualTo(at(9, 0));
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(10, 0));
+        assertThat(creada.getFechaHoraInicio()).isEqualTo(at(9, 30));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(10, 30));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(11, 0));
     }
 
     @Test
@@ -279,7 +298,7 @@ class CitaServiceTest {
         when(citaRepository.saveAndFlush(any(Cita.class)))
                 .thenThrow(new DataIntegrityViolationException("overlap"));
 
-        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 0), null, null, null);
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 30), null, null, null);
 
         assertThatThrownBy(() -> citaService.crear(request))
                 .isInstanceOf(DataIntegrityViolationException.class)
@@ -287,83 +306,171 @@ class CitaServiceTest {
     }
 
     @Test
-    void rechazaCrearCitaFueraDeJornada() {
+    void rechazaCrearCitaSiBloqueConHolguraQuedaFueraDeJornada() {
         CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(12, 0), null, null, null);
 
-        Cita creada = citaService.crear(request);
-
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(13, 0));
-        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(12, 30));
+        assertThatThrownBy(() -> citaService.crear(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("jornada");
     }
 
     @Test
-    void crearCitaPendientePagoNoCreaEventoGoogleCalendar() {
+    void crearGeneraReservaTemporalConExpiracionSinGoogleCalendar() {
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
 
-        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 0), null, null, "Test"));
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 30), null, null, "Test"));
 
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(10, 0));
-        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(9, 30));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(10, 30));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(11, 0));
         assertThat(creada.getDuracionServicioMin()).isEqualTo(60);
         assertThat(creada.getHolguraMin()).isEqualTo(30);
         assertThat(creada.getEstadoCita()).isEqualTo(EstadoCita.PENDIENTE_PAGO);
+        assertThat(creada.getExpiracionReserva()).isAfter(OffsetDateTime.now(ZONE).plusMinutes(14));
+        assertThat(creada.getExpiracionReserva()).isBefore(OffsetDateTime.now(ZONE).plusMinutes(16));
         assertThat(creada.getGoogleCalendarEventId()).isNull();
-        verify(googleCalendarService, never()).crearEvento(any(), any(), any(), any(), any());
+        verify(citaRepository).actualizarExpiracionReservasPendientesCliente(
+                eq(ID_CLIENTE),
+                eq(EstadoCita.PENDIENTE_PAGO),
+                any(OffsetDateTime.class)
+        );
     }
 
     @Test
-    void confirmarPagoCreaEventoGoogleCalendarSiEstaConfigurado() {
-        Cita pendiente = cita(at(9, 0), at(9, 30), at(10, 0));
-        pendiente.setIdCita(UUID.randomUUID());
-        pendingToRepository(pendiente);
-        when(staffCalendarConfigService.buscarActivoPorStaff(ID_STAFF))
-                .thenReturn(Optional.of(StaffCalendarConfig.builder()
-                        .idStaff(ID_STAFF)
-                        .calendarId("staff-calendar@example.com")
-                        .activo(true)
-                        .build()));
-        when(googleCalendarService.crearEvento(any(), any(), any(), any(), any())).thenReturn("calendar-event-123");
+    void rechazaDisponibilidadEnFechaPasada() {
+        LocalDate ayer = LocalDate.now(ZONE).minusDays(1);
 
-        Cita confirmada = citaService.confirmarPago(pendiente.getIdCita(), new ConfirmarPagoRequest(UUID.randomUUID()));
-
-        assertThat(confirmada.getEstadoCita()).isEqualTo(EstadoCita.CONFIRMADA);
-        assertThat(confirmada.getGoogleCalendarEventId()).isEqualTo("calendar-event-123");
-        verify(googleCalendarService).crearEvento(any(), any(), any(), any(), any());
+        assertThatThrownBy(() -> citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, ayer, null, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("anteriores a hoy");
     }
 
     @Test
-    void siGoogleCalendarFallaLaCitaSigueConfirmada() {
-        Cita pendiente = cita(at(9, 0), at(9, 30), at(10, 0));
-        pendiente.setIdCita(UUID.randomUUID());
-        pendingToRepository(pendiente);
-        when(staffCalendarConfigService.buscarActivoPorStaff(ID_STAFF))
-                .thenReturn(Optional.of(StaffCalendarConfig.builder()
-                        .idStaff(ID_STAFF)
-                        .calendarId("staff-calendar@example.com")
-                        .activo(true)
-                        .build()));
-        when(googleCalendarService.crearEvento(any(), any(), any(), any(), any()))
-                .thenThrow(new BusinessException("No fue posible crear el evento en Google Calendar"));
+    void rechazaDisponibilidadMasAllaDeTreintaDias() {
+        ReflectionTestUtils.setField(citaService, "maxDiasAnticipacion", 30);
+        LocalDate fueraDeRango = LocalDate.now(ZONE).plusDays(31);
 
-        Cita confirmada = citaService.confirmarPago(pendiente.getIdCita(), new ConfirmarPagoRequest(UUID.randomUUID()));
+        assertThatThrownBy(() -> citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, fueraDeRango, null, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("30");
+    }
 
-        assertThat(confirmada.getEstadoCita()).isEqualTo(EstadoCita.CONFIRMADA);
-        assertThat(confirmada.getGoogleCalendarEventId()).isNull();
+    @Test
+    void rechazaDisponibilidadDomingo() {
+        LocalDate domingo = LocalDate.now(ZONE).with(TemporalAdjusters.nextOrSame(DayOfWeek.SUNDAY));
+
+        assertThatThrownBy(() -> citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, domingo, null, null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("domingos");
+    }
+
+    @Test
+    void disponibilidadSabadoRespetaCierreA16() {
+        LocalDate sabado = LocalDate.of(2030, 1, 12);
+        when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(ID_STAFF, sabado.getDayOfWeek().getValue()))
+                .thenReturn(List.of(jornada(sabado, LocalTime.of(8, 0), LocalTime.of(18, 0))));
+
+        List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, sabado, null, null));
+
+        assertThat(slots).extracting(DisponibilidadSlot::inicio)
+                .containsExactly(at(sabado, 8, 0), at(sabado, 9, 30), at(sabado, 11, 0), at(sabado, 12, 30), at(sabado, 14, 0));
+        assertThat(slots).allMatch(slot -> !slot.finVisible().toLocalTime().isAfter(LocalTime.of(16, 0)));
+    }
+
+    @Test
+    void rechazaCrearCitaSabadoDespuesDe16() {
+        LocalDate sabado = LocalDate.of(2030, 1, 12);
+        when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(ID_STAFF, sabado.getDayOfWeek().getValue()))
+                .thenReturn(List.of(jornada(sabado, LocalTime.of(8, 0), LocalTime.of(18, 0))));
+
+        CrearCitaRequest request = new CrearCitaRequest(
+                ID_CLIENTE,
+                ID_STAFF,
+                ID_SERVICIO,
+                at(sabado, 15, 0),
+                null,
+                null,
+                null
+        );
+
+        assertThatThrownBy(() -> citaService.crear(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("16:00");
+    }
+
+    @Test
+    void disponibilidadConClienteSoloDevuelveSlotConsecutivo() {
+        Cita citaExistente = cita(at(9, 0), at(10, 0), at(10, 30));
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of(citaExistente));
+        when(citaRepository.buscarCitasClienteEnRango(any(), any(), any(), any())).thenReturn(List.of(citaExistente));
+
+        List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(
+                new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null, ID_CLIENTE));
+
+        assertThat(slots).extracting(DisponibilidadSlot::inicio)
+                .containsExactly(at(10, 30));
+    }
+
+    @Test
+    void rechazaCitaMismoDiaNoConsecutiva() {
+        Cita citaExistente = cita(at(9, 0), at(10, 0), at(10, 30));
+        when(citaRepository.buscarCitasClienteEnRango(any(), any(), any(), any())).thenReturn(List.of(citaExistente));
+
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(11, 0), null, null, null);
+
+        assertThatThrownBy(() -> citaService.crear(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("consecutivo");
+    }
+
+    @Test
+    void crearUsaHolguraStaffCuandoServicioNoTieneHolguraNiCategoriaConocida() {
+        when(perfilClient.obtenerStaff(ID_STAFF)).thenReturn(
+                new PerfilResumen(ID_STAFF, "auth-staff", "1-9", "Staff", "Demo", "staff@example.com", null, true, 10));
+        when(servicioClient.obtenerServicio(ID_SERVICIO))
+                .thenReturn(new ServicioResumen(ID_SERVICIO, "Diagnostico", "Otra", 45, null));
+
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(8, 0), null, null, null));
+
+        assertThat(creada.getHolguraMin()).isEqualTo(10);
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(8, 45));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(8, 55));
+    }
+
+    @Test
+    void creaCitaTemporalYRegistraHistorial() {
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 30), null, null, null);
+
+        Cita creada = citaService.crear(request);
+
+        assertThat(creada.getEstadoCita()).isEqualTo(EstadoCita.PENDIENTE_PAGO);
+        assertThat(creada.getGoogleCalendarEventId()).isNull();
+        verify(citaRepository).saveAndFlush(any(Cita.class));
         verify(historialCitaRepository).save(any());
     }
 
-    private PerfilResumen perfil(UUID id, String nombre, String apellidos, String email) {
-        return new PerfilResumen(id, "auth-" + id, "1-9", nombre, apellidos, email, true);
+    @Test
+    void liberarReservasVencidasMarcaPendientesComoExpiradas() {
+        citaService.liberarReservasVencidas();
+
+        verify(citaRepository).expirarReservasVencidas(
+                eq(EstadoCita.PENDIENTE_PAGO),
+                eq(EstadoCita.EXPIRADA),
+                any(OffsetDateTime.class)
+        );
     }
 
-    private void pendingToRepository(Cita cita) {
-        when(citaRepository.findById(cita.getIdCita())).thenReturn(Optional.of(cita));
+    private PerfilResumen perfil(UUID id, String nombre, String apellidos, String email) {
+        return new PerfilResumen(id, "auth-" + id, "1-9", nombre, apellidos, email, null, true, null);
     }
 
     private JornadaStaff jornada(LocalTime inicio, LocalTime fin) {
+        return jornada(FECHA, inicio, fin);
+    }
+
+    private JornadaStaff jornada(LocalDate fecha, LocalTime inicio, LocalTime fin) {
         return JornadaStaff.builder()
                 .idStaff(ID_STAFF)
-                .diaSemana(FECHA.getDayOfWeek().getValue())
+                .diaSemana(fecha.getDayOfWeek().getValue())
                 .horaInicio(inicio)
                 .horaFin(fin)
                 .activo(true)
@@ -397,5 +504,9 @@ class CitaServiceTest {
 
     private OffsetDateTime at(int hour, int minute) {
         return FECHA.atTime(hour, minute).atZone(ZONE).toOffsetDateTime();
+    }
+
+    private OffsetDateTime at(LocalDate fecha, int hour, int minute) {
+        return fecha.atTime(hour, minute).atZone(ZONE).toOffsetDateTime();
     }
 }

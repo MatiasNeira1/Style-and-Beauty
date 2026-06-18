@@ -13,7 +13,7 @@ public class AgendaClient {
 
     public AgendaClient(
             RestClient.Builder builder,
-            @Value("${ms.agenda.base-url:http://localhost:8084}") String agendaBaseUrl
+            @Value("${ms.agenda.base-url}") String agendaBaseUrl
     ) {
         this.restClient = builder.baseUrl(agendaBaseUrl).build();
     }
@@ -27,9 +27,11 @@ public class AgendaClient {
 
     public void confirmarCita(UUID idCita, UUID idTransaccionPago) {
         restClient.patch()
-                .uri("/api/agenda/citas/{idCita}/confirmar-pago", idCita)
+                .uri("/api/agenda/citas/{idCita}/estado", idCita)
                 .body(Map.of(
-                        "idTransaccionPago", idTransaccionPago
+                        "estadoCita", "CONFIRMADA",
+                        "idTransaccionPago", idTransaccionPago,
+                        "observacionStaff", "Pago Webpay confirmado. Transaccion: " + idTransaccionPago
                 ))
                 .retrieve()
                 .toBodilessEntity();
@@ -37,9 +39,10 @@ public class AgendaClient {
 
     public void rechazarCita(UUID idCita, String motivo) {
         restClient.patch()
-                .uri("/api/agenda/citas/{idCita}/rechazar-pago", idCita)
+                .uri("/api/agenda/citas/{idCita}/estado", idCita)
                 .body(Map.of(
-                        "motivo", motivo
+                        "estadoCita", "RECHAZADA",
+                        "observacionStaff", motivo
                 ))
                 .retrieve()
                 .toBodilessEntity();

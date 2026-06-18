@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_IMAGE_FALLBACK, resolveAssetUrl } from '../../services/apiClient.js';
 
+function normalizedImageSource(value) {
+  const text = String(value || '').trim();
+  if (!text || ['null', 'undefined', 'nan'].includes(text.toLowerCase())) {
+    return '';
+  }
+  return text;
+}
+
 export function SafeImage({
   src,
   alt,
@@ -11,7 +19,7 @@ export function SafeImage({
   ...props
 }) {
   const fallbackSrc = useMemo(() => resolveAssetUrl(fallback, DEFAULT_IMAGE_FALLBACK), [fallback]);
-  const resolvedSrc = useMemo(() => resolveAssetUrl(src, fallbackSrc), [src, fallbackSrc]);
+  const resolvedSrc = useMemo(() => resolveAssetUrl(normalizedImageSource(src), fallbackSrc), [src, fallbackSrc]);
   const [currentSrc, setCurrentSrc] = useState(resolvedSrc);
 
   useEffect(() => {
@@ -24,6 +32,7 @@ export function SafeImage({
       src={currentSrc}
       alt={alt}
       className={className}
+      data-fallback={currentSrc === fallbackSrc ? 'true' : undefined}
       loading={loading}
       decoding={decoding}
       onError={() => {

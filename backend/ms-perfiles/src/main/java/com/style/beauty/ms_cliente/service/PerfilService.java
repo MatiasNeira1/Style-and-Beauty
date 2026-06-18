@@ -1,15 +1,22 @@
 package com.style.beauty.ms_cliente.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
+import com.style.beauty.ms_cliente.exception.ProfileNotFoundException;
 import com.style.beauty.ms_cliente.model.PersonaModel;
 import com.style.beauty.ms_cliente.repository.PersonaRepository;
 import com.style.beauty.ms_cliente.strategy.PerfilStrategy;
 import com.style.beauty.ms_cliente.model.ClienteModel;
+import com.style.beauty.ms_cliente.model.EspecialidadModel;
 import com.style.beauty.ms_cliente.model.StaffModel;
+import com.style.beauty.ms_cliente.model.FichaTecnicaModel;
 import com.style.beauty.ms_cliente.repository.ClienteRepository;
+import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 import com.style.beauty.ms_cliente.repository.StaffRepository;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -25,16 +32,25 @@ public class PerfilService {
     private final PersonaRepository personaRepository;
     private final ClienteRepository clienteRepository;
     private final StaffRepository staffRepository;
+    private final EspecialidadRepository especialidadRepository;
+    private final AzureBlobStorageService azureBlobStorageService;
     private final Map<String, PerfilStrategy> estrategias = new HashMap<>();
+
+    @Value("${app.company-logo-url:${APP_COMPANY_LOGO_URL:https://stylebeautyimages.blob.core.windows.net/stylebeauty/logo.jpg}}")
+    private String companyLogoUrl;
 
     @Autowired
     public PerfilService(PersonaRepository personaRepository,
                          ClienteRepository clienteRepository,
                          StaffRepository staffRepository,
+                         EspecialidadRepository especialidadRepository,
+                         AzureBlobStorageService azureBlobStorageService,
                          List<PerfilStrategy> listaEstrategias) {
         this.personaRepository = personaRepository;
         this.clienteRepository = clienteRepository;
         this.staffRepository = staffRepository;
+        this.especialidadRepository = especialidadRepository;
+        this.azureBlobStorageService = azureBlobStorageService;
         // Arma el diccionario de estrategias leyendo los "letreros"
         for (PerfilStrategy estrategia : listaEstrategias) {
             estrategias.put(estrategia.getTipoPerfil().toUpperCase(), estrategia);
@@ -140,7 +156,7 @@ public class PerfilService {
         // 2. READ (Obtener Mi Perfil)
     public PersonaModel obtenerMiPerfil(String idAuth) {
         return personaRepository.findByIdAuth(idAuth)
-                .orElseThrow(() -> new RuntimeException("Perfil no encontrado en la base de datos."));
+                .orElseThrow(() -> new ProfileNotFoundException("Perfil no encontrado en la base de datos."));
     }
 
     // 2.1 READ (Listar Clientes - Solo para Staff/Admin)
@@ -161,9 +177,22 @@ public class PerfilService {
         throw new RuntimeException("El usuario autenticado no corresponde a un cliente.");
     }
 
+    @Transactional
+    public ClienteModel acumularPuntosFidelidad(java.util.UUID idCliente, int puntos) {
+        if (puntos <= 0) {
+            throw new IllegalArgumentException("Los puntos a acumular deben ser mayores a cero.");
+        }
+        ClienteModel cliente = obtenerClientePorId(idCliente);
+        int puntosActuales = cliente.getPuntosFidelidad() == null ? 0 : cliente.getPuntosFidelidad();
+        cliente.setPuntosFidelidad(puntosActuales + puntos);
+        return clienteRepository.save(cliente);
+    }
+
     // 2.2 READ (Listar Staff)
     public List<StaffModel> listarTodoElStaff() {
-        return staffRepository.findAll();
+        return staffRepository.findAll().stream()
+                .peek(this::aplicarFotoFallbackSiFalta)
+                .toList();
     }
 
     public StaffModel obtenerStaffPorId(java.util.UUID idStaff) {
@@ -171,32 +200,99 @@ public class PerfilService {
                 .orElseThrow(() -> new RuntimeException("Staff no encontrado."));
     }
 
+    public StaffModel obtenerStaffPorIdConFallback(java.util.UUID idStaff) {
+        StaffModel staff = obtenerStaffPorId(idStaff);
+        aplicarFotoFallbackSiFalta(staff);
+        return staff;
+    }
+
+    @Transactional
+    public StaffModel actualizarFotoStaff(java.util.UUID idStaff, MultipartFile file) {
+        StaffModel staff = obtenerStaffPorId(idStaff);
+        String imageUrl = azureBlobStorageService.replace(staff.getFotoUrl(), file, "profesionales");
+        staff.setFotoUrl(imageUrl);
+        return staffRepository.save(staff);
+    }
+
+    @Transactional
+    public StaffModel eliminarFotoStaff(java.util.UUID idStaff) {
+        StaffModel staff = obtenerStaffPorId(idStaff);
+        if (staff.getFotoUrl() != null && !staff.getFotoUrl().isBlank() && !esLogoCorporativo(staff.getFotoUrl())) {
+            azureBlobStorageService.delete(staff.getFotoUrl());
+        }
+        staff.setFotoUrl(companyLogoUrl);
+        return staffRepository.save(staff);
+    }
+
+    @Transactional(readOnly = true)
+    public StaffModel actualizarEstadoStaff(java.util.UUID idStaff, boolean activo) {
+        StaffModel staff = obtenerStaffPorIdConFallback(idStaff);
+        staff.setActivo(true);
+        return staff;
+    }
+
     // 3. UPDATE (Actualizar datos del perfil)
     public PersonaModel actualizarMiPerfil(String idAuth, PerfilRequestDTO dto) {
+        return actualizarPerfil(idAuth, dto, false);
+    }
+
+    public PersonaModel actualizarPerfilComoAdmin(String idAuth, PerfilRequestDTO dto) {
+        return actualizarPerfil(idAuth, dto, true);
+    }
+
+    private PersonaModel actualizarPerfil(String idAuth, PerfilRequestDTO dto, boolean permitirEditarIdentidad) {
         PersonaModel persona = obtenerMiPerfil(idAuth);
 
-        // Actualizamos solo los datos que el usuario nos envíe
-        if (dto.getNombre() != null) persona.setNombre(dto.getNombre());
-        if (dto.getApellidos() != null) persona.setApellidos(dto.getApellidos());
+        if (permitirEditarIdentidad) {
+            if (dto.getRut() != null) persona.setRut(dto.getRut());
+            if (dto.getNombre() != null) persona.setNombre(dto.getNombre());
+            if (dto.getApellidos() != null) persona.setApellidos(dto.getApellidos());
+            if (dto.getFechaNacimiento() != null) persona.setFechaNacimiento(dto.getFechaNacimiento());
+            if (dto.getGenero() != null) persona.setGenero(dto.getGenero());
+            if (dto.getEmailContacto() != null) persona.setEmailContacto(dto.getEmailContacto());
+        }
+
         if (dto.getTelefono() != null) persona.setTelefono(dto.getTelefono());
-        if (dto.getEmailContacto() != null) persona.setEmailContacto(dto.getEmailContacto());
         if (persona instanceof StaffModel staff) {
-            if (dto.getFotoUrl() != null) staff.setFotoUrl(dto.getFotoUrl());
+            if (dto.getFotoUrl() != null && !dto.getFotoUrl().isBlank()) staff.setFotoUrl(dto.getFotoUrl());
+            if (Boolean.TRUE.equals(dto.getSinImagenPorAhora()) && (staff.getFotoUrl() == null || staff.getFotoUrl().isBlank())) {
+                staff.setFotoUrl(companyLogoUrl);
+            }
             if (dto.getCvUrl() != null) staff.setCvUrl(dto.getCvUrl());
             if (dto.getDescripcionPerfil() != null) staff.setDescripcionPerfil(dto.getDescripcionPerfil());
+            if (dto.getExperienciaAnios() != null) staff.setExperienciaAnios(dto.getExperienciaAnios());
+            if (dto.getIdEspecialidad() != null) {
+                EspecialidadModel especialidad = especialidadRepository.findById(dto.getIdEspecialidad())
+                        .orElseThrow(() -> new IllegalArgumentException("No existe la especialidad con ID: " + dto.getIdEspecialidad()));
+                staff.setEspecialidad(especialidad);
+            }
         }
         
         // Actualizamos la ficha técnica si es cliente
         if (persona instanceof ClienteModel cliente) {
-            if (cliente.getFichaTecnica() != null) {
-                if (dto.getAlergias() != null) cliente.getFichaTecnica().setAlergias(dto.getAlergias());
-                if (dto.getMedicamentos() != null) cliente.getFichaTecnica().setMedicamentos(dto.getMedicamentos());
-                if (dto.getAfeccionesPiel() != null) cliente.getFichaTecnica().setAfeccionesPiel(dto.getAfeccionesPiel());
+            FichaTecnicaModel ficha = cliente.getFichaTecnica();
+            if (ficha == null) {
+                ficha = new FichaTecnicaModel();
+                ficha.setCliente(cliente);
+                cliente.setFichaTecnica(ficha);
             }
+            if (dto.getAlergias() != null) ficha.setAlergias(dto.getAlergias());
+            if (dto.getMedicamentos() != null) ficha.setMedicamentos(dto.getMedicamentos());
+            if (dto.getAfeccionesPiel() != null) ficha.setAfeccionesPiel(dto.getAfeccionesPiel());
         }
         
         // Guardamos los cambios
         return personaRepository.save(persona);
+    }
+
+    private boolean esLogoCorporativo(String fotoUrl) {
+        return companyLogoUrl != null && companyLogoUrl.equals(fotoUrl);
+    }
+
+    private void aplicarFotoFallbackSiFalta(StaffModel staff) {
+        if (staff.getFotoUrl() == null || staff.getFotoUrl().isBlank()) {
+            staff.setFotoUrl(companyLogoUrl);
+        }
     }
 
     // 4. DELETE (Eliminar cuenta)

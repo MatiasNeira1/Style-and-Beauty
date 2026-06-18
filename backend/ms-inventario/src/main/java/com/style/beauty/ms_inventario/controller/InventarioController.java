@@ -9,8 +9,11 @@ import com.style.beauty.ms_inventario.entity.Stock;
 import com.style.beauty.ms_inventario.service.InventarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,9 +39,19 @@ public class InventarioController {
         return inventarioService.buscarProducto(id);
     }
 
-    @PostMapping("/productos")
+    @PostMapping(value = "/productos", consumes = MediaType.APPLICATION_JSON_VALUE)
     public Producto crearProducto(@Valid @RequestBody CrearProductoRequest request) {
         return inventarioService.crearProducto(request);
+    }
+
+    @PostMapping(value = "/productos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Producto crearProductoConImagen(
+            @RequestParam String nombre,
+            @RequestParam String categoria,
+            @RequestParam(required = false) String descripcion,
+            @RequestParam BigDecimal precio,
+            @RequestParam("file") MultipartFile file) {
+        return inventarioService.crearProductoConImagen(nombre, categoria, descripcion, precio, file);
     }
 
     @PutMapping("/productos/{id}")
@@ -46,6 +59,16 @@ public class InventarioController {
             @PathVariable UUID id,
             @Valid @RequestBody CrearProductoRequest request) {
         return inventarioService.actualizarProducto(id, request);
+    }
+
+    @PostMapping("/productos/{id}/imagen")
+    public Producto subirImagenProducto(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
+        return inventarioService.actualizarImagenProducto(id, file);
+    }
+
+    @DeleteMapping("/productos/{id}/imagen")
+    public Producto eliminarImagenProducto(@PathVariable UUID id) {
+        return inventarioService.eliminarImagenProducto(id);
     }
 
     @PatchMapping("/productos/{id}/desactivar")

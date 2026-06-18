@@ -4,5 +4,12 @@ target
 *.log
 serviceAccountKey.json
 **/serviceAccountKey.json
+
+*credential*.json
+**/*credential*.json
+*secret*.json
+**/*secret*.json
 *.pem
 *.key
+*.p12
+*.jks

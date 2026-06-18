@@ -5,39 +5,45 @@ import lombok.Data;
 import java.util.UUID;
 
 @Entity
-@Table(name = "servicio")
+@Table(name = "servicio", schema = "public")
 @Data
 public class Servicio {
 
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name = "id_servicio")
     private UUID id_servicio;
 
-    @Column(nullable = false)
+    @Column(name = "nombre", nullable = false)
     private String nombre;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "descripcion", columnDefinition = "TEXT")
     private String descripcion;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "detallerservicio", columnDefinition = "TEXT")
     private String detallerservicio;
-    
+
+    @Column(name = "categoria")
     private String categoria;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "manual_uso_url", columnDefinition = "TEXT")
     private String manual_uso_url;
 
-    @Column(nullable = false)
+    @Transient
+    private String imagenUrl;
+
+    @Column(name = "duracion_minutos", nullable = false)
     private Integer duracion_minutos;
 
+    @Column(name = "holgura_minutos")
     private Integer holgura_minutos;
 
-    @Column(nullable = false)
+    @Column(name = "precio_total", nullable = false)
     private Double precio_total;
 
-    @Column(nullable = false)
+    @Column(name = "monto_fianza", nullable = false)
     private Double monto_fianza;
 
-    @Column(nullable = false)
+    @Column(name = "activo", nullable = false)
     private Boolean activo = true;
 }

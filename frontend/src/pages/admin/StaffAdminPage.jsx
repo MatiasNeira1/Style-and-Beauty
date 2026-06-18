@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarClock, Eye, Image, Pencil, Plus, Trash2, Users } from 'lucide-react';
+import { CalendarClock, Camera, Eye, Image, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton } from '../../components/admin/AdminPrimitives.jsx';
 import { StaffDeleteDialog } from '../../components/admin/staff/StaffDeleteDialog.jsx';
@@ -10,6 +10,9 @@ import { StaffProfileCard } from '../../components/admin/staff/StaffProfileCard.
 import { StaffWorkSchedule } from '../../components/admin/staff/StaffWorkSchedule.jsx';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { Button } from '../../components/ui/Button.jsx';
+import { Input } from '../../components/ui/Input.jsx';
+import { Modal } from '../../components/ui/Modal.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { authService } from '../../services/authService.js';
 import { staffService } from '../../services/staffService.js';
 
@@ -23,6 +26,18 @@ function getStaffId(staff) {
   return staff?.idStaff || staff?.idPersona || staff?.id;
 }
 
+function staffFullName(staff) {
+  return `${staff?.nombre || ''} ${staff?.apellidos || ''}`.trim() || 'Sin nombre';
+}
+
+function staffPhoto(staff) {
+  return staff?.fotoUrl || staff?.imageUrl || staff?.foto;
+}
+
+function normalizeText(value = '') {
+  return String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 export function StaffAdminPage() {
   const queryClient = useQueryClient();
   const [showFormModal, setShowFormModal] = useState(false);
@@ -30,6 +45,8 @@ export function StaffAdminPage() {
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [staffToDelete, setStaffToDelete] = useState(null);
   const [activeTab, setActiveTab] = useState(TABS.PROFILE);
+  const [staffSearch, setStaffSearch] = useState('');
+  const [staffStatusFilter, setStaffStatusFilter] = useState('TODOS');
 
   const staffQuery = useQuery({ queryKey: ['staff-list'], queryFn: staffService.listStaff });
   const specialtiesQuery = useQuery({ queryKey: ['staff-specialties'], queryFn: staffService.listSpecialties });
@@ -44,36 +61,60 @@ export function StaffAdminPage() {
     enabled: Boolean(getStaffId(selectedStaff)),
   });
 
+  const invalidateStaff = () => {
+    queryClient.invalidateQueries({ queryKey: ['staff-list'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
+  };
+
   const createMutation = useMutation({
     mutationFn: async (payload) => {
+      const { fotoFile, password, sinImagenPorAhora, ...profilePayload } = payload;
       const user = await authService.createUser({
         email: payload.emailContacto,
-        password: payload.password,
+        password,
         rol: 'STAFF',
       });
-      const profilePayload = { ...payload };
-      delete profilePayload.password;
-      return staffService.createStaff({
+      const createdStaff = await staffService.createStaff({
         ...profilePayload,
+        sinImagenPorAhora: Boolean(sinImagenPorAhora || fotoFile),
         idAuth: user.uid || user.idAuth || user.id,
         idEspecialidad: Number(profilePayload.idEspecialidad),
+        experienciaAnios: profilePayload.experienciaAnios ? Number(profilePayload.experienciaAnios) : null,
       });
+
+      if (fotoFile) {
+        return staffService.uploadStaffPhoto(getStaffId(createdStaff), fotoFile);
+      }
+
+      return createdStaff;
     },
     onSuccess: () => {
       setShowFormModal(false);
-      queryClient.invalidateQueries({ queryKey: ['staff-list'] });
+      invalidateStaff();
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ idAuth, data }) => staffService.updateStaff(idAuth, {
-      ...data,
-      idEspecialidad: Number(data.idEspecialidad),
-    }),
-    onSuccess: () => {
+    mutationFn: async ({ idAuth, staffId, data }) => {
+      const { fotoFile, sinImagenPorAhora, ...profilePayload } = data;
+      const updatedStaff = await staffService.updateStaff(idAuth, {
+        ...profilePayload,
+        sinImagenPorAhora: Boolean(sinImagenPorAhora),
+        idEspecialidad: Number(profilePayload.idEspecialidad),
+        experienciaAnios: profilePayload.experienciaAnios ? Number(profilePayload.experienciaAnios) : null,
+      });
+
+      if (fotoFile) {
+        return staffService.uploadStaffPhoto(staffId || getStaffId(updatedStaff), fotoFile);
+      }
+
+      return updatedStaff;
+    },
+    onSuccess: (updatedStaff) => {
       setShowFormModal(false);
       setEditingStaff(null);
-      queryClient.invalidateQueries({ queryKey: ['staff-list'] });
+      setSelectedStaff((current) => (getStaffId(current) === getStaffId(updatedStaff) ? updatedStaff : current));
+      invalidateStaff();
     },
   });
 
@@ -82,7 +123,23 @@ export function StaffAdminPage() {
     onSuccess: () => {
       setStaffToDelete(null);
       setSelectedStaff(null);
-      queryClient.invalidateQueries({ queryKey: ['staff-list'] });
+      invalidateStaff();
+    },
+  });
+
+  const staffPhotoMutation = useMutation({
+    mutationFn: ({ staffId, file }) => staffService.uploadStaffPhoto(staffId, file),
+    onSuccess: (updatedStaff) => {
+      setSelectedStaff((current) => (getStaffId(current) === getStaffId(updatedStaff) ? updatedStaff : current));
+      invalidateStaff();
+    },
+  });
+
+  const deleteStaffPhotoMutation = useMutation({
+    mutationFn: (staffId) => staffService.deleteStaffPhoto(staffId),
+    onSuccess: (updatedStaff) => {
+      setSelectedStaff((current) => (getStaffId(current) === getStaffId(updatedStaff) ? updatedStaff : current));
+      invalidateStaff();
     },
   });
 
@@ -103,30 +160,59 @@ export function StaffAdminPage() {
 
   const handleFormSubmit = (data, isEdit) => {
     if (isEdit && editingStaff) {
-      updateMutation.mutate({ idAuth: editingStaff.idAuth, data });
+      updateMutation.mutate({ idAuth: editingStaff.idAuth, staffId: getStaffId(editingStaff), data });
     } else {
       createMutation.mutate(data);
     }
   };
 
+  const handlePhotoChange = (staffMember, event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    staffPhotoMutation.mutate({ staffId: getStaffId(staffMember), file });
+  };
+
   const handleUpload = useCallback((file) => uploadImageMutation.mutateAsync(file), [uploadImageMutation]);
   const handleDeleteImage = useCallback((imageId) => deleteImageMutation.mutate(imageId), [deleteImageMutation]);
 
-  const staff = Array.isArray(staffQuery.data) ? staffQuery.data : [];
-  const specialties = Array.isArray(specialtiesQuery.data) ? specialtiesQuery.data : [];
-  const schedules = Array.isArray(scheduleQuery.data) ? scheduleQuery.data : [];
-  const portfolio = Array.isArray(portfolioQuery.data) ? portfolioQuery.data : [];
+  const staff = useMemo(() => (Array.isArray(staffQuery.data) ? staffQuery.data : []), [staffQuery.data]);
+  const specialties = useMemo(() => (Array.isArray(specialtiesQuery.data) ? specialtiesQuery.data : []), [specialtiesQuery.data]);
+  const schedules = useMemo(() => (Array.isArray(scheduleQuery.data) ? scheduleQuery.data : []), [scheduleQuery.data]);
+  const portfolio = useMemo(() => (Array.isArray(portfolioQuery.data) ? portfolioQuery.data : []), [portfolioQuery.data]);
+  const filteredStaff = useMemo(() => {
+    const needle = normalizeText(staffSearch.trim());
+    return staff.filter((member) => {
+      const haystack = [
+        staffFullName(member),
+        member.emailContacto,
+        member.telefono,
+        member.especialidad?.nombre,
+        member.nombreEspecialidad,
+      ].map(normalizeText).join(' ');
+      const matchesSearch = needle ? haystack.includes(needle) : true;
+      const matchesStatus = staffStatusFilter === 'TODOS'
+        ? true
+        : staffStatusFilter === 'ACTIVO'
+          ? member.activo !== false
+          : member.activo === false;
+      return matchesSearch && matchesStatus;
+    });
+  }, [staff, staffSearch, staffStatusFilter]);
+  const hasActiveStaffFilters = staffSearch || staffStatusFilter !== 'TODOS';
 
   const columns = [
     {
       key: 'nombre',
       label: 'Profesional',
       render: (row) => {
-        const name = `${row.nombre || ''} ${row.apellidos || ''}`.trim() || 'Sin nombre';
+        const name = staffFullName(row);
         const initials = name.split(' ').slice(0, 2).map((word) => word[0]).join('').toUpperCase();
         return (
           <div className="admin-staff-cell">
-            <div className="staff-avatar admin-staff-avatar">{initials}</div>
+            <div className="staff-avatar admin-staff-avatar">
+              {staffPhoto(row) ? <SafeImage src={staffPhoto(row)} alt={name} /> : initials}
+            </div>
             <div>
               <span>{name}</span>
               <small>{row.emailContacto || 'Sin email registrado'}</small>
@@ -142,21 +228,9 @@ export function StaffAdminPage() {
       render: (row) => <Badge tone="primary">{row.especialidad?.nombre || row.nombreEspecialidad || 'Sin asignar'}</Badge>,
     },
     {
-      key: 'acciones',
-      label: 'Acciones',
-      render: (row) => (
-        <div className="staff-table-row-actions">
-          <button type="button" className="staff-action-btn" onClick={() => { setSelectedStaff(row); setActiveTab(TABS.PROFILE); }} aria-label={`Ver perfil de ${row.nombre}`}>
-            <Eye size={15} />
-          </button>
-          <button type="button" className="staff-action-btn" onClick={() => { setEditingStaff(row); setShowFormModal(true); }} aria-label={`Editar ${row.nombre}`}>
-            <Pencil size={15} />
-          </button>
-          <button type="button" className="staff-action-btn danger" onClick={() => setStaffToDelete(row)} aria-label={`Eliminar ${row.nombre}`}>
-            <Trash2 size={15} />
-          </button>
-        </div>
-      ),
+      key: 'activo',
+      label: 'Estado',
+      render: (row) => <Badge tone={row.activo === false ? 'neutral' : 'success'}>{row.activo === false ? 'Inactivo' : 'Activo'}</Badge>,
     },
   ];
 
@@ -175,7 +249,7 @@ export function StaffAdminPage() {
             size="sm"
           >
             <Plus size={16} />
-            Nuevo Profesional
+            Agregar profesional
           </Button>
         )}
       />
@@ -186,25 +260,66 @@ export function StaffAdminPage() {
         <AdminKpiCard icon={Image} title="Portfolio" value={portfolio.length} trend={3} microcopy="Trabajos visibles" tone="gold" />
       </AdminKpiGrid>
 
-      {(createMutation.isError || updateMutation.isError || deleteMutation.isError) && (
+      {(createMutation.isError || updateMutation.isError || deleteMutation.isError || staffPhotoMutation.isError || deleteStaffPhotoMutation.isError) && (
         <p className="admin-alert">
-          {createMutation.error?.message || updateMutation.error?.message || deleteMutation.error?.message}
+          {createMutation.error?.message || updateMutation.error?.message || deleteMutation.error?.message || staffPhotoMutation.error?.message || deleteStaffPhotoMutation.error?.message}
         </p>
       )}
 
-      <div className={`staff-admin-detail-layout ${selectedStaff ? 'has-drawer' : ''}`}>
-        <div>
-          {staffQuery.isLoading ? (
-            <AdminSkeleton rows={5} />
-          ) : staffQuery.isError ? (
-            <p className="admin-alert">{staffQuery.error.message}</p>
-          ) : (
-            <DataTable columns={columns} rows={staff} />
+      <section className="admin-panel compact-panel">
+        <header>
+          <div>
+            <h3>Busqueda y filtros</h3>
+            <p>Busca por nombre, especialidad, email o telefono.</p>
+          </div>
+          {hasActiveStaffFilters && (
+            <button
+              type="button"
+              className="admin-text-button"
+              onClick={() => {
+                setStaffSearch('');
+                setStaffStatusFilter('TODOS');
+              }}
+            >
+              Limpiar filtros
+            </button>
           )}
+        </header>
+        <div className="admin-local-filter-grid">
+          <label className="field admin-search-field">
+            <span>Buscar</span>
+            <div className="admin-filter-search">
+              <Search size={16} />
+              <input value={staffSearch} onChange={(event) => setStaffSearch(event.target.value)} placeholder="Nombre, especialidad o email" />
+            </div>
+          </label>
+          <Input as="select" label="Estado" id="staff-status-filter" value={staffStatusFilter} onChange={(event) => setStaffStatusFilter(event.target.value)}>
+            <option value="TODOS">Todos los estados</option>
+            <option value="ACTIVO">Activos</option>
+            <option value="INACTIVO">Inactivos</option>
+          </Input>
         </div>
+      </section>
 
+      {staffQuery.isLoading ? (
+        <AdminSkeleton rows={5} />
+      ) : staffQuery.isError ? (
+        <p className="admin-alert">{staffQuery.error.message}</p>
+      ) : (
+        <DataTable
+          compact
+          columns={columns}
+          rows={filteredStaff}
+          emptyMessage="No hay profesionales para este filtro."
+          onRowClick={(row) => { setSelectedStaff(row); setActiveTab(TABS.PROFILE); }}
+          getRowKey={(row) => getStaffId(row)}
+          getRowLabel={(row) => `Ver detalle de ${staffFullName(row)}`}
+        />
+      )}
+
+      <Modal open={Boolean(selectedStaff)} title="Detalle profesional" onClose={() => setSelectedStaff(null)}>
         {selectedStaff && (
-          <div className="stack staff-profile-drawer">
+          <div className="stack staff-profile-drawer modal-detail-panel">
             <div className="staff-tabs">
               <button type="button" className={`staff-tab ${activeTab === TABS.PROFILE ? 'active' : ''}`} onClick={() => setActiveTab(TABS.PROFILE)}>
                 <Eye size={13} /> Perfil
@@ -215,6 +330,22 @@ export function StaffAdminPage() {
               <button type="button" className={`staff-tab ${activeTab === TABS.PORTFOLIO ? 'active' : ''}`} onClick={() => setActiveTab(TABS.PORTFOLIO)}>
                 <Image size={13} /> Portfolio
               </button>
+            </div>
+
+            <div className="staff-detail-actions">
+              <Button type="button" size="sm" variant="ghost" onClick={() => { setEditingStaff(selectedStaff); setShowFormModal(true); }}>
+                <Pencil size={14} /> Editar
+              </Button>
+              <label className="button button-ghost button-sm staff-file-button">
+                <span className="button-content"><Camera size={14} /> Cambiar foto</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handlePhotoChange(selectedStaff, event)} />
+              </label>
+              <Button type="button" size="sm" variant="ghost" onClick={() => deleteStaffPhotoMutation.mutate(getStaffId(selectedStaff))} disabled={deleteStaffPhotoMutation.isPending || !staffPhoto(selectedStaff)}>
+                <Image size={14} /> Eliminar foto
+              </Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setStaffToDelete(selectedStaff)}>
+                <Trash2 size={14} /> Eliminar
+              </Button>
             </div>
 
             {activeTab === TABS.PROFILE && <StaffProfileCard staff={selectedStaff} />}
@@ -235,11 +366,11 @@ export function StaffAdminPage() {
             )}
 
             <Button variant="ghost" size="sm" onClick={() => setSelectedStaff(null)} className="admin-centered-action">
-              Cerrar panel
+              Cerrar
             </Button>
           </div>
         )}
-      </div>
+      </Modal>
 
       <StaffFormModal
         open={showFormModal}

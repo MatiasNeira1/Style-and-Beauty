@@ -1,5 +1,7 @@
 serviceAccountKey.json
 **/serviceAccountKey.json
+firebase-service-account.json
+**/firebase-service-account.json
 *.pem
 *.key
 *.p12
@@ -14,8 +16,14 @@ frontend/.vite/
 .env
 .env.*
 !.env.example
+!.env.azure.example
 !frontend/.env.example
 Microsoft/
 .codex-run/
 *.log
 hs_err_pid*.log
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+n8n/n8n_data/
+n8n/n8n_data/**

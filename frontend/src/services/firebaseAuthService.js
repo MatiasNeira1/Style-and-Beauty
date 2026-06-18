@@ -4,18 +4,25 @@ import {
   getIdTokenResult,
   signInWithEmailAndPassword,
   signOut,
+  updateProfile,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { firebaseAuth } from './firebaseClient.js';
 
+// Configurar idioma en español para correos y plantillas de Firebase
+firebaseAuth.languageCode = 'es';
+
 function toSession(firebaseUser, tokenResult) {
-  const rol = tokenResult.claims?.rol || 'CLIENTE';
+  const rol = tokenResult.claims?.rol || tokenResult.claims?.role || null;
+  const normalizedRole = rol ? String(rol).toUpperCase() : null;
 
   return {
     user: {
       uid: firebaseUser.uid,
       email: firebaseUser.email,
-      rol,
-      role: rol.toLowerCase(),
+      rol: normalizedRole,
+      role: normalizedRole ? normalizedRole.toLowerCase() : null,
+      photoURL: firebaseUser.photoURL || null,
     },
     token: tokenResult.token,
     claims: tokenResult.claims || {},
@@ -38,6 +45,7 @@ export const firebaseAuthService = {
         email: credential.user.email,
         rol: 'CLIENTE',
         role: 'cliente',
+        photoURL: credential.user.photoURL || null,
       },
       token,
     };
@@ -47,6 +55,16 @@ export const firebaseAuthService = {
     if (!firebaseUser) return null;
     const tokenResult = await getIdTokenResult(firebaseUser, true);
     return toSession(firebaseUser, tokenResult);
+  },
+
+  async updatePhoto(photoURL) {
+    if (!firebaseAuth.currentUser) throw new Error('No user is logged in.');
+    await updateProfile(firebaseAuth.currentUser, { photoURL });
+    return this.refreshSession(firebaseAuth.currentUser);
+  },
+
+  async resetPassword(email) {
+    await sendPasswordResetEmail(firebaseAuth, email);
   },
 
   logout() {

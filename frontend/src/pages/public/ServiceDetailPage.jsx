@@ -10,11 +10,13 @@ import { Loader } from '../../components/ui/Loader.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { agendaService } from '../../services/agendaService.js';
 import { catalogService } from '../../services/catalogService.js';
-import { crearTransaccionWebpay } from '../../services/pagosService.js';
 import { reservationService } from '../../services/reservationService.js';
+import { firebaseAuthService } from '../../services/firebaseAuthService.js';
+import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
+import { useCart } from '../../store/CartContext.jsx';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
-import { redirigirAWebpay } from '../../utils/webpayRedirect.js';
+import { filterBookableSlots, isBookingDateAllowed, maxBookingDate, RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
 
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
@@ -124,17 +126,40 @@ function profileForModal(professional, service) {
   };
 }
 
+function profileErrorMessage(error) {
+  if (isProfileNotFoundError(error)) return 'Completa tu perfil de cliente antes de confirmar la reserva.';
+  if (error?.status === 503) return 'La autenticacion del servidor no esta configurada. Intenta mas tarde.';
+  return error?.message || 'No se pudo cargar tu perfil de cliente.';
+}
+
+function bookingErrorMessage(error) {
+  const message = String(error?.message || '').toLowerCase();
+  if (message.includes('anteriores a hoy')) return 'No puedes reservar fechas anteriores a hoy.';
+  if (message.includes('30') || message.includes('anticipacion') || message.includes('anticipación')) return 'Solo puedes reservar hasta 30 días de anticipación.';
+  if (message.includes('domingo')) return 'No atendemos los domingos.';
+  if (message.includes('16:00')) return 'Los sábados atendemos solo hasta las 16:00.';
+  if (message.includes('solapa') || message.includes('consecutivo') || message.includes('ya tienes una cita')) {
+    return 'Ya tienes una cita en ese horario. Elige el horario consecutivo disponible.';
+  }
+  if (message.includes('perfil') || message.includes('cliente')) {
+    return 'No se pudo identificar tu perfil de cliente. Inicia sesion nuevamente o completa tu registro.';
+  }
+  return error?.message || 'No se pudo agregar la reserva al carrito. Intenta nuevamente.';
+}
+
 export function ServiceDetailPage() {
   const { categoria, servicio } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, setSession } = useAuth();
+  const { addReservationItem, hasReservationForService, setIsCartOpen, setLastCartError } = useCart();
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
   const profileQuery = useQuery({
     queryKey: ['my-profile'],
     queryFn: reservationService.getMe,
     enabled: isAuthenticated,
+    retry: false,
   });
 
   const [profesionales, setProfesionales] = useState([]);
@@ -163,6 +188,8 @@ export function ServiceDetailPage() {
   const categoryServices = grouped[category] || [];
   const service = categoryServices.find((item) => serviceMatchesSlug(item, servicio));
   const idServicio = serviceId(service);
+  const idServicioValido = reservationService.isValidUuid(idServicio);
+  const idClientePerfil = profileQuery.data?.idPersona;
 
   const savePendingReservation = () => {
     const pending = {
@@ -190,7 +217,7 @@ export function ServiceDetailPage() {
   };
 
   useEffect(() => {
-    if (!idServicio) return undefined;
+    if (!idServicioValido) return undefined;
 
     let active = true;
     setCargandoProfesionales(true);
@@ -216,7 +243,7 @@ export function ServiceDetailPage() {
     return () => {
       active = false;
     };
-  }, [idServicio]);
+  }, [idServicio, idServicioValido]);
 
   useEffect(() => {
     if (!idServicio || profesionales.length === 0 || profesionalSeleccionado) return;
@@ -248,7 +275,16 @@ export function ServiceDetailPage() {
 
   useEffect(() => {
     const idStaff = staffId(profesionalSeleccionado);
-    if (!idServicio || !idStaff) {
+    const idStaffValido = reservationService.isValidUuid(idStaff);
+    const idCliente = idClientePerfil;
+    if (!idServicioValido || !idStaffValido) {
+      setDisponibilidadSemana({});
+      setFechaSeleccionada('');
+      setHorariosDisponibles([]);
+      setHorarioSeleccionado(null);
+      return undefined;
+    }
+    if (isAuthenticated && profileQuery.isLoading) {
       setDisponibilidadSemana({});
       setFechaSeleccionada('');
       setHorariosDisponibles([]);
@@ -266,7 +302,7 @@ export function ServiceDetailPage() {
 
     const dias = weekDays(semanaInicio);
     const fechaInicioSemana = formatLocalDate(semanaInicio);
-    const weekKey = `${idServicio}:${idStaff}:${fechaInicioSemana}`;
+    const weekKey = `${idServicio}:${idStaff}:${fechaInicioSemana}:${idCliente || 'anon'}`;
 
     if (availabilityWeekCache.current.has(weekKey)) {
       setDisponibilidadSemana(availabilityWeekCache.current.get(weekKey));
@@ -274,24 +310,17 @@ export function ServiceDetailPage() {
       return undefined;
     }
 
-    const payload = { idStaff, idServicio, fechaInicioSemana };
-
-    if (import.meta.env.DEV) {
-      console.log('Consultando disponibilidad semanal', payload);
-    }
+    const payload = { idServicio, idStaff, fecha: fechaInicioSemana, idCliente };
 
     const loadWeeklyAvailability = async () => {
       try {
         const response = await agendaService.consultarDisponibilidadSemanal(payload);
-        if (import.meta.env.DEV) {
-          console.log('Respuesta disponibilidad semanal', response);
-        }
 
         const weeklyAvailability = Object.fromEntries(dias.map((dia) => [formatLocalDate(dia), []]));
         if (Array.isArray(response)) {
           response.forEach((dia) => {
             if (dia?.fecha) {
-              weeklyAvailability[dia.fecha] = Array.isArray(dia.slots) ? dia.slots : [];
+              weeklyAvailability[dia.fecha] = filterBookableSlots(Array.isArray(dia.slots) ? dia.slots : []);
             }
           });
         }
@@ -302,15 +331,11 @@ export function ServiceDetailPage() {
           throw error;
         }
 
-        if (import.meta.env.DEV) {
-          console.log('Endpoint semanal no disponible, usando disponibilidad diaria');
-        }
-
         const entries = await Promise.all(dias.map(async (dia) => {
           const fecha = formatLocalDate(dia);
-          const dailyPayload = { idStaff, idServicio, fecha };
+          const dailyPayload = { idServicio, idStaff, fecha, idCliente };
           const response = await agendaService.consultarDisponibilidad(dailyPayload);
-          return [fecha, Array.isArray(response) ? response : []];
+          return [fecha, filterBookableSlots(Array.isArray(response) ? response : [])];
         }));
 
         return Object.fromEntries(entries);
@@ -332,7 +357,7 @@ export function ServiceDetailPage() {
     return () => {
       active = false;
     };
-  }, [idServicio, profesionalSeleccionado, semanaInicio]);
+  }, [idServicio, idServicioValido, profesionalSeleccionado, semanaInicio, isAuthenticated, idClientePerfil, profileQuery.isLoading]);
 
   useEffect(() => {
     const pending = pendingReservationRef.current;
@@ -367,8 +392,10 @@ export function ServiceDetailPage() {
   };
 
   const handleSelectDay = (fecha) => {
+    const slots = disponibilidadSemana[fecha] || [];
+    if (!isBookingDateAllowed(fecha) || slots.length === 0) return;
     setFechaSeleccionada(fecha);
-    setHorariosDisponibles(disponibilidadSemana[fecha] || []);
+    setHorariosDisponibles(slots);
     setHorarioSeleccionado(null);
     setMensajeReserva('');
   };
@@ -388,14 +415,42 @@ export function ServiceDetailPage() {
       setMensajeReserva('Selecciona una hora disponible.');
       return;
     }
+    if (!idServicioValido || !reservationService.isValidUuid(staffId(profesionalSeleccionado))) {
+      setMensajeReserva('Selecciona un servicio y especialista validos.');
+      return;
+    }
     if (!isAuthenticated) {
       savePendingReservation();
       setAuthModalOpen(true);
       return;
     }
+    if (profileQuery.isLoading) {
+      setMensajeReserva('Estamos cargando tu perfil de cliente. Intenta nuevamente en unos segundos.');
+      return;
+    }
+    if (profileQuery.isError) {
+      setMensajeReserva(profileErrorMessage(profileQuery.error));
+      return;
+    }
+    if (!profileQuery.data?.idPersona) {
+      setMensajeReserva('Completa tu perfil de cliente antes de confirmar la reserva.');
+      return;
+    }
+    if (hasReservationForService(idServicio)) {
+      const message = 'Ya tienes una reserva temporal para este servicio en el carrito.';
+      setMensajeReserva(message);
+      setLastCartError(message);
+      setIsCartOpen(true);
+      return;
+    }
 
     setCreandoCita(true);
     try {
+      const refreshedSession = await firebaseAuthService.refreshSession();
+      if (refreshedSession) {
+        setSession(refreshedSession);
+      }
+
       const citaCreada = await agendaService.crearCita({
         idCliente: profileQuery.data?.idPersona,
         idStaff: staffId(profesionalSeleccionado),
@@ -403,18 +458,34 @@ export function ServiceDetailPage() {
         fechaHoraInicio: horarioSeleccionado.inicio,
         observacionCliente,
       });
-      const transaccion = await crearTransaccionWebpay({
-        idCita: citaCreada.idCita,
-        descripcion: 'Reserva Style and Beauty',
-      });
-      const token = transaccion?.token || transaccion?.tokenWebpay;
-      const urlWebpay = transaccion?.urlWebpay || transaccion?.url;
-
-      if (!token || !urlWebpay) {
-        throw new Error('No se recibieron los datos de redireccion Webpay.');
-      }
 
       const horarioReservado = horarioSeleccionado.inicio;
+      const addResult = addReservationItem({
+        id: `reservation:${citaCreada.idCita}`,
+        reservationId: citaCreada.idCita,
+        serviceId: idServicio,
+        staffId: staffId(profesionalSeleccionado),
+        name: service?.nombre || service?.name || 'Reserva',
+        price: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
+        startsAt: citaCreada.fechaHoraInicio || horarioReservado,
+        endsAt: citaCreada.fechaHoraFinAtencion || horarioSeleccionado.finAtencion || citaCreada.fechaHoraFin,
+        blockedUntil: citaCreada.fechaHoraFin,
+        expiresAt: citaCreada.expiracionReserva,
+        duracionServicioMin: citaCreada?.duracionServicioMin,
+        holguraMin: citaCreada?.holguraMin,
+        service,
+        staff: profesionalSeleccionado,
+        date: fechaSeleccionada,
+        time: horarioReservado,
+        observacionCliente,
+      });
+
+      if (!addResult.ok) {
+        await reservationService.cancelReservation(citaCreada.idCita);
+        setMensajeReserva(addResult.error);
+        return;
+      }
+
       const horariosActualizados = horariosDisponibles.filter((horario) => horario.inicio !== horarioReservado);
       setDisponibilidadSemana((current) => ({
         ...current,
@@ -422,19 +493,16 @@ export function ServiceDetailPage() {
       }));
       setHorariosDisponibles(horariosActualizados);
       setHorarioSeleccionado(null);
-      availabilityWeekCache.current.delete(`${idServicio}:${staffId(profesionalSeleccionado)}:${formatLocalDate(semanaInicio)}`);
+      availabilityWeekCache.current.delete(`${idServicio}:${staffId(profesionalSeleccionado)}:${formatLocalDate(semanaInicio)}:${idClientePerfil || 'anon'}`);
       await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
       await queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
-      setMensajeReserva('Reserva creada. Redirigiendo a Webpay...');
+      setMensajeReserva(`Reserva agregada al carrito. Tienes ${RESERVATION_EXPIRATION_MINUTES} minutos para confirmarla antes de que el horario se libere.`);
       setObservacionCliente('');
-      redirigirAWebpay(urlWebpay, token);
+      window.setTimeout(() => {
+        navigate('/servicios', { state: { reservationAdded: true } });
+      }, 1200);
     } catch (error) {
-      const message = error.message || '';
-      if (message.toLowerCase().includes('perfil') || message.toLowerCase().includes('cliente')) {
-        setMensajeReserva('No se pudo identificar tu perfil de cliente. Inicia sesion nuevamente o completa tu registro.');
-      } else {
-        setMensajeReserva(message || 'No se pudo iniciar el pago. Intenta nuevamente.');
-      }
+      setMensajeReserva(bookingErrorMessage(error));
     } finally {
       setCreandoCita(false);
     }
@@ -448,10 +516,15 @@ export function ServiceDetailPage() {
     && !errorDisponibilidad
     && semanaCargada
     && fechasSemana.every((fecha) => (disponibilidadSemana[fecha] || []).length === 0);
+  const nextWeekStart = addDays(semanaInicio, 7);
+  const previousWeekEnd = addDays(semanaInicio, -1);
+  const today = new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  const canGoNextWeek = nextWeekStart <= maxBookingDate();
+  const canGoPrevWeek = previousWeekEnd >= today;
 
   if (servicesQuery.isLoading) {
     return (
-      <section className="page-section">
+      <section className="page-section standalone-page-section">
         <Loader />
       </section>
     );
@@ -459,7 +532,7 @@ export function ServiceDetailPage() {
 
   if (servicesQuery.isError) {
     return (
-      <section className="page-section">
+      <section className="page-section standalone-page-section">
         <p className="admin-alert">{servicesQuery.error?.message}</p>
       </section>
     );
@@ -467,7 +540,7 @@ export function ServiceDetailPage() {
 
   if (!service) {
     return (
-      <section className="page-section">
+      <section className="page-section standalone-page-section">
         <Link className="text-link service-back-link" to="/servicios">
           <ArrowLeft size={16} />
           Servicios
@@ -527,7 +600,7 @@ export function ServiceDetailPage() {
 
             <div className="service-booking-panel">
               <div className="service-week-header">
-                <button type="button" className="button button-sm button-secondary" onClick={() => handleWeekChange(-1)}>
+                <button type="button" className="button button-sm button-secondary" onClick={() => handleWeekChange(-1)} disabled={!canGoPrevWeek}>
                   Semana anterior
                 </button>
                 <div>
@@ -535,7 +608,7 @@ export function ServiceDetailPage() {
                   <h3>Selecciona tu hora</h3>
                   <p>Semana desde el {weekRangeLabel(semanaInicio)}</p>
                 </div>
-                <button type="button" className="button button-sm button-secondary" onClick={() => handleWeekChange(1)}>
+                <button type="button" className="button button-sm button-secondary" onClick={() => handleWeekChange(1)} disabled={!canGoNextWeek}>
                   Semana siguiente
                 </button>
               </div>
@@ -550,14 +623,16 @@ export function ServiceDetailPage() {
                   {diasSemana.map((dia) => {
                     const fecha = formatLocalDate(dia);
                     const slots = disponibilidadSemana[fecha] || [];
-                    const available = slots.length > 0;
+                    const dateAllowed = isBookingDateAllowed(fecha);
+                    const available = dateAllowed && slots.length > 0;
                     const selected = fechaSeleccionada === fecha;
 
                     return (
                       <button
                         key={fecha}
                         type="button"
-                        className={selected ? 'service-week-day is-selected' : 'service-week-day'}
+                        className={`${selected ? 'service-week-day is-selected' : 'service-week-day'} ${!available ? 'is-disabled' : ''}`}
+                        disabled={!available}
                         onClick={() => handleSelectDay(fecha)}
                       >
                         <strong>{new Intl.DateTimeFormat('es-CL', { weekday: 'short' }).format(dia)}</strong>
@@ -599,7 +674,7 @@ export function ServiceDetailPage() {
                       className={horarioSeleccionado?.inicio === horario.inicio ? 'service-slot is-selected' : 'service-slot'}
                       onClick={() => setHorarioSeleccionado(horario)}
                     >
-                      {formatSlotTime(horario.inicio)} - {formatSlotTime(horario.finVisible)}
+                      {formatSlotTime(horario.inicio)} - {formatSlotTime(horario.finAtencion || horario.finVisible)}
                     </button>
                   ))}
                 </div>
@@ -623,7 +698,7 @@ export function ServiceDetailPage() {
                     </div>
                     <div>
                       <dt>Hora</dt>
-                      <dd>{formatSlotTime(horarioSeleccionado.inicio)} a {formatSlotTime(horarioSeleccionado.finVisible)}</dd>
+                      <dd>{formatSlotTime(horarioSeleccionado.inicio)} a {formatSlotTime(horarioSeleccionado.finAtencion || horarioSeleccionado.finVisible)}</dd>
                     </div>
                     <div>
                       <dt>Duracion</dt>
@@ -644,12 +719,17 @@ export function ServiceDetailPage() {
               )}
 
               {profileQuery.isError && isAuthenticated && (
-                <p className="admin-alert">No se pudo cargar tu perfil de cliente. Inicia sesion nuevamente o completa tu registro.</p>
+                <p className="admin-alert">{profileErrorMessage(profileQuery.error)}</p>
               )}
-              {mensajeReserva && <p className={mensajeReserva.includes('Redirigiendo') ? 'service-booking-success' : 'admin-alert'}>{mensajeReserva}</p>}
-              <button type="button" className="button" onClick={handleCreateBooking} disabled={creandoCita}>
+              {mensajeReserva && <p className={mensajeReserva.includes('agregada al carrito') ? 'service-booking-success' : 'admin-alert'}>{mensajeReserva}</p>}
+              <button
+                type="button"
+                className="button"
+                onClick={handleCreateBooking}
+                disabled={creandoCita || !horarioSeleccionado || (isAuthenticated && (profileQuery.isLoading || profileQuery.isError || !profileQuery.data?.idPersona))}
+              >
                 <CalendarDays size={17} />
-                {creandoCita ? 'Iniciando pago...' : 'Reservar y pagar'}
+                {creandoCita ? 'Agregando...' : 'Agregar al carrito'}
               </button>
             </div>
           </section>

@@ -3,14 +3,16 @@ package com.style.beauty.ms_catalogo.controller;
 import com.style.beauty.ms_catalogo.entity.Servicio;
 import com.style.beauty.ms_catalogo.service.ServicioService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/servicio")
+@RequestMapping({"/api/servicio", "/api/servicios"})
 public class ServicioController {
 
     @Autowired
@@ -36,15 +38,58 @@ public class ServicioController {
     }
 
     // POST /api/servicio — Crear un nuevo servicio
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Servicio> crear(@RequestBody Servicio servicio) {
         return ResponseEntity.ok(service.guardar(servicio));
+    }
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Servicio> crearConImagen(
+            @RequestParam String nombre,
+            @RequestParam(required = false) String descripcion,
+            @RequestParam(required = false) String detallerservicio,
+            @RequestParam String categoria,
+            @RequestParam(required = false) String manual_uso_url,
+            @RequestParam Integer duracion_minutos,
+            @RequestParam(required = false) Integer holgura_minutos,
+            @RequestParam Double precio_total,
+            @RequestParam Double monto_fianza,
+            @RequestParam(defaultValue = "true") Boolean activo,
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(service.guardarConImagen(
+                nombre,
+                descripcion,
+                detallerservicio,
+                categoria,
+                manual_uso_url,
+                duracion_minutos,
+                holgura_minutos,
+                precio_total,
+                monto_fianza,
+                activo,
+                file));
     }
 
     // PUT /api/servicio/{id} — Actualizar un servicio existente
     @PutMapping("/{id}")
     public ResponseEntity<Servicio> actualizar(@PathVariable UUID id, @RequestBody Servicio servicio) {
         return service.actualizar(id, servicio)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // POST /api/servicios/{id}/imagen — Subir o reemplazar imagen del servicio
+    @PostMapping("/{id}/imagen")
+    public ResponseEntity<Servicio> subirImagen(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
+        return service.actualizarImagen(id, file)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // DELETE /api/servicios/{id}/imagen — Eliminar imagen del servicio
+    @DeleteMapping("/{id}/imagen")
+    public ResponseEntity<Servicio> eliminarImagen(@PathVariable UUID id) {
+        return service.eliminarImagen(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }

@@ -38,8 +38,11 @@ public class TransaccionPago {
     @Column(name = "id_transaccion", nullable = false, updatable = false)
     private UUID idTransaccion;
 
-    @Column(name = "id_cita", nullable = false)
+    @Column(name = "id_cita")
     private UUID idCita;
+
+    @Column(name = "id_citas", columnDefinition = "TEXT")
+    private String idCitas;
 
     @Column(name = "id_cliente", nullable = false)
     private UUID idCliente;
@@ -56,8 +59,11 @@ public class TransaccionPago {
     @Column(name = "token_webpay", length = 256)
     private String tokenWebpay;
 
-    @Column(name = "url_webpay", length = 1024)
+    @Column(name = "url_webpay", length = 512)
     private String urlWebpay;
+
+    @Column(name = "detalle_items_json", columnDefinition = "TEXT")
+    private String detalleItemsJson;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 32)

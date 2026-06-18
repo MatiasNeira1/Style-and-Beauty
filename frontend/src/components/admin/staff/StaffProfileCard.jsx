@@ -1,5 +1,6 @@
 import { User, Mail, Phone, Calendar, Briefcase, Star } from 'lucide-react';
 import { Badge } from '../../ui/Badge.jsx';
+import { SafeImage } from '../../ui/SafeImage.jsx';
 
 export function StaffProfileCard({ staff }) {
   if (!staff) return null;
@@ -13,16 +14,21 @@ export function StaffProfileCard({ staff }) {
     .toUpperCase();
 
   const specialtyName = staff.especialidad?.nombre || staff.nombreEspecialidad || 'Sin asignar';
+  const photoUrl = staff.fotoUrl || staff.imageUrl || staff.foto;
+  const bio = staff.descripcionPerfil || staff.biografia;
 
   return (
     <div className="card staff-profile-drawer">
       {/* ── Header ────────────────────────────────── */}
       <div className="staff-profile-header">
-        <div className="staff-avatar">{initials}</div>
+        <div className="staff-avatar staff-profile-photo">
+          {photoUrl ? <SafeImage src={photoUrl} alt={fullName} /> : initials}
+        </div>
         <div className="staff-profile-meta">
           <h3>{fullName}</h3>
-          <span>
+          <span className="staff-profile-badges">
             <Badge tone="primary">{specialtyName}</Badge>
+            <Badge tone={staff.activo === false ? 'neutral' : 'success'}>{staff.activo === false ? 'Inactivo' : 'Activo'}</Badge>
           </span>
         </div>
       </div>
@@ -56,7 +62,7 @@ export function StaffProfileCard({ staff }) {
       </div>
 
       {/* ── Biografía ─────────────────────────────── */}
-      {staff.biografia && (
+      {bio && (
         <div style={{ marginTop: '0.75rem' }}>
           <label style={{
             color: 'var(--color-muted)',
@@ -68,7 +74,7 @@ export function StaffProfileCard({ staff }) {
             Perfil curricular
           </label>
           <p style={{ fontSize: '0.9rem', lineHeight: 1.6, margin: '0.3rem 0 0', color: 'var(--color-ink-soft)' }}>
-            {staff.biografia}
+            {bio}
           </p>
         </div>
       )}

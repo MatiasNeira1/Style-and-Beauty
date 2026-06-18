@@ -25,7 +25,7 @@ function getAmount(payment) {
 }
 
 function paidStatus(payment) {
-  return ['APROBADO', 'PAGADO', 'COMPLETADO', 'EXITOSO'].includes(String(payment.estado || '').toUpperCase());
+  return ['AUTORIZADA', 'APROBADO', 'PAGADO', 'COMPLETADO', 'EXITOSO'].includes(String(payment.estado || '').toUpperCase());
 }
 
 function getServiceId(service) {
@@ -50,7 +50,7 @@ function buildRevenueSeries(payments) {
     return acc;
   }, {});
 
-  return Object.entries(totalsByDay).map(([label, ingresos]) => ({ label, ingresos, anterior: 0 }));
+  return Object.entries(totalsByDay).map(([label, ingresos]) => ({ label, ingresos }));
 }
 
 function buildWeeklyOccupancy(bookings) {
@@ -168,19 +168,19 @@ export function useAdminDashboardMetrics() {
         .filter((booking) => new Date(booking.fechaHoraInicio) >= new Date())
         .sort((a, b) => new Date(a.fechaHoraInicio) - new Date(b.fechaHoraInicio))
         .slice(0, 5),
-      appointmentStatus: [
+      appointmentStatus: bookings.length ? [
         { name: 'Confirmadas', value: confirmedBookings.length, percent: Math.round((confirmedBookings.length / statusTotal) * 100) },
         { name: 'Pendientes', value: pendingBookings.length, percent: Math.round((pendingBookings.length / statusTotal) * 100) },
         { name: 'Finalizadas', value: finishedBookings.length, percent: Math.round((finishedBookings.length / statusTotal) * 100) },
         { name: 'Canceladas', value: cancelledBookings.length, percent: Math.round((cancelledBookings.length / statusTotal) * 100) },
-      ],
+      ] : [],
       alerts: [
         pendingBookings.length ? `${pendingBookings.length} reservas requieren confirmacion` : 'Reservas pendientes bajo control',
         pendingRevenue ? `${formatCurrencyCLP(pendingRevenue)} pendiente por cobrar` : 'Pagos pendientes sin alerta',
         lowStock.length ? `${lowStock.length} productos bajo stock minimo` : 'Inventario sin quiebres criticos',
         occupancy >= 80 ? `Ocupacion alta: ${occupancy}%` : `Ocupacion agenda: ${occupancy}%`,
       ],
-      raw: { bookings, services, payments, products, stock, clients, staff },
+      raw: { bookings, services, payments, products, stock, clients, staff, partialErrors: snapshot.partialErrors || [] },
     };
   }, [mockQuery.data, query.data]);
 

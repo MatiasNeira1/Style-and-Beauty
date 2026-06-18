@@ -5,21 +5,24 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 
-import com.style.beauty.ms_cliente.service.PerfilService;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
 import com.style.beauty.ms_cliente.model.PersonaModel;
 import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
+import com.style.beauty.ms_cliente.service.FirebaseTokenVerifier;
+import com.style.beauty.ms_cliente.service.PerfilService;
 
+import java.util.UUID;
 
 
 
@@ -32,6 +35,9 @@ public class AdminController {
 
     @Autowired
     private EspecialidadRepository especialidadRepository;
+
+    @Autowired
+    private FirebaseTokenVerifier firebaseTokenVerifier;
 
 @GetMapping("/admin/staff")
     public ResponseEntity<?> adminListarStaff(@RequestHeader("Authorization") String authHeader) {
@@ -83,10 +89,51 @@ public class AdminController {
             if (!esAdmin(authHeader)) return ResponseEntity.status(403).body("Acceso denegado. Solo Administradores.");
 
             // Usamos el idAuth que viene en la URL, no el del Admin
-            PersonaModel perfilActualizado = perfilService.actualizarMiPerfil(idAuthTarget, requestDTO);
+            PersonaModel perfilActualizado = perfilService.actualizarPerfilComoAdmin(idAuthTarget, requestDTO);
             return ResponseEntity.ok(perfilActualizado);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error al actualizar: " + e.getMessage());
+        }
+    }
+
+    @PostMapping({"/profesionales/{idStaff}/foto", "/admin/staff/{idStaff}/foto"})
+    public ResponseEntity<?> adminActualizarFotoStaff(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable UUID idStaff,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            if (!esAdmin(authHeader)) return ResponseEntity.status(403).body("Acceso denegado. Solo Administradores.");
+
+            return ResponseEntity.ok(perfilService.actualizarFotoStaff(idStaff, file));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error al actualizar foto: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping({"/profesionales/{idStaff}/foto", "/admin/staff/{idStaff}/foto"})
+    public ResponseEntity<?> adminEliminarFotoStaff(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable UUID idStaff) {
+        try {
+            if (!esAdmin(authHeader)) return ResponseEntity.status(403).body("Acceso denegado. Solo Administradores.");
+
+            return ResponseEntity.ok(perfilService.eliminarFotoStaff(idStaff));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error al eliminar foto: " + e.getMessage());
+        }
+    }
+
+    @PatchMapping({"/profesionales/{idStaff}/estado/{activo}", "/admin/staff/{idStaff}/estado/{activo}"})
+    public ResponseEntity<?> adminActualizarEstadoStaff(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable UUID idStaff,
+            @PathVariable boolean activo) {
+        try {
+            if (!esAdmin(authHeader)) return ResponseEntity.status(403).body("Acceso denegado. Solo Administradores.");
+
+            return ResponseEntity.ok(perfilService.actualizarEstadoStaff(idStaff, activo));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error al actualizar estado: " + e.getMessage());
         }
     }
 
@@ -105,11 +152,10 @@ public class AdminController {
         }
     }
 
-    // --- Método Auxiliar Interno para no repetir código ---
-    private boolean esAdmin(String authHeader) throws FirebaseAuthException {
-        String token = authHeader.replace("Bearer ", "");
-        FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
-        String rol = (String) decodedToken.getClaims().get("rol");
+    private boolean esAdmin(String authHeader) {
+        FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
+        Object rolObj = decodedToken.getClaims().get("rol");
+        String rol = rolObj == null ? null : String.valueOf(rolObj);
         return "ADMIN".equalsIgnoreCase(rol);
     }
 }

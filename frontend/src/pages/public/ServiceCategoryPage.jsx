@@ -24,48 +24,60 @@ export function ServiceCategoryPage() {
   const categoryServices = grouped[category] || [];
 
   return (
-    <section className="page-section">
-      <Link className="text-link service-back-link" to="/servicios">
-        <ArrowLeft size={16} />
-        Categorias
-      </Link>
+    <>
+      <section className="page-hero page-hero-services page-hero-category">
+        <div className="page-hero-media" />
+        <div className="page-hero-overlay" />
+        <div className="page-hero-content">
+          <span className="card-kicker">Categoria</span>
+          <h1>{category}</h1>
+          <p>Servicios compactos, precios claros y acceso rapido a especialistas disponibles.</p>
+        </div>
+      </section>
 
-      <SectionTitle eyebrow="Categoria" title={category}>
-        Elige un servicio para revisar su detalle y los profesionales disponibles.
-      </SectionTitle>
+      <section className="page-section catalog-page service-category-page">
+        <Link className="text-link service-back-link" to="/servicios">
+          <ArrowLeft size={16} />
+          Categorias
+        </Link>
 
-      {servicesQuery.isLoading ? (
-        <Loader />
-      ) : servicesQuery.isError ? (
-        <p className="admin-alert">{servicesQuery.error.message}</p>
-      ) : categoryServices.length === 0 ? (
-        <p className="admin-alert">No hay servicios cargados para esta categoria.</p>
-      ) : (
-        <Reveal>
-          <div className="category-detail-layout">
-            <div className="category-service-list">
-              {categoryServices.map((service) => (
-                <Link
-                  key={service.id_servicio || service.idServicio || service.id || service.nombre}
-                  className="category-service-card category-service-link"
-                  to={`/servicios/${categorySlug(category)}/${categorySlug(service.nombre || service.name || service.id_servicio || service.idServicio || service.id)}`}
-                >
-                  <span className="card-kicker">Servicio</span>
-                  <h3>{service.nombre || service.name}</h3>
-                  <p>{service.descripcion || service.description || 'Atencion personalizada con acabado profesional.'}</p>
-                  <div className="category-service-meta">
-                    <strong>{servicePrice(service)}</strong>
-                    <span><Clock size={14} /> {service.duracion_minutos || service.duracion || 45} min</span>
-                  </div>
-                  <span className="service-open-link">
-                    Ver detalle <ArrowRight size={16} />
-                  </span>
-                </Link>
-              ))}
+        <SectionTitle eyebrow="Servicios" title="Elige tu tratamiento">
+          Revisa descripcion, precio y duracion antes de entrar al detalle.
+        </SectionTitle>
+
+        {servicesQuery.isLoading ? (
+          <Loader />
+        ) : servicesQuery.isError ? (
+          <p className="admin-alert">{servicesQuery.error.message}</p>
+        ) : categoryServices.length === 0 ? (
+          <p className="admin-alert">No hay servicios cargados para esta categoria.</p>
+        ) : (
+          <Reveal>
+            <div className="category-detail-layout">
+              <div className="category-service-list">
+                {categoryServices.map((service) => (
+                  <Link
+                    key={service.id_servicio || service.idServicio || service.id || service.nombre}
+                    className="category-service-card category-service-link"
+                    to={`/servicios/${categorySlug(category)}/${categorySlug(service.nombre || service.name || service.id_servicio || service.idServicio || service.id)}`}
+                  >
+                    <span className="card-kicker">{category}</span>
+                    <h3>{service.nombre || service.name}</h3>
+                    <p>{service.descripcion || service.description || 'Atencion personalizada con acabado profesional.'}</p>
+                    <div className="category-service-meta">
+                      <strong>{servicePrice(service)}</strong>
+                      <span><Clock size={14} /> {service.duracion_minutos || service.duracion || 45} min</span>
+                    </div>
+                    <span className="service-open-link">
+                      Ver detalle <ArrowRight size={16} />
+                    </span>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
-        </Reveal>
-      )}
-    </section>
+          </Reveal>
+        )}
+      </section>
+    </>
   );
 }

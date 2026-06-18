@@ -11,14 +11,15 @@ import { BookingSummary } from '../../components/booking/BookingSummary.jsx';
 import { DateTimePicker } from '../../components/booking/DateTimePicker.jsx';
 import { ServiceSelector } from '../../components/booking/ServiceSelector.jsx';
 import { StaffSelector } from '../../components/booking/StaffSelector.jsx';
-import { crearTransaccionWebpay } from '../../services/pagosService.js';
 import { reservationService } from '../../services/reservationService.js';
+import { isProfileNotFoundError } from '../../services/apiClient.js';
+import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
-import { staffService } from '../../services/staffService.js';
+import { HOME_HERO_IMAGE_URL } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
-import { normalizeCategory } from '../../utils/categoryUtils.js';
-import { redirigirAWebpay } from '../../utils/webpayRedirect.js';
+import { useCart } from '../../store/CartContext.jsx';
+import { filterBookableSlots, RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
 
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
@@ -28,34 +29,40 @@ function staffId(member) {
   return member?.idPersona || member?.idStaff || member?.id;
 }
 
-function isStaffCompatible(specialtyName = '', serviceCategory = '') {
-  const spec = normalizeCategory(specialtyName);
-  const cat = normalizeCategory(serviceCategory);
-  if (spec === cat) return true;
-  const mapping = {
-    'cosmetologa': ['cuidados de la piel', 'spa'],
-    'esteticista integral': ['cuidados de la piel', 'spa'],
-    'kinesiologa estetica': ['cuidados de la piel', 'spa'],
-    'masoterapeuta': ['spa'],
-    'manicurista': ['nails'],
-    'especialista en depilacion laser': ['cuidados de la piel'],
-    'especialista facial': ['cuidados de la piel'],
-    'especialista corporal': ['spa', 'cuidados de la piel'],
-    'maquilladora profesional': ['maquillaje'],
-    'estilista capilar': ['cabello', 'peluqueria'],
-    'colorista': ['cabello', 'peluqueria'],
-    'lashista': ['maquillaje', 'cuidados de la piel'],
-    'brow artist': ['maquillaje', 'cuidados de la piel']
-  };
-  return mapping[spec]?.includes(cat) || false;
+function profileErrorMessage(error) {
+  if (isProfileNotFoundError(error)) return 'Completa tu perfil de cliente antes de confirmar la reserva.';
+  if (error?.status === 503) return 'La autenticacion del servidor no esta configurada. Intenta mas tarde.';
+  return error?.message || 'No fue posible cargar tu perfil de cliente.';
+}
+
+function bookingErrorMessage(error) {
+  const message = String(error?.message || '').toLowerCase();
+
+  if (error?.status === 401) return 'Tu sesion expiro. Inicia sesion nuevamente para reservar.';
+  if (error?.status === 403) return 'Tu cuenta no tiene permisos para crear reservas.';
+  if (error?.status === 404 || isProfileNotFoundError(error)) return 'Completa tu perfil de cliente antes de confirmar la reserva.';
+  if (error?.status === 503) return 'El servicio de autenticacion de reservas no esta configurado. Intenta mas tarde.';
+  if (message.includes('firebaseapp') || message.includes('firebase admin')) {
+    return 'El servicio de autenticacion de reservas no esta disponible. Intenta mas tarde.';
+  }
+  if (message.includes('anteriores a hoy')) return 'No puedes reservar fechas anteriores a hoy.';
+  if (message.includes('30') || message.includes('anticipacion') || message.includes('anticipación')) return 'Solo puedes reservar hasta 30 días de anticipación.';
+  if (message.includes('domingo')) return 'No atendemos los domingos.';
+  if (message.includes('16:00')) return 'Los sábados atendemos solo hasta las 16:00.';
+  if (message.includes('solapa') || message.includes('consecutivo') || message.includes('ya tienes una cita')) {
+    return 'Ya tienes una cita en ese horario. Elige el horario consecutivo disponible.';
+  }
+
+  return error?.message || 'No se pudo agregar la reserva al carrito. Intenta nuevamente.';
 }
 
 export function BookingPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, setSession } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
   const { updateBooking } = useBooking();
+  const { addReservationItem, hasReservationForService, setIsCartOpen, setLastCartError } = useCart();
 
   const initialService = location.state?.service || null;
   const initialProfessional = location.state?.professional || null;
@@ -72,46 +79,63 @@ export function BookingPage() {
     return 1;
   });
   const [confirmError, setConfirmError] = useState('');
-  const [confirmandoPago, setConfirmandoPago] = useState(false);
+  const [agregandoCarrito, setAgregandoCarrito] = useState(false);
+  const [sameDayPromptOpen, setSameDayPromptOpen] = useState(false);
+  const [continuationMode, setContinuationMode] = useState(false);
 
+  const selectedServiceId = serviceId(service);
+  const selectedStaffId = staffId(member);
+  const hasValidServiceId = serviceCatalogService.isValidUuid(selectedServiceId);
+  const hasValidStaffId = reservationService.isValidUuid(selectedStaffId);
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: serviceCatalogService.listServices });
-  const staffQuery = useQuery({ queryKey: ['public-staff'], queryFn: staffService.listPublicStaff });
+  const serviceStaffQuery = useQuery({
+    queryKey: ['service-staff', selectedServiceId],
+    queryFn: () => serviceCatalogService.listProfessionalsByService(selectedServiceId),
+    enabled: hasValidServiceId,
+  });
   const { data: myProfile, isError: isProfileError, error: profileError } = useQuery({
     queryKey: ['my-profile'],
     queryFn: reservationService.getMe,
     enabled: isAuthenticated,
+    retry: false,
   });
 
   const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
-  const staffData = useMemo(() => (Array.isArray(staffQuery.data) ? staffQuery.data : []), [staffQuery.data]);
-  const filteredStaff = useMemo(() => {
-    if (!Array.isArray(staffData)) return [];
-    if (!service?.categoria) return staffData;
-    return staffData.filter((item) => {
-      const specName = item.especialidad?.nombre || item.especialidad || '';
-      return isStaffCompatible(specName, service.categoria);
-    });
-  }, [staffData, service]);
+  const serviceStaff = useMemo(() => (Array.isArray(serviceStaffQuery.data) ? serviceStaffQuery.data : []), [serviceStaffQuery.data]);
+  const idCliente = myProfile?.idPersona;
 
   const availabilityQuery = useQuery({
-    queryKey: ['availability', staffId(member), serviceId(service), date],
+    queryKey: ['availability', selectedStaffId, selectedServiceId, date, idCliente || 'anon'],
     queryFn: () => reservationService.getAvailability({
-      professionalId: staffId(member),
-      serviceId: serviceId(service),
-      date,
+      idServicio: selectedServiceId,
+      idStaff: selectedStaffId,
+      fecha: date,
+      idCliente,
     }),
-    enabled: Boolean(member && date && service),
+    enabled: Boolean(hasValidStaffId && hasValidServiceId && date && idCliente),
   });
 
+  const availableSlots = useMemo(
+    () => filterBookableSlots(Array.isArray(availabilityQuery.data) ? availabilityQuery.data : []),
+    [availabilityQuery.data],
+  );
+
   const selectedSlot = useMemo(() => {
-    const slots = Array.isArray(availabilityQuery.data) ? availabilityQuery.data : [];
-    return slots.find((slot) => slot.inicio === time);
-  }, [availabilityQuery.data, time]);
+    return availableSlots.find((slot) => slot.inicio === time);
+  }, [availableSlots, time]);
+
+  const availabilityError = useMemo(() => {
+    if (availabilityQuery.error) return availabilityQuery.error.message || 'No fue posible cargar horarios.';
+    if (continuationMode && date && member && !availabilityQuery.isLoading && !availabilityQuery.isFetching && availableSlots.length === 0) {
+      return 'Este profesional no tiene disponibilidad inmediata después de tu cita anterior. Selecciona otro profesional o cambia el servicio.';
+    }
+    return '';
+  }, [availabilityQuery.error, availabilityQuery.isFetching, availabilityQuery.isLoading, availableSlots.length, continuationMode, date, member]);
 
   const bookingMutation = useMutation({
     mutationFn: reservationService.createReservation,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['availability', staffId(member), serviceId(service), date] });
+      await queryClient.invalidateQueries({ queryKey: ['availability', staffId(member), selectedServiceId, date, idCliente || 'anon'] });
       await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
       await queryClient.invalidateQueries({ queryKey: ['admin-bookings'] });
     },
@@ -128,6 +152,25 @@ export function BookingPage() {
       setConfirmError('Selecciona servicio, profesional, fecha y horario para continuar.');
       return;
     }
+    if (!hasValidServiceId || !hasValidStaffId) {
+      setConfirmError('Selecciona servicio y profesional validos para continuar.');
+      return;
+    }
+    if (isProfileError) {
+      setConfirmError(profileErrorMessage(profileError));
+      return;
+    }
+    if (!myProfile?.idPersona) {
+      setConfirmError('Tu perfil de cliente debe estar completo para confirmar la reserva.');
+      return;
+    }
+    if (hasReservationForService(selectedServiceId)) {
+      const message = 'Ya tienes una reserva temporal para este servicio en el carrito.';
+      setConfirmError(message);
+      setLastCartError(message);
+      setIsCartOpen(true);
+      return;
+    }
 
     const freshAvailability = await availabilityQuery.refetch();
     if (freshAvailability.isError) {
@@ -135,7 +178,7 @@ export function BookingPage() {
       return;
     }
 
-    const freshSlots = Array.isArray(freshAvailability.data) ? freshAvailability.data : [];
+    const freshSlots = filterBookableSlots(Array.isArray(freshAvailability.data) ? freshAvailability.data : []);
     const stillAvailable = freshSlots.some((slot) => slot.inicio === time);
 
     if (!stillAvailable) {
@@ -145,24 +188,19 @@ export function BookingPage() {
     }
 
     let created = null;
-    setConfirmandoPago(true);
+    setAgregandoCarrito(true);
     try {
+      const refreshedSession = await firebaseAuthService.refreshSession();
+      if (refreshedSession) {
+        setSession(refreshedSession);
+      }
+
       created = await bookingMutation.mutateAsync({
         clientId: myProfile?.idPersona,
-        professionalId: staffId(member),
-        serviceId: serviceId(service),
+        professionalId: selectedStaffId,
+        serviceId: selectedServiceId,
         startsAt: time,
       });
-      const transaccion = await crearTransaccionWebpay({
-        idCita: created.idCita,
-        descripcion: 'Reserva Style and Beauty',
-      });
-      const token = transaccion?.token || transaccion?.tokenWebpay;
-      const urlWebpay = transaccion?.urlWebpay || transaccion?.url;
-
-      if (!token || !urlWebpay) {
-        throw new Error('No se recibieron los datos de redireccion Webpay.');
-      }
 
       updateBooking({
         service,
@@ -172,12 +210,38 @@ export function BookingPage() {
         holguraMin: created?.holguraMin,
         duracionServicioMin: created?.duracionServicioMin,
       });
-      redirigirAWebpay(urlWebpay, token);
+      const addResult = addReservationItem({
+        id: `reservation:${created.idCita}`,
+        reservationId: created.idCita,
+        serviceId: selectedServiceId,
+        staffId: selectedStaffId,
+        name: service?.nombre || service?.name || 'Reserva',
+        price: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
+        startsAt: created.fechaHoraInicio || time,
+        endsAt: created.fechaHoraFinAtencion || created.fechaHoraFin,
+        blockedUntil: created.fechaHoraFin,
+        expiresAt: created.expiracionReserva,
+        duracionServicioMin: created?.duracionServicioMin,
+        holguraMin: created?.holguraMin,
+        service,
+        staff: member,
+        date,
+        time,
+      });
+
+      if (!addResult.ok) {
+        await reservationService.cancelReservation(created.idCita);
+        setConfirmError(addResult.error);
+        return;
+      }
+
+      setConfirmError(`Reserva agregada al carrito. Tienes ${RESERVATION_EXPIRATION_MINUTES} minutos para confirmarla antes de que el horario se libere.`);
+      setSameDayPromptOpen(true);
     } catch (error) {
-      setConfirmError(error.message || 'No se pudo iniciar el pago. Intenta nuevamente.');
+      setConfirmError(bookingErrorMessage(error));
       return;
     } finally {
-      setConfirmandoPago(false);
+      setAgregandoCarrito(false);
     }
   };
 
@@ -200,7 +264,7 @@ export function BookingPage() {
   return (
     <>
       <BookingHero />
-      <section className="page-section two-column booking-shell client-view">
+      <section className={`page-section booking-shell client-view${step === 3 ? ' booking-shell--with-summary' : ''}`}>
         <div className="stack wizard-panel">
           <SectionTitle eyebrow="Agenda inteligente" title="Reserva segun disponibilidad real">
             El sistema calcula horarios usando jornada del staff, citas existentes y bloqueos.
@@ -226,24 +290,8 @@ export function BookingPage() {
                 onSelect={(value) => {
                   setService(value);
                   setMember(null);
-                  setDate('');
+                  if (!continuationMode) setDate('');
                   setTime('');
-                  setConfirmError('');
-                  setStep(2);
-                  const specName = member?.especialidad?.nombre || member?.especialidad || '';
-                  const isCompatible = member && isStaffCompatible(specName, value.categoria);
-                  if (isCompatible) {
-                    if (!initialHour) {
-                      setDate('');
-                      setTime('');
-                    }
-                    setStep(3);
-                  } else {
-                    setMember(null);
-                    setDate('');
-                    setTime('');
-                    setStep(2);
-                  }
                   setConfirmError('');
                   setStep(2);
                 }}
@@ -252,17 +300,21 @@ export function BookingPage() {
           )}
 
           {step === 2 && (
-            staffQuery.isLoading ? (
+            !service ? (
+              <p className="admin-alert">Selecciona primero un servicio.</p>
+            ) : serviceStaffQuery.isLoading ? (
               <Loader />
-            ) : staffQuery.isError ? (
+            ) : serviceStaffQuery.isError ? (
               <p className="admin-alert">No fue posible cargar profesionales.</p>
+            ) : serviceStaff.length === 0 ? (
+              <p className="admin-alert">No hay profesionales asociados a este servicio por el momento.</p>
             ) : (
               <StaffSelector
-                staff={filteredStaff}
+                staff={serviceStaff}
                 selectedId={staffId(member)}
                 onSelect={(value) => {
                   setMember(value);
-                  setDate('');
+                  if (!continuationMode) setDate('');
                   setTime('');
                   setConfirmError('');
                   setStep(3);
@@ -276,12 +328,22 @@ export function BookingPage() {
               <DateTimePicker
                 date={date}
                 time={time}
-                slots={Array.isArray(availabilityQuery.data) ? availabilityQuery.data : []}
+                slots={availableSlots}
                 isLoading={availabilityQuery.isLoading}
-                error={availabilityQuery.error ? availabilityQuery.error.message || 'No fue posible cargar horarios.' : ''}
-                onDateChange={(value) => { setDate(value); setTime(''); setConfirmError(''); }}
+                error={availabilityError}
+                onDateChange={(value) => {
+                  if (continuationMode && date) return;
+                  setDate(value);
+                  setTime('');
+                  setConfirmError('');
+                }}
                 onTimeChange={(value) => { setTime(value); setConfirmError(''); }}
               />
+              {continuationMode && (
+                <p className="admin-alert">
+                  Tu siguiente cita comenzará después de la anterior, respetando la holgura del servicio.
+                </p>
+              )}
             </div>
           )}
 
@@ -291,31 +353,77 @@ export function BookingPage() {
             {step === 3 && (
               <Button
                 onClick={confirm}
-                disabled={!myProfile?.idPersona || !service || !member || !date || !time || !selectedSlot || bookingMutation.isPending || availabilityQuery.isFetching || confirmandoPago}
+                disabled={!myProfile?.idPersona || isProfileError || !service || !member || !date || !time || !selectedSlot || bookingMutation.isPending || availabilityQuery.isFetching || agregandoCarrito}
               >
-                {bookingMutation.isPending || availabilityQuery.isFetching || confirmandoPago ? 'Iniciando pago...' : 'Reservar y pagar'}
+                {bookingMutation.isPending || availabilityQuery.isFetching || agregandoCarrito ? 'Agregando...' : 'Agregar al carrito'}
               </Button>
             )}
           </div>
 
           {step === 3 && !myProfile?.idPersona && (
             <p className="admin-alert">
-              {isProfileError ? profileError?.message || 'No fue posible cargar tu perfil.' : 'Tu perfil de cliente debe estar completo para confirmar la reserva.'}
+              {isProfileError ? profileErrorMessage(profileError) : 'Tu perfil de cliente debe estar completo para confirmar la reserva.'}
+              <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/perfil')}>Ir a mi perfil</Button>
             </p>
           )}
           {confirmError && <p className="admin-alert">{confirmError}</p>}
           {bookingMutation.isError && <p className="admin-alert">{bookingMutation.error.message}</p>}
         </div>
 
-        <BookingSummary service={service} staff={member} date={date} time={time} slot={selectedSlot} />
+        {step === 3 && (
+          <aside className="booking-summary-panel">
+            <BookingSummary service={service} staff={member} date={date} time={time} slot={selectedSlot} />
+          </aside>
+        )}
       </section>
+      {sameDayPromptOpen && (
+        <div className="modal-backdrop">
+          <div className="modal booking-followup-modal" role="dialog" aria-modal="true" aria-labelledby="booking-followup-title">
+            <header>
+              <h2 id="booking-followup-title">¿Deseas realizar otra cita para el mismo día?</h2>
+            </header>
+            <div className="modal-body">
+              <p>Tu siguiente cita comenzará después de la anterior, respetando la holgura del servicio.</p>
+              <div className="auth-reservation-actions">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setSameDayPromptOpen(false);
+                    setContinuationMode(true);
+                    setService(null);
+                    setMember(null);
+                    setTime('');
+                    setStep(1);
+                  }}
+                >
+                  Sí, agregar otra cita
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setSameDayPromptOpen(false);
+                    setIsCartOpen(false);
+                    navigate('/checkout');
+                  }}
+                >
+                  No, ir al resumen
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
 function BookingHero() {
   return (
-    <section className="page-hero page-hero-booking">
+    <section
+      className="page-hero page-hero-booking"
+      style={{ '--page-hero-image': `url("${HOME_HERO_IMAGE_URL}")` }}
+    >
       <div className="page-hero-media" />
       <div className="page-hero-overlay" />
       <div className="page-hero-content">

@@ -1,53 +1,56 @@
-import { CATALOG_API_BASE_URL, request } from './apiClient.js';
+import { AGENDA_API_BASE_URL, CATALOG_API_BASE_URL, request } from './apiClient.js';
 
-let servicesCache = null;
-const serviceByIdCache = new Map();
-const servicesByCategoryCache = new Map();
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function serviceId(service) {
   return service?.id_servicio || service?.idServicio || service?.id;
 }
 
-function clearServiceCache() {
-  servicesCache = null;
-  serviceByIdCache.clear();
-  servicesByCategoryCache.clear();
+function isValidUuid(value) {
+  return typeof value === 'string' && UUID_PATTERN.test(value.trim());
+}
+
+function imageFormData(file, fields = {}) {
+  const formData = new FormData();
+  Object.entries(fields).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      formData.append(key, value);
+    }
+  });
+  formData.append('file', file);
+  return formData;
 }
 
 export const serviceCatalogService = {
-  listServices: async () => {
-    if (servicesCache) return servicesCache;
-    const services = await request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio' });
-    servicesCache = Array.isArray(services) ? services : [];
-    return servicesCache;
+  listServices: () => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio' }),
+  getService: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}` }),
+  listProfessionalsByService: (id) => {
+    if (!isValidUuid(id)) return Promise.resolve([]);
+    return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/servicios/${id}/staff` });
   },
-  getService: async (id) => {
-    if (serviceByIdCache.has(id)) return serviceByIdCache.get(id);
-    const service = await request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}` });
-    serviceByIdCache.set(id, service);
-    return service;
+  listCatalogStaffByService: (id) => {
+    if (!isValidUuid(id)) return Promise.resolve([]);
+    return request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}/staff`, method: 'GET' });
   },
-  listServicesByCategory: async (categoria) => {
-    if (servicesByCategoryCache.has(categoria)) return servicesByCategoryCache.get(categoria);
-    const services = await request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/categoria/${categoria}` });
-    const normalized = Array.isArray(services) ? services : [];
-    servicesByCategoryCache.set(categoria, normalized);
-    return normalized;
-  },
-  createService: async (payload) => {
-    const response = await request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: payload, authRequired: true });
-    clearServiceCache();
-    return response;
-  },
-  updateService: async (id, payload) => {
-    const response = await request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'PUT', data: payload, authRequired: true });
-    clearServiceCache();
-    return response;
-  },
-  deleteService: async (id) => {
-    const response = await request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'DELETE', authRequired: true });
-    clearServiceCache();
-    return response;
-  },
+  assignStaffToService: (idServicio, idStaff) => request({
+    baseURL: CATALOG_API_BASE_URL,
+    url: '/api/servicio-staff',
+    method: 'POST',
+    authRequired: true,
+    data: { idServicio, idStaff },
+  }),
+  removeStaffFromService: (idServicio, idStaff) => request({
+    baseURL: CATALOG_API_BASE_URL,
+    url: `/api/servicio/${idServicio}/staff/${idStaff}`,
+    method: 'DELETE',
+    authRequired: true,
+  }),
+  createService: (payload) => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: payload, authRequired: true }),
+  createServiceWithImage: (payload, file) => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: imageFormData(file, payload), authRequired: true }),
+  updateService: (id, payload) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'PUT', data: payload, authRequired: true }),
+  deleteService: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'DELETE', authRequired: true }),
+  uploadServiceImage: (id, file) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicios/${id}/imagen`, method: 'POST', data: imageFormData(file), authRequired: true }),
+  deleteServiceImage: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicios/${id}/imagen`, method: 'DELETE', authRequired: true }),
   serviceId,
+  isValidUuid,
 };

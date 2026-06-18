@@ -76,12 +76,18 @@ export function AdminDashboard() {
         meta={<RangeFilter />}
       />
 
+      {metrics.raw.partialErrors?.length > 0 && (
+        <p className="admin-alert">
+          Algunas fuentes de métricas no respondieron. El dashboard muestra los datos reales disponibles.
+        </p>
+      )}
+
       <AdminKpiGrid variant="three">
         {metrics.kpis.map((kpi) => <AdminKpiCard key={kpi.title} {...kpi} />)}
       </AdminKpiGrid>
 
       <div className="admin-dashboard-grid main">
-        <AdminChartCard title="Ganancias del centro" description="Serie histórica preparada para analytics agregado del backend." action={<Sparkles size={18} />}>
+        <AdminChartCard title="Centro de ingresos" description="Pagos autorizados agrupados desde transacciones reales." action={<Sparkles size={18} />}>
           <RevenueChart data={metrics.revenueSeries} />
         </AdminChartCard>
 
@@ -91,7 +97,7 @@ export function AdminDashboard() {
       </div>
 
       <div className="admin-dashboard-grid secondary">
-        <AdminChartCard title="Desempeño de profesionales" description="Ranking visual por ingresos estimados.">
+        <AdminChartCard title="Desempeño de profesionales" description="Ranking visual por reservas y servicios asociados.">
           <ProfessionalPerformanceChart data={metrics.staffPerformance} />
         </AdminChartCard>
 
