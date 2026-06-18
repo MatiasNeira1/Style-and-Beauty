@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Sparkles, Star, Timer, Scissors, Heart, Award, ArrowRight, Quote } from 'lucide-react';
 import { Reveal } from '../../components/animations/Reveal.jsx';
 import { ProfessionalsCarousel } from '../../components/professionals/ProfessionalsCarousel.jsx';
+import { BalancedGrid } from '../../components/ui/BalancedGrid.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
@@ -31,6 +33,18 @@ const testimonials = [
 ];
 
 const serviceIcons = [Scissors, Heart, Star];
+const demandScoreFields = [
+  'totalReservas',
+  'reservasTotales',
+  'reservas',
+  'cantidadReservas',
+  'totalSolicitudes',
+  'solicitudes',
+  'ventas',
+  'totalVentas',
+  'soldCount',
+  'bookingCount',
+];
 
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
@@ -38,10 +52,42 @@ function servicePrice(service) {
   return formatCLP(value);
 }
 
+function demandScore(service) {
+  return demandScoreFields.reduce((total, field) => {
+    const value = Number(service?.[field]);
+    return Number.isFinite(value) ? total + value : total;
+  }, 0);
+}
+
+function hasDemandData(service) {
+  return demandScoreFields.some((field) => service?.[field] !== undefined && service?.[field] !== null);
+}
+
+function featuredServices(services) {
+  const activeServices = services.filter((service) => service?.activo !== false);
+  const ranked = activeServices.map((service, index) => ({
+    service,
+    index,
+    score: demandScore(service),
+    hasDemandData: hasDemandData(service),
+  }));
+  const hasRanking = ranked.some((item) => item.hasDemandData);
+
+  return ranked
+    .sort((first, second) => {
+      if (!hasRanking) return first.index - second.index;
+      return second.score - first.score || first.index - second.index;
+    })
+    .slice(0, 3)
+    .map((item) => item.service);
+}
+
 export function HomePage() {
   const professionalsQuery = useProfessionals();
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
-  const services = Array.isArray(servicesQuery.data) ? servicesQuery.data.slice(0, 3) : [];
+  const services = useMemo(() => (
+    featuredServices(Array.isArray(servicesQuery.data) ? servicesQuery.data : [])
+  ), [servicesQuery.data]);
 
   return (
     <>
@@ -122,28 +168,28 @@ export function HomePage() {
             Desde cortes signature hasta rituales faciales, cada servicio es una experiencia de lujo.
           </SectionTitle>
         </Reveal>
-        <Reveal stagger className="premium-grid">
+        <BalancedGrid className="home-services-grid">
           {services.map((service, index) => {
             const Icon = serviceIcons[index % serviceIcons.length];
             const name = service.nombre || service.name || 'Servicio';
             return (
-            <Card key={service.id_servicio || service.idServicio || service.id || name} className="service-preview-card">
-              <div className="feature-icon"><Icon size={22} /></div>
-              <h3>{name}</h3>
-              <p>{service.descripcion || service.description || 'Atencion personalizada con tecnica profesional.'}</p>
-              <div style={{ marginTop: 'auto', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="service-price">{servicePrice(service)}</span>
-                <Link to="/reservar" className="text-link" style={{ fontSize: '0.88rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                  Reservar <ArrowRight size={14} />
-                </Link>
-              </div>
-            </Card>
-          );
+              <Card key={service.id_servicio || service.idServicio || service.id || name} className="service-preview-card">
+                <div className="feature-icon"><Icon size={22} /></div>
+                <h3>{name}</h3>
+                <p>{service.descripcion || service.description || 'Atencion personalizada con tecnica profesional.'}</p>
+                <div style={{ marginTop: 'auto', paddingTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="service-price">{servicePrice(service)}</span>
+                  <Link to="/reservar" className="text-link" style={{ fontSize: '0.88rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                    Reservar <ArrowRight size={14} />
+                  </Link>
+                </div>
+              </Card>
+            );
           })}
           {!servicesQuery.isLoading && services.length === 0 && (
             <p className="admin-alert">No hay servicios cargados en el catalogo.</p>
           )}
-        </Reveal>
+        </BalancedGrid>
       </section>
 
       {/* ═══ TESTIMONIALS ═══ */}
