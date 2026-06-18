@@ -59,11 +59,11 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ idCliente: $node['Webhook'].json.body.idCliente, descripcion: 'Carrito Style and Beauty desde chatbot', reservas: [{ idCita: $json.idCita || $json.id }], productos: [] }) }}",
+        "jsonBody": "={{ JSON.stringify({ idCita: $json.idCita || $json.id, descripcion: 'Reserva Style and Beauty desde chatbot' }) }}",
         "options": {}
       },
       "id": "0f1b2c3d-1000-4000-9000-000000000003",
-      "name": "Crear pago carrito Webpay",
+      "name": "Crear pago Webpay",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [

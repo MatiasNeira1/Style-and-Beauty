@@ -1,4 +1,4 @@
-# Workflow n8n - Crear Reserva y Pago de Carrito
+# Workflow n8n - Crear Reserva y Pago
 
 ## Webhook De Prueba
 
@@ -36,7 +36,7 @@ POST {{API_BASE_URL}}/api/agenda/citas
 }
 ```
 
-3. HTTP Request - Crear pago Webpay desde carrito:
+3. HTTP Request - Crear pago Webpay:
 
 ```http
 POST {{API_BASE_URL}}/api/pagos/webpay/crear
@@ -44,19 +44,12 @@ POST {{API_BASE_URL}}/api/pagos/webpay/crear
 
 ```json
 {
-  "idCliente": "={{$json.idCliente}}",
-  "descripcion": "Carrito Style and Beauty desde chatbot",
-  "reservas": [
-    {
-      "idCita": "={{$json.idCita}}"
-    }
-  ],
-  "productos": []
+  "idCita": "={{$json.idCita}}",
+  "descripcion": "Reserva Style and Beauty desde chatbot"
 }
 ```
 
-`ms-pagos` calcula el monto de reservas consultando el precio real del servicio en `ms-catalogo`.
-Los productos se envian como items del carrito cuando el canal conversacional los agregue.
+`ms-pagos` calcula el monto consultando el precio real del servicio en `ms-catalogo`.
 
 4. Set - Armar link de pago:
 
@@ -80,6 +73,5 @@ Los productos se envian como items del carrito cuando el canal conversacional lo
 - Consultar disponibilidad antes de crear.
 - Crear cita solo con un horario real devuelto por backend.
 - No confirmar verbalmente la cita antes de pago aprobado.
-- Webpay solo debe crearse desde el carrito, aunque el carrito tenga una sola reserva.
 - El link de pago debe ser el endpoint `/redirigir/{idTransaccion}`.
 - No enviar `window.location.href`, iframe ni token Webpay directo al cliente.
