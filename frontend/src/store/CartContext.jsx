@@ -132,11 +132,9 @@ export function CartProvider({ children }) {
 
     if (!result.ok) {
       setLastCartError(result.error);
-      setIsCartOpen(true);
       return result;
     }
 
-    setIsCartOpen(true);
     return result;
   }, [setItems]);
 

@@ -2873,14 +2873,15 @@ img { max-width: 100%; display: block; }
 
 /* ─── Modal ─── */
 .modal-backdrop {
+  align-items: center;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
-  display: grid;
+  display: flex;
   inset: 0;
+  justify-content: center;
   padding: 1rem;
-  place-items: center;
   position: fixed;
-  z-index: 50;
+  z-index: 1000;
 }
 
 .modal {
