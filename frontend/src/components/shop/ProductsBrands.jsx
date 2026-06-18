@@ -1,10 +1,11 @@
 import { memo } from 'react';
 import { ArrowRight } from 'lucide-react';
+import { BalancedGrid } from '../ui/BalancedGrid.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
 
 export const ProductsBrands = memo(function ProductsBrands({ brands = [], onSelect }) {
   return (
-    <div className="catalog-card-grid brand-card-grid">
+    <BalancedGrid className="brand-card-grid public-category-grid">
       {brands.map((brand) => (
         <button
           key={brand.id}
@@ -23,6 +24,6 @@ export const ProductsBrands = memo(function ProductsBrands({ brands = [], onSele
           <strong>Ver productos <ArrowRight size={16} /></strong>
         </button>
       ))}
-    </div>
+    </BalancedGrid>
   );
 });
