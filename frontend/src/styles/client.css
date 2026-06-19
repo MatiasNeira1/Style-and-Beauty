@@ -2408,7 +2408,7 @@ a.contact-info-card:hover {
 }
 
 .products-section .product-media {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
 }
 
 .products-section .product-info {
@@ -2532,7 +2532,7 @@ a.contact-info-card:hover {
   border-radius: var(--radius-sm);
   display: grid;
   gap: clamp(1.35rem, 3.5vw, 3.25rem);
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(240px, 0.82fr) minmax(0, 1.18fr);
   isolation: isolate;
   max-width: 100%;
   min-width: 0;
@@ -2542,7 +2542,7 @@ a.contact-info-card:hover {
 }
 
 .product-editorial.is-reversed {
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  grid-template-columns: minmax(0, 1.18fr) minmax(240px, 0.82fr);
 }
 
 .product-editorial.is-reversed .product-editorial-media {
@@ -2558,19 +2558,19 @@ a.contact-info-card:hover {
   background: linear-gradient(135deg, rgba(212, 122, 158, 0.055), rgba(215, 173, 102, 0.05));
   border-radius: var(--radius-md);
   content: "";
-  inset: 8% 3% 8% 18%;
+  inset: 4% 1% 4% 14%;
   pointer-events: none;
   position: absolute;
   z-index: 0;
 }
 
 .product-editorial.is-reversed::before {
-  inset: 8% 18% 8% 3%;
+  inset: 4% 14% 4% 1%;
 }
 
 .product-editorial-media {
   align-self: stretch;
-  aspect-ratio: 5 / 6;
+  aspect-ratio: 1 / 1;
   background: #fff;
   border: 1px solid rgba(255, 255, 255, 0.88);
   border-radius: var(--radius-sm);
@@ -2587,7 +2587,7 @@ a.contact-info-card:hover {
 .product-editorial-media img {
   display: block;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transform: scale(1.02);
   transition: transform 520ms ease, filter 520ms ease;
   width: 100%;
@@ -2642,6 +2642,7 @@ a.contact-info-card:hover {
 
 .product-editorial-copy h3 {
   color: var(--color-ink);
+  display: -webkit-box;
   font-family: var(--font-serif);
   font-size: clamp(1.65rem, 3.2vw, 3.1rem);
   font-weight: 430;
@@ -2649,9 +2650,12 @@ a.contact-info-card:hover {
   line-height: 1.04;
   margin: 0;
   max-width: 100%;
+  overflow: hidden;
   overflow-wrap: anywhere;
   text-wrap: balance;
   word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .product-editorial-copy p {
@@ -2784,7 +2788,11 @@ a.contact-info-card:hover {
 .catalog-item-card h3,
 .product-card h3,
 .professional-card h3 {
+  display: -webkit-box;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .service-choice-card p,
@@ -2959,6 +2967,10 @@ a.contact-info-card:hover {
   width: 100%;
 }
 
+.product-editorial-media img {
+  object-fit: contain;
+}
+
 img[data-fallback="true"] {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(251, 244, 246, 0.86));
@@ -3054,7 +3066,7 @@ img[data-fallback="true"] {
 }
 
 .product-editorial-media {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
 }
 
 .product-editorial-copy h3 {
@@ -3444,7 +3456,7 @@ img[data-fallback="true"] {
   }
 
   .product-editorial-media {
-    aspect-ratio: 16 / 11;
+    aspect-ratio: 1 / 1;
   }
 }
 
@@ -3667,7 +3679,7 @@ img[data-fallback="true"] {
   }
 
   .product-editorial-media {
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 1 / 1;
     border-radius: var(--radius-sm);
   }
 
