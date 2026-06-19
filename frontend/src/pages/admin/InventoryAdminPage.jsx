@@ -14,8 +14,12 @@ const initialProductForm = {
   nombre: '',
   categoria: '',
   descripcion: '',
+  imagenUrl: '',
   precio: '',
 };
+
+const PRODUCT_NAME_MAX_LENGTH = 70;
+const PRODUCT_DESCRIPTION_MAX_LENGTH = 180;
 
 const PRODUCT_CATEGORIES = [
   'Cabello',
@@ -45,6 +49,7 @@ function productFormFrom(product) {
     nombre: product.nombre || '',
     categoria: product.categoria || '',
     descripcion: product.descripcion || '',
+    imagenUrl: productImage(product) || '',
     precio: product.precio ?? '',
   };
 }
@@ -68,13 +73,34 @@ function ProductFormModal({
     <Modal open={open} title={title} onClose={onClose}>
       <form className="admin-modal-form" onSubmit={onSubmit}>
         <div className="admin-modal-section form-grid">
-          <Input label="Nombre" id="inventory-name" name="nombre" value={form.nombre} onChange={onChange} placeholder="Crema hidratante" required />
+          <Input
+            label="Nombre"
+            id="inventory-name"
+            name="nombre"
+            value={form.nombre}
+            onChange={onChange}
+            placeholder="Crema hidratante"
+            maxLength={PRODUCT_NAME_MAX_LENGTH}
+            hint={`${form.nombre.length}/${PRODUCT_NAME_MAX_LENGTH} caracteres`}
+            required
+          />
           <Input as="select" label="Categoría" id="inventory-category" name="categoria" value={form.categoria} onChange={onChange} error={categoryError} required>
             <option value="">Seleccionar categoría</option>
             {PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
           </Input>
           <Input label="Precio" id="inventory-price" name="precio" type="number" min="0" step="100" value={form.precio} onChange={onChange} placeholder="Precio ($xx.xxx)" required />
-          <Input label="Descripcion" id="inventory-description" name="descripcion" value={form.descripcion} onChange={onChange} placeholder="Breve descripcion visible para clientes" />
+          <Input
+            as="textarea"
+            label="Descripcion"
+            id="inventory-description"
+            name="descripcion"
+            value={form.descripcion}
+            onChange={onChange}
+            placeholder="Breve descripcion visible para clientes"
+            maxLength={PRODUCT_DESCRIPTION_MAX_LENGTH}
+            hint={`${form.descripcion.length}/${PRODUCT_DESCRIPTION_MAX_LENGTH} caracteres`}
+            rows={3}
+          />
         </div>
         <div className="admin-image-field compact">
           <SafeImage src={imagePreview} alt="Imagen del producto" />
@@ -82,7 +108,10 @@ function ProductFormModal({
             <span className="button-content"><Camera size={14} /> Imagen</span>
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onImageChange(event.target.files?.[0])} />
           </label>
-          <span className="admin-modal-hint">{isEditing ? 'Puedes conservar la imagen actual.' : 'La imagen es obligatoria para publicar productos.'}</span>
+          <span className="admin-modal-hint">
+            {isEditing ? 'Puedes conservar la imagen actual. ' : 'La imagen es obligatoria para publicar productos. '}
+            Resolución recomendable: 1200 x 1200 px
+          </span>
         </div>
         {imageError && <p className="admin-alert compact">{imageError}</p>}
         {error && <p className="admin-alert">{error.message}</p>}
@@ -380,16 +409,23 @@ export function InventoryAdminPage() {
   const handleProductSubmit = (event) => {
     event.preventDefault();
     if (productImageError) return;
+    if (productForm.nombre.length > PRODUCT_NAME_MAX_LENGTH || productForm.descripcion.length > PRODUCT_DESCRIPTION_MAX_LENGTH) return;
     if (!PRODUCT_CATEGORIES.includes(productForm.categoria)) {
       setProductCategoryError('Selecciona una categoría válida.');
       return;
     }
-    if (!editingProductId && !productImageFile) {
+    if (!productImageFile && !productImagePreview) {
       setProductImageError('Selecciona una imagen para publicar el producto.');
       return;
     }
     setProductCategoryError('');
-    saveProductMutation.mutate({ ...productForm, precio: Number(productForm.precio) });
+    saveProductMutation.mutate({
+      nombre: productForm.nombre.trim(),
+      categoria: productForm.categoria,
+      descripcion: productForm.descripcion.trim(),
+      imagenUrl: editingProductId ? productForm.imagenUrl : undefined,
+      precio: Number(productForm.precio),
+    });
   };
 
   const handleTableProductImageChange = (product, event) => {
