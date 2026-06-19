@@ -4,6 +4,7 @@ import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
+import com.style.beauty.ms_agenda.dto.CitaAgendaResponse;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
@@ -550,6 +551,58 @@ class CitaServiceTest {
                 EstadoCita.EXPIRADA,
                 EstadoCita.RECHAZADA
         );
+    }
+
+    @Test
+    void listarPorClientePermiteFiltrosNulosYMapeaLaRespuesta() {
+        Cita cita = cita(at(9, 0), at(10, 0), at(10, 30));
+        cita.setIdCita(UUID.randomUUID());
+        cita.setEstadoCita(EstadoCita.CONFIRMADA);
+        when(citaRepository.buscarCitasPorCliente(ID_CLIENTE, null, null, null))
+                .thenReturn(List.of(cita));
+
+        List<CitaAgendaResponse> resultado = citaService.listarPorCliente(ID_CLIENTE, null, null, null);
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).nombreCliente()).isEqualTo("Cliente Demo");
+        assertThat(resultado.get(0).nombreServicio()).isEqualTo("Corte");
+        verify(citaRepository).buscarCitasPorCliente(ID_CLIENTE, null, null, null);
+    }
+
+    @Test
+    void listarPorStaffConvierteRangoInclusivoYAplicaEstado() {
+        LocalDate hasta = FECHA.plusDays(2);
+        when(citaRepository.buscarCitasPorStaff(any(), any(), any(), any())).thenReturn(List.of());
+
+        citaService.listarPorStaff(ID_STAFF, FECHA, hasta, EstadoCita.CONFIRMADA);
+
+        verify(citaRepository).buscarCitasPorStaff(
+                ID_STAFF,
+                at(FECHA, 0, 0),
+                at(hasta.plusDays(1), 0, 0),
+                EstadoCita.CONFIRMADA
+        );
+    }
+
+    @Test
+    void listarPorStaffMantieneSobrecargaSinFiltros() {
+        List<Cita> citas = List.of(cita(at(9, 0), at(10, 0), at(10, 30)));
+        when(citaRepository.findByIdStaff(ID_STAFF)).thenReturn(citas);
+
+        assertThat(citaService.listarPorStaff(ID_STAFF)).isSameAs(citas);
+        verify(citaRepository).findByIdStaff(ID_STAFF);
+    }
+
+    @Test
+    void listarRechazaRangoInvertidoSoloCuandoAmbosLimitesExisten() {
+        assertThatThrownBy(() -> citaService.listarPorCliente(
+                ID_CLIENTE,
+                FECHA,
+                FECHA.minusDays(1),
+                null
+        ))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("hasta no puede ser anterior");
     }
 
     private PerfilResumen perfil(UUID id, String nombre, String apellidos, String email) {

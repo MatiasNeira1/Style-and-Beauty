@@ -90,6 +90,50 @@ public class CitaService {
         return citaRepository.findByIdStaff(idStaff);
     }
 
+    public List<CitaAgendaResponse> listarPorCliente(
+            UUID idCliente,
+            LocalDate desde,
+            LocalDate hasta,
+            EstadoCita estado
+    ) {
+        log.info("Listando citas para cliente: idCliente={}, desde={}, hasta={}, estado={}",
+                idCliente, desde, hasta, estado);
+        validarRangoFechas(desde, hasta);
+        liberarReservasVencidas();
+
+        OffsetDateTime inicio = desde == null ? null : atDateTime(desde, 0, 0);
+        OffsetDateTime fin = hasta == null ? null : atDateTime(hasta.plusDays(1), 0, 0);
+        Map<UUID, String> nombresClientes = new HashMap<>();
+        Map<UUID, String> nombresServicios = new HashMap<>();
+
+        return citaRepository.buscarCitasPorCliente(idCliente, inicio, fin, estado)
+                .stream()
+                .map(cita -> toAgendaResponse(cita, nombresClientes, nombresServicios))
+                .toList();
+    }
+
+    public List<CitaAgendaResponse> listarPorStaff(
+            UUID idStaff,
+            LocalDate desde,
+            LocalDate hasta,
+            EstadoCita estado
+    ) {
+        log.info("Listando citas para staff: idStaff={}, desde={}, hasta={}, estado={}",
+                idStaff, desde, hasta, estado);
+        validarRangoFechas(desde, hasta);
+        liberarReservasVencidas();
+
+        OffsetDateTime inicio = desde == null ? null : atDateTime(desde, 0, 0);
+        OffsetDateTime fin = hasta == null ? null : atDateTime(hasta.plusDays(1), 0, 0);
+        Map<UUID, String> nombresClientes = new HashMap<>();
+        Map<UUID, String> nombresServicios = new HashMap<>();
+
+        return citaRepository.buscarCitasPorStaff(idStaff, inicio, fin, estado)
+                .stream()
+                .map(cita -> toAgendaResponse(cita, nombresClientes, nombresServicios))
+                .toList();
+    }
+
     public Cita buscarPorId(UUID id) {
         log.info("Buscando cita en ms-agenda: id={}", id);
         return citaRepository.findById(id)
@@ -819,11 +863,7 @@ public class CitaService {
     }
 
     private void validarRangoFechas(LocalDate desde, LocalDate hasta) {
-        if (desde == null || hasta == null) {
-            throw new BusinessException("Debe indicar fecha desde y hasta");
-        }
-
-        if (hasta.isBefore(desde)) {
+        if (desde != null && hasta != null && hasta.isBefore(desde)) {
             throw new BusinessException("La fecha hasta no puede ser anterior a la fecha desde");
         }
     }
