@@ -46,9 +46,9 @@ function productImage(product) {
 
 function productFormFrom(product) {
   return {
-    nombre: product.nombre || '',
+    nombre: String(product.nombre || '').slice(0, PRODUCT_NAME_MAX_LENGTH),
     categoria: product.categoria || '',
-    descripcion: product.descripcion || '',
+    descripcion: String(product.descripcion || '').slice(0, PRODUCT_DESCRIPTION_MAX_LENGTH),
     imagenUrl: productImage(product) || '',
     precio: product.precio ?? '',
   };
@@ -409,7 +409,6 @@ export function InventoryAdminPage() {
   const handleProductSubmit = (event) => {
     event.preventDefault();
     if (productImageError) return;
-    if (productForm.nombre.length > PRODUCT_NAME_MAX_LENGTH || productForm.descripcion.length > PRODUCT_DESCRIPTION_MAX_LENGTH) return;
     if (!PRODUCT_CATEGORIES.includes(productForm.categoria)) {
       setProductCategoryError('Selecciona una categoría válida.');
       return;
