@@ -1767,6 +1767,19 @@
   gap: 1rem;
 }
 
+.admin-modal-form .admin-modal-section.form-grid {
+  align-items: start;
+}
+
+.admin-modal-form #inventory-description {
+  box-sizing: border-box;
+  height: 120px;
+  max-height: 120px;
+  min-height: 120px;
+  overflow-y: auto;
+  resize: none;
+}
+
 .admin-modal-section {
   display: grid;
   gap: 0.9rem;
@@ -2171,6 +2184,10 @@
 }
 
 @media (max-width: 640px) {
+  .admin-modal-form .admin-modal-section.form-grid {
+    grid-template-columns: 1fr;
+  }
+
   .admin-topbar {
     align-items: flex-start;
     grid-template-columns: auto minmax(0, 1fr);
