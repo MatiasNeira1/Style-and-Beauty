@@ -4,6 +4,7 @@ import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
+import com.style.beauty.ms_agenda.dto.CitaAgendaResponse;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
@@ -37,7 +38,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -75,6 +78,34 @@ public class CitaService {
         log.info("Listando citas en ms-agenda");
         liberarReservasVencidas();
         return citaRepository.findAll();
+    }
+
+    public List<CitaAgendaResponse> listarPorCliente(UUID idCliente, LocalDate desde, LocalDate hasta, EstadoCita estado) {
+        validarRangoFechas(desde, hasta);
+        OffsetDateTime inicio = atDateTime(desde, 0, 0);
+        OffsetDateTime fin = atDateTime(hasta.plusDays(1), 0, 0);
+
+        Map<UUID, String> nombresClientes = new HashMap<>();
+        Map<UUID, String> nombresServicios = new HashMap<>();
+
+        return citaRepository.buscarCitasPorCliente(idCliente, inicio, fin, estado)
+                .stream()
+                .map(cita -> toAgendaResponse(cita, nombresClientes, nombresServicios))
+                .toList();
+    }
+
+    public List<CitaAgendaResponse> listarPorStaff(UUID idStaff, LocalDate desde, LocalDate hasta, EstadoCita estado) {
+        validarRangoFechas(desde, hasta);
+        OffsetDateTime inicio = atDateTime(desde, 0, 0);
+        OffsetDateTime fin = atDateTime(hasta.plusDays(1), 0, 0);
+
+        Map<UUID, String> nombresClientes = new HashMap<>();
+        Map<UUID, String> nombresServicios = new HashMap<>();
+
+        return citaRepository.buscarCitasPorStaff(idStaff, inicio, fin, estado)
+                .stream()
+                .map(cita -> toAgendaResponse(cita, nombresClientes, nombresServicios))
+                .toList();
     }
 
     public Cita buscarPorId(UUID id) {
@@ -729,6 +760,78 @@ public class CitaService {
         if (finSemana.isBefore(fechaActualAgenda()) || fechaInicioSemana.isAfter(fechaMaximaReserva())) {
             throw new BusinessException("La disponibilidad solo puede consultarse entre hoy y los proximos " + maxDiasAnticipacion + " dias");
         }
+    }
+
+    private void validarRangoFechas(LocalDate desde, LocalDate hasta) {
+        if (desde == null || hasta == null) {
+            throw new BusinessException("Debe indicar fecha desde y hasta");
+        }
+
+        if (hasta.isBefore(desde)) {
+            throw new BusinessException("La fecha hasta no puede ser anterior a la fecha desde");
+        }
+    }
+
+    private CitaAgendaResponse toAgendaResponse(
+            Cita cita,
+            Map<UUID, String> nombresClientes,
+            Map<UUID, String> nombresServicios
+    ) {
+        return new CitaAgendaResponse(
+                cita.getIdCita(),
+                cita.getIdCliente(),
+                nombreCliente(cita.getIdCliente(), nombresClientes),
+                cita.getIdStaff(),
+                cita.getIdServicio(),
+                nombreServicio(cita.getIdServicio(), nombresServicios),
+                cita.getFechaHoraInicio(),
+                cita.getFechaHoraFin(),
+                cita.getFechaHoraFinAtencion(),
+                cita.getEstadoCita(),
+                cita.getObservacionCliente(),
+                cita.getObservacionStaff(),
+                cita.getGoogleCalendarEventId()
+        );
+    }
+
+    private String nombreCliente(UUID idCliente, Map<UUID, String> nombresClientes) {
+        if (idCliente == null) {
+            return null;
+        }
+        return nombresClientes.computeIfAbsent(idCliente, this::obtenerNombreClienteSeguro);
+    }
+
+    private String nombreServicio(UUID idServicio, Map<UUID, String> nombresServicios) {
+        if (idServicio == null) {
+            return null;
+        }
+        return nombresServicios.computeIfAbsent(idServicio, this::obtenerNombreServicioSeguro);
+    }
+
+    private String obtenerNombreClienteSeguro(UUID idCliente) {
+        try {
+            var cliente = perfilClient.obtenerCliente(idCliente);
+            return nombreCompleto(cliente.nombre(), cliente.apellidos());
+        } catch (RuntimeException ex) {
+            log.warn("No se pudo obtener nombre de cliente para agenda: idCliente={}", idCliente, ex);
+            return null;
+        }
+    }
+
+    private String obtenerNombreServicioSeguro(UUID idServicio) {
+        try {
+            return servicioClient.obtenerServicio(idServicio).nombre();
+        } catch (RuntimeException ex) {
+            log.warn("No se pudo obtener nombre de servicio para agenda: idServicio={}", idServicio, ex);
+            return null;
+        }
+    }
+
+    private String nombreCompleto(String nombre, String apellidos) {
+        String nombreSeguro = nombre == null ? "" : nombre.trim();
+        String apellidosSeguro = apellidos == null ? "" : apellidos.trim();
+        String completo = (nombreSeguro + " " + apellidosSeguro).trim();
+        return completo.isBlank() ? null : completo;
     }
 
     private List<EstadoCita> estadosIgnoradosParaDisponibilidad() {
