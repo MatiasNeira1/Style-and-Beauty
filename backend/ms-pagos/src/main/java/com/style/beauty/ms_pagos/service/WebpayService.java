@@ -11,7 +11,6 @@ import com.style.beauty.ms_pagos.client.PerfilClient;
 import com.style.beauty.ms_pagos.dto.CitaResumen;
 import com.style.beauty.ms_pagos.dto.CrearTransaccionRequest;
 import com.style.beauty.ms_pagos.dto.CrearTransaccionResponse;
-import com.style.beauty.ms_pagos.dto.ServicioCatalogoResumen;
 import com.style.beauty.ms_pagos.entity.TransaccionPago;
 import com.style.beauty.ms_pagos.enums.EstadoTransaccion;
 import com.style.beauty.ms_pagos.exception.PagosValidationException;
@@ -23,11 +22,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.NumberFormat;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -37,6 +39,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class WebpayService {
     private static final String SIMULATED_TOKEN_PREFIX = "SIM-";
+    private static final BigDecimal ABONO_RESERVA_CLP = BigDecimal.valueOf(10_000);
     private static final DateTimeFormatter WEBPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter WEBPAY_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
     private static final String DEFAULT_PUBLIC_GATEWAY_URL =
@@ -273,7 +276,7 @@ public class WebpayService {
                     <p>Ambiente de prueba para confirmar el pago sin credenciales reales de Transbank.</p>
                     <dl>
                       <div><dt>Orden</dt><dd>%s</dd></div>
-                      <div><dt>Monto</dt><dd>$%s CLP</dd></div>
+                      <div><dt>Total a abonar hoy</dt><dd>%s</dd></div>
                       <div><dt>Reservas</dt><dd>%s</dd></div>
                     </dl>
                     %s
@@ -292,7 +295,7 @@ public class WebpayService {
                 </html>
                 """.formatted(
                 escapeHtml(transaccion.getBuyOrder()),
-                escapeHtml(transaccion.getMonto() == null ? "0" : transaccion.getMonto().toPlainString()),
+                escapeHtml(formatearClp(transaccion.getMonto())),
                 idsCitas(transaccion).size(),
                 resumenReservas,
                 transaccion.getIdTransaccion(),
@@ -319,16 +322,18 @@ public class WebpayService {
         String profesional = escapeHtml(isBlank(reserva.profesionalNombre()) ? "Profesional" : reserva.profesionalNombre());
         String fecha = escapeHtml(formatearFechaReserva(reserva));
         String horario = escapeHtml(formatearHorarioReserva(reserva));
-        String precio = escapeHtml(reserva.precio() == null ? "0" : reserva.precio().toPlainString());
+        String precio = escapeHtml(formatearClp(reserva.precio()));
+        String abono = escapeHtml(formatearClp(ABONO_RESERVA_CLP));
 
         return """
                 <li>
                   <strong>%s</strong>
                   <span>%s</span>
                   <span>%s · %s</span>
-                  <span>$%s CLP</span>
+                  <span>Valor del servicio: %s</span>
+                  <span>Abono WebPay: %s</span>
                 </li>
-                """.formatted(servicio, profesional, fecha, horario, precio);
+                """.formatted(servicio, profesional, fecha, horario, precio, abono);
     }
 
     private CrearTransaccionRequest leerDetalleItems(TransaccionPago transaccion) {
@@ -617,10 +622,7 @@ public class WebpayService {
             List<CitaResumen> citas,
             List<CrearTransaccionRequest.ProductoCarrito> productos
     ) {
-        BigDecimal montoReservas = citas.stream()
-                .map((cita) -> catalogoClient.obtenerServicio(cita.idServicio()))
-                .map(this::obtenerMontoServicio)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal montoReservas = ABONO_RESERVA_CLP.multiply(BigDecimal.valueOf(citas.size()));
 
         BigDecimal montoProductos = productos == null ? BigDecimal.ZERO : productos.stream()
                 .map((producto) -> producto.precio().multiply(BigDecimal.valueOf(producto.cantidad())))
@@ -810,12 +812,10 @@ public class WebpayService {
         return value == null || value.isBlank();
     }
 
-    private BigDecimal obtenerMontoServicio(ServicioCatalogoResumen servicio) {
-        if (servicio == null || servicio.precioTotal() == null || servicio.precioTotal().signum() <= 0) {
-            throw new IllegalStateException("El servicio no tiene un precio total valido");
-        }
-
-        return servicio.precioTotal();
+    private String formatearClp(BigDecimal value) {
+        BigDecimal safeValue = value == null ? BigDecimal.ZERO : value;
+        NumberFormat formatter = NumberFormat.getIntegerInstance(new Locale("es", "CL"));
+        return "$" + formatter.format(safeValue.setScale(0, RoundingMode.HALF_UP));
     }
 
     private String paginaSimple(String titulo, String mensaje) {

@@ -6,7 +6,9 @@ import { Reveal } from '../../components/animations/Reveal.jsx';
 import { AuthModal } from '../../components/auth/AuthModal.jsx';
 import { ProfessionalProfileModal } from '../../components/professionals/ProfessionalProfileModal.jsx';
 import { ProfessionalProfiles } from '../../components/services/ProfessionalProfiles.jsx';
+import { Button } from '../../components/ui/Button.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
+import { Modal } from '../../components/ui/Modal.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { agendaService } from '../../services/agendaService.js';
 import { catalogService } from '../../services/catalogService.js';
@@ -17,11 +19,12 @@ import { useAuth } from '../../store/AuthContext.jsx';
 import { useCart } from '../../store/CartContext.jsx';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
 import { filterBookableSlots, isBookingDateAllowed, maxBookingDate, RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
+import { RESERVATION_DEPOSIT_CLP, formatCLP } from '../../utils/priceUtils.js';
 
 function servicePrice(service) {
   const value = service?.precio_total ?? service?.precio ?? service?.price;
   if (value === undefined || value === null || value === '') return 'Consultar';
-  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
+  return formatCLP(value);
 }
 
 function serviceDuration(service) {
@@ -178,6 +181,7 @@ export function ServiceDetailPage() {
   const [creandoCita, setCreandoCita] = useState(false);
   const [perfilStaffVisible, setPerfilStaffVisible] = useState(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
   const availabilityWeekCache = useRef(new Map());
   const pendingReservationRef = useRef(null);
 
@@ -440,7 +444,6 @@ export function ServiceDetailPage() {
       const message = 'Ya tienes una reserva temporal para este servicio en el carrito.';
       setMensajeReserva(message);
       setLastCartError(message);
-      setIsCartOpen(true);
       return;
     }
 
@@ -467,6 +470,9 @@ export function ServiceDetailPage() {
         staffId: staffId(profesionalSeleccionado),
         name: service?.nombre || service?.name || 'Reserva',
         price: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
+        serviceValue: service?.precio_total ?? service?.precio ?? service?.price ?? 0,
+        abono: RESERVATION_DEPOSIT_CLP,
+        depositAmount: RESERVATION_DEPOSIT_CLP,
         startsAt: citaCreada.fechaHoraInicio || horarioReservado,
         endsAt: citaCreada.fechaHoraFinAtencion || horarioSeleccionado.finAtencion || citaCreada.fechaHoraFin,
         blockedUntil: citaCreada.fechaHoraFin,
@@ -496,11 +502,9 @@ export function ServiceDetailPage() {
       availabilityWeekCache.current.delete(`${idServicio}:${staffId(profesionalSeleccionado)}:${formatLocalDate(semanaInicio)}:${idClientePerfil || 'anon'}`);
       await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
       await queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
-      setMensajeReserva(`Reserva agregada al carrito. Tienes ${RESERVATION_EXPIRATION_MINUTES} minutos para confirmarla antes de que el horario se libere.`);
+      setMensajeReserva('');
+      setSuccessModalOpen(true);
       setObservacionCliente('');
-      window.setTimeout(() => {
-        navigate('/servicios', { state: { reservationAdded: true } });
-      }, 1200);
     } catch (error) {
       setMensajeReserva(bookingErrorMessage(error));
     } finally {
@@ -743,6 +747,45 @@ export function ServiceDetailPage() {
         onLogin={() => goToAuth('/login')}
         onRegister={() => goToAuth('/registro')}
       />
+      <Modal
+        open={successModalOpen}
+        title="Reserva agregada al carrito"
+        onClose={() => setSuccessModalOpen(false)}
+        className="booking-followup-modal"
+      >
+        <p>Tienes {RESERVATION_EXPIRATION_MINUTES} minutos para confirmarla antes de que el horario se libere.</p>
+        <div className="auth-reservation-actions">
+          <Button
+            type="button"
+            onClick={() => {
+              setSuccessModalOpen(false);
+              navigate('/reservar', { state: { selectedDate: fechaSeleccionada, continuationMode: true } });
+            }}
+          >
+            Agregar otra cita
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setSuccessModalOpen(false);
+              setIsCartOpen(true);
+            }}
+          >
+            Ir al carrito
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => {
+              setSuccessModalOpen(false);
+              navigate('/servicios', { state: { reservationAdded: true } });
+            }}
+          >
+            Seguir viendo servicios
+          </Button>
+        </div>
+      </Modal>
     </section>
   );
 }

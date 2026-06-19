@@ -14,9 +14,11 @@ import com.style.beauty.ms_cliente.strategy.PerfilStrategy;
 import com.style.beauty.ms_cliente.model.ClienteModel;
 import com.style.beauty.ms_cliente.model.EspecialidadModel;
 import com.style.beauty.ms_cliente.model.StaffModel;
+import com.style.beauty.ms_cliente.model.StaffPortfolioImageModel;
 import com.style.beauty.ms_cliente.model.FichaTecnicaModel;
 import com.style.beauty.ms_cliente.repository.ClienteRepository;
 import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
+import com.style.beauty.ms_cliente.repository.StaffPortfolioImageRepository;
 import com.style.beauty.ms_cliente.repository.StaffRepository;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -32,6 +34,7 @@ public class PerfilService {
     private final PersonaRepository personaRepository;
     private final ClienteRepository clienteRepository;
     private final StaffRepository staffRepository;
+    private final StaffPortfolioImageRepository staffPortfolioImageRepository;
     private final EspecialidadRepository especialidadRepository;
     private final AzureBlobStorageService azureBlobStorageService;
     private final Map<String, PerfilStrategy> estrategias = new HashMap<>();
@@ -43,12 +46,14 @@ public class PerfilService {
     public PerfilService(PersonaRepository personaRepository,
                          ClienteRepository clienteRepository,
                          StaffRepository staffRepository,
+                         StaffPortfolioImageRepository staffPortfolioImageRepository,
                          EspecialidadRepository especialidadRepository,
                          AzureBlobStorageService azureBlobStorageService,
                          List<PerfilStrategy> listaEstrategias) {
         this.personaRepository = personaRepository;
         this.clienteRepository = clienteRepository;
         this.staffRepository = staffRepository;
+        this.staffPortfolioImageRepository = staffPortfolioImageRepository;
         this.especialidadRepository = especialidadRepository;
         this.azureBlobStorageService = azureBlobStorageService;
         // Arma el diccionario de estrategias leyendo los "letreros"
@@ -191,7 +196,7 @@ public class PerfilService {
     // 2.2 READ (Listar Staff)
     public List<StaffModel> listarTodoElStaff() {
         return staffRepository.findAll().stream()
-                .peek(this::aplicarFotoFallbackSiFalta)
+                .peek(this::prepararStaffPublico)
                 .toList();
     }
 
@@ -202,8 +207,39 @@ public class PerfilService {
 
     public StaffModel obtenerStaffPorIdConFallback(java.util.UUID idStaff) {
         StaffModel staff = obtenerStaffPorId(idStaff);
-        aplicarFotoFallbackSiFalta(staff);
+        prepararStaffPublico(staff);
         return staff;
+    }
+
+    public List<StaffPortfolioImageModel> listarPortfolioStaff(java.util.UUID idStaff) {
+        obtenerStaffPorId(idStaff);
+        return staffPortfolioImageRepository.findByStaff_IdPersonaOrderByCreatedAtDesc(idStaff);
+    }
+
+    @Transactional
+    public StaffPortfolioImageModel subirPortfolioStaff(java.util.UUID idStaff, MultipartFile file) {
+        StaffModel staff = obtenerStaffPorId(idStaff);
+        String imageUrl = azureBlobStorageService.upload(file, "profesionales/portfolio/" + idStaff);
+
+        StaffPortfolioImageModel image = new StaffPortfolioImageModel();
+        image.setStaff(staff);
+        image.setUrlFoto(imageUrl);
+        image.setNombreArchivo(file == null ? null : file.getOriginalFilename());
+
+        return staffPortfolioImageRepository.save(image);
+    }
+
+    @Transactional
+    public void eliminarPortfolioStaff(java.util.UUID idStaff, java.util.UUID idFoto) {
+        StaffPortfolioImageModel image = staffPortfolioImageRepository.findById(idFoto)
+                .orElseThrow(() -> new RuntimeException("Imagen de portfolio no encontrada."));
+
+        if (image.getStaff() == null || !idStaff.equals(image.getStaff().getIdPersona())) {
+            throw new RuntimeException("La imagen no pertenece al staff seleccionado.");
+        }
+
+        azureBlobStorageService.delete(image.getUrlFoto());
+        staffPortfolioImageRepository.delete(image);
     }
 
     @Transactional
@@ -242,8 +278,9 @@ public class PerfilService {
 
     private PersonaModel actualizarPerfil(String idAuth, PerfilRequestDTO dto, boolean permitirEditarIdentidad) {
         PersonaModel persona = obtenerMiPerfil(idAuth);
+        boolean puedeEditarIdentidad = permitirEditarIdentidad || persona instanceof StaffModel;
 
-        if (permitirEditarIdentidad) {
+        if (puedeEditarIdentidad) {
             if (dto.getRut() != null) persona.setRut(dto.getRut());
             if (dto.getNombre() != null) persona.setNombre(dto.getNombre());
             if (dto.getApellidos() != null) persona.setApellidos(dto.getApellidos());
@@ -293,6 +330,13 @@ public class PerfilService {
         if (staff.getFotoUrl() == null || staff.getFotoUrl().isBlank()) {
             staff.setFotoUrl(companyLogoUrl);
         }
+    }
+
+    private void prepararStaffPublico(StaffModel staff) {
+        aplicarFotoFallbackSiFalta(staff);
+        staff.setPortfolioImages(
+                staffPortfolioImageRepository.findByStaff_IdPersonaOrderByCreatedAtDesc(staff.getIdPersona())
+        );
     }
 
     // 4. DELETE (Eliminar cuenta)

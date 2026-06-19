@@ -33,7 +33,11 @@ public class ApiGatewayApplication {
 		} else {
 			corsConfig.addAllowedOrigin("https://styleandbeauty.me");
 			corsConfig.addAllowedOrigin("https://www.styleandbeauty.me");
+			corsConfig.addAllowedOrigin("http://localhost");
+			corsConfig.addAllowedOrigin("http://localhost:80");
 			corsConfig.addAllowedOrigin("http://localhost:5173");
+			corsConfig.addAllowedOrigin("http://127.0.0.1");
+			corsConfig.addAllowedOrigin("http://127.0.0.1:80");
 			corsConfig.addAllowedOrigin("http://127.0.0.1:5173");
 		}
 

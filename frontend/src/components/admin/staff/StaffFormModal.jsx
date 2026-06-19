@@ -1,7 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Briefcase, ImagePlus, Mail, User } from 'lucide-react';
 import { Modal } from '../../ui/Modal.jsx';
 import { Button } from '../../ui/Button.jsx';
@@ -12,75 +9,45 @@ function validateRut(rut) {
   if (!rut || typeof rut !== 'string') return false;
   const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
   if (cleanRut.length < 2) return false;
-  
+
   const body = cleanRut.slice(0, -1);
   const dv = cleanRut.slice(-1);
-  
+
   let sum = 0;
   let multiplier = 2;
-  for (let i = body.length - 1; i >= 0; i--) {
+  for (let i = body.length - 1; i >= 0; i -= 1) {
     sum += parseInt(body[i], 10) * multiplier;
     multiplier = multiplier === 7 ? 2 : multiplier + 1;
   }
-  
+
   const expectedDv = 11 - (sum % 11);
-  let calculatedDv = '';
-  if (expectedDv === 11) {
-    calculatedDv = '0';
-  } else if (expectedDv === 10) {
-    calculatedDv = 'K';
-  } else {
-    calculatedDv = String(expectedDv);
-  }
-  
+  const calculatedDv = expectedDv === 11 ? '0' : expectedDv === 10 ? 'K' : String(expectedDv);
+
   return calculatedDv === dv;
+}
+
+function isRutAcceptable(rut) {
+  const cleanRut = String(rut || '').replace(/[^0-9kK]/g, '').toUpperCase();
+  return validateRut(rut) || (cleanRut.length >= 7 && cleanRut.length <= 9);
 }
 
 function formatRut(value) {
   if (!value) return '';
-  let clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (clean.length === 0) return '';
-  clean = clean.slice(0, 9);
-  
-  if (clean.length <= 1) {
-    return clean;
-  }
-  
+  const clean = value.replace(/[^0-9kK]/g, '').toUpperCase().slice(0, 9);
+  if (clean.length <= 1) return clean;
+
   const dv = clean.slice(-1);
   const body = clean.slice(0, -1);
-  
-  let formattedBody = '';
-  if (body.length <= 3) {
-    formattedBody = body;
-  } else if (body.length <= 6) {
-    formattedBody = body.slice(0, body.length - 3) + '.' + body.slice(body.length - 3);
-  } else {
-    formattedBody = body.slice(0, body.length - 6) + '.' + body.slice(body.length - 6, body.length - 3) + '.' + body.slice(body.length - 3);
-  }
-  
-  return formattedBody + '-' + dv;
-}
+  let formattedBody = body;
 
-const staffSchema = z.object({
-  rut: z.string().min(1, 'El RUT es obligatorio').refine((val) => validateRut(val), {
-    message: 'El RUT no es válido (ej: 12.345.678-9)',
-  }),
-  nombre: z.string().min(1, 'El nombre es obligatorio'),
-  apellidos: z.string().optional(),
-  emailContacto: z.string().email('Email inválido'),
-  password: z.string().min(6, 'Mínimo 6 caracteres').optional().or(z.literal('')),
-  telefono: z.string().optional().refine((value) => !value || /^\+?[0-9\s-]{8,18}$/.test(value), {
-    message: 'Formato esperado: +56 9 1234 5678',
-  }),
-  fechaNacimiento: z.string().optional().refine((value) => !value || /^\d{4}-\d{2}-\d{2}$/.test(value), {
-    message: 'Formato esperado: AAAA-MM-DD',
-  }),
-  genero: z.string().optional(),
-  idEspecialidad: z.string().min(1, 'Selecciona una especialidad'),
-  descripcionPerfil: z.string().optional(),
-  experienciaAnios: z.string().optional(),
-  sinImagenPorAhora: z.boolean().optional(),
-});
+  if (body.length > 6) {
+    formattedBody = `${body.slice(0, body.length - 6)}.${body.slice(body.length - 6, body.length - 3)}.${body.slice(body.length - 3)}`;
+  } else if (body.length > 3) {
+    formattedBody = `${body.slice(0, body.length - 3)}.${body.slice(body.length - 3)}`;
+  }
+
+  return `${formattedBody}-${dv}`;
+}
 
 const defaultValues = {
   rut: '',
@@ -97,51 +64,98 @@ const defaultValues = {
   sinImagenPorAhora: false,
 };
 
-export function StaffFormModal({ open, onClose, onSubmit, initialData, specialties = [], isLoading }) {
+function dateInputValue(value) {
+  if (!value) return '';
+  const asString = String(value);
+  const isoMatch = asString.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  const localMatch = asString.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (localMatch) return `${localMatch[3]}-${localMatch[2]}-${localMatch[1]}`;
+  return asString;
+}
+
+function valuesFromStaff(initialData) {
+  return initialData
+    ? {
+        ...defaultValues,
+        ...initialData,
+        rut: initialData.rut ? formatRut(String(initialData.rut)) : '',
+        fechaNacimiento: dateInputValue(initialData.fechaNacimiento),
+        genero: initialData.genero ? String(initialData.genero).toUpperCase() : '',
+        idEspecialidad: String(initialData.idEspecialidad || initialData.especialidad?.idEspecialidad || ''),
+        descripcionPerfil: initialData.descripcionPerfil || initialData.biografia || '',
+        experienciaAnios: initialData.experienciaAnios != null ? String(initialData.experienciaAnios) : '',
+      }
+    : defaultValues;
+}
+
+function validateForm(values, isEditMode) {
+  const nextErrors = {};
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!values.rut) {
+    nextErrors.rut = 'El RUT es obligatorio';
+  } else if (!isRutAcceptable(values.rut)) {
+    nextErrors.rut = 'Ingresa un RUT valido';
+  }
+
+  if (!values.nombre) {
+    nextErrors.nombre = 'El nombre es obligatorio';
+  }
+
+  if (!values.emailContacto) {
+    nextErrors.emailContacto = 'El email es obligatorio';
+  } else if (!emailPattern.test(values.emailContacto)) {
+    nextErrors.emailContacto = 'Email invalido';
+  }
+
+  if (!isEditMode && (!values.password || values.password.length < 6)) {
+    nextErrors.password = 'La contrasena es obligatoria (min. 6 caracteres)';
+  }
+
+  if (values.telefono && !/^\+?[0-9\s-]{8,18}$/.test(values.telefono)) {
+    nextErrors.telefono = 'Formato esperado: +56 9 1234 5678';
+  }
+
+  if (values.fechaNacimiento && !/^\d{4}-\d{2}-\d{2}$/.test(values.fechaNacimiento)) {
+    nextErrors.fechaNacimiento = 'Formato esperado: AAAA-MM-DD';
+  }
+
+  if (!values.idEspecialidad) {
+    nextErrors.idEspecialidad = 'Selecciona una especialidad';
+  }
+
+  if (values.experienciaAnios && Number(values.experienciaAnios) < 0) {
+    nextErrors.experienciaAnios = 'La experiencia no puede ser negativa';
+  }
+
+  return nextErrors;
+}
+
+export function StaffFormModal({
+  open,
+  onClose,
+  onSubmit,
+  initialData,
+  specialties = [],
+  isLoading,
+  errorMessage,
+  showPhotoField = true,
+  showBioField = true,
+}) {
   const isEditMode = Boolean(initialData);
+  const [formValues, setFormValues] = useState(() => valuesFromStaff(initialData));
+  const [errors, setErrors] = useState({});
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
   const [photoError, setPhotoError] = useState('');
 
-  const schema = isEditMode
-    ? staffSchema.omit({ password: true })
-    : staffSchema.refine((data) => data.password && data.password.length >= 6, {
-        message: 'La contraseña es obligatoria (mín. 6 caracteres)',
-        path: ['password'],
-      });
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-    setValue,
-  } = useForm({
-    resolver: zodResolver(schema),
-    defaultValues: initialData
-      ? {
-          ...defaultValues,
-          ...initialData,
-          idEspecialidad: String(initialData.idEspecialidad || initialData.especialidad?.idEspecialidad || ''),
-          descripcionPerfil: initialData.descripcionPerfil || initialData.biografia || '',
-          experienciaAnios: initialData.experienciaAnios != null ? String(initialData.experienciaAnios) : '',
-        }
-      : defaultValues,
-  });
-
   useEffect(() => {
-    reset(initialData
-      ? {
-          ...defaultValues,
-          ...initialData,
-          idEspecialidad: String(initialData.idEspecialidad || initialData.especialidad?.idEspecialidad || ''),
-          descripcionPerfil: initialData.descripcionPerfil || initialData.biografia || '',
-          experienciaAnios: initialData.experienciaAnios != null ? String(initialData.experienciaAnios) : '',
-        }
-      : defaultValues);
+    setFormValues(valuesFromStaff(initialData));
+    setErrors({});
     setSelectedPhoto(null);
     setPhotoError('');
-  }, [initialData, open, reset]);
+  }, [initialData, open]);
 
   useEffect(() => {
     if (!selectedPhoto) {
@@ -153,6 +167,15 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
     setPhotoPreview(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [initialData, selectedPhoto]);
+
+  const updateField = (field, transform) => (event) => {
+    const nextValue = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    setFormValues((current) => ({
+      ...current,
+      [field]: transform ? transform(nextValue) : nextValue,
+    }));
+    setErrors((current) => ({ ...current, [field]: undefined }));
+  };
 
   const handlePhotoChange = (event) => {
     const file = event.target.files?.[0];
@@ -177,92 +200,78 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
     }
 
     setSelectedPhoto(file);
-    setValue('sinImagenPorAhora', false);
+    setFormValues((current) => ({ ...current, sinImagenPorAhora: false }));
   };
 
-  const onFormSubmit = (data) => {
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (photoError) return;
+
+    const nextErrors = validateForm(formValues, isEditMode);
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+
     const existingPhoto = initialData?.fotoUrl || initialData?.imageUrl || '';
-    if (!selectedPhoto && !existingPhoto && !data.sinImagenPorAhora) {
+    if (showPhotoField && !selectedPhoto && !existingPhoto && !formValues.sinImagenPorAhora) {
       setPhotoError('Sube una foto o marca Sin imagen por ahora.');
       return;
     }
-    onSubmit({ ...data, sinImagenPorAhora: Boolean(data.sinImagenPorAhora), fotoFile: selectedPhoto }, isEditMode);
-    reset(defaultValues);
-    setSelectedPhoto(null);
+
+    await onSubmit({ ...formValues, sinImagenPorAhora: Boolean(formValues.sinImagenPorAhora), fotoFile: selectedPhoto }, isEditMode);
   };
 
   const handleClose = () => {
-    reset(defaultValues);
+    setFormValues(defaultValues);
+    setErrors({});
     setSelectedPhoto(null);
     setPhotoError('');
     onClose();
   };
 
   return (
-    <Modal
-      open={open}
-      title={isEditMode ? 'Editar Profesional' : 'Nuevo Profesional'}
-      onClose={handleClose}
-    >
-      <form className="staff-modal-form" onSubmit={handleSubmit(onFormSubmit)}>
-        {/* ── Datos Personales ─────────────────────── */}
+    <Modal open={open} title={isEditMode ? 'Editar Profesional' : 'Nuevo Profesional'} onClose={handleClose}>
+      <form className="staff-modal-form" onSubmit={handleSubmit}>
+        {errorMessage && <p className="admin-alert">{errorMessage}</p>}
+
         <div className="staff-form-section">
           <div className="staff-form-section-title">
             <User size={14} />
-            Datos Personales
+            Datos personales
           </div>
-          <div className="staff-photo-picker-row">
-            <label className="staff-photo-picker">
-              <SafeImage src={photoPreview} alt="Foto del profesional" />
-              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoChange} />
-              <span><ImagePlus size={15} /> Cambiar foto</span>
-            </label>
-            <label className="staff-no-photo-option">
-              <input type="checkbox" {...register('sinImagenPorAhora')} disabled={Boolean(selectedPhoto)} />
-              <span>Sin imagen por ahora</span>
-            </label>
-            {photoError && <p className="staff-photo-error">{photoError}</p>}
-          </div>
+          {showPhotoField && (
+            <div className="staff-photo-picker-row">
+              <label className="staff-photo-picker">
+                <SafeImage src={photoPreview} alt="Foto del profesional" />
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoChange} />
+                <span><ImagePlus size={15} /> Cambiar foto</span>
+              </label>
+              <label className="staff-no-photo-option">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formValues.sinImagenPorAhora)}
+                  onChange={updateField('sinImagenPorAhora')}
+                  disabled={Boolean(selectedPhoto)}
+                />
+                <span>Sin imagen por ahora</span>
+              </label>
+              {photoError && <p className="staff-photo-error">{photoError}</p>}
+            </div>
+          )}
           <div className="staff-form-grid">
             <Input
               label="RUT"
               id="staff-form-rut"
               placeholder="12.345.678-9"
-              error={errors.rut?.message}
-              {...register('rut', {
-                onChange: (e) => {
-                  setValue('rut', formatRut(e.target.value));
-                }
-              })}
+              error={errors.rut}
+              value={formValues.rut}
+              onChange={updateField('rut', formatRut)}
             />
-            <Input
-              label="Nombre"
-              id="staff-form-nombre"
-              placeholder="Valentina"
-              error={errors.nombre?.message}
-              {...register('nombre')}
-            />
-            <Input
-              label="Apellidos"
-              id="staff-form-apellidos"
-              placeholder="Rojas Soto"
-              error={errors.apellidos?.message}
-              {...register('apellidos')}
-            />
-            <Input
-              label="Fecha de Nacimiento"
-              id="staff-form-fecha"
-              type="date"
-              hint="Formato AAAA-MM-DD"
-              {...register('fechaNacimiento')}
-            />
-            <Input
-              label="Género"
-              id="staff-form-genero"
-              as="select"
-              {...register('genero')}
-            >
+            <Input label="Nombre" id="staff-form-nombre" placeholder="Valentina" error={errors.nombre} value={formValues.nombre} onChange={updateField('nombre')} />
+            <Input label="Apellidos" id="staff-form-apellidos" placeholder="Rojas Soto" error={errors.apellidos} value={formValues.apellidos} onChange={updateField('apellidos')} />
+            <Input label="Fecha de nacimiento" id="staff-form-fecha" type="date" hint="Formato AAAA-MM-DD" error={errors.fechaNacimiento} value={formValues.fechaNacimiento} onChange={updateField('fechaNacimiento')} />
+            <Input label="Genero" id="staff-form-genero" as="select" value={formValues.genero} onChange={updateField('genero')}>
               <option value="">Seleccionar</option>
               <option value="FEMENINO">Femenino</option>
               <option value="MASCULINO">Masculino</option>
@@ -271,82 +280,49 @@ export function StaffFormModal({ open, onClose, onSubmit, initialData, specialti
           </div>
         </div>
 
-        {/* ── Contacto ────────────────────────────── */}
         <div className="staff-form-section">
           <div className="staff-form-section-title">
             <Mail size={14} />
             Contacto
           </div>
           <div className="staff-form-grid">
-            <Input
-              label="Email"
-              id="staff-form-email"
-              type="email"
-              placeholder="correo@dominio.cl"
-              error={errors.emailContacto?.message}
-              {...register('emailContacto')}
-            />
-            <Input
-              label="Teléfono"
-              id="staff-form-telefono"
-              placeholder="+56 9 1234 5678"
-              error={errors.telefono?.message}
-              {...register('telefono')}
-            />
+            <Input label="Email" id="staff-form-email" type="email" placeholder="correo@dominio.cl" error={errors.emailContacto} value={formValues.emailContacto} onChange={updateField('emailContacto')} />
+            <Input label="Telefono" id="staff-form-telefono" placeholder="+56 9 1234 5678" error={errors.telefono} value={formValues.telefono} onChange={updateField('telefono')} />
             {!isEditMode && (
-              <Input
-                label="Contraseña temporal"
-                id="staff-form-password"
-                type="password"
-                placeholder="Minimo 6 caracteres"
-                error={errors.password?.message}
-                {...register('password')}
-              />
+              <Input label="Contrasena temporal" id="staff-form-password" type="password" placeholder="Minimo 6 caracteres" error={errors.password} value={formValues.password} onChange={updateField('password')} />
             )}
           </div>
         </div>
 
-        {/* ── Profesional ─────────────────────────── */}
         <div className="staff-form-section">
           <div className="staff-form-section-title">
             <Briefcase size={14} />
-            Perfil Profesional
+            Perfil profesional
           </div>
           <div className="staff-form-grid">
-            <Input
-              label="Especialidad"
-              id="staff-form-especialidad"
-              as="select"
-              error={errors.idEspecialidad?.message}
-              {...register('idEspecialidad')}
-            >
+            <Input label="Especialidad" id="staff-form-especialidad" as="select" error={errors.idEspecialidad} value={formValues.idEspecialidad} onChange={updateField('idEspecialidad')}>
               <option value="">Seleccionar especialidad</option>
-              {specialties.map((s) => (
-                <option key={s.idEspecialidad} value={s.idEspecialidad}>
-                  {s.nombre}
+              {specialties.map((specialty) => (
+                <option key={specialty.idEspecialidad} value={specialty.idEspecialidad}>
+                  {specialty.nombre}
                 </option>
               ))}
             </Input>
-            <Input
-              label="Años de experiencia"
-              id="staff-form-experiencia"
-              type="number"
-              min="0"
-              placeholder="Ej. 4"
-              {...register('experienciaAnios')}
-            />
+            <Input label="Anos de experiencia" id="staff-form-experiencia" type="number" min="0" placeholder="Ej. 4" error={errors.experienciaAnios} value={formValues.experienciaAnios} onChange={updateField('experienciaAnios')} />
           </div>
-          <Input
-            label="Biografía / Perfil curricular"
-            id="staff-form-bio"
-            as="textarea"
-            rows={3}
-            placeholder="Incluye experiencia, certificaciones, especialidades o condiciones"
-            {...register('descripcionPerfil')}
-          />
+          {showBioField && (
+            <Input
+              label="Biografia / Perfil curricular"
+              id="staff-form-bio"
+              as="textarea"
+              rows={3}
+              placeholder="Incluye experiencia, certificaciones, especialidades o condiciones"
+              value={formValues.descripcionPerfil}
+              onChange={updateField('descripcionPerfil')}
+            />
+          )}
         </div>
 
-        {/* ── Actions ─────────────────────────────── */}
         <div className="staff-form-footer">
           <Button variant="ghost" type="button" onClick={handleClose}>
             Cancelar

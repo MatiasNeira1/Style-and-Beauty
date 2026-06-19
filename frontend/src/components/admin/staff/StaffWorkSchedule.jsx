@@ -24,7 +24,7 @@ function buildDefaultSchedule() {
   }));
 }
 
-export function StaffWorkSchedule({ schedules = [], onSave, isSaving }) {
+export function StaffWorkSchedule({ schedules = [], onSave, isSaving, readOnly = false }) {
   const [localSchedule, setLocalSchedule] = useState(buildDefaultSchedule);
   const [validationErrors, setValidationErrors] = useState({});
 
@@ -51,6 +51,8 @@ export function StaffWorkSchedule({ schedules = [], onSave, isSaving }) {
   }, [schedules]);
 
   const handleChange = (dayKey, field, value) => {
+    if (readOnly) return;
+
     setLocalSchedule((prev) =>
       prev.map((s) => (s.diaSemana === dayKey ? { ...s, [field]: value } : s))
     );
@@ -64,6 +66,8 @@ export function StaffWorkSchedule({ schedules = [], onSave, isSaving }) {
   };
 
   const handleToggle = (dayKey) => {
+    if (readOnly) return;
+
     setLocalSchedule((prev) =>
       prev.map((s) => (s.diaSemana === dayKey ? { ...s, activo: !s.activo } : s))
     );
@@ -81,7 +85,7 @@ export function StaffWorkSchedule({ schedules = [], onSave, isSaving }) {
   };
 
   const handleSave = () => {
-    if (validate()) {
+    if (!readOnly && validate()) {
       onSave(localSchedule);
     }
   };
@@ -102,29 +106,41 @@ export function StaffWorkSchedule({ schedules = [], onSave, isSaving }) {
             <div key={day.diaSemana}>
               <div className={`schedule-day ${!day.activo ? 'inactive' : ''}`}>
                 <span className="schedule-day-name">{dayInfo?.label}</span>
-                <input
-                  type="time"
-                  className="schedule-time-input"
-                  value={day.horaInicio}
-                  onChange={(e) => handleChange(day.diaSemana, 'horaInicio', e.target.value)}
-                  disabled={!day.activo}
-                  aria-label={`Hora inicio ${dayInfo?.label}`}
-                />
-                <input
-                  type="time"
-                  className="schedule-time-input"
-                  value={day.horaFin}
-                  onChange={(e) => handleChange(day.diaSemana, 'horaFin', e.target.value)}
-                  disabled={!day.activo}
-                  aria-label={`Hora fin ${dayInfo?.label}`}
-                />
-                <input
-                  type="checkbox"
-                  className="schedule-toggle"
-                  checked={day.activo}
-                  onChange={() => handleToggle(day.diaSemana)}
-                  aria-label={`Activar ${dayInfo?.label}`}
-                />
+                {readOnly ? (
+                  <>
+                    <span className="schedule-time-display">{day.activo ? day.horaInicio : '-'}</span>
+                    <span className="schedule-time-display">{day.activo ? day.horaFin : '-'}</span>
+                    <span className={`schedule-status-pill ${day.activo ? 'active' : 'inactive'}`}>
+                      {day.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="time"
+                      className="schedule-time-input"
+                      value={day.horaInicio}
+                      onChange={(e) => handleChange(day.diaSemana, 'horaInicio', e.target.value)}
+                      disabled={!day.activo}
+                      aria-label={`Hora inicio ${dayInfo?.label}`}
+                    />
+                    <input
+                      type="time"
+                      className="schedule-time-input"
+                      value={day.horaFin}
+                      onChange={(e) => handleChange(day.diaSemana, 'horaFin', e.target.value)}
+                      disabled={!day.activo}
+                      aria-label={`Hora fin ${dayInfo?.label}`}
+                    />
+                    <input
+                      type="checkbox"
+                      className="schedule-toggle"
+                      checked={day.activo}
+                      onChange={() => handleToggle(day.diaSemana)}
+                      aria-label={`Activar ${dayInfo?.label}`}
+                    />
+                  </>
+                )}
               </div>
               {error && (
                 <small style={{ color: '#dc2626', fontSize: '0.78rem', paddingLeft: '1rem' }}>
@@ -136,12 +152,14 @@ export function StaffWorkSchedule({ schedules = [], onSave, isSaving }) {
         })}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-        <Button onClick={handleSave} disabled={isSaving} size="sm">
-          <Save size={14} />
-          {isSaving ? 'Guardando...' : 'Guardar jornada'}
-        </Button>
-      </div>
+      {!readOnly && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+          <Button onClick={handleSave} disabled={isSaving} size="sm">
+            <Save size={14} />
+            {isSaving ? 'Guardando...' : 'Guardar jornada'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
