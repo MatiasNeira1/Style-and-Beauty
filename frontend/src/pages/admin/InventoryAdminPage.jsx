@@ -227,6 +227,21 @@ export function InventoryAdminPage() {
     queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
   };
 
+  const applyUpdatedProduct = (updatedProduct) => {
+    if (!updatedProduct) return;
+    const updatedProductId = getProductId(updatedProduct);
+    queryClient.setQueryData(['inventory-admin'], (current) => {
+      const currentProducts = Array.isArray(current) ? current : [];
+      const exists = currentProducts.some((product) => getProductId(product) === updatedProductId);
+      return exists
+        ? currentProducts.map((product) => (getProductId(product) === updatedProductId ? updatedProduct : product))
+        : [...currentProducts, updatedProduct];
+    });
+    setSelectedProduct((current) => (
+      current && getProductId(current) === updatedProductId ? updatedProduct : current
+    ));
+  };
+
   useEffect(() => {
     if (!productImageFile) return undefined;
     const objectUrl = URL.createObjectURL(productImageFile);
@@ -299,7 +314,8 @@ export function InventoryAdminPage() {
       }
       return inventoryService.createProductWithImage(payload, productImageFile);
     },
-    onSuccess: () => {
+    onSuccess: (updatedProduct) => {
+      applyUpdatedProduct(updatedProduct);
       resetProductModal();
       invalidateInventory();
     },
@@ -329,7 +345,7 @@ export function InventoryAdminPage() {
   const productImageMutation = useMutation({
     mutationFn: ({ productId, file }) => inventoryService.uploadProductImage(productId, file),
     onSuccess: (updatedProduct) => {
-      setSelectedProduct((current) => (getProductId(current) === getProductId(updatedProduct) ? updatedProduct : current));
+      applyUpdatedProduct(updatedProduct);
       invalidateInventory();
     },
   });
