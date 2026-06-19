@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Camera, Edit3, Package, PackagePlus, Plus, PowerOff, Save, Search, Trash2, X } from 'lucide-react';
+import { AlertCircle, Camera, Edit3, Package, PackagePlus, Plus, Power, PowerOff, Save, Search, Trash2, X } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
@@ -16,6 +16,14 @@ const initialProductForm = {
   descripcion: '',
   precio: '',
 };
+
+const PRODUCT_CATEGORIES = [
+  'Cabello',
+  'Nails',
+  'Cuidados de la piel',
+  'Spa',
+  'Maquillaje',
+];
 
 const initialStockForm = {
   idProducto: '',
@@ -47,6 +55,7 @@ function ProductFormModal({
   form,
   imagePreview,
   imageError,
+  categoryError,
   isEditing,
   isSaving,
   error,
@@ -60,7 +69,10 @@ function ProductFormModal({
       <form className="admin-modal-form" onSubmit={onSubmit}>
         <div className="admin-modal-section form-grid">
           <Input label="Nombre" id="inventory-name" name="nombre" value={form.nombre} onChange={onChange} placeholder="Crema hidratante" required />
-          <Input label="Categoria" id="inventory-category" name="categoria" value={form.categoria} onChange={onChange} placeholder="Cuidado facial" required />
+          <Input as="select" label="Categoría" id="inventory-category" name="categoria" value={form.categoria} onChange={onChange} error={categoryError} required>
+            <option value="">Seleccionar categoría</option>
+            {PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+          </Input>
           <Input label="Precio" id="inventory-price" name="precio" type="number" min="0" step="100" value={form.precio} onChange={onChange} placeholder="Precio ($xx.xxx)" required />
           <Input label="Descripcion" id="inventory-description" name="descripcion" value={form.descripcion} onChange={onChange} placeholder="Breve descripcion visible para clientes" />
         </div>
@@ -125,7 +137,7 @@ function ProductDetailModal({
   onClose,
   onEdit,
   onDelete,
-  onDeactivate,
+  onToggleStatus,
   onUploadImage,
   isMutating,
 }) {
@@ -155,8 +167,10 @@ function ProductDetailModal({
               <span className="button-content"><Camera size={16} /> Cambiar imagen</span>
               <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onUploadImage(product, event)} />
             </label>
-            {product.activo && (
-              <Button type="button" variant="ghost" onClick={() => onDeactivate(getProductId(product))} disabled={isMutating}><PowerOff size={16} /> Desactivar</Button>
+            {product.activo === true ? (
+              <Button type="button" variant="ghost" onClick={() => onToggleStatus(product)} disabled={isMutating}><PowerOff size={16} /> Desactivar</Button>
+            ) : (
+              <Button type="button" variant="ghost" onClick={() => onToggleStatus(product)} disabled={isMutating}><Power size={16} /> Habilitar</Button>
             )}
             <Button type="button" variant="ghost" onClick={() => onDelete(getProductId(product))} disabled={isMutating}><Trash2 size={16} /> Eliminar</Button>
           </div>
@@ -175,6 +189,7 @@ export function InventoryAdminPage() {
   const [productImageFile, setProductImageFile] = useState(null);
   const [productImagePreview, setProductImagePreview] = useState('');
   const [productImageError, setProductImageError] = useState('');
+  const [productCategoryError, setProductCategoryError] = useState('');
   const [stockForm, setStockForm] = useState(initialStockForm);
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
@@ -192,7 +207,6 @@ export function InventoryAdminPage() {
       return acc;
     }, {});
   }, [stockQuery.data]);
-  const productCategories = useMemo(() => [...new Set(products.map((product) => product.categoria).filter(Boolean))].sort(), [products]);
   const filteredProducts = useMemo(() => {
     const needle = inventorySearch.trim().toLowerCase();
     return products.filter((product) => {
@@ -256,6 +270,7 @@ export function InventoryAdminPage() {
     setProductImageFile(null);
     setProductImagePreview('');
     setProductImageError('');
+    setProductCategoryError('');
   };
 
   const resetStockModal = () => {
@@ -270,6 +285,7 @@ export function InventoryAdminPage() {
     setProductImagePreview('');
     setProductImageFile(null);
     setProductImageError('');
+    setProductCategoryError('');
     setProductModalOpen(true);
   };
 
@@ -280,6 +296,7 @@ export function InventoryAdminPage() {
     setProductImagePreview(productImage(product) || '');
     setProductImageFile(null);
     setProductImageError('');
+    setProductCategoryError('');
     setProductModalOpen(true);
   };
 
@@ -334,7 +351,17 @@ export function InventoryAdminPage() {
     },
   });
 
-  const deactivateMutation = useMutation({ mutationFn: inventoryService.deactivateProduct, onSuccess: invalidateInventory });
+  const productStatusMutation = useMutation({
+    mutationFn: (product) => (
+      product.activo === true
+        ? inventoryService.deactivateProduct(getProductId(product))
+        : inventoryService.activateProduct(getProductId(product))
+    ),
+    onSuccess: (updatedProduct) => {
+      applyUpdatedProduct(updatedProduct);
+      invalidateInventory();
+    },
+  });
   const deleteMutation = useMutation({
     mutationFn: inventoryService.deleteProduct,
     onSuccess: () => {
@@ -353,10 +380,15 @@ export function InventoryAdminPage() {
   const handleProductSubmit = (event) => {
     event.preventDefault();
     if (productImageError) return;
+    if (!PRODUCT_CATEGORIES.includes(productForm.categoria)) {
+      setProductCategoryError('Selecciona una categoría válida.');
+      return;
+    }
     if (!editingProductId && !productImageFile) {
       setProductImageError('Selecciona una imagen para publicar el producto.');
       return;
     }
+    setProductCategoryError('');
     saveProductMutation.mutate({ ...productForm, precio: Number(productForm.precio) });
   };
 
@@ -377,7 +409,7 @@ export function InventoryAdminPage() {
     const qty = stockByProduct[getProductId(product)]?.cantidadActual || 0;
     return sum + Number(product.precio || 0) * Number(qty);
   }, 0);
-  const isMutating = deactivateMutation.isPending || deleteMutation.isPending || productImageMutation.isPending;
+  const isMutating = productStatusMutation.isPending || deleteMutation.isPending || productImageMutation.isPending;
 
   return (
     <div className="admin-dashboard">
@@ -438,7 +470,7 @@ export function InventoryAdminPage() {
           </label>
           <Input as="select" label="Categoria" id="inventory-category-filter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
             <option value="TODAS">Todas las categorias</option>
-            {productCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+            {PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
           </Input>
           <Input as="select" label="Estado" id="inventory-status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="TODOS">Todos los estados</option>
@@ -499,12 +531,14 @@ export function InventoryAdminPage() {
         form={productForm}
         imagePreview={productImagePreview}
         imageError={productImageError}
+        categoryError={productCategoryError}
         isEditing={Boolean(editingProductId)}
         isSaving={saveProductMutation.isPending}
         error={saveProductMutation.error}
         onChange={(event) => {
           const { name, value } = event.target;
           setProductForm((current) => ({ ...current, [name]: value }));
+          if (name === 'categoria') setProductCategoryError('');
         }}
         onImageChange={validateAndSetProductImage}
         onClose={resetProductModal}
@@ -534,13 +568,13 @@ export function InventoryAdminPage() {
         onClose={() => setSelectedProduct(null)}
         onEdit={openEditProduct}
         onDelete={(id) => deleteMutation.mutate(id)}
-        onDeactivate={(id) => deactivateMutation.mutate(id)}
+        onToggleStatus={(product) => productStatusMutation.mutate(product)}
         onUploadImage={handleTableProductImageChange}
         isMutating={isMutating}
       />
 
-      {(productImageMutation.isError || deactivateMutation.isError || deleteMutation.isError) && (
-        <p className="admin-alert">{productImageMutation.error?.message || deactivateMutation.error?.message || deleteMutation.error?.message}</p>
+      {(productImageMutation.isError || productStatusMutation.isError || deleteMutation.isError) && (
+        <p className="admin-alert">{productImageMutation.error?.message || productStatusMutation.error?.message || deleteMutation.error?.message}</p>
       )}
     </div>
   );

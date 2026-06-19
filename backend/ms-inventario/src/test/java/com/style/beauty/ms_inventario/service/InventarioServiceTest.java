@@ -62,4 +62,21 @@ class InventarioServiceTest {
         assertThat(actualizado.getImagenUrl()).isEqualTo(uploadedUrl);
         verify(productoRepository).save(producto);
     }
+
+    @Test
+    void activarProductoPersisteYDevuelveElProductoActivo() {
+        UUID idProducto = UUID.randomUUID();
+        Producto producto = Producto.builder()
+                .idProducto(idProducto)
+                .activo(false)
+                .build();
+
+        when(productoRepository.findById(idProducto)).thenReturn(Optional.of(producto));
+        when(productoRepository.save(any(Producto.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Producto actualizado = inventarioService.activarProducto(idProducto);
+
+        assertThat(actualizado.getActivo()).isTrue();
+        verify(productoRepository).save(producto);
+    }
 }

@@ -18,6 +18,7 @@ export const inventoryService = {
   createProductWithImage: (payload, file) => request({ baseURL: INVENTORY_API_BASE_URL, url: '/api/v1/inventarios/productos', method: 'POST', authRequired: true, data: imageFormData(file, payload) }),
   updateProduct: (idProducto, payload) => request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}`, method: 'PUT', authRequired: true, data: payload }),
   deactivateProduct: (idProducto) => request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}/desactivar`, method: 'PATCH', authRequired: true }),
+  activateProduct: (idProducto) => request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}/activar`, method: 'PATCH', authRequired: true }),
   deleteProduct: (idProducto) => request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}`, method: 'DELETE', authRequired: true }),
   uploadProductImage: (idProducto, file) => request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}/imagen`, method: 'POST', authRequired: true, data: imageFormData(file) }),
   deleteProductImage: (idProducto) => request({ baseURL: INVENTORY_API_BASE_URL, url: `/api/v1/inventarios/productos/${idProducto}/imagen`, method: 'DELETE', authRequired: true }),
