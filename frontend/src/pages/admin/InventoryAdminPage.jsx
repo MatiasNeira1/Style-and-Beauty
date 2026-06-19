@@ -213,6 +213,7 @@ export function InventoryAdminPage() {
   const queryClient = useQueryClient();
   const [productForm, setProductForm] = useState(initialProductForm);
   const [editingProductId, setEditingProductId] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [productImageFile, setProductImageFile] = useState(null);
@@ -295,6 +296,7 @@ export function InventoryAdminPage() {
   const resetProductModal = () => {
     setProductModalOpen(false);
     setEditingProductId(null);
+    setEditingProduct(null);
     setProductForm(initialProductForm);
     setProductImageFile(null);
     setProductImagePreview('');
@@ -310,6 +312,7 @@ export function InventoryAdminPage() {
   const openCreateProduct = () => {
     setSelectedProduct(null);
     setEditingProductId(null);
+    setEditingProduct(null);
     setProductForm(initialProductForm);
     setProductImagePreview('');
     setProductImageFile(null);
@@ -319,10 +322,12 @@ export function InventoryAdminPage() {
   };
 
   const openEditProduct = (product) => {
+    const existingImageUrl = productImage(product) || '';
     setSelectedProduct(null);
     setEditingProductId(getProductId(product));
-    setProductForm(productFormFrom(product));
-    setProductImagePreview(productImage(product) || '');
+    setEditingProduct(product);
+    setProductForm({ ...productFormFrom(product), imagenUrl: existingImageUrl });
+    setProductImagePreview(existingImageUrl);
     setProductImageFile(null);
     setProductImageError('');
     setProductCategoryError('');
@@ -409,22 +414,29 @@ export function InventoryAdminPage() {
   const handleProductSubmit = (event) => {
     event.preventDefault();
     if (productImageError) return;
+    const isEditing = Boolean(editingProductId);
+    const existingImageUrl = productForm.imagenUrl || productImage(editingProduct) || '';
+    const hasExistingImage = Boolean(existingImageUrl || productImagePreview);
+    const hasNewImage = Boolean(productImageFile);
+    const normalizedPrice = Number(productForm.precio);
+
     if (!PRODUCT_CATEGORIES.includes(productForm.categoria)) {
       setProductCategoryError('Selecciona una categoría válida.');
       return;
     }
-    if (!productImageFile && !productImagePreview) {
-      setProductImageError('Selecciona una imagen para publicar el producto.');
+    if ((!isEditing && !hasNewImage) || (isEditing && !hasExistingImage && !hasNewImage)) {
+      setProductImageError('La imagen del producto es obligatoria.');
       return;
     }
     setProductCategoryError('');
-    saveProductMutation.mutate({
+    const payload = {
       nombre: productForm.nombre.trim(),
       categoria: productForm.categoria,
       descripcion: productForm.descripcion.trim(),
-      imagenUrl: editingProductId ? productForm.imagenUrl : undefined,
-      precio: Number(productForm.precio),
-    });
+      precio: normalizedPrice,
+      ...(isEditing && existingImageUrl ? { imagenUrl: existingImageUrl } : {}),
+    };
+    saveProductMutation.mutate(payload);
   };
 
   const handleTableProductImageChange = (product, event) => {
