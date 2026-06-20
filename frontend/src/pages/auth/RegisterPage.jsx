@@ -24,17 +24,17 @@ function validateRut(rut) {
   if (!rut || typeof rut !== 'string') return false;
   const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
   if (cleanRut.length < 2) return false;
-  
+
   const body = cleanRut.slice(0, -1);
   const dv = cleanRut.slice(-1);
-  
+
   let sum = 0;
   let multiplier = 2;
   for (let i = body.length - 1; i >= 0; i--) {
     sum += parseInt(body[i], 10) * multiplier;
     multiplier = multiplier === 7 ? 2 : multiplier + 1;
   }
-  
+
   const expectedDv = 11 - (sum % 11);
   let calculatedDv = '';
   if (expectedDv === 11) {
@@ -44,7 +44,7 @@ function validateRut(rut) {
   } else {
     calculatedDv = String(expectedDv);
   }
-  
+
   return calculatedDv === dv;
 }
 
@@ -53,14 +53,14 @@ function formatRut(value) {
   let clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
   if (clean.length === 0) return '';
   clean = clean.slice(0, 9);
-  
+
   if (clean.length <= 1) {
     return clean;
   }
-  
+
   const dv = clean.slice(-1);
   const body = clean.slice(0, -1);
-  
+
   let formattedBody = '';
   if (body.length <= 3) {
     formattedBody = body;
@@ -69,7 +69,7 @@ function formatRut(value) {
   } else {
     formattedBody = body.slice(0, body.length - 6) + '.' + body.slice(body.length - 6, body.length - 3) + '.' + body.slice(body.length - 3);
   }
-  
+
   return formattedBody + '-' + dv;
 }
 
@@ -532,8 +532,8 @@ export function RegisterPage() {
         setIsVerifying(false);
         return;
       }
-      
-      const redirectTo = location.state?.from?.pathname || '/client/profile';
+
+      const redirectTo = location.state?.from?.pathname || '/perfil';
       const redirectState = location.state?.from?.state;
       navigate(redirectTo, { replace: true, state: redirectState });
     } catch (err) {
@@ -725,10 +725,10 @@ export function RegisterPage() {
               </motion.form>
             </>
           ) : (
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }} 
-              animate={{ opacity: 1, scale: 1 }} 
-              className="register-form-card" 
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="register-form-card"
               style={{ textAlign: 'center', padding: '3rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
             >
               <MailCheck size={64} color="var(--color-primary-strong)" style={{ margin: '0 auto 1.5rem' }} />
@@ -744,16 +744,16 @@ export function RegisterPage() {
                 </p>
               )}
 
-              <Button 
-                onClick={handleVerifyEmail} 
-                disabled={isVerifying} 
+              <Button
+                onClick={handleVerifyEmail}
+                disabled={isVerifying}
                 style={{ width: '100%', marginBottom: '1rem', padding: '1rem' }}
               >
                 {isVerifying ? 'Verificando estado...' : 'Ya verifiqué mi correo'}
               </Button>
-              
-              <Button 
-                variant="ghost" 
+
+              <Button
+                variant="ghost"
                 onClick={async () => {
                   try {
                     await authService.registerUserWithVerification({
@@ -764,20 +764,20 @@ export function RegisterPage() {
                     setError('Correo reenviado. Por favor revisa tu bandeja de entrada o spam.');
                   } catch (e) {
                     if (e.code === 'auth/email-already-in-use') {
-                        // Si ya existe en auth, solo reenviamos el correo sin intentar crear en firestore de nuevo
-                        try {
-                           const { getAuth, sendEmailVerification } = await import('firebase/auth');
-                           const auth = getAuth();
-                           if (auth.currentUser) {
-                               await sendEmailVerification(auth.currentUser);
-                               setError('Correo reenviado exitosamente.');
-                           }
-                        } catch (err2) {}
+                      // Si ya existe en auth, solo reenviamos el correo sin intentar crear en firestore de nuevo
+                      try {
+                        const { getAuth, sendEmailVerification } = await import('firebase/auth');
+                        const auth = getAuth();
+                        if (auth.currentUser) {
+                          await sendEmailVerification(auth.currentUser);
+                          setError('Correo reenviado exitosamente.');
+                        }
+                      } catch (err2) { }
                     } else {
-                        setError('No se pudo reenviar el correo. ' + getRegisterErrorMessage(e));
+                      setError('No se pudo reenviar el correo. ' + getRegisterErrorMessage(e));
                     }
                   }
-                }}  
+                }}
                 style={{ width: '100%' }}
               >
                 Reenviar correo
