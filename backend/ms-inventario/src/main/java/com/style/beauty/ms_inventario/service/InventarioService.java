@@ -112,6 +112,13 @@ public class InventarioService {
     }
 
     @Transactional
+    public Producto activarProducto(UUID id) {
+        Producto producto = buscarProducto(id);
+        producto.setActivo(true);
+        return productoRepository.save(producto);
+    }
+
+    @Transactional
     public void eliminarProducto(UUID id) {
         Producto producto = buscarProducto(id);
         movimientoStockRepository.deleteByIdProducto(id);

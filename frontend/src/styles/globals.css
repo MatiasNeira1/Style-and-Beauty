@@ -2872,6 +2872,12 @@ img { max-width: 100%; display: block; }
 }
 
 /* ─── Modal ─── */
+html.modal-open,
+body.modal-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .modal-backdrop {
   align-items: center;
   background: rgba(0, 0, 0, 0.4);
@@ -2893,7 +2899,8 @@ img { max-width: 100%; display: block; }
   display: flex;
   flex-direction: column;
   max-width: min(760px, calc(100vw - 2rem));
-  max-height: 90vh;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
   overflow: hidden;
   padding: 1.5rem;
   width: 100%;
@@ -2910,9 +2917,11 @@ img { max-width: 100%; display: block; }
 .modal-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 0.15rem;
+  scrollbar-gutter: stable;
 }
 
 /* ─── Stats Section ─── */

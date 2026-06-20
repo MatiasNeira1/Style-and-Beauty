@@ -23,7 +23,16 @@ function imageFormData(file, fields = {}) {
 
 export const serviceCatalogService = {
   listServices: () => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio' }),
+  listAllServices: () => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio/admin/todos', authRequired: true }),
   getService: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}` }),
+  getCategoryCovers: () => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/categorias/portadas' }),
+  uploadCategoryCover: (category, file) => request({
+    baseURL: CATALOG_API_BASE_URL,
+    url: `/api/categorias/${encodeURIComponent(category)}/portada`,
+    method: 'POST',
+    data: imageFormData(file),
+    authRequired: true,
+  }),
   listProfessionalsByService: (id) => {
     if (!isValidUuid(id)) return Promise.resolve([]);
     return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/servicios/${id}/staff` });
@@ -48,9 +57,11 @@ export const serviceCatalogService = {
   createService: (payload) => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: payload, authRequired: true }),
   createServiceWithImage: (payload, file) => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/servicio', method: 'POST', data: imageFormData(file, payload), authRequired: true }),
   updateService: (id, payload) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'PUT', data: payload, authRequired: true }),
+  activateService: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}/activar`, method: 'PATCH', authRequired: true }),
+  deactivateService: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}/desactivar`, method: 'PATCH', authRequired: true }),
   deleteService: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}`, method: 'DELETE', authRequired: true }),
-  uploadServiceImage: (id, file) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicios/${id}/imagen`, method: 'POST', data: imageFormData(file), authRequired: true }),
-  deleteServiceImage: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicios/${id}/imagen`, method: 'DELETE', authRequired: true }),
+  uploadServiceImage: (id, file) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}/imagen`, method: 'POST', data: imageFormData(file), authRequired: true }),
+  deleteServiceImage: (id) => request({ baseURL: CATALOG_API_BASE_URL, url: `/api/servicio/${id}/imagen`, method: 'DELETE', authRequired: true }),
   serviceId,
   isValidUuid,
 };

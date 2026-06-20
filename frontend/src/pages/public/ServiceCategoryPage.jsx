@@ -17,16 +17,25 @@ function servicePrice(service) {
 export function ServiceCategoryPage() {
   const { categoria } = useParams();
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
+  const categoryCoversQuery = useQuery({ queryKey: ['service-category-covers'], queryFn: catalogService.getCategoryCovers });
 
   const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
   const grouped = groupByCategory(services);
   const categories = Object.keys(grouped);
   const category = findCategoryBySlug(categories, categoria) || categories[0] || 'General';
   const categoryServices = grouped[category] || [];
+  const categoryCovers = Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : [];
+  const categoryCoverUrl = categoryCovers.find((cover) => categorySlug(cover?.categoria) === categorySlug(category))?.imagenUrl || '';
 
   return (
     <>
-      <section className="page-hero page-hero-services page-hero-category">
+      <section
+        className="page-hero page-hero-services page-hero-category"
+        style={categoryCoverUrl ? {
+          '--page-hero-image': `url("${categoryCoverUrl}")`,
+          '--page-hero-position': 'center',
+        } : undefined}
+      >
         <div className="page-hero-media" />
         <div className="page-hero-overlay" />
         <div className="page-hero-content">

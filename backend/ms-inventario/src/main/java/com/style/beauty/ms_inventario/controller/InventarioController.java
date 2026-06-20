@@ -76,6 +76,11 @@ public class InventarioController {
         return inventarioService.desactivarProducto(id);
     }
 
+    @PatchMapping("/productos/{id}/activar")
+    public Producto activarProducto(@PathVariable UUID id) {
+        return inventarioService.activarProducto(id);
+    }
+
     @DeleteMapping("/productos/{id}")
     public void eliminarProducto(@PathVariable UUID id) {
         inventarioService.eliminarProducto(id);
