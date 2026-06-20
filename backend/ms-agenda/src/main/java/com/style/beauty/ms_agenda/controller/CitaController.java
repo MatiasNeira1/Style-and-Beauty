@@ -118,18 +118,6 @@ public class CitaController {
         return citaService.listarHistorialCliente(cliente.idPersona());
     }
 
-    @PostMapping("/{id:[0-9a-fA-F-]+}/evaluar")
-    public Cita evaluar(
-            @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @PathVariable UUID id,
-            @Valid @RequestBody EvaluarCitaRequest request) {
-        log.info("Entrando a endpoint POST /api/agenda/citas/{}/evaluar", id);
-
-        String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
-        PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
-        return citaService.evaluarCita(id, cliente.idPersona(), request);
-    }
-
     @GetMapping("/mis-citas")
     public List<CitaAgendaResponse> misCitasStaff(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
