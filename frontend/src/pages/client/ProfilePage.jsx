@@ -492,7 +492,7 @@ function PastAppointmentItem({ appointment, onEvaluate }) {
             </div>
             {comentarioCalificacion && (
               <p style={{ fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--color-ink-soft)', background: 'var(--color-bg-deep)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-xs)', marginTop: '0.25rem' }}>
-                "{comentarioCalificacion}"
+                &ldquo;{comentarioCalificacion}&rdquo;
               </p>
             )}
           </div>
@@ -622,7 +622,7 @@ function PastAppointmentsCard({ query, onEvaluate }) {
   const appointments = Array.isArray(query.data) ? query.data : [];
 
   return (
-    <Card className="upcoming-appointments-card past-appointments-card" style={{ marginTop: '1.5rem' }}>
+    <Card className="upcoming-appointments-card past-appointments-card">
       <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-ink)' }}>
         <CheckCircle size={18} color="var(--color-sage)" />
         Historial de citas atendidas
@@ -635,7 +635,7 @@ function PastAppointmentsCard({ query, onEvaluate }) {
       )}
 
       {!query.isLoading && !query.isError && appointments.length > 0 && (
-        <div className="upcoming-appointments-list past-appointments-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div className="upcoming-appointments-list past-appointments-list">
           {appointments.map((appointment) => (
             <PastAppointmentItem
               key={appointment.idCita}

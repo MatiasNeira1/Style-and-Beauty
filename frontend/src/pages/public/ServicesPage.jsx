@@ -6,7 +6,9 @@ import { catalogService } from '../../services/catalogService.js';
 
 export function ServicesPage() {
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
+  const categoryCoversQuery = useQuery({ queryKey: ['service-category-covers'], queryFn: catalogService.getCategoryCovers });
   const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
+  const categoryCovers = Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : [];
 
   return (
     <>
@@ -31,7 +33,7 @@ export function ServicesPage() {
         ) : services.length === 0 ? (
           <p className="admin-alert">No hay servicios cargados en el catalogo.</p>
         ) : (
-          <CategoryGrid services={services} />
+          <CategoryGrid services={services} categoryCovers={categoryCovers} />
         )}
       </section>
     </>

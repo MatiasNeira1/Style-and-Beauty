@@ -29,7 +29,7 @@ public class Servicio {
     @Column(name = "manual_uso_url", columnDefinition = "TEXT")
     private String manual_uso_url;
 
-    @Transient
+    @Column(name = "imagen_url", columnDefinition = "TEXT")
     private String imagenUrl;
 
     @Column(name = "duracion_minutos", nullable = false)

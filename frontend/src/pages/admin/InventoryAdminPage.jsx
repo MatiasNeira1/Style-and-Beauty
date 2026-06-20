@@ -88,7 +88,7 @@ function ProductFormModal({
             <option value="">Seleccionar categoría</option>
             {PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
           </Input>
-          <Input label="Precio" id="inventory-price" name="precio" type="number" min="0" step="100" value={form.precio} onChange={onChange} placeholder="Precio ($xx.xxx)" required />
+          <Input label="Precio" id="inventory-price" name="precio" type="number" min="0" step="10" value={form.precio} onChange={onChange} placeholder="Precio ($xx.xxx)" required />
           <Input
             as="textarea"
             label="Descripcion"
@@ -132,14 +132,13 @@ function CategoryCoverModal({
   category,
   imagePreview,
   imageError,
-  successMessage,
   isSaving,
   onImageChange,
   onClose,
   onSubmit,
 }) {
   return (
-    <Modal open={open} title={`Portada de ${category || 'categoría'}`} onClose={onClose}>
+    <Modal open={open} title={`Portada de ${category || 'categoría'}`} onClose={onClose} closeDisabled={isSaving}>
       <form className="admin-modal-form" onSubmit={onSubmit}>
         <div className="admin-cover-modal-preview">
           {imagePreview ? (
@@ -161,7 +160,6 @@ function CategoryCoverModal({
         </label>
         <p className="admin-modal-hint">Resolución recomendable: 1200 x 1200 px</p>
         {imageError && <p className="admin-alert compact">{imageError}</p>}
-        {successMessage && <p className="admin-cover-success">{successMessage}</p>}
         <div className="admin-modal-actions">
           <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}><X size={16} /> Cerrar</Button>
           <Button type="submit" disabled={isSaving}>
@@ -275,7 +273,6 @@ export function InventoryAdminPage() {
   const [categoryCoverFile, setCategoryCoverFile] = useState(null);
   const [categoryCoverPreview, setCategoryCoverPreview] = useState('');
   const [categoryCoverError, setCategoryCoverError] = useState('');
-  const [categoryCoverSuccess, setCategoryCoverSuccess] = useState('');
 
   const productsQuery = useQuery({ queryKey: ['inventory-admin'], queryFn: inventoryService.listProducts });
   const stockQuery = useQuery({ queryKey: ['inventory-stock'], queryFn: inventoryService.listStock });
@@ -365,7 +362,6 @@ export function InventoryAdminPage() {
     setCategoryCoverFile(null);
     setCategoryCoverPreview(categoryCoversByName[category]?.imagenUrl || '');
     setCategoryCoverError('');
-    setCategoryCoverSuccess('');
   };
 
   const closeCategoryCover = () => {
@@ -373,13 +369,11 @@ export function InventoryAdminPage() {
     setCategoryCoverFile(null);
     setCategoryCoverPreview('');
     setCategoryCoverError('');
-    setCategoryCoverSuccess('');
   };
 
   const validateAndSetCategoryCover = (file) => {
     const currentCoverUrl = categoryCoversByName[coverCategory]?.imagenUrl || '';
     setCategoryCoverError('');
-    setCategoryCoverSuccess('');
     if (!file) {
       setCategoryCoverFile(null);
       setCategoryCoverPreview(currentCoverUrl);
@@ -528,13 +522,9 @@ export function InventoryAdminPage() {
           ? covers.map((cover) => (cover.categoria === updatedCover.categoria ? updatedCover : cover))
           : [...covers, updatedCover];
       });
-      setCategoryCoverFile(null);
-      setCategoryCoverPreview(updatedCover.imagenUrl || '');
-      setCategoryCoverSuccess('Portada actualizada correctamente.');
-      setCategoryCoverError('');
+      closeCategoryCover();
     },
     onError: (error) => {
-      setCategoryCoverSuccess('');
       setCategoryCoverError(error.message || 'No se pudo actualizar la portada.');
     },
   });
@@ -771,7 +761,6 @@ export function InventoryAdminPage() {
         category={coverCategory}
         imagePreview={categoryCoverPreview}
         imageError={categoryCoverError}
-        successMessage={categoryCoverSuccess}
         isSaving={categoryCoverMutation.isPending}
         onImageChange={validateAndSetCategoryCover}
         onClose={closeCategoryCover}
