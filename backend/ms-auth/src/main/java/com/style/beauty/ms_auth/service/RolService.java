@@ -31,7 +31,16 @@ public class RolService {
                 .setEmailVerified(false)
                 .setDisabled(false);
 
-        UserRecord user = FirebaseAuth.getInstance().createUser(request);
+        UserRecord user;
+        try {
+            user = FirebaseAuth.getInstance().createUser(request);
+        } catch (FirebaseAuthException e) {
+            if (e.getAuthErrorCode() != AuthErrorCode.EMAIL_ALREADY_EXISTS) {
+                throw e;
+            }
+            user = FirebaseAuth.getInstance().getUserByEmail(email.trim().toLowerCase());
+            logger.info("Usuario Firebase ya existia; se reutilizara para rol {}: {}", rol, user.getUid());
+        }
         assignRoleToUser(user.getUid(), rol);
         logger.info("Usuario Firebase creado con rol {}: {}", rol, user.getUid());
         return user;
@@ -152,4 +161,3 @@ public class RolService {
         }
     }
 }
-

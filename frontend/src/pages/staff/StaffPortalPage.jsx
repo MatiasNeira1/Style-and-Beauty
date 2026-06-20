@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   BarChart3,
   Bell,
+  Bot,
   BookOpen,
   BriefcaseBusiness,
   CalendarClock,
@@ -27,6 +28,7 @@ import { StaffPortfolioGallery } from '../../components/admin/staff/StaffPortfol
 import { StaffWorkSchedule } from '../../components/admin/staff/StaffWorkSchedule.jsx';
 import { ProfessionalProfileModal } from '../../components/professionals/ProfessionalProfileModal.jsx';
 import { normalizeProfessional } from '../../hooks/useProfessionals.js';
+import { agendaService } from '../../services/agendaService.js';
 import { profileService } from '../../services/profileService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
 import { staffService } from '../../services/staffService.js';
@@ -139,6 +141,10 @@ const mockSpecialties = [
   { idEspecialidad: 6, nombre: 'Maquillaje', descripcion: 'Maquillaje social, profesional y asesoria de imagen.' },
 ];
 
+function staffNotificationKey(staffId) {
+  return staffId ? `style_beauty_staff_seen_bookings:${staffId}` : '';
+}
+
 function formatPanelDate(date = new Date()) {
   return new Intl.DateTimeFormat('es-CL', {
     weekday: 'long',
@@ -149,6 +155,51 @@ function formatPanelDate(date = new Date()) {
 
 function staffResourceId(staff) {
   return staff?.idStaff || staff?.idPersona || staff?.id;
+}
+
+function bookingId(booking) {
+  return booking?.idCita || booking?.id || booking?.idReserva;
+}
+
+function bookingStart(booking) {
+  return booking?.fechaHoraInicio || booking?.fecha || booking?.createdAt || '';
+}
+
+function bookingClient(booking) {
+  return booking?.nombreCliente || booking?.clienteNombre || booking?.idCliente || 'Cliente sin nombre';
+}
+
+function bookingService(booking) {
+  return booking?.nombreServicio || booking?.servicioNombre || booking?.idServicio || 'Servicio sin dato';
+}
+
+function formatBookingNotificationDate(value) {
+  if (!value) return 'Fecha por confirmar';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Fecha por confirmar';
+  return new Intl.DateTimeFormat('es-CL', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function readSeenBookingIds(storageKey) {
+  if (!storageKey || typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (raw === null) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSeenBookingIds(storageKey, ids) {
+  if (!storageKey || typeof window === 'undefined') return;
+  window.localStorage.setItem(storageKey, JSON.stringify(Array.from(new Set(ids.map(String)))));
 }
 
 function sameId(left, right) {
@@ -254,6 +305,8 @@ export function StaffPortalPage() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [showPublicPreview, setShowPublicPreview] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [seenBookingIds, setSeenBookingIds] = useState([]);
   const [activeTab, setActiveTab] = useState(() => viewFromSearch(searchParams.get('view')));
   const [portfolioBio, setPortfolioBio] = useState('');
 
@@ -269,6 +322,13 @@ export function StaffPortalPage() {
     },
     [setSearchParams],
   );
+
+  const handleOpenVirtualAssistant = useCallback(() => {
+    const chatbotToggle = document.querySelector('.chatbot-toggle');
+    if (chatbotToggle instanceof HTMLButtonElement) {
+      chatbotToggle.click();
+    }
+  }, []);
 
   const {
     data: ownProfile,
@@ -307,10 +367,82 @@ export function StaffPortalPage() {
 
   const currentStaff = ownProfile || (isLocalDevHost() ? mockStaff : null);
   const currentStaffResourceId = staffResourceId(currentStaff);
+  const notificationStorageKey = staffNotificationKey(currentStaffResourceId);
+
+  const staffBookingsQuery = useQuery({
+    queryKey: ['staff-dashboard-bookings', currentStaffResourceId],
+    queryFn: agendaService.listMyStaffBookings,
+    enabled: Boolean(currentStaffResourceId && !isProfileError),
+    refetchInterval: 15000,
+    staleTime: 5000,
+  });
+
+  const staffBookings = useMemo(
+    () => (Array.isArray(staffBookingsQuery.data) ? staffBookingsQuery.data : []),
+    [staffBookingsQuery.data],
+  );
+
+  const latestNotifications = useMemo(() => (
+    staffBookings
+      .filter((booking) => bookingId(booking))
+      .slice()
+      .sort((left, right) => new Date(bookingStart(right)).getTime() - new Date(bookingStart(left)).getTime())
+      .slice(0, 5)
+  ), [staffBookings]);
+
+  const unreadNotifications = useMemo(() => {
+    const seen = new Set(seenBookingIds);
+    return staffBookings.filter((booking) => {
+      const id = bookingId(booking);
+      return id && !seen.has(String(id));
+    });
+  }, [seenBookingIds, staffBookings]);
+
+  const unreadNotificationCount = unreadNotifications.length;
 
   useEffect(() => {
     setPortfolioBio(currentStaff?.descripcionPerfil || '');
   }, [currentStaff?.descripcionPerfil, currentStaffResourceId]);
+
+  useEffect(() => {
+    setNotificationsOpen(false);
+    setSeenBookingIds(readSeenBookingIds(notificationStorageKey) || []);
+  }, [notificationStorageKey]);
+
+  useEffect(() => {
+    if (!notificationStorageKey || !staffBookingsQuery.isSuccess) return;
+    if (readSeenBookingIds(notificationStorageKey) !== null) return;
+
+    const currentIds = staffBookings
+      .map((booking) => bookingId(booking))
+      .filter(Boolean)
+      .map(String);
+
+    writeSeenBookingIds(notificationStorageKey, currentIds);
+    setSeenBookingIds(currentIds);
+  }, [notificationStorageKey, staffBookings, staffBookingsQuery.isSuccess]);
+
+  const markNotificationsAsRead = useCallback(() => {
+    if (!notificationStorageKey) return;
+
+    const currentIds = staffBookings
+      .map((booking) => bookingId(booking))
+      .filter(Boolean)
+      .map(String);
+
+    writeSeenBookingIds(notificationStorageKey, currentIds);
+    setSeenBookingIds(currentIds);
+  }, [notificationStorageKey, staffBookings]);
+
+  const handleToggleNotifications = useCallback(() => {
+    setNotificationsOpen((open) => {
+      const nextOpen = !open;
+      if (nextOpen) {
+        markNotificationsAsRead();
+      }
+      return nextOpen;
+    });
+  }, [markNotificationsAsRead]);
 
   const { data: scheduleData = [], isLoading: isLoadingSchedule } = useQuery({
     queryKey: ['staff-schedules', currentStaffResourceId],
@@ -718,9 +850,66 @@ export function StaffPortalPage() {
             </div>
           </div>
           <div className="staff-topbar-actions">
-            <button className="staff-icon-button" type="button" aria-label="Notificaciones">
-              <Bell size={17} />
+            <button className="staff-assistant-button" type="button" onClick={handleOpenVirtualAssistant} aria-label="Abrir asistente virtual">
+              <Bot size={17} />
+              <span>Asistente</span>
             </button>
+            <div className="staff-notification-menu">
+              <button
+                className={`staff-icon-button staff-notification-button ${unreadNotificationCount > 0 ? 'has-unread' : ''}`}
+                type="button"
+                aria-label={unreadNotificationCount > 0 ? `${unreadNotificationCount} notificaciones nuevas` : 'Notificaciones'}
+                aria-expanded={notificationsOpen}
+                onClick={handleToggleNotifications}
+              >
+                <Bell size={17} />
+                {unreadNotificationCount > 0 && (
+                  <span className="staff-notification-badge">
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="staff-notification-popover" role="status">
+                  <header>
+                    <div>
+                      <span>Notificaciones</span>
+                      <strong>Citas recientes</strong>
+                    </div>
+                    {staffBookingsQuery.isFetching && <small>Actualizando...</small>}
+                  </header>
+
+                  {latestNotifications.length > 0 ? (
+                    <div className="staff-notification-list">
+                      {latestNotifications.map((booking) => (
+                        <article className="staff-notification-item" key={bookingId(booking)}>
+                          <span className="staff-notification-dot" aria-hidden="true" />
+                          <div>
+                            <strong>Nueva cita con {bookingClient(booking)}</strong>
+                            <span>{bookingService(booking)}</span>
+                            <small>{formatBookingNotificationDate(bookingStart(booking))}</small>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="staff-notification-empty">Aun no hay citas asignadas.</p>
+                  )}
+
+                  <button
+                    className="staff-notification-link"
+                    type="button"
+                    onClick={() => {
+                      setNotificationsOpen(false);
+                      handleTabChange(TABS.AGENDA);
+                    }}
+                  >
+                    Revisar agenda
+                  </button>
+                </div>
+              )}
+            </div>
             <button className="staff-icon-button" onClick={logout} type="button" aria-label="Cerrar sesion">
               <LogOut size={17} />
             </button>

@@ -3,6 +3,7 @@ package com.style.beauty.ms_agenda.controller;
 import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
+import com.style.beauty.ms_agenda.dto.CitaAgendaResponse;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
@@ -126,6 +127,27 @@ public class CitaController {
         String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
         PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
         return citaService.evaluarCita(id, cliente.idPersona(), request);
+    }
+
+    @GetMapping("/mis-citas")
+    public List<CitaAgendaResponse> misCitasStaff(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        log.info("Entrando a endpoint GET /api/agenda/citas/mis-citas");
+
+        String uid = firebaseTokenVerifier.authenticatedUid(authHeader);
+        PerfilResumen staff = perfilClient.obtenerStaffPorAuthId(uid);
+        return citaService.listarAgendaStaff(staff.idPersona());
+    }
+
+    @PatchMapping("/mis-citas/{id:[0-9a-fA-F-]+}/finalizar")
+    public Cita finalizarMiCita(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable UUID id) {
+        log.info("Entrando a endpoint PATCH /api/agenda/citas/mis-citas/{id}/finalizar: id={}", id);
+
+        String uid = firebaseTokenVerifier.authenticatedUid(authHeader);
+        PerfilResumen staff = perfilClient.obtenerStaffPorAuthId(uid);
+        return citaService.finalizarCitaStaff(id, staff.idPersona());
     }
 
     @GetMapping("/{id:[0-9a-fA-F-]+}")

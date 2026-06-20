@@ -182,6 +182,14 @@ public class PerfilService {
         throw new RuntimeException("El usuario autenticado no corresponde a un cliente.");
     }
 
+    public StaffModel obtenerStaffPorAuthId(String idAuth) {
+        PersonaModel persona = obtenerMiPerfil(idAuth);
+        if (persona instanceof StaffModel staff) {
+            return staff;
+        }
+        throw new RuntimeException("El usuario autenticado no corresponde a un staff.");
+    }
+
     @Transactional
     public ClienteModel acumularPuntosFidelidad(java.util.UUID idCliente, int puntos) {
         if (puntos <= 0) {
@@ -349,4 +357,3 @@ public class PerfilService {
     }
 
 }
-

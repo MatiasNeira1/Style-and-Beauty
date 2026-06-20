@@ -32,6 +32,10 @@ public class PerfilClient {
         return obtenerPerfil("/api/internal/perfiles/clientes/auth/{idAuth}", idAuth, "Cliente autenticado no encontrado en ms-perfiles");
     }
 
+    public PerfilResumen obtenerStaffPorAuthId(String idAuth) {
+        return obtenerPerfil("/api/internal/perfiles/staff/auth/{idAuth}", idAuth, "Staff autenticado no encontrado en ms-perfiles");
+    }
+
     public PerfilResumen obtenerStaff(UUID idStaff) {
         PerfilResumen staff = obtenerPerfil("/api/perfiles/staff/{idStaff}", idStaff, "Staff no encontrado en ms-perfiles");
         validarStaffId(idStaff, staff);

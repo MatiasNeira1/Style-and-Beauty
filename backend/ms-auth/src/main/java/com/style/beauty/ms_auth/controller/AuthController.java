@@ -3,6 +3,7 @@ package com.style.beauty.ms_auth.controller;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
 import com.style.beauty.ms_auth.controller.RoleRequest;
+import com.style.beauty.ms_auth.dto.ActualizarPasswordRequest;
 import com.style.beauty.ms_auth.service.AuthService;
 import com.style.beauty.ms_auth.service.RolService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,8 +34,8 @@ public class AuthController {
         @SuppressWarnings("unchecked")
         Map<String, Object> claims = (Map<String, Object>) claimsObj;
         System.out.println("===> CREAR-USUARIO CLAIMS: " + claims);
-        Object callerRole = claims.get("rol");
-        if (callerRole == null || !"ADMIN".equals(String.valueOf(callerRole))) {
+        Object callerRole = getRoleClaim(claims);
+        if (!isAdmin(callerRole)) {
             System.out.println("===> ACCESO DENEGADO. callerRole = " + callerRole);
             return ResponseEntity.status(403).body("Acceso denegado: se requiere rol ADMIN");
         }
@@ -77,8 +78,8 @@ public class AuthController {
 
         @SuppressWarnings("unchecked")
         Map<String, Object> claims = (Map<String, Object>) claimsObj;
-       Object callerRole = claims.get("rol");
-        if (callerRole == null || !"ADMIN".equals(String.valueOf(callerRole))) {
+       Object callerRole = getRoleClaim(claims);
+        if (!isAdmin(callerRole)) {
          return ResponseEntity.status(403).body("Acceso denegado: se requiere rol ADMIN");
         }
 
@@ -111,8 +112,8 @@ public class AuthController {
 
         @SuppressWarnings("unchecked")
         Map<String, Object> claims = (Map<String, Object>) claimsObj;
-        Object callerRole = claims.get("rol");
-        if (callerRole == null || !"ADMIN".equals(String.valueOf(callerRole))) {
+        Object callerRole = getRoleClaim(claims);
+        if (!isAdmin(callerRole)) {
             return ResponseEntity.status(403).body("Acceso denegado: se requiere rol ADMIN");
         }
 
@@ -141,6 +142,40 @@ public class AuthController {
             return ResponseEntity.status(503).body(e.getMessage());
         } catch (RuntimeException e) {
             return ResponseEntity.internalServerError().body("Error interno: " + e.getMessage());
+        }
+    }
+
+//===============================================================================================================================
+    @PatchMapping("/admin/usuarios/{uid}/password")
+    public ResponseEntity<?> actualizarPasswordUsuario(
+            @PathVariable String uid,
+            @Valid @RequestBody ActualizarPasswordRequest requestBody,
+            HttpServletRequest httpRequest) {
+        Object claimsObj = httpRequest.getAttribute("firebaseClaims");
+        if (!(claimsObj instanceof Map)) {
+            return ResponseEntity.status(401).body("No autenticado");
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> claims = (Map<String, Object>) claimsObj;
+        Object callerRole = getRoleClaim(claims);
+        if (!isAdmin(callerRole)) {
+            return ResponseEntity.status(403).body("Acceso denegado: se requiere rol ADMIN");
+        }
+
+        try {
+            UserRecord user = authService.actualizarPassword(uid, requestBody.password());
+            return ResponseEntity.ok(Map.of(
+                    "uid", user.getUid(),
+                    "email", user.getEmail() == null ? "" : user.getEmail(),
+                    "mensaje", "Password actualizada exitosamente"
+            ));
+        } catch (FirebaseAuthException e) {
+            return ResponseEntity.internalServerError().body("Error al actualizar password en Firebase: " + e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(503).body(e.getMessage());
         }
     }
 
@@ -175,5 +210,13 @@ public class AuthController {
         } catch (IllegalStateException e) {
             return ResponseEntity.status(503).body(e.getMessage());
         }
+    }
+
+    private Object getRoleClaim(Map<String, Object> claims) {
+        return claims.getOrDefault("rol", claims.get("role"));
+    }
+
+    private boolean isAdmin(Object role) {
+        return role != null && "ADMIN".equalsIgnoreCase(String.valueOf(role));
     }
 }

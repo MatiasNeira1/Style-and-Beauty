@@ -7,12 +7,16 @@ import com.style.beauty.ms_pagos.client.CatalogoClient;
 import com.style.beauty.ms_pagos.client.PerfilClient;
 import com.style.beauty.ms_pagos.dto.CitaResumen;
 import com.style.beauty.ms_pagos.dto.CrearTransaccionRequest;
+import com.style.beauty.ms_pagos.dto.CrearTransaccionResponse;
 import com.style.beauty.ms_pagos.entity.TransaccionPago;
 import com.style.beauty.ms_pagos.enums.EstadoTransaccion;
+import com.style.beauty.ms_pagos.exception.PagosValidationException;
 import com.style.beauty.ms_pagos.repository.TransaccionPagoRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -21,6 +25,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.mock;
@@ -42,6 +47,10 @@ class WebpayServiceTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(service, "publicGatewayUrl", "http://localhost:8080");
+        ReflectionTestUtils.setField(service, "returnUrl", "http://localhost:8080/api/pagos/webpay/retorno");
+        ReflectionTestUtils.setField(service, "webpayRealEnabled", false);
+
         when(repository.findFirstByIdCitaAndEstadoInOrderByCreatedAtDesc(any(), any())).thenReturn(Optional.empty());
         when(repository.save(any(TransaccionPago.class))).thenAnswer((invocation) -> {
             TransaccionPago transaccion = invocation.getArgument(0);
@@ -94,11 +103,12 @@ class WebpayServiceTest {
         UUID idCita = UUID.randomUUID();
         when(agendaClient.obtenerCita(idCita)).thenReturn(new CitaResumen(idCita, ID_CLIENTE, ID_SERVICIO, "PENDIENTE_PAGO"));
 
-        service.crearTransaccion(requestConReservas(List.of(reserva(idCita, BigDecimal.valueOf(28_990))), BigDecimal.valueOf(10_000)));
+        CrearTransaccionResponse response = service.crearTransaccion(requestConReservas(List.of(reserva(idCita, BigDecimal.valueOf(28_990))), BigDecimal.valueOf(10_000)));
 
         ArgumentCaptor<TransaccionPago> captor = ArgumentCaptor.forClass(TransaccionPago.class);
         verify(repository, atLeast(1)).save(captor.capture());
 
+        assertThat(response.urlWebpay()).startsWith("http://localhost:8080/api/pagos/webpay/simulado/");
         assertThat(captor.getValue().getMonto()).isEqualByComparingTo("10000");
         assertThat(captor.getValue().getDetalleItemsJson()).contains("\"precio\":28990");
         assertThat(captor.getValue().getDetalleItemsJson()).contains("\"abono\":10000");
@@ -128,6 +138,21 @@ class WebpayServiceTest {
 
         assertThat(captor.getValue().getMonto()).isEqualByComparingTo("30000");
         verify(catalogoClient, never()).obtenerServicio(any());
+    }
+
+    @Test
+    void crearTransaccionFallaControladoSiAgendaNoResponde() {
+        UUID idCita = UUID.randomUUID();
+        when(agendaClient.obtenerCita(idCita)).thenThrow(new ResourceAccessException("Read timed out"));
+
+        assertThatThrownBy(() -> service.crearTransaccion(requestConReservas(
+                List.of(reserva(idCita, BigDecimal.valueOf(28_990))),
+                BigDecimal.valueOf(10_000)
+        )))
+                .isInstanceOf(PagosValidationException.class)
+                .hasMessageContaining("Agenda temporalmente no disponible")
+                .extracting("code")
+                .isEqualTo("AGENDA_SERVICE_UNAVAILABLE");
     }
 
     private CrearTransaccionRequest requestConReservas(

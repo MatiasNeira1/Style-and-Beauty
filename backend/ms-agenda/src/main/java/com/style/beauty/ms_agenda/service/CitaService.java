@@ -45,6 +45,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -91,11 +92,33 @@ public class CitaService {
         return citaRepository.findByIdStaff(idStaff);
     }
 
-    public List<CitaAgendaResponse> listarPorCliente(UUID idCliente, LocalDate desde, LocalDate hasta, EstadoCita estado) {
-        validarRangoFechas(desde, hasta);
-        OffsetDateTime inicio = atDateTime(desde, 0, 0);
-        OffsetDateTime fin = atDateTime(hasta.plusDays(1), 0, 0);
+    public List<CitaAgendaResponse> listarAgendaStaff(UUID idStaff) {
+        log.info("Listando agenda enriquecida para staff: idStaff={}", idStaff);
+        liberarReservasVencidas();
 
+        Map<UUID, String> nombresClientes = new HashMap<>();
+        Map<UUID, String> nombresServicios = new HashMap<>();
+
+        return citaRepository.findByIdStaff(idStaff)
+                .stream()
+                .sorted(Comparator.comparing(Cita::getFechaHoraInicio))
+                .map(cita -> toAgendaResponse(cita, nombresClientes, nombresServicios))
+                .toList();
+    }
+
+    public List<CitaAgendaResponse> listarPorCliente(
+            UUID idCliente,
+            LocalDate desde,
+            LocalDate hasta,
+            EstadoCita estado
+    ) {
+        log.info("Listando citas para cliente: idCliente={}, desde={}, hasta={}, estado={}",
+                idCliente, desde, hasta, estado);
+        validarRangoFechas(desde, hasta);
+        liberarReservasVencidas();
+
+        OffsetDateTime inicio = desde == null ? null : atDateTime(desde, 0, 0);
+        OffsetDateTime fin = hasta == null ? null : atDateTime(hasta.plusDays(1), 0, 0);
         Map<UUID, String> nombresClientes = new HashMap<>();
         Map<UUID, String> nombresServicios = new HashMap<>();
 
@@ -105,11 +128,19 @@ public class CitaService {
                 .toList();
     }
 
-    public List<CitaAgendaResponse> listarPorStaff(UUID idStaff, LocalDate desde, LocalDate hasta, EstadoCita estado) {
+    public List<CitaAgendaResponse> listarPorStaff(
+            UUID idStaff,
+            LocalDate desde,
+            LocalDate hasta,
+            EstadoCita estado
+    ) {
+        log.info("Listando citas para staff: idStaff={}, desde={}, hasta={}, estado={}",
+                idStaff, desde, hasta, estado);
         validarRangoFechas(desde, hasta);
-        OffsetDateTime inicio = atDateTime(desde, 0, 0);
-        OffsetDateTime fin = atDateTime(hasta.plusDays(1), 0, 0);
+        liberarReservasVencidas();
 
+        OffsetDateTime inicio = desde == null ? null : atDateTime(desde, 0, 0);
+        OffsetDateTime fin = hasta == null ? null : atDateTime(hasta.plusDays(1), 0, 0);
         Map<UUID, String> nombresClientes = new HashMap<>();
         Map<UUID, String> nombresServicios = new HashMap<>();
 
@@ -502,6 +533,39 @@ public class CitaService {
     }
 
     @Transactional
+    public Cita finalizarCitaStaff(UUID id, UUID idStaff) {
+        log.info("Finalizando cita desde panel staff: id={}, idStaff={}", id, idStaff);
+
+        Cita cita = buscarPorId(id);
+        if (!Objects.equals(cita.getIdStaff(), idStaff)) {
+            throw new BusinessException("No puedes finalizar una cita asignada a otro profesional.");
+        }
+
+        if (cita.getEstadoCita() == EstadoCita.CANCELADA
+                || cita.getEstadoCita() == EstadoCita.EXPIRADA
+                || cita.getEstadoCita() == EstadoCita.RECHAZADA) {
+            throw new BusinessException("Solo puedes finalizar citas activas o confirmadas.");
+        }
+
+        EstadoCita estadoAnterior = cita.getEstadoCita();
+        cita.setEstadoCita(EstadoCita.FINALIZADA);
+        cita.setExpiracionReserva(null);
+        cita.setObservacionStaff("Cita finalizada por staff.");
+
+        Cita actualizada = citaRepository.save(cita);
+
+        registrarHistorial(
+                id,
+                AccionHistorial.FINALIZADA,
+                estadoAnterior.name(),
+                EstadoCita.FINALIZADA.name(),
+                "Cita finalizada por staff"
+        );
+
+        return actualizada;
+    }
+
+    @Transactional
     public void cancelar(UUID id) {
         log.info("Cancelando cita: id={}", id);
 
@@ -888,11 +952,7 @@ public class CitaService {
     }
 
     private void validarRangoFechas(LocalDate desde, LocalDate hasta) {
-        if (desde == null || hasta == null) {
-            throw new BusinessException("Debe indicar fecha desde y hasta");
-        }
-
-        if (hasta.isBefore(desde)) {
+        if (desde != null && hasta != null && hasta.isBefore(desde)) {
             throw new BusinessException("La fecha hasta no puede ser anterior a la fecha desde");
         }
     }

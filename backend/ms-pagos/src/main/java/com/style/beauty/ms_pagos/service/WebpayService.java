@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.math.BigDecimal;
@@ -643,6 +644,13 @@ public class WebpayService {
                 citas.add(agendaClient.obtenerCita(idCita));
             } catch (RestClientResponseException e) {
                 fail("No se pudo obtener la reserva del carrito.", "reservas[" + i + "].idCita");
+            } catch (RestClientException e) {
+                log.warn("No se pudo consultar ms-agenda para preparar Webpay: idCita={} causa={}", idCita, e.getMessage());
+                fail(
+                        "Agenda temporalmente no disponible para validar la reserva. Intenta nuevamente.",
+                        "reservas[" + i + "].idCita",
+                        "AGENDA_SERVICE_UNAVAILABLE"
+                );
             }
         }
         return citas;
@@ -785,6 +793,12 @@ public class WebpayService {
             return DEFAULT_PUBLIC_GATEWAY_URL;
         }
         String normalizada = url.trim().replaceAll("/+$", "");
+        if (normalizada.toLowerCase().endsWith("/api/pagos/webpay/retorno")) {
+            return normalizada.substring(0, normalizada.length() - "/api/pagos/webpay/retorno".length());
+        }
+        if (normalizada.toLowerCase().endsWith("/api/pagos/webpay")) {
+            return normalizada.substring(0, normalizada.length() - "/api/pagos/webpay".length());
+        }
         if (normalizada.toLowerCase().endsWith("/api")) {
             return normalizada.substring(0, normalizada.length() - 4);
         }
