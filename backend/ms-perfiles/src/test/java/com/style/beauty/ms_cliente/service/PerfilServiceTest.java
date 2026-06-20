@@ -10,7 +10,9 @@ import com.style.beauty.ms_cliente.repository.PersonaRepository;
 import com.style.beauty.ms_cliente.repository.StaffPortfolioImageRepository;
 import com.style.beauty.ms_cliente.repository.StaffRepository;
 import com.style.beauty.ms_cliente.strategy.PerfilStrategy;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -19,6 +21,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PerfilServiceTest {
@@ -29,15 +32,21 @@ class PerfilServiceTest {
     private final EspecialidadRepository especialidadRepository = mock(EspecialidadRepository.class);
     private final AzureBlobStorageService azureBlobStorageService = mock(AzureBlobStorageService.class);
     private final PerfilStrategy clienteStrategy = mock(PerfilStrategy.class);
-    private final PerfilService service = new PerfilService(
-            personaRepository,
-            clienteRepository,
-            staffRepository,
-            staffPortfolioImageRepository,
-            especialidadRepository,
-            azureBlobStorageService,
-            List.of(clienteStrategy)
-    );
+    private PerfilService service;
+
+    @BeforeEach
+    void setUp() {
+        when(clienteStrategy.getTipoPerfil()).thenReturn("CLIENTE");
+        service = new PerfilService(
+                personaRepository,
+                clienteRepository,
+                staffRepository,
+                staffPortfolioImageRepository,
+                especialidadRepository,
+                azureBlobStorageService,
+                List.of(clienteStrategy)
+        );
+    }
 
     @Test
     void registrarNuevoPerfilDelegaEnEstrategiaSegunTipo() {
@@ -70,6 +79,22 @@ class PerfilServiceTest {
         assertThatThrownBy(() -> service.validarDisponibilidadParaCreacion(dto))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("15");
+    }
+
+    @Test
+    void actualizarFotoPropiaPersisteUrlAzureEnCliente() {
+        ClienteModel cliente = new ClienteModel();
+        MultipartFile file = mock(MultipartFile.class);
+        String imageUrl = "https://example.blob.core.windows.net/stylebeauty/perfiles/clientes/foto.webp";
+        when(personaRepository.findByIdAuth("auth-1")).thenReturn(Optional.of(cliente));
+        when(azureBlobStorageService.replace(null, file, "perfiles/clientes")).thenReturn(imageUrl);
+        when(personaRepository.save(cliente)).thenReturn(cliente);
+
+        PersonaModel actualizado = service.actualizarFotoPropia("auth-1", file);
+
+        assertThat(actualizado).isSameAs(cliente);
+        assertThat(cliente.getFotoUrl()).isEqualTo(imageUrl);
+        verify(personaRepository).save(cliente);
     }
 
     private PerfilRequestDTO clienteDto() {

@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Clock } from 'lucide-react';
 import { BalancedGrid } from '../../components/ui/BalancedGrid.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { catalogService } from '../../services/catalogService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
 import { formatCLP } from '../../utils/priceUtils.js';
@@ -12,6 +13,10 @@ function servicePrice(service) {
   const value = service.precio_total ?? service.precio ?? service.price;
   if (value === undefined || value === null || value === '') return 'Consultar';
   return formatCLP(value);
+}
+
+function serviceImage(service) {
+  return service?.imagenUrl || service?.imageUrl || service?.imagen_url || service?.imagen || service?.fotoUrl || '';
 }
 
 export function ServiceCategoryPage() {
@@ -70,8 +75,19 @@ export function ServiceCategoryPage() {
                   className="category-service-card category-service-link"
                   to={`/servicios/${categorySlug(category)}/${categorySlug(service.nombre || service.name || service.id_servicio || service.idServicio || service.id)}`}
                 >
-                  <span className="card-kicker">{category}</span>
-                  <h3>{service.nombre || service.name}</h3>
+                  <div className="category-service-heading">
+                    <div className="category-service-thumbnail">
+                      {serviceImage(service) ? (
+                        <SafeImage src={serviceImage(service)} alt={service.nombre || service.name || 'Servicio'} />
+                      ) : (
+                        <span aria-hidden="true">{String(service.nombre || service.name || 'S').slice(0, 1).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="card-kicker">{category}</span>
+                      <h3>{service.nombre || service.name}</h3>
+                    </div>
+                  </div>
                   <p>{service.descripcion || service.description || 'Atencion personalizada con acabado profesional.'}</p>
                   <div className="category-service-meta">
                     <strong>{servicePrice(service)}</strong>

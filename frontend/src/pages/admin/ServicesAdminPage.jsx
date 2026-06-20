@@ -37,6 +37,17 @@ function serviceImage(service) {
   return service?.imagenUrl || service?.imageUrl || service?.imagen_url || service?.imagen || '';
 }
 
+function ServiceThumbnail({ service, className = '' }) {
+  const imageUrl = serviceImage(service);
+  const initial = String(service?.nombre || 'S').slice(0, 1).toUpperCase();
+
+  return (
+    <div className={`admin-service-thumbnail ${className}`.trim()}>
+      {imageUrl ? <SafeImage src={imageUrl} alt={service?.nombre || 'Servicio'} /> : <span aria-hidden="true">{initial}</span>}
+    </div>
+  );
+}
+
 function serviceCategoryKey(value = '') {
   const normalized = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   if (normalized.includes('cabello') || normalized.includes('peluquer')) return 'cabello';
@@ -395,7 +406,7 @@ function ServiceDetailModal({
       {service && (
         <div className="admin-detail-modal">
           <div className="admin-detail-hero with-media">
-            <SafeImage src={serviceImage(service)} alt={service.nombre || 'Servicio'} />
+            <ServiceThumbnail service={service} className="detail" />
             <div>
               <span>{service.categoria || 'Sin categoria'}</span>
               <h3>{service.nombre || 'Servicio sin nombre'}</h3>
@@ -461,6 +472,7 @@ export function ServicesAdminPage() {
   const [categoryCoverFile, setCategoryCoverFile] = useState(null);
   const [categoryCoverPreview, setCategoryCoverPreview] = useState('');
   const [categoryCoverError, setCategoryCoverError] = useState('');
+  const [categoryCoverFeedback, setCategoryCoverFeedback] = useState('');
 
   const servicesQuery = useQuery({ queryKey: ['services-admin'], queryFn: catalogService.listAllServices });
   const staffQuery = useQuery({ queryKey: ['profiles-staff'], queryFn: profileService.listStaff });
@@ -543,6 +555,7 @@ export function ServicesAdminPage() {
   };
 
   const openCategoryCover = (category) => {
+    setCategoryCoverFeedback('');
     setCoverCategory(category);
     setCategoryCoverFile(null);
     setCategoryCoverPreview(categoryCoversByKey[serviceCategoryKey(category)]?.imagenUrl || '');
@@ -712,6 +725,7 @@ export function ServicesAdminPage() {
           ? rows.map((cover) => (serviceCategoryKey(cover.categoria) === updatedKey ? updatedCover : cover))
           : [...rows, updatedCover];
       });
+      setCategoryCoverFeedback(`Portada de ${updatedCover.categoria} actualizada correctamente.`);
       closeCategoryCover();
     },
     onError: (error) => setCategoryCoverError(error.message || 'No se pudo actualizar la portada.'),
@@ -812,7 +826,7 @@ export function ServicesAdminPage() {
         <AdminKpiCard icon={Users} title="Equipo disponible" value={staff.length} trend={0} microcopy="Profesionales reales" tone="ink" />
       </AdminKpiGrid>
 
-      <section className="admin-panel compact-panel admin-category-covers">
+      <section className="admin-panel compact-panel admin-category-covers admin-service-category-covers">
         <header>
           <div>
             <h3>Portadas de categorías de servicios</h3>
@@ -820,6 +834,7 @@ export function ServicesAdminPage() {
           </div>
         </header>
         {categoryCoversQuery.isError && <p className="admin-alert compact">{categoryCoversQuery.error.message}</p>}
+        {categoryCoverFeedback && <p className="success-alert compact">{categoryCoverFeedback}</p>}
         <div className="admin-category-cover-grid">
           {coverCategories.map((category) => {
             const coverUrl = categoryCoversByKey[serviceCategoryKey(category)]?.imagenUrl || '';
@@ -906,7 +921,7 @@ export function ServicesAdminPage() {
               label: 'Servicio',
               render: (row) => (
                 <div className="admin-media-cell compact">
-                  <SafeImage src={serviceImage(row)} alt={row.nombre || 'Servicio'} />
+                  <ServiceThumbnail service={row} />
                   <div className="admin-table-main-cell">
                     <strong>{row.nombre || 'Servicio sin nombre'}</strong>
                     <span>{row.descripcion || row.detallerservicio || 'Sin descripcion'}</span>

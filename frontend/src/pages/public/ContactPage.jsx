@@ -28,6 +28,7 @@ const contactItems = [
 
 const defaultContactReason = 'Solicitud de contacto';
 const contactReasons = ['Agradecimiento', 'Queja', 'Sugerencia', defaultContactReason];
+const MAX_MESSAGE_LENGTH = 500;
 
 function profileName(profile) {
   return `${profile?.nombre || ''} ${profile?.apellidos || ''}`.trim() || 'Cliente Style and Beauty';
@@ -38,6 +39,7 @@ export function ContactPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sent, setSent] = useState(false);
+  const [message, setMessage] = useState('');
   const contactMutation = useMutation({ mutationFn: contactService.sendMessage });
   const profileQuery = useQuery({
     queryKey: ['my-profile'],
@@ -74,6 +76,7 @@ export function ContactPage() {
       await contactMutation.mutateAsync(payload);
       setSent(true);
       form.reset();
+      setMessage('');
     } catch {
       setSent(false);
     }
@@ -132,7 +135,22 @@ export function ContactPage() {
                     ))}
                   </Input>
                 </div>
-                <Input id="contact-message" name="message" as="textarea" label="Mensaje" rows={6} required />
+                <div className="contact-message-field">
+                  <Input
+                    id="contact-message"
+                    name="message"
+                    as="textarea"
+                    label="Mensaje"
+                    rows={5}
+                    maxLength={MAX_MESSAGE_LENGTH}
+                    value={message}
+                    onChange={(event) => setMessage(event.target.value)}
+                    required
+                  />
+                  <span className="contact-message-counter" aria-live="polite">
+                    {message.length} / {MAX_MESSAGE_LENGTH}
+                  </span>
+                </div>
                 {sent && <p className="success-alert">Mensaje enviado. El equipo te contactara a la brevedad.</p>}
                 {contactMutation.isError && <p className="admin-alert">{contactMutation.error?.message || 'No fue posible enviar el mensaje.'}</p>}
                 <Button type="submit" disabled={contactMutation.isPending || profileQuery.isLoading || profileQuery.isError || !profile?.idPersona}>
