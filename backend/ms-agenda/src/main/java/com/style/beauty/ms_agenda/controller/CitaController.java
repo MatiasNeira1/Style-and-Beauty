@@ -10,6 +10,7 @@ import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
+import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.service.CitaService;
 import com.style.beauty.ms_agenda.service.FirebaseTokenVerifier;
@@ -104,6 +105,28 @@ public class CitaController {
         String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
         PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
         return citaService.listarProximasCliente(cliente.idPersona());
+    }
+
+    @GetMapping("/historial")
+    public List<ProximaCitaClienteResponse> historial(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        log.info("Entrando a endpoint GET /api/agenda/citas/historial");
+
+        String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
+        PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
+        return citaService.listarHistorialCliente(cliente.idPersona());
+    }
+
+    @PostMapping("/{id:[0-9a-fA-F-]+}/evaluar")
+    public Cita evaluar(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable UUID id,
+            @Valid @RequestBody EvaluarCitaRequest request) {
+        log.info("Entrando a endpoint POST /api/agenda/citas/{}/evaluar", id);
+
+        String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
+        PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
+        return citaService.evaluarCita(id, cliente.idPersona(), request);
     }
 
     @GetMapping("/mis-citas")

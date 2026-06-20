@@ -12,6 +12,7 @@ import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
+import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.entity.HistorialCita;
@@ -169,6 +170,46 @@ public class CitaService {
                 .stream()
                 .map(this::toProximaCitaClienteResponse)
                 .toList();
+    }
+
+    public List<ProximaCitaClienteResponse> listarHistorialCliente(UUID idCliente) {
+        if (idCliente == null) {
+            throw new BusinessException("No fue posible identificar al cliente autenticado");
+        }
+
+        liberarReservasVencidas();
+        return citaRepository.buscarHistorialCitasCliente(idCliente, EstadoCita.FINALIZADA)
+                .stream()
+                .map(this::toProximaCitaClienteResponse)
+                .toList();
+    }
+
+    @Transactional
+    public Cita evaluarCita(UUID idCita, UUID idCliente, EvaluarCitaRequest request) {
+        Cita cita = buscarPorId(idCita);
+
+        if (!cita.getIdCliente().equals(idCliente)) {
+            throw new BusinessException("No tienes autorización para evaluar esta cita");
+        }
+
+        if (cita.getEstadoCita() != EstadoCita.FINALIZADA) {
+            throw new BusinessException("Solo puedes evaluar citas que hayan sido finalizadas");
+        }
+
+        cita.setCalificacion(request.calificacion());
+        cita.setComentarioCalificacion(request.comentarioCalificacion());
+
+        Cita actualizada = citaRepository.save(cita);
+
+        registrarHistorial(
+                idCita,
+                AccionHistorial.MODIFICADA,
+                cita.getEstadoCita().name(),
+                cita.getEstadoCita().name(),
+                "Cliente evaluó la cita con " + request.calificacion() + " estrellas"
+        );
+
+        return actualizada;
     }
 
     public List<DisponibilidadSlot> calcularDisponibilidad(DisponibilidadRequest request) {
@@ -1003,7 +1044,9 @@ public class CitaService {
                 cita.getHolguraMin(),
                 cita.getEstadoCita() == null ? null : cita.getEstadoCita().name(),
                 servicio.precioTotal(),
-                ABONO_RESERVA_CLP
+                ABONO_RESERVA_CLP,
+                cita.getCalificacion(),
+                cita.getComentarioCalificacion()
         );
     }
 
