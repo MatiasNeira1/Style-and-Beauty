@@ -60,6 +60,11 @@ export function crearCita(payload) {
 
 export const agendaService = {
   listBookings: () => request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas', authRequired: true }),
+  listBookingsByStaff: (staffId) => {
+    if (!isValidUuid(staffId)) return Promise.resolve([]);
+    return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/citas/staff/${staffId}`, authRequired: true });
+  },
+  listMyStaffBookings: () => request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/mis-citas', authRequired: true }),
   createBooking: crearCita,
   crearCita,
   getAvailability: (payload) => {

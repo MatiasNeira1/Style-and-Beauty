@@ -21,6 +21,7 @@ public class config {
                 .requestMatchers("/api/auth/crear-usuario").permitAll()
                 .requestMatchers("/api/auth/crear-staff").permitAll()
                 .requestMatchers("/api/auth/asignar-rol").permitAll()
+                .requestMatchers(HttpMethod.PATCH, "/api/auth/admin/usuarios/*/password").permitAll()
                 .requestMatchers("/api/auth/registrar-cliente").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .anyRequest().authenticated()

@@ -1,126 +1,169 @@
-import { useState, useRef, useCallback } from 'react';
-import { Upload, Trash2, Image as ImageIcon } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Image as ImageIcon, Trash2, Upload } from 'lucide-react';
 import { SafeImage } from '../../ui/SafeImage.jsx';
 
-export function StaffPortfolioGallery({ images = [], onUpload, onDelete }) {
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+function imageId(image) {
+  return image.id || image.idFoto || image.idPortfolio;
+}
+
+function imageUrl(image) {
+  return image.url || image.urlFoto || image.imageUrl;
+}
+
+function validateFile(file) {
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return 'Solo se permiten imagenes JPG, PNG o WEBP.';
+  }
+  if (file.size > MAX_IMAGE_SIZE) {
+    return 'Cada imagen debe pesar 5 MB o menos.';
+  }
+  return null;
+}
+
+export function StaffPortfolioGallery({ images = [], onUpload, onDelete, isUploading, errorMessage }) {
   const [dragOver, setDragOver] = useState(false);
   const [previews, setPreviews] = useState([]);
+  const [localError, setLocalError] = useState('');
   const fileInputRef = useRef(null);
+  const previewsRef = useRef([]);
+
+  useEffect(() => {
+    previewsRef.current = previews;
+  }, [previews]);
+
+  useEffect(() => {
+    return () => {
+      previewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.url));
+    };
+  }, []);
 
   const handleFiles = useCallback(
     (files) => {
-      const validFiles = Array.from(files).filter((f) =>
-        f.type.startsWith('image/')
-      );
+      const selectedFiles = Array.from(files || []);
+      const validFiles = [];
+      const errors = [];
 
-      // Generate local previews
-      const newPreviews = validFiles.map((file) => ({
-        id: `preview-${Date.now()}-${Math.random()}`,
-        url: URL.createObjectURL(file),
-        file,
-        name: file.name,
-      }));
-      setPreviews((prev) => [...prev, ...newPreviews]);
+      selectedFiles.forEach((file) => {
+        const error = validateFile(file);
+        if (error) {
+          errors.push(`${file.name}: ${error}`);
+        } else {
+          validFiles.push(file);
+        }
+      });
 
-      // Upload each file
+      setLocalError(errors[0] || '');
+
       validFiles.forEach((file) => {
-        onUpload(file).then(() => {
-          // Remove preview after successful upload
-          setPreviews((prev) => prev.filter((p) => p.file !== file));
-        }).catch(() => {
-          // Keep preview on error so user can retry
-        });
+        const preview = {
+          id: `preview-${Date.now()}-${Math.random()}`,
+          url: URL.createObjectURL(file),
+          file,
+          name: file.name,
+        };
+
+        setPreviews((current) => [...current, preview]);
+        Promise.resolve(onUpload?.(file))
+          .then(() => {
+            setPreviews((current) => {
+              URL.revokeObjectURL(preview.url);
+              return current.filter((item) => item.id !== preview.id);
+            });
+          })
+          .catch((error) => {
+            setLocalError(error?.message || 'No se pudo subir la imagen.');
+          });
       });
     },
-    [onUpload]
+    [onUpload],
   );
 
   const handleDrop = useCallback(
-    (e) => {
-      e.preventDefault();
+    (event) => {
+      event.preventDefault();
       setDragOver(false);
-      handleFiles(e.dataTransfer.files);
+      handleFiles(event.dataTransfer.files);
     },
-    [handleFiles]
+    [handleFiles],
   );
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setDragOver(true);
-  };
-
-  const handleDragLeave = () => setDragOver(false);
-
-  const handleClick = () => fileInputRef.current?.click();
-
-  const handleInputChange = (e) => {
-    if (e.target.files?.length) {
-      handleFiles(e.target.files);
-      e.target.value = '';
-    }
-  };
-
   const allImages = [
-    ...images.map((img) => ({
-      id: img.id || img.idPortfolio,
-      url: img.url || img.imageUrl,
+    ...images.map((image) => ({
+      id: imageId(image),
+      url: imageUrl(image),
       isUploaded: true,
-    })),
-    ...previews.map((p) => ({
-      id: p.id,
-      url: p.url,
+    })).filter((image) => image.id && image.url),
+    ...previews.map((preview) => ({
+      id: preview.id,
+      url: preview.url,
       isUploaded: false,
-      name: p.name,
+      name: preview.name,
     })),
   ];
 
   return (
-    <div className="card stack">
+    <div className="staff-portfolio-editor">
       <div className="staff-form-section-title">
         <ImageIcon size={14} />
-        Trabajos Realizados
+        Trabajos realizados
       </div>
 
-      {/* ── Dropzone ────────────────────────────── */}
+      {(localError || errorMessage) && (
+        <p className="admin-alert">
+          {localError || errorMessage}
+        </p>
+      )}
+
       <div
         className={`staff-dropzone ${dragOver ? 'dragover' : ''}`}
         onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onClick={handleClick}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onClick={() => fileInputRef.current?.click()}
         role="button"
         tabIndex={0}
-        aria-label="Zona de carga de imágenes"
+        aria-label="Zona de carga de imagenes"
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
       >
         <Upload size={28} />
-        <p>Arrastra las imágenes aquí o haz clic para seleccionar</p>
-        <span>JPG, PNG, WebP — máx. 5MB por imagen</span>
+        <p>Arrastra imagenes aqui o haz clic para seleccionar</p>
+        <span>JPG, PNG o WebP, max. 5 MB por imagen</span>
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           multiple
-          onChange={handleInputChange}
+          onChange={(event) => {
+            handleFiles(event.target.files);
+            event.target.value = '';
+          }}
           style={{ display: 'none' }}
         />
       </div>
 
-      {/* ── Gallery Grid ────────────────────────── */}
-      {allImages.length > 0 && (
+      {allImages.length > 0 ? (
         <div className="portfolio-grid">
-          {allImages.map((img) => (
-            <div key={img.id} className="portfolio-item">
-              <SafeImage
-                src={img.url}
-                alt={img.name || 'Trabajo realizado'}
-              />
+          {allImages.map((image) => (
+            <div key={image.id} className="portfolio-item">
+              <SafeImage src={image.url} alt={image.name || 'Trabajo realizado'} />
               <div className="portfolio-item-overlay">
-                {img.isUploaded ? (
+                {image.isUploaded ? (
                   <button
                     className="portfolio-delete-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(img.id);
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDelete?.(image.id);
                     }}
                     aria-label="Eliminar imagen"
                     type="button"
@@ -128,29 +171,20 @@ export function StaffPortfolioGallery({ images = [], onUpload, onDelete }) {
                     <Trash2 size={13} />
                   </button>
                 ) : (
-                  <span
-                    style={{
-                      background: 'rgba(255,255,255,0.8)',
-                      borderRadius: '999px',
-                      color: 'var(--color-primary)',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      padding: '0.3rem 0.6rem',
-                    }}
-                  >
-                    Subiendo…
+                  <span className="portfolio-uploading-pill">
+                    {isUploading ? 'Subiendo...' : 'Procesando...'}
                   </span>
                 )}
               </div>
             </div>
           ))}
         </div>
-      )}
-
-      {allImages.length === 0 && (
-        <p style={{ color: 'var(--color-muted)', fontSize: '0.88rem', textAlign: 'center', padding: '1rem 0' }}>
-          Aún no hay fotos de trabajos realizados.
-        </p>
+      ) : (
+        <div className="staff-empty-state">
+          <ImageIcon size={28} />
+          <h3>Aun no hay fotos en tu portfolio</h3>
+          <p>Sube trabajos terminados para que aparezcan en tu perfil publico.</p>
+        </div>
       )}
     </div>
   );

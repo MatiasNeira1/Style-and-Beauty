@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
+import { RESERVATION_DEPOSIT_CLP, getCartPaymentTotal } from '../utils/priceUtils.js';
 
 const CartContext = createContext(null);
 const CART_STORAGE_KEY = 'style_beauty_cart';
@@ -127,16 +128,21 @@ export function CartProvider({ children }) {
         ))
         : activeItems;
 
-      return [...refreshedItems, { ...reservation, cartVersion: CART_SCHEMA_VERSION, type: 'reservation', quantity: 1 }];
+      return [...refreshedItems, {
+        ...reservation,
+        cartVersion: CART_SCHEMA_VERSION,
+        type: 'reservation',
+        quantity: 1,
+        abono: reservation.abono ?? reservation.depositAmount ?? RESERVATION_DEPOSIT_CLP,
+        depositAmount: reservation.depositAmount ?? reservation.abono ?? RESERVATION_DEPOSIT_CLP,
+      }];
     });
 
     if (!result.ok) {
       setLastCartError(result.error);
-      setIsCartOpen(true);
       return result;
     }
 
-    setIsCartOpen(true);
     return result;
   }, [setItems]);
 
@@ -166,7 +172,7 @@ export function CartProvider({ children }) {
   }, [setItems]);
 
   const clearCart = useCallback(() => setItems([]), [setItems]);
-  const total = items.reduce((sum, item) => sum + Number(item.price || item.precio || 0) * (item.quantity || 1), 0);
+  const total = getCartPaymentTotal(items);
 
   const value = useMemo(
     () => ({

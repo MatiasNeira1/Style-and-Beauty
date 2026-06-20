@@ -3,11 +3,13 @@ package com.style.beauty.ms_agenda.controller;
 import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
+import com.style.beauty.ms_agenda.dto.CitaAgendaResponse;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
+import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.service.CitaService;
 import com.style.beauty.ms_agenda.service.FirebaseTokenVerifier;
@@ -34,6 +36,12 @@ public class CitaController {
     public List<Cita> listar() {
         log.info("Entrando a endpoint GET /api/agenda/citas");
         return citaService.listar();
+    }
+
+    @GetMapping("/staff/{idStaff}")
+    public List<Cita> listarPorStaff(@PathVariable UUID idStaff) {
+        log.info("Entrando a endpoint GET /api/agenda/citas/staff/{idStaff}: idStaff={}", idStaff);
+        return citaService.listarPorStaff(idStaff);
     }
 
     @GetMapping("/disponibilidad")
@@ -86,6 +94,26 @@ public class CitaController {
                 request.idServicio(), request.idStaff(), request.fechaInicioSemana());
 
         return citaService.calcularDisponibilidadSemanal(request);
+    }
+
+    @GetMapping("/mis-proximas")
+    public List<ProximaCitaClienteResponse> misProximas(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        log.info("Entrando a endpoint GET /api/agenda/citas/mis-proximas");
+
+        String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
+        PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
+        return citaService.listarProximasCliente(cliente.idPersona());
+    }
+
+    @GetMapping("/mis-citas")
+    public List<CitaAgendaResponse> misCitasStaff(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        log.info("Entrando a endpoint GET /api/agenda/citas/mis-citas");
+
+        String uid = firebaseTokenVerifier.authenticatedUid(authHeader);
+        PerfilResumen staff = perfilClient.obtenerStaffPorAuthId(uid);
+        return citaService.listarAgendaStaff(staff.idPersona());
     }
 
     @GetMapping("/{id:[0-9a-fA-F-]+}")

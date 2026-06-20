@@ -19,6 +19,8 @@ function AccessDenied() {
 export function RequireAuth({ children, roles }) {
   const location = useLocation();
   const { user, isAuthenticated, isAuthReady } = useAuth();
+  const userRole = String(user?.rol || user?.role || '').toUpperCase();
+  const allowedRoles = roles?.map((role) => String(role).toUpperCase()) || [];
   const sessionQuery = useQuery({
     queryKey: ['auth-session', user?.uid],
     queryFn: profileService.getMyProfile,
@@ -58,8 +60,8 @@ export function RequireAuth({ children, roles }) {
     );
   }
 
-  if (roles?.length && !roles.includes(user?.rol)) {
-    return <Navigate to="/perfil" replace />;
+  if (allowedRoles.length && !allowedRoles.includes(userRole)) {
+    return <Navigate to={userRole === 'STAFF' || userRole === 'EMPLOYEE' ? '/staff' : '/perfil'} replace />;
   }
 
   return children;

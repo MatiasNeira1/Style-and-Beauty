@@ -59,4 +59,13 @@ public class InternalPerfilController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    @GetMapping("/staff/auth/{idAuth}")
+    public ResponseEntity<?> obtenerStaffPorAuthId(@PathVariable String idAuth) {
+        try {
+            return ResponseEntity.ok(perfilService.obtenerStaffPorAuthId(idAuth));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
 }

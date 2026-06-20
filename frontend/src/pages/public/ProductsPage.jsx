@@ -121,9 +121,7 @@ export function ProductsPage() {
                 <p style={{ color: 'var(--color-muted)', marginTop: '0.5rem', maxWidth: '400px', marginInline: 'auto' }}>No pudimos cargar los productos en este momento. Por favor, intenta de nuevo más tarde.</p>
               </div>
             ) : productBrands.length ? (
-              <Reveal>
-                <ProductsBrands brands={productBrands} onSelect={handleSelectBrand} />
-              </Reveal>
+              <ProductsBrands brands={productBrands} onSelect={handleSelectBrand} />
             ) : (
               <div className="client-empty-state" style={{ padding: '4rem 1rem', background: 'var(--color-surface-glass)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-line)' }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '4rem', height: '4rem', borderRadius: '50%', background: 'rgba(212, 122, 158, 0.1)', color: 'var(--color-primary-strong)', marginBottom: '1rem' }}>

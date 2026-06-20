@@ -25,6 +25,13 @@ function normalizeAvailabilityPayload({ idServicio, idStaff, fecha, idCliente })
 export const reservationService = {
   getMe: () => request({ baseURL: PROFILES_API_BASE_URL, url: '/api/perfiles/me', authRequired: true }),
 
+  listMyUpcomingReservations: () =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/mis-proximas',
+      authRequired: true,
+    }),
+
   getAvailability: ({ idServicio, idStaff, fecha, idCliente }) =>
     request({
       baseURL: AGENDA_API_BASE_URL,

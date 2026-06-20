@@ -41,6 +41,92 @@
   padding: clamp(3rem, 5vw, 5rem) var(--page-x);
 }
 
+.profile-readonly-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.upcoming-appointments-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.upcoming-appointments-card h4 {
+  align-items: center;
+  color: var(--color-ink);
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.profile-empty-state {
+  color: var(--color-muted);
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.upcoming-appointments-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.upcoming-appointment-item {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.85rem;
+}
+
+.upcoming-appointment-item strong,
+.upcoming-appointment-item span,
+.upcoming-appointment-item dd {
+  overflow-wrap: anywhere;
+}
+
+.upcoming-appointment-item span {
+  color: var(--color-muted);
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.upcoming-appointment-item dl {
+  display: grid;
+  gap: 0.45rem 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.upcoming-appointment-item dl div {
+  min-width: 0;
+}
+
+.upcoming-appointment-item dt {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.upcoming-appointment-item dd {
+  color: var(--color-ink);
+  font-size: 0.86rem;
+  font-weight: 760;
+  margin: 0;
+}
+
 .profile-completion-section {
   display: grid;
   place-items: center;
@@ -1025,6 +1111,12 @@ a.contact-info-card:hover {
   z-index: 1000;
 }
 
+.professional-profile-modal,
+.professional-profile-modal * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
 .professional-profile-modal {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 250, 251, 0.96)),
@@ -1034,15 +1126,16 @@ a.contact-info-card:hover {
   box-shadow: 0 28px 80px rgba(25, 20, 23, 0.2);
   display: grid;
   gap: clamp(1rem, 2vw, 1.25rem);
-  max-height: 90vh;
-  max-width: 940px;
-  overflow-x: hidden;
+  max-height: min(90vh, 820px);
+  max-width: calc(100vw - clamp(1rem, 4vw, 3rem));
+  overflow-x: clip;
   overflow-y: auto;
   padding: clamp(1rem, 2.5vw, 1.5rem);
   position: relative;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
-  width: min(100%, 940px);
+  width: min(960px, calc(100vw - clamp(1rem, 4vw, 3rem)));
 }
 
 .professional-modal-close {
@@ -1181,7 +1274,7 @@ a.contact-info-card:hover {
 .professional-modal-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
 }
 
 .professional-modal-grid section {
@@ -1221,19 +1314,50 @@ a.contact-info-card:hover {
 .professional-modal-gallery {
   display: grid;
   gap: 0.7rem;
-  grid-template-columns: 1.15fr 0.92fr 0.92fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
 }
 
 .professional-modal-gallery img {
   aspect-ratio: 4 / 3;
+  background: var(--specialty-soft, rgba(212, 122, 158, 0.12));
   border-radius: 1rem;
+  display: block;
   height: 100%;
+  min-height: 10rem;
   object-fit: cover;
+  overflow: hidden;
   width: 100%;
 }
 
 .professional-modal-gallery img:first-child {
   aspect-ratio: 4 / 3;
+}
+
+.professional-modal-empty-gallery {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px dashed rgba(169, 52, 84, 0.22);
+  border-radius: 1rem;
+  color: var(--color-muted);
+  display: grid;
+  gap: 0.4rem;
+  grid-column: 1 / -1;
+  justify-items: center;
+  min-height: 10rem;
+  padding: 1.35rem;
+  text-align: center;
+}
+
+.professional-modal-empty-gallery svg {
+  color: var(--specialty-color, var(--color-primary-strong));
+}
+
+.professional-modal-empty-gallery strong {
+  color: var(--color-ink);
+}
+
+.professional-modal-empty-gallery span {
+  font-size: 0.9rem;
 }
 
 .professional-modal-footer {
@@ -1244,6 +1368,7 @@ a.contact-info-card:hover {
   border-radius: 1rem;
   bottom: 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   justify-content: space-between;
   margin-top: 0.15rem;
@@ -1254,6 +1379,7 @@ a.contact-info-card:hover {
 
 .professional-modal-footer > div {
   display: grid;
+  flex: 1 1 18rem;
   gap: 0.5rem;
 }
 
@@ -1268,6 +1394,7 @@ a.contact-info-card:hover {
   justify-content: center;
   min-height: 2.85rem;
   padding: 0.75rem 1.05rem;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
@@ -2674,6 +2801,153 @@ a.contact-info-card:hover {
   -webkit-line-clamp: 3;
 }
 
+.balanced-card-grid {
+  --balanced-grid-gap: clamp(0.85rem, 1.7vw, 1.15rem);
+  align-items: stretch;
+  display: grid;
+  gap: var(--balanced-grid-gap);
+  grid-auto-rows: 1fr;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  justify-content: center;
+  margin-inline: auto;
+  max-width: min(100%, 1020px);
+  min-width: 0;
+  width: 100%;
+}
+
+.balanced-card-grid > * {
+  grid-column: span 2;
+  height: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.balanced-card-grid--count-1 {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: min(100%, 330px);
+}
+
+.balanced-card-grid--count-1 > * {
+  grid-column: 1 / -1;
+}
+
+.balanced-card-grid--count-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: min(100%, 680px);
+}
+
+.balanced-card-grid--count-2 > * {
+  grid-column: auto;
+}
+
+.balanced-card-grid--count-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: min(100%, 700px);
+}
+
+.balanced-card-grid--count-4 > * {
+  grid-column: span 2;
+}
+
+.balanced-card-grid--count-5 > :nth-last-child(2),
+.balanced-card-grid--remainder-2 > :nth-last-child(2) {
+  grid-column: 2 / span 2;
+}
+
+.balanced-card-grid--remainder-1 > :last-child {
+  grid-column: 3 / span 2;
+}
+
+.services-preview-band .balanced-card-grid {
+  max-width: min(100%, 960px);
+}
+
+.services-preview-band .service-preview-card {
+  height: 100%;
+  min-height: 17.5rem;
+  padding: 1.1rem;
+}
+
+.services-preview-band .service-preview-card h3 {
+  font-size: 1.08rem;
+}
+
+.services-preview-band .service-preview-card p {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.catalog-page .section-title,
+.products-section .section-title {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.public-category-grid .category-card,
+.category-service-list .category-service-card,
+.public-category-grid .catalog-feature-card {
+  height: 100%;
+}
+
+.public-category-grid .category-card {
+  border-radius: var(--radius-sm);
+  grid-template-columns: minmax(6.4rem, 34%) minmax(0, 1fr);
+  min-height: 12.5rem;
+  max-width: 100%;
+}
+
+.public-category-grid .category-card-content {
+  grid-template-rows: auto auto 1fr auto;
+}
+
+.category-service-list .category-service-card,
+.public-category-grid .catalog-feature-card {
+  grid-template-rows: auto auto auto 1fr auto;
+}
+
+.public-category-grid .category-card-content {
+  min-width: 0;
+}
+
+.public-category-grid .category-card p,
+.public-category-grid .catalog-feature-card p,
+.category-service-list .category-service-card p {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.public-category-grid .category-card-media,
+.public-category-grid .category-card-placeholder {
+  min-height: 100%;
+}
+
+.public-category-grid .catalog-feature-card {
+  min-height: 18rem;
+}
+
+.public-category-grid .brand-feature-card {
+  justify-items: start;
+}
+
+.public-category-grid .brand-feature-card img,
+.public-category-grid .brand-card-placeholder {
+  justify-self: center;
+}
+
+.public-category-grid .category-card-footer,
+.category-service-list .category-service-meta {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.category-service-list {
+  max-width: min(100%, 1020px);
+}
+
+.category-service-list .category-service-card {
+  min-height: 13.5rem;
+}
+
 .service-choice-image,
 .catalog-feature-card img,
 .catalog-item-media img,
@@ -2843,6 +3117,142 @@ img[data-fallback="true"] {
   }
 }
 
+@media (min-width: 700px) and (max-width: 1179px) {
+  .balanced-card-grid,
+  .balanced-card-grid--count-2,
+  .balanced-card-grid--count-3,
+  .balanced-card-grid--count-4,
+  .balanced-card-grid--count-5,
+  .balanced-card-grid--count-6 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    max-width: min(100%, 700px);
+  }
+
+  .balanced-card-grid > * {
+    grid-column: span 2;
+  }
+
+  .balanced-card-grid--count-1 {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: min(100%, 340px);
+  }
+
+  .balanced-card-grid--count-1 > * {
+    grid-column: 1 / -1;
+  }
+
+  .balanced-card-grid--count-5 > :nth-last-child(2),
+  .balanced-card-grid--remainder-2 > :nth-last-child(2) {
+    grid-column: span 2;
+  }
+
+  .balanced-card-grid--odd:not(.balanced-card-grid--count-1) > :last-child {
+    grid-column: 2 / span 2;
+  }
+
+  .public-category-grid .category-card {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+
+  .public-category-grid .category-card-media,
+  .public-category-grid .category-card-placeholder {
+    aspect-ratio: 16 / 10;
+    height: auto;
+    min-height: 0;
+  }
+}
+
+@media (max-width: 699px) {
+  .balanced-card-grid,
+  .balanced-card-grid--count-1,
+  .balanced-card-grid--count-2,
+  .balanced-card-grid--count-3,
+  .balanced-card-grid--count-4,
+  .balanced-card-grid--count-5,
+  .balanced-card-grid--count-6 {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: min(100%, 19rem);
+  }
+
+  .balanced-card-grid > *,
+  .balanced-card-grid--count-5 > :nth-last-child(2),
+  .balanced-card-grid--remainder-1 > :last-child,
+  .balanced-card-grid--remainder-2 > :nth-last-child(2),
+  .balanced-card-grid--odd:not(.balanced-card-grid--count-1) > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .services-preview-band .service-preview-card,
+  .public-category-grid .catalog-feature-card,
+  .category-service-list .category-service-card {
+    min-height: 0;
+  }
+
+  .page-hero-services .page-hero-content,
+  .page-hero-products .page-hero-content,
+  .catalog-page .section-title,
+  .products-section .section-title {
+    max-width: min(100%, 20rem);
+  }
+
+  .page-hero-services .page-hero-content h1,
+  .page-hero-products .page-hero-content h1 {
+    font-size: clamp(2.05rem, 10vw, 2.6rem);
+    line-height: 1.04;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .page-hero-services .page-hero-content p,
+  .page-hero-products .page-hero-content p,
+  .catalog-page .section-title p,
+  .products-section .section-title p {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+  }
+
+  .public-category-grid .category-card p,
+  .public-category-grid .catalog-feature-card p,
+  .category-service-list .category-service-card p {
+    display: block;
+    overflow: visible;
+    white-space: normal;
+    word-break: break-word;
+    -webkit-line-clamp: unset;
+  }
+
+  .public-category-grid .category-card-content > *,
+  .public-category-grid .catalog-feature-card > *,
+  .category-service-list .category-service-card > * {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .catalog-page .section-title h1,
+  .products-section .section-title h1 {
+    font-size: clamp(1.9rem, 9vw, 2.35rem);
+    line-height: 1.04;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .public-category-grid .category-card {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .public-category-grid .category-card-media,
+  .public-category-grid .category-card-placeholder {
+    aspect-ratio: 16 / 10;
+    height: auto;
+    min-height: 0;
+  }
+}
+
 @keyframes skeleton-pulse {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -2864,6 +3274,10 @@ img[data-fallback="true"] {
   }
 
   .profile-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-readonly-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -3044,8 +3458,13 @@ img[data-fallback="true"] {
   .calendar-card,
   .availability-panel,
   .summary-card,
-  .client-auth-card {
+  .client-auth-card,
+  .upcoming-appointments-card {
     padding: 1rem;
+  }
+
+  .upcoming-appointment-item dl {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .calendar-weekdays,

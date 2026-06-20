@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { UserRound, Save, Activity, Stethoscope } from 'lucide-react';
+import { CalendarClock, UserRound, Save, Activity, Stethoscope } from 'lucide-react';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Input } from '../../components/ui/Input.jsx';
@@ -9,8 +9,10 @@ import { useAuth } from '../../store/AuthContext.jsx';
 import { authService } from '../../services/authService.js';
 import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { profileService } from '../../services/profileService.js';
+import { reservationService } from '../../services/reservationService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { RESERVATION_DEPOSIT_CLP, formatCLP } from '../../utils/priceUtils.js';
 
 const MIN_CLIENT_AGE = 15;
 
@@ -305,6 +307,92 @@ function profileRoleLabel(user, profile) {
   return 'Cliente Registrado';
 }
 
+function formatAppointmentDate(value) {
+  if (!value) return 'Fecha por confirmar';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Fecha por confirmar';
+  return new Intl.DateTimeFormat('es-CL', { weekday: 'short', day: '2-digit', month: 'short' }).format(date);
+}
+
+function formatAppointmentTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+}
+
+function appointmentStatusLabel(status = '') {
+  return String(status || 'Pendiente')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
+function isDepositPaid(status = '') {
+  return ['CONFIRMADA', 'PAGADA', 'PAGADO', 'AUTORIZADA', 'PAID', 'AUTHORIZED'].includes(String(status).toUpperCase());
+}
+
+function UpcomingAppointmentsCard({ query }) {
+  const appointments = Array.isArray(query.data) ? query.data : [];
+
+  return (
+    <Card className="upcoming-appointments-card">
+      <h4>
+        <CalendarClock size={18} color="var(--color-primary-strong)" />
+        Próximas horas agendadas
+      </h4>
+
+      {query.isLoading && <p className="profile-empty-state">Cargando próximas horas...</p>}
+      {query.isError && <p className="admin-alert">No pudimos cargar tus próximas horas agendadas.</p>}
+      {!query.isLoading && !query.isError && appointments.length === 0 && (
+        <p className="profile-empty-state">No tienes próximas horas agendadas.</p>
+      )}
+
+      {!query.isLoading && !query.isError && appointments.length > 0 && (
+        <div className="upcoming-appointments-list">
+          {appointments.map((appointment) => {
+            const status = appointment.estadoCita || appointment.estado || 'PENDIENTE_PAGO';
+            const start = appointment.fechaHoraInicio || appointment.inicio;
+            const end = appointment.fechaHoraFinAtencion || appointment.fechaHoraFin || appointment.fin;
+            const deposit = appointment.abonoReserva ?? appointment.abono ?? RESERVATION_DEPOSIT_CLP;
+
+            return (
+              <article key={appointment.idCita || `${start}-${appointment.idServicio}`} className="upcoming-appointment-item">
+                <div>
+                  <strong>{appointment.servicioNombre || appointment.servicio || 'Servicio'}</strong>
+                  <span>{appointment.profesionalNombre || appointment.profesional || 'Profesional por confirmar'}</span>
+                </div>
+                <dl>
+                  <div>
+                    <dt>Fecha</dt>
+                    <dd>{formatAppointmentDate(start)}</dd>
+                  </div>
+                  <div>
+                    <dt>Horario</dt>
+                    <dd>{formatAppointmentTime(start)}{end ? ` - ${formatAppointmentTime(end)}` : ''}</dd>
+                  </div>
+                  <div>
+                    <dt>Estado</dt>
+                    <dd>{appointmentStatusLabel(status)}</dd>
+                  </div>
+                  <div>
+                    <dt>Valor servicio</dt>
+                    <dd>{formatCLP(appointment.valorServicio || appointment.precio || 0)}</dd>
+                  </div>
+                  <div>
+                    <dt>{isDepositPaid(status) ? 'Abono pagado' : 'Abono pendiente'}</dt>
+                    <dd>{formatCLP(deposit)}</dd>
+                  </div>
+                </dl>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function ProfilePage() {
   const { user, logout, setSession } = useAuth();
   const queryClient = useQueryClient();
@@ -323,6 +411,13 @@ export function ProfilePage() {
     queryKey: ['myProfile'],
     queryFn: profileService.getMyProfile,
     enabled: !!user,
+    retry: false,
+  });
+
+  const upcomingAppointmentsQuery = useQuery({
+    queryKey: ['my-upcoming-reservations', profile?.idPersona],
+    queryFn: reservationService.listMyUpcomingReservations,
+    enabled: Boolean(profile?.idPersona && !profileError),
     retry: false,
   });
 
@@ -653,7 +748,7 @@ export function ProfilePage() {
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', color: 'var(--color-ink)' }}>
               <UserRound size={20} color="var(--color-primary-strong)" /> Información Personal
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div className="profile-readonly-grid">
               <div className="field">
                 <label>Nombre</label>
                 <Input value={profile?.nombre || ''} readOnly aria-readonly="true" />
@@ -721,7 +816,7 @@ export function ProfilePage() {
         </form>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div className="profile-side-stack">
         <Card className="profile-card" style={{ textAlign: 'center', padding: '2rem' }}>
           <ProfilePictureUpload photoUrl={photoPreview} onPhotoChange={setPhotoPreview} />
           <h3 style={{ marginBottom: '0.5rem' }}>{profile?.nombre || user?.email}</h3>
@@ -739,6 +834,8 @@ export function ProfilePage() {
             {loyaltyPoints} <span style={{ fontSize: '1rem', color: 'var(--color-muted)', fontWeight: 500 }}>pts</span>
           </p>
         </Card>
+
+        <UpcomingAppointmentsCard query={upcomingAppointmentsQuery} />
         </div>
       </section>
     </>

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Card } from '../ui/Card.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
+import { formatCLP } from '../../utils/priceUtils.js';
 
 function getServiceId(service) {
   return service.id_servicio || service.idServicio || service.id || service.nombre;
@@ -9,7 +10,7 @@ function getServiceId(service) {
 function servicePrice(service) {
   const value = service.precio_total ?? service.precio ?? service.price;
   if (value === undefined || value === null || value === '') return 'Consultar';
-  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
+  return formatCLP(value);
 }
 
 function serviceDuration(service) {

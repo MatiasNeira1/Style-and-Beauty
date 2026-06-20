@@ -103,6 +103,19 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
             List<EstadoCita> estadosIgnorados
     );
 
+    @Query("""
+        SELECT c FROM Cita c
+        WHERE c.idCliente = :idCliente
+        AND c.estadoCita NOT IN :estadosIgnorados
+        AND c.fechaHoraFin >= :ahora
+        ORDER BY c.fechaHoraInicio ASC
+    """)
+    List<Cita> buscarProximasCitasCliente(
+            UUID idCliente,
+            OffsetDateTime ahora,
+            List<EstadoCita> estadosIgnorados
+    );
+
     @Transactional
     @Modifying(flushAutomatically = true)
     @Query("""

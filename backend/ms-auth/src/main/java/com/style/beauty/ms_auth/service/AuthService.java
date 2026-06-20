@@ -2,10 +2,12 @@ package com.style.beauty.ms_auth.service;
 
 import com.google.cloud.firestore.Firestore;
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.auth.AuthErrorCode;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.UserRecord;
 import com.google.firebase.auth.UserRecord.CreateRequest;
+import com.google.firebase.auth.UserRecord.UpdateRequest;
 import com.google.firebase.cloud.FirestoreClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +44,16 @@ public class AuthService {
                 .setEmailVerified(false)
                 .setDisabled(false);
 
-        UserRecord userRecord = FirebaseAuth.getInstance().createUser(request);
+        UserRecord userRecord;
+        try {
+            userRecord = FirebaseAuth.getInstance().createUser(request);
+        } catch (FirebaseAuthException e) {
+            if (e.getAuthErrorCode() != AuthErrorCode.EMAIL_ALREADY_EXISTS) {
+                throw e;
+            }
+            userRecord = FirebaseAuth.getInstance().getUserByEmail(email.trim().toLowerCase());
+            logger.info("Usuario staff ya existia en Firebase Auth; se reutilizara UID: {}", userRecord.getUid());
+        }
         String uid = userRecord.getUid();
         logger.info("Usuario staff creado en Firebase Auth con UID: {}", uid);
 
@@ -70,6 +81,25 @@ public class AuthService {
         }
 
         return uid;
+    }
+
+    public UserRecord actualizarPassword(String uid, String password) throws FirebaseAuthException {
+        ensureFirebaseConfigured();
+
+        if (uid == null || uid.isBlank()) {
+            throw new IllegalArgumentException("El uid es obligatorio.");
+        }
+
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException("La password es obligatoria.");
+        }
+
+        UpdateRequest request = new UpdateRequest(uid.trim())
+                .setPassword(password);
+
+        UserRecord user = FirebaseAuth.getInstance().updateUser(request);
+        logger.info("Password actualizada en Firebase Auth para UID: {}", user.getUid());
+        return user;
     }
 
     private void ensureFirebaseConfigured() {

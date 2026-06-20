@@ -31,6 +31,8 @@ public record CrearTransaccionRequest(
             OffsetDateTime horaInicio,
             OffsetDateTime horaFin,
             BigDecimal precio,
+            @JsonAlias({"abonoReserva", "depositAmount", "reservationDeposit", "montoAbono"})
+            BigDecimal abono,
             Integer duracionServicioMin,
             Integer holguraMin
     ) {

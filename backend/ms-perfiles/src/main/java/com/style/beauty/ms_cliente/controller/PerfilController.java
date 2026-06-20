@@ -4,6 +4,7 @@ import com.google.firebase.auth.FirebaseToken;
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
 import com.style.beauty.ms_cliente.exception.ProfileNotFoundException;
 import com.style.beauty.ms_cliente.model.PersonaModel;
+import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 import com.style.beauty.ms_cliente.service.FirebaseClientRoleService;
 import com.style.beauty.ms_cliente.service.FirebaseTokenVerifier;
 import com.style.beauty.ms_cliente.service.PerfilService;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 import java.util.Map;
@@ -23,6 +25,9 @@ public class PerfilController {
 
     @Autowired
     private PerfilService perfilService;
+
+    @Autowired
+    private EspecialidadRepository especialidadRepository;
 
     @Autowired
     private FirebaseTokenVerifier firebaseTokenVerifier;
@@ -111,11 +116,57 @@ public class PerfilController {
         }
     }
 
+    @GetMapping("/staff/{idStaff}/portfolio")
+    public ResponseEntity<?> listarPortfolioStaff(@PathVariable UUID idStaff) {
+        try {
+            return ResponseEntity.ok(perfilService.listarPortfolioStaff(idStaff));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping("/staff/{idStaff}/portfolio")
+    public ResponseEntity<?> subirImagenPortfolioStaff(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable UUID idStaff,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            validarStaffPropioOAdmin(authHeader, idStaff);
+            return ResponseEntity.ok(perfilService.subirPortfolioStaff(idStaff, file));
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/staff/{idStaff}/portfolio/{idFoto}")
+    public ResponseEntity<?> eliminarImagenPortfolioStaff(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable UUID idStaff,
+            @PathVariable UUID idFoto) {
+        try {
+            validarStaffPropioOAdmin(authHeader, idStaff);
+            perfilService.eliminarPortfolioStaff(idStaff, idFoto);
+            return ResponseEntity.ok(Map.of("message", "Imagen de portfolio eliminada correctamente."));
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/especialidades")
+    public ResponseEntity<?> listarEspecialidades() {
+        return ResponseEntity.ok(especialidadRepository.findAll());
+    }
+
     @GetMapping("/clientes")
     public ResponseEntity<?> listarClientes(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
             FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
-            String rol = (String) decodedToken.getClaims().get("rol");
+            Object claimRol = decodedToken.getClaims().getOrDefault("rol", decodedToken.getClaims().get("role"));
+            String rol = claimRol == null ? null : String.valueOf(claimRol);
 
             // SEGURIDAD: Solo STAFF puede ver la lista de todos los clientes
             if (!"STAFF".equalsIgnoreCase(rol) && !"ADMIN".equalsIgnoreCase(rol)) {
@@ -179,5 +230,20 @@ public class PerfilController {
                 "message", e.getMessage(),
                 "code", "PROFILE_NOT_FOUND"
         ));
+    }
+
+    private void validarStaffPropioOAdmin(String authHeader, UUID idStaff) {
+        FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
+        Object claimRol = decodedToken.getClaims().getOrDefault("rol", decodedToken.getClaims().get("role"));
+        String rol = claimRol == null ? null : String.valueOf(claimRol);
+
+        if ("ADMIN".equalsIgnoreCase(rol)) {
+            return;
+        }
+
+        PersonaModel staff = perfilService.obtenerStaffPorId(idStaff);
+        if (!decodedToken.getUid().equals(staff.getIdAuth())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo puedes modificar tu propio portfolio.");
+        }
     }
 }

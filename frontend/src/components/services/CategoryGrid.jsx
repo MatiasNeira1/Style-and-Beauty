@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
+import { BalancedGrid } from '../ui/BalancedGrid.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { categorySlug, groupByCategory } from '../../utils/categoryUtils.js';
 
@@ -12,7 +13,7 @@ export const CategoryGrid = memo(function CategoryGrid({ services = [] }) {
   const categories = useMemo(() => Object.entries(groupByCategory(services)), [services]);
 
   return (
-    <div className="category-grid">
+    <BalancedGrid className="category-grid public-category-grid">
       {categories.map(([category, categoryServices]) => {
         const sample = categoryServices[0];
         const imageUrl = serviceImage(sample);
@@ -39,6 +40,6 @@ export const CategoryGrid = memo(function CategoryGrid({ services = [] }) {
           </Link>
         );
       })}
-    </div>
+    </BalancedGrid>
   );
 });

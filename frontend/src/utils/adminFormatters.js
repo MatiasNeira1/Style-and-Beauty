@@ -1,9 +1,9 @@
+import { formatCLP } from './priceUtils.js';
+
+export { formatCLP };
+
 export function formatCurrencyCLP(value = 0) {
-  return new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    maximumFractionDigits: 0,
-  }).format(Number(value) || 0);
+  return formatCLP(value);
 }
 
 export function formatPercentage(value = 0) {

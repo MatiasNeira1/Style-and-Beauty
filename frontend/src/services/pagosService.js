@@ -5,6 +5,7 @@ export async function crearTransaccionWebpay(payload) {
     baseURL: API_BASE_URL,
     url: '/api/pagos/webpay/crear',
     method: 'POST',
+    authRequired: true,
     data: payload,
   });
 }
