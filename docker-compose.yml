@@ -188,7 +188,7 @@ services:
     ports:
       - "127.0.0.1:${MS_AGENDA_PORT:-8084}:8084"
     volumes:
-      - ./backend/ms-agenda/src/main/resources/serviceAccountKey.json:/run/secrets/firebase-service-account.json:ro
+      - ./backend/ms-agenda/src/main/resources/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
     depends_on:
       ms-catalogo:
         condition: service_healthy

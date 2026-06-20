@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { CalendarClock, UserRound, Save, Activity, Stethoscope } from 'lucide-react';
+import { CalendarClock, UserRound, Save, Activity, Stethoscope, Star, MessageSquarePlus, CheckCircle } from 'lucide-react';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Input } from '../../components/ui/Input.jsx';
@@ -393,6 +393,262 @@ function UpcomingAppointmentsCard({ query }) {
   );
 }
 
+
+function PastAppointmentItem({ appointment, onEvaluate }) {
+  const [isRatingOpen, setIsRatingOpen] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  const start = appointment.fechaHoraInicio || appointment.inicio;
+  const end = appointment.fechaHoraFinAtencion || appointment.fechaHoraFin || appointment.fin;
+  
+  const calificacion = appointment.calificacion;
+  const comentarioCalificacion = appointment.comentarioCalificacion;
+
+  const ratingDescriptions = {
+    1: 'Muy malo',
+    2: 'Malo',
+    3: 'Aceptable',
+    4: 'Bueno',
+    5: '¡Excelente!'
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    setIsSubmitting(true);
+    try {
+      await onEvaluate(appointment.idCita, rating, comment);
+      setIsRatingOpen(false);
+    } catch (err) {
+      setSubmitError(err?.message || 'No se pudo guardar la calificación.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <article className="upcoming-appointment-item past-appointment-item" style={{ borderLeft: '4px solid var(--color-sage)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <strong style={{ fontSize: '1.05rem', color: 'var(--color-ink)' }}>{appointment.servicioNombre || appointment.servicio || 'Servicio'}</strong>
+          <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '0.25rem' }}>
+            Con {appointment.profesionalNombre || appointment.profesional || 'Profesional'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <span style={{
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            background: 'rgba(155, 176, 152, 0.15)',
+            color: '#4f694c',
+            padding: '0.25rem 0.6rem',
+            borderRadius: '100px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.25rem'
+          }}>
+            <CheckCircle size={12} /> Finalizada
+          </span>
+        </div>
+      </div>
+      
+      <dl style={{ margin: '1rem 0 0.5rem 0' }}>
+        <div>
+          <dt>Fecha</dt>
+          <dd>{formatAppointmentDate(start)}</dd>
+        </div>
+        <div>
+          <dt>Horario</dt>
+          <dd>{formatAppointmentTime(start)}{end ? ` - ${formatAppointmentTime(end)}` : ''}</dd>
+        </div>
+        <div>
+          <dt>Precio</dt>
+          <dd>{formatCLP(appointment.valorServicio || appointment.precio || 0)}</dd>
+        </div>
+      </dl>
+
+      {/* Rating Display / Action */}
+      <div className="past-appointment-rating-section" style={{ borderTop: '1px dashed var(--color-line)', paddingTop: '0.75rem', marginTop: '0.75rem' }}>
+        {calificacion !== null && calificacion !== undefined ? (
+          // Already rated
+          <div className="rated-display" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--color-ink-soft)' }}>Tu evaluación:</span>
+              <div style={{ display: 'flex', gap: '2px' }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    size={16}
+                    fill={star <= calificacion ? '#e2b47e' : 'none'}
+                    color={star <= calificacion ? '#e2b47e' : '#d1d5db'}
+                  />
+                ))}
+              </div>
+              <span style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>({calificacion}/5)</span>
+            </div>
+            {comentarioCalificacion && (
+              <p style={{ fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--color-ink-soft)', background: 'var(--color-bg-deep)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-xs)', marginTop: '0.25rem' }}>
+                "{comentarioCalificacion}"
+              </p>
+            )}
+          </div>
+        ) : (
+          // Not rated yet
+          <>
+            {!isRatingOpen ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsRatingOpen(true)}
+                style={{
+                  fontSize: '0.8rem',
+                  color: 'var(--color-primary-strong)',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: 'var(--radius-xs)',
+                  border: '1px solid var(--color-primary-glow)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  background: 'none'
+                }}
+              >
+                <MessageSquarePlus size={14} /> Evaluar experiencia
+              </Button>
+            ) : (
+              <form onSubmit={handleSubmit} className="stack" style={{ gap: '0.75rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)' }}>
+                    ¿Cómo calificarías el servicio?
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setRating(star)}
+                          onMouseEnter={() => setHoverRating(star)}
+                          onMouseLeave={() => setHoverRating(0)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            transition: 'transform 0.15s ease'
+                          }}
+                        >
+                          <Star
+                            size={22}
+                            fill={(hoverRating || rating) >= star ? '#e2b47e' : 'none'}
+                            color={(hoverRating || rating) >= star ? '#e2b47e' : '#d1d5db'}
+                            style={{
+                              transform: (hoverRating || rating) === star ? 'scale(1.15)' : 'scale(1)',
+                              transition: 'transform 0.15s ease'
+                            }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-primary-strong)' }}>
+                      {ratingDescriptions[hoverRating || rating]}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--color-ink-soft)' }}>
+                    Comentario (Opcional)
+                  </label>
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Cuéntanos más sobre el resultado, la atención..."
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem 0.75rem',
+                      fontSize: '0.85rem',
+                      borderRadius: 'var(--radius-xs)',
+                      border: '1px solid var(--color-line)',
+                      minHeight: '60px',
+                      resize: 'vertical',
+                      outline: 'none',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </div>
+
+                {submitError && (
+                  <p className="admin-alert error" style={{ margin: 0, padding: '0.5rem 0.75rem', fontSize: '0.8rem' }}>
+                    {submitError}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsRatingOpen(false);
+                      setSubmitError('');
+                    }}
+                    style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={isSubmitting}
+                    style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}
+                  >
+                    {isSubmitting ? 'Guardando...' : 'Enviar'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function PastAppointmentsCard({ query, onEvaluate }) {
+  const appointments = Array.isArray(query.data) ? query.data : [];
+
+  return (
+    <Card className="upcoming-appointments-card past-appointments-card" style={{ marginTop: '1.5rem' }}>
+      <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-ink)' }}>
+        <CheckCircle size={18} color="var(--color-sage)" />
+        Historial de citas atendidas
+      </h4>
+
+      {query.isLoading && <p className="profile-empty-state">Cargando historial...</p>}
+      {query.isError && <p className="admin-alert">No pudimos cargar tu historial de citas.</p>}
+      {!query.isLoading && !query.isError && appointments.length === 0 && (
+        <p className="profile-empty-state">No tienes citas finalizadas en tu historial.</p>
+      )}
+
+      {!query.isLoading && !query.isError && appointments.length > 0 && (
+        <div className="upcoming-appointments-list past-appointments-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {appointments.map((appointment) => (
+            <PastAppointmentItem
+              key={appointment.idCita}
+              appointment={appointment}
+              onEvaluate={onEvaluate}
+            />
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function ProfilePage() {
   const { user, logout, setSession } = useAuth();
   const queryClient = useQueryClient();
@@ -420,6 +676,25 @@ export function ProfilePage() {
     enabled: Boolean(profile?.idPersona && !profileError),
     retry: false,
   });
+
+  const historyAppointmentsQuery = useQuery({
+    queryKey: ['my-history-reservations', profile?.idPersona],
+    queryFn: reservationService.listMyHistoryReservations,
+    enabled: Boolean(profile?.idPersona && !profileError),
+    retry: false,
+  });
+
+  const evaluateMutation = useMutation({
+    mutationFn: ({ appointmentId, rating, comment }) =>
+      reservationService.evaluateReservation(appointmentId, rating, comment),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-history-reservations', profile?.idPersona] });
+    },
+  });
+
+  const handleEvaluate = async (appointmentId, rating, comment) => {
+    await evaluateMutation.mutateAsync({ appointmentId, rating, comment });
+  };
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
@@ -836,6 +1111,7 @@ export function ProfilePage() {
         </Card>
 
         <UpcomingAppointmentsCard query={upcomingAppointmentsQuery} />
+        <PastAppointmentsCard query={historyAppointmentsQuery} onEvaluate={handleEvaluate} />
         </div>
       </section>
     </>
