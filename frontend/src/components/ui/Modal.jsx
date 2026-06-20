@@ -1,19 +1,44 @@
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './Button.jsx';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
-export function Modal({ open, title, children, onClose }) {
+export function Modal({ open, title, children, onClose, className = '', closeDisabled = false }) {
+  useBodyScrollLock(open);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && !closeDisabled) onClose?.();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [closeDisabled, open, onClose]);
+
   if (!open) return null;
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="modal" role="dialog" aria-modal="true" aria-label={title}>
+    <div
+      className="modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !closeDisabled) onClose?.();
+      }}
+    >
+      <section className={`modal ${className}`.trim()} role="dialog" aria-modal="true" aria-label={title}>
         <header>
           <h2>{title}</h2>
-          <Button variant="ghost" onClick={onClose} aria-label="Cerrar">
+          <Button variant="ghost" onClick={onClose} aria-label="Cerrar" disabled={closeDisabled}>
             <X size={18} />
           </Button>
         </header>
-        {children}
+        <div className="modal-body">
+          {children}
+        </div>
       </section>
     </div>
   );

@@ -29,22 +29,6 @@ services:
     networks:
       - style-beauty-net
 
-  mongo:
-    image: mongo:7
-    container_name: style-beauty-mongo
-    restart: unless-stopped
-    expose:
-      - "27017"
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - style-beauty-net
-
   api-gateway:
     build: ./backend/Api-gateway
     image: watoncitoxx/style-and-beauty-gateway:latest
@@ -95,6 +79,8 @@ services:
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/firebase-service-account.json}
+    volumes:
+      - ./backend/ms-auth/src/main/resources/serviceAccountKey.json:/run/secrets/firebase-service-account.json:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -s http://127.0.0.1:8081/ >/dev/null || exit 1"]
       interval: 20s
@@ -121,7 +107,7 @@ services:
       AZURE_STORAGE_CONTAINER: ${AZURE_STORAGE_CONTAINER:-stylebeauty}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/firebase-service-account.json}
     volumes:
       - ./backend/ms-perfiles/src/main/resources/serviceAccountKey.json:/run/secrets/firebase-service-account.json:ro
     ports:
@@ -183,16 +169,20 @@ services:
       MS_PERFILES_URL: http://ms-perfiles:8082
       MS_CATALOGO_URL: http://ms-catalogo:8083
       APP_AGENDA_ZONE: ${APP_AGENDA_ZONE:-America/Santiago}
+      APP_AGENDA_MAX_DIAS_ANTICIPACION: ${APP_AGENDA_MAX_DIAS_ANTICIPACION:-30}
+      APP_RESERVA_EXPIRACION_MINUTOS: ${APP_RESERVA_EXPIRACION_MINUTOS:-15}
       GOOGLE_CALENDAR_ENABLED: ${GOOGLE_CALENDAR_ENABLED:-false}
-      GOOGLE_CALENDAR_FAIL_ON_ERROR: ${GOOGLE_CALENDAR_FAIL_ON_ERROR:-true}
+      GOOGLE_CALENDAR_FAIL_ON_ERROR: ${GOOGLE_CALENDAR_FAIL_ON_ERROR:-false}
+      GOOGLE_CALENDAR_CREDENTIALS_JSON: ${GOOGLE_CALENDAR_CREDENTIALS_JSON:-}
       GOOGLE_CALENDAR_CREDENTIALS_PATH: ${GOOGLE_CALENDAR_CREDENTIALS_PATH:-}
       GOOGLE_CALENDAR_DEFAULT_CALENDAR_ID: ${GOOGLE_CALENDAR_DEFAULT_CALENDAR_ID:-}
+      GOOGLE_CALENDAR_DEFAULT_TIME_ZONE: ${GOOGLE_CALENDAR_DEFAULT_TIME_ZONE:-America/Santiago}
       MS_AGENDA_DATASOURCE_URL: ${MS_AGENDA_DATASOURCE_URL:-jdbc:postgresql://postgres-master:5432/${POSTGRES_DB:-style_beauty}}
       MS_AGENDA_DATASOURCE_USERNAME: ${MS_AGENDA_DATASOURCE_USERNAME:-${POSTGRES_USER:-style_beauty_app}}
       MS_AGENDA_DATASOURCE_PASSWORD: ${MS_AGENDA_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
       FIREBASE_SERVICE_ACCOUNT_PATH: ${FIREBASE_SERVICE_ACCOUNT_PATH:-}
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/firebase-service-account.json}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_SQL_INIT_MODE: ${SPRING_SQL_INIT_MODE:-always}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
@@ -200,7 +190,7 @@ services:
     ports:
       - "127.0.0.1:${MS_AGENDA_PORT:-8084}:8084"
     volumes:
-      - ./backend/ms-agenda/src/main/resources/serviceAccountKey.json:/run/secrets/firebase-service-account.json:ro
+      - ./backend/ms-agenda/src/main/resources/firebase-service-account.json:/run/secrets/firebase-service-account.json:ro
     depends_on:
       ms-catalogo:
         condition: service_healthy
@@ -254,10 +244,13 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MS_PAGOS_DATASOURCE_PASSWORD:-${POSTGRES_PASSWORD:-change_me_app}}
       MS_AGENDA_BASE_URL: http://ms-agenda:8084
       MS_CATALOGO_BASE_URL: http://ms-catalogo:8083
+      MS_PERFILES_BASE_URL: http://ms-perfiles:8082
+      TBK_COMMERCE_CODE: ${TBK_COMMERCE_CODE:-597055555532}
+      TBK_API_KEY: ${TBK_API_KEY:-579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C}
+      TBK_RETURN_URL: ${TBK_RETURN_URL:-http://localhost:8080/api/pagos/webpay/retorno}
+      PUBLIC_GATEWAY_URL: ${PUBLIC_GATEWAY_URL:-http://localhost:8080}
       FRONTEND_SUCCESS_URL: ${FRONTEND_SUCCESS_URL:-http://localhost/pago/exitoso}
       FRONTEND_ERROR_URL: ${FRONTEND_ERROR_URL:-http://localhost/pago/error}
-      SPRING_SECURITY_USER_NAME: ${SPRING_SECURITY_USER_NAME:-admin}
-      SPRING_SECURITY_USER_PASSWORD: ${SPRING_SECURITY_USER_PASSWORD:-admin123}
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${SPRING_JPA_HIBERNATE_DDL_AUTO:-update}
       SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL:-false}
       SPRING_JPA_FORMAT_SQL: ${SPRING_JPA_FORMAT_SQL:-false}
@@ -312,6 +305,24 @@ services:
     networks:
       - style-beauty-net
 
+  mongo:
+    image: mongo:7
+    container_name: style-beauty-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-style_beauty_audit}
+    expose:
+      - "27017"
+    volumes:
+      - mongo-audit-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok' | grep 1 >/dev/null"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    networks:
+      - style-beauty-net
+
   frontend:
     build:
       context: ./frontend
@@ -358,7 +369,7 @@ services:
 
 volumes:
   postgres-master-data:
-  mongo-data:
+  mongo-audit-data:
 
 networks:
   style-beauty-net:

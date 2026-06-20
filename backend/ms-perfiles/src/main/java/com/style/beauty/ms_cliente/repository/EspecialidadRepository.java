@@ -4,4 +4,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface EspecialidadRepository extends JpaRepository<EspecialidadModel, Long> {
 
+    boolean existsByNombreIgnoreCase(String nombre);
+
 }

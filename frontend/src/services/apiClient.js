@@ -1,22 +1,35 @@
 import axios from 'axios';
 
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+const PUBLIC_GATEWAY_FALLBACK = 'https://sb-gateway.bluerock-c41dfa74.brazilsouth.azurecontainerapps.io';
 
-export const API_BASE_URL = rawApiBaseUrl.replace(/\/$/, '').replace(/\/api$/i, '');
+function isInternalAzureUrl(value) {
+  return String(value || '').toLowerCase().includes('.internal.');
+}
+
+function normalizeApiBaseUrl(value, fallback = '') {
+  const candidate = String(value || '').trim();
+  if (!candidate) return fallback;
+  if (isInternalAzureUrl(candidate)) return fallback || PUBLIC_GATEWAY_FALLBACK;
+  return candidate.replace(/\/$/, '').replace(/\/api$/i, '');
+}
+
+export const API_BASE_URL = normalizeApiBaseUrl(rawApiBaseUrl);
 export const AUTH_API_BASE_URL = API_BASE_URL;
 export const PROFILES_API_BASE_URL = API_BASE_URL;
 export const STAFF_API_BASE_URL = API_BASE_URL;
 export const CATALOG_API_BASE_URL = API_BASE_URL;
-export const AGENDA_API_BASE_URL = (import.meta.env.VITE_AGENDA_API_BASE_URL || API_BASE_URL || 'http://localhost:8084')
-  .replace(/\/$/, '')
-  .replace(/\/api$/i, '');
+export const AGENDA_API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_AGENDA_API_BASE_URL, API_BASE_URL);
 export const INVENTORY_API_BASE_URL = API_BASE_URL;
 export const TOKEN_KEY = 'style_beauty_token';
 export const SESSION_USER_KEY = 'style_beauty_user';
 export const AUTH_EXPIRED_EVENT = 'style-beauty:auth-expired';
 export const ASSETS_BASE_URL = (import.meta.env.VITE_ASSETS_BASE_URL || '').replace(/\/$/, '');
+export const AZURE_PUBLIC_LOGO_URL = 'https://stylebeautyimages.blob.core.windows.net/stylebeauty/logo.jpg';
+export const AZURE_PUBLIC_STAFF_IMAGE_URL = 'https://stylebeautyimages.blob.core.windows.net/stylebeauty/jefes.png';
+export const HOME_HERO_IMAGE_URL = import.meta.env.VITE_HOME_HERO_IMAGE_URL || AZURE_PUBLIC_STAFF_IMAGE_URL;
 export const USE_MOCKS = import.meta.env.DEV && String(import.meta.env.VITE_USE_MOCKS || '').toLowerCase() === 'true';
-export const DEFAULT_IMAGE_FALLBACK = '/logo.jpg';
+export const DEFAULT_IMAGE_FALLBACK = AZURE_PUBLIC_LOGO_URL;
 
 const AUTH_STORAGE_KEYS = [
   TOKEN_KEY,
@@ -27,6 +40,7 @@ const AUTH_STORAGE_KEYS = [
   'refreshToken',
   'authToken',
   'token',
+  'style_beauty_pending_profile',
 ];
 
 export class AuthRequiredError extends Error {
@@ -49,6 +63,16 @@ export function clearStoredSession() {
   [window.localStorage, window.sessionStorage].forEach((storage) => {
     AUTH_STORAGE_KEYS.forEach((key) => storage.removeItem(key));
   });
+}
+
+export function isProfileNotFoundError(error) {
+  const data = error?.data;
+  const code = String(error?.code || data?.code || data?.error || '').toUpperCase();
+  const message = String(error?.message || data?.message || (typeof data === 'string' ? data : '') || '').toLowerCase();
+
+  return code === 'PROFILE_NOT_FOUND'
+    || message.includes('perfil no encontrado')
+    || message.includes('no tiene perfil asociado');
 }
 
 function redirectToLoginAfterAuthFailure() {
@@ -85,6 +109,14 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
+  if (isInternalAzureUrl(config.baseURL)) {
+    config.baseURL = API_BASE_URL || PUBLIC_GATEWAY_FALLBACK;
+  }
+
+  if (isInternalAzureUrl(config.url)) {
+    throw new Error('La URL de API apunta a un dominio interno no permitido.');
+  }
+
   const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -134,7 +166,8 @@ apiClient.interceptors.response.use(
 
     const apiError = new Error(message);
     apiError.status = error.response.status;
-    apiError.code = error.code;
+    apiError.code = responseData?.code || error.code;
+    apiError.field = responseData?.field;
     apiError.data = responseData;
     throw apiError;
   },

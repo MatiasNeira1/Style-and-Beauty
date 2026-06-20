@@ -13,6 +13,28 @@ const ROLE_CLAIM_RETRY_DELAY_MS = 900;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function isClientRole(session) {
+  const role = session?.claims?.rol || session?.claims?.role || session?.user?.rol || session?.user?.role;
+  return String(role || '').toUpperCase() === 'CLIENTE';
+}
+
+function withClientFallback(session) {
+  if (!session?.user) return session;
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      rol: 'CLIENTE',
+      role: 'cliente',
+    },
+    claims: {
+      ...(session.claims || {}),
+      rol: 'CLIENTE',
+      role: 'CLIENTE',
+    },
+  };
+}
+
 function readStoredUser() {
   try {
     const stored = window.localStorage.getItem(SESSION_USER_KEY);
@@ -97,22 +119,24 @@ export function AuthProvider({ children }) {
         tipoPerfil: 'CLIENTE',
       };
 
+      try {
+        window.localStorage.setItem('style_beauty_pending_profile', JSON.stringify(normalizedProfile));
+        window.sessionStorage.setItem('style_beauty_pending_profile', JSON.stringify(normalizedProfile));
+      } catch (storageErr) {
+        console.warn('Failed to save pending profile to storage in AuthContext:', storageErr);
+      }
+
       await profileService.validateAvailability(normalizedProfile);
       const created = await firebaseAuthService.register(normalizedEmail, password);
+      if (created.token) {
+        window.localStorage.setItem(TOKEN_KEY, created.token);
+      }
       await authService.registerClient({ uid: created.user.uid });
-
-      let session = null;
-      for (let attempt = 1; attempt <= ROLE_CLAIM_RETRIES; attempt += 1) {
-        session = await firebaseAuthService.refreshSession();
-        if (session?.claims?.rol === 'CLIENTE') break;
-        await wait(ROLE_CLAIM_RETRY_DELAY_MS);
+      const clientClaimSession = await firebaseAuthService.refreshSession();
+      if (clientClaimSession?.token) {
+        window.localStorage.setItem(TOKEN_KEY, clientClaimSession.token);
       }
 
-      if (session?.claims?.rol !== 'CLIENTE') {
-        throw new Error('La cuenta se creó, pero el rol CLIENTE aún no está disponible. Intenta iniciar sesión nuevamente.');
-      }
-
-      setSession(session);
       try {
         await profileService.createProfile(normalizedProfile);
       } catch (profileError) {
@@ -125,6 +149,24 @@ export function AuthProvider({ children }) {
           throw profileError;
         }
       }
+
+      let session = null;
+      for (let attempt = 1; attempt <= ROLE_CLAIM_RETRIES; attempt += 1) {
+        session = await firebaseAuthService.refreshSession();
+        if (isClientRole(session)) break;
+        await wait(ROLE_CLAIM_RETRY_DELAY_MS);
+      }
+
+      if (!isClientRole(session)) {
+        await authService.registerClient({ uid: created.user.uid });
+        session = withClientFallback(session || {
+          user: created.user,
+          token: created.token,
+          claims: {},
+        });
+      }
+
+      setSession(session);
       return session;
     } finally {
       isRegisteringRef.current = false;

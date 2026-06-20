@@ -2,9 +2,10 @@ import { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CalendarDays, Clock, MapPin, Signal, Sparkles, X } from 'lucide-react';
+import { CalendarDays, Clock, Image as ImageIcon, MapPin, Signal, Sparkles, X } from 'lucide-react';
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { professionalTheme, statusTone } from '../../utils/professionalTheme.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
 function normalize(value = '') {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -14,11 +15,31 @@ function portfolioFor(professional) {
   const images = professional?.portfolioImages || professional?.portfolio || professional?.trabajos || professional?.galeria || [];
   const normalized = Array.isArray(images) ? images : [];
   return normalized
-    .map((image) => (typeof image === 'string' ? image : image?.url || image?.imageUrl || image?.src))
+    .map((image) => (typeof image === 'string' ? image : image?.urlFoto || image?.url || image?.imageUrl || image?.src))
     .filter(Boolean);
 }
 
+function serviceName(service) {
+  if (typeof service === 'string') return service;
+  return service?.nombre
+    || service?.nombreServicio
+    || service?.nombre_servicio
+    || service?.name
+    || service?.label
+    || service?.titulo
+    || service?.descripcion;
+}
+
 function servicesFor(professional) {
+  const assignedServices = professional?.serviciosAsociados || professional?.servicios || professional?.services || [];
+  const normalizedServices = Array.isArray(assignedServices)
+    ? assignedServices.map(serviceName).filter(Boolean)
+    : [];
+
+  if (normalizedServices.length > 0) {
+    return normalizedServices;
+  }
+
   const text = normalize(`${professional?.especialidad || ''} ${professional?.descripcion || ''}`);
   if (text.includes('maquill')) return ['Maquillaje social', 'Maquillaje de novia', 'Preparación de piel'];
   if (text.includes('manicur') || text.includes('nail')) return ['Manicure premium', 'Esmaltado permanente', 'Nail art'];
@@ -28,9 +49,30 @@ function servicesFor(professional) {
   return ['Limpieza facial', 'Hidratación profunda', 'Glow facial'];
 }
 
+function specialtiesFor(professional) {
+  const values = [
+    ...(Array.isArray(professional?.especialidades) ? professional.especialidades : []),
+    professional?.especialidad,
+    professional?.cargo,
+  ]
+    .map((value) => (typeof value === 'string' ? value : value?.nombre || value?.name || value?.label))
+    .filter(Boolean);
+
+  return Array.from(new Set(values.map(String)));
+}
+
 function yearsWithUs(professional) {
+  const explicitYears = professional?.experienciaAnios || professional?.aniosExperiencia || professional?.anosExperiencia;
+  if (explicitYears) {
+    return `${explicitYears} anos de experiencia`;
+  }
+
   const numericId = Number(String(professional?.id || '').match(/\d+/)?.[0] || 1);
   return `${(numericId % 4) + 1} años junto a Style & Beauty`;
+}
+
+function isBookableHour(value) {
+  return /^\d{1,2}:\d{2}$/.test(String(value || '').trim());
 }
 
 export function ProfessionalProfileModal({ professional, onClose }) {
@@ -38,13 +80,19 @@ export function ProfessionalProfileModal({ professional, onClose }) {
   const tone = statusTone(professional?.estado);
   const portfolio = useMemo(() => portfolioFor(professional), [professional]);
   const services = useMemo(() => servicesFor(professional), [professional]);
+  const specialties = useMemo(() => specialtiesFor(professional), [professional]);
   const nextHour = professional?.proximaHora || professional?.proximasHoras?.[0] || 'Consultar disponibilidad';
+  const biography = professional?.biografiaProfesional || professional?.descripcionPerfil || professional?.descripcion || 'Atencion personalizada con diagnostico, tecnica cuidada y acabado profesional.';
+  const curriculum = professional?.perfilCurricular || professional?.trayectoria || professional?.descripcionPerfil || `${professional?.fullName || 'El profesional'} combina tecnica, criterio estetico y una experiencia cercana para crear resultados pulidos y naturales.`;
+  const publicHours = professional?.horariosPublicos || professional?.jornadasPublicas || [];
+  const displayedHours = Array.isArray(publicHours) && publicHours.length
+    ? publicHours
+    : (professional?.proximasHoras?.length ? professional.proximasHoras : ['Consultar disponibilidad']);
+  const hasPortfolio = portfolio.length > 0;
+  useBodyScrollLock(Boolean(professional));
 
   useEffect(() => {
     if (!professional) return undefined;
-
-    const originalOverflow = document.documentElement.style.overflow;
-    document.documentElement.style.overflow = 'hidden';
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') onClose?.();
@@ -53,7 +101,6 @@ export function ProfessionalProfileModal({ professional, onClose }) {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.documentElement.style.overflow = originalOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [professional, onClose]);
@@ -87,12 +134,12 @@ export function ProfessionalProfileModal({ professional, onClose }) {
 
             <div className="professional-modal-hero">
               <div className="professional-modal-photo">
-                <SafeImage src={professional.imageUrl || professional.fotoUrl} alt={professional.fullName} />
+                <SafeImage src={professional.imageUrl || professional.fotoUrl} alt={professional.fullName} fallback="/logo.jpg" />
               </div>
               <div className="professional-modal-intro">
                 <span className="professional-specialty"><Sparkles size={14} /> {professional.especialidad || professional.cargo}</span>
                 <h2 id="professional-profile-title">{professional.fullName}</h2>
-                <p>{professional.descripcion || 'Atención personalizada con diagnóstico, técnica cuidada y acabado profesional.'}</p>
+                <p>{biography}</p>
                 <div className="professional-modal-meta">
                   <span><MapPin size={15} /> Sucursal: {professional.sucursal || 'Providencia'}</span>
                   <span className={`professional-modal-status ${tone}`}><Signal size={15} /> Estado: {professional.estado || 'Disponible hoy'}</span>
@@ -104,38 +151,52 @@ export function ProfessionalProfileModal({ professional, onClose }) {
             <div className="professional-modal-grid">
               <section>
                 <span className="modal-section-kicker">Trayectoria</span>
-                <h3>Perfil profesional</h3>
+                <h3>Perfil curricular</h3>
                 <p>
-                  {professional.trayectoria || `${professional.fullName} combina técnica, criterio estético y una experiencia cercana para crear resultados pulidos y naturales.`}
+                  {curriculum}
                 </p>
                 <div className="professional-modal-stat">
                   <strong>{yearsWithUs(professional)}</strong>
-                  <span>Experiencia curada para clientas que buscan precisión, calma y resultados consistentes.</span>
+                  <span>Experiencia curada para clientas que buscan precision, calma y resultados consistentes.</span>
                 </div>
               </section>
 
               <section>
                 <span className="modal-section-kicker">Servicios</span>
-                <h3>Especialidades</h3>
+                <h3>Especialidades y servicios</h3>
                 <div className="professional-modal-services">
-                  {services.map((service) => <span key={service}>{service}</span>)}
+                  {specialties.map((specialty, index) => <span key={`specialty-${specialty}-${index}`}>{specialty}</span>)}
+                  {services.map((service, index) => <span key={`service-${service}-${index}`}>{service}</span>)}
                 </div>
               </section>
             </div>
 
             <section className="professional-modal-gallery" aria-label="Galería de trabajos realizados">
-              {(portfolio.length ? portfolio : [null, null, null]).map((image, index) => (
-                <SafeImage key={image || `fallback-${index}`} src={image} alt={`Trabajo realizado ${index + 1} por ${professional.fullName}`} />
-              ))}
+              {hasPortfolio ? (
+                portfolio.map((image, index) => (
+                  <SafeImage
+                    key={image || `portfolio-${index}`}
+                    src={image}
+                    alt={`Trabajo realizado ${index + 1} por ${professional.fullName}`}
+                    fallback="/logo.jpg"
+                  />
+                ))
+              ) : (
+                <div className="professional-modal-empty-gallery">
+                  <ImageIcon size={24} />
+                  <strong>Portafolio pendiente</strong>
+                  <span>Las imagenes publicadas por el profesional apareceran aqui.</span>
+                </div>
+              )}
             </section>
 
             <div className="professional-modal-footer">
               <div>
-                <span className="modal-section-kicker">Próximas horas</span>
+                <span className="modal-section-kicker">Horarios disponibles</span>
                 <div className="professional-modal-hours">
-                  {(professional.proximasHoras?.length ? professional.proximasHoras : ['Consultar disponibilidad']).slice(0, 4).map((hour) => {
+                  {displayedHours.map((hour) => {
                     const todayStr = new Date().toLocaleDateString('sv-SE');
-                    return hour !== 'Consultar disponibilidad' ? (
+                    return isBookableHour(hour) ? (
                       <Link
                         key={hour}
                         to="/reservar"

@@ -27,6 +27,225 @@
   width: 4rem;
 }
 
+.page-hero-profile {
+  --page-hero-image: url("https://stylebeautyimages.blob.core.windows.net/stylebeauty/jefes.png");
+  --page-hero-position: center 30%;
+}
+
+.page-hero-about {
+  --page-hero-image: url("/hero-salon.png");
+  --page-hero-position: center 42%;
+}
+
+.profile-page-layout {
+  align-items: start;
+  padding: clamp(3rem, 5vw, 5rem) var(--page-x);
+}
+
+.profile-page-layout > * {
+  align-self: start;
+  min-width: 0;
+}
+
+.profile-readonly-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.upcoming-appointments-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.upcoming-appointments-card h4 {
+  align-items: center;
+  color: var(--color-ink);
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.profile-empty-state {
+  color: var(--color-muted);
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+.upcoming-appointments-list {
+  display: grid;
+  gap: 0.8rem;
+  max-height: clamp(16rem, 34vh, 23rem);
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.35rem;
+  scrollbar-gutter: stable;
+}
+
+.upcoming-appointment-item {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.upcoming-appointment-item strong,
+.upcoming-appointment-item span,
+.upcoming-appointment-item dd {
+  overflow-wrap: anywhere;
+}
+
+.upcoming-appointment-item span {
+  color: var(--color-muted);
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+.upcoming-appointment-item dl {
+  display: grid;
+  gap: 0.45rem 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.upcoming-appointment-item dl div {
+  min-width: 0;
+}
+
+.upcoming-appointment-item dt {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.upcoming-appointment-item dd {
+  color: var(--color-ink);
+  font-size: 0.86rem;
+  font-weight: 760;
+  margin: 0;
+}
+
+.profile-completion-section {
+  display: grid;
+  place-items: center;
+}
+
+.profile-completion-card {
+  display: grid;
+  gap: 1.4rem;
+  max-width: 860px;
+  padding: clamp(1.35rem, 3vw, 2.25rem);
+  width: min(100%, 860px);
+}
+
+.profile-completion-heading {
+  display: grid;
+  gap: 0.45rem;
+  text-align: center;
+}
+
+.profile-completion-heading h2 {
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 4vw, 3.1rem);
+  font-weight: 500;
+  line-height: 1;
+  margin: 0;
+}
+
+.profile-completion-heading p {
+  color: var(--color-muted);
+  margin: 0 auto;
+  max-width: 620px;
+}
+
+.profile-completion-form {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.profile-form-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-birthdate-field {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.profile-birthdate-field > span,
+.profile-birthdate-field label {
+  color: var(--color-ink-soft);
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.profile-birthdate-grid {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: 0.9fr 1.2fr 0.8fr;
+}
+
+.profile-birthdate-grid select {
+  appearance: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 244, 0.88));
+  border: 1px solid rgba(212, 122, 158, 0.22);
+  border-radius: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  color: var(--color-ink);
+  font: inherit;
+  min-height: 3.05rem;
+  min-width: 0;
+  outline: none;
+  padding: 0 0.85rem;
+}
+
+.profile-birthdate-grid select:focus {
+  border-color: rgba(212, 122, 158, 0.68);
+  box-shadow: 0 0 0 4px rgba(212, 122, 158, 0.12);
+}
+
+.profile-birthdate-grid select:disabled {
+  color: var(--color-muted);
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.profile-birthdate-field small {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+}
+
+.profile-birthdate-field small:not(:empty) {
+  min-height: 1rem;
+}
+
+.profile-completion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
 .client-selector,
 .datetime-picker {
   min-width: 0;
@@ -34,19 +253,30 @@
 }
 
 .booking-shell {
+  display: grid;
   align-items: start;
+  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.booking-shell--with-summary {
   grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
 }
 
 .booking-shell .wizard-panel,
+.booking-shell .booking-summary-panel,
 .booking-shell .summary-card {
   min-width: 0;
   width: 100%;
 }
 
-.booking-shell .summary-card {
+.booking-shell .booking-summary-panel {
   position: sticky;
   top: 6.25rem;
+}
+
+.booking-shell .summary-card {
+  position: static;
 }
 
 .horizontal-scroll {
@@ -322,8 +552,32 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.contact-form-card .form-grid-single {
+  grid-template-columns: 1fr;
+}
+
 .contact-form-card textarea {
   min-height: 8rem;
+}
+
+.contact-profile-summary {
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem;
+}
+
+.contact-profile-summary strong {
+  color: var(--color-ink);
+  font-size: 1rem;
+}
+
+.contact-profile-summary p {
+  color: var(--color-muted);
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .contact-highlight {
@@ -870,6 +1124,12 @@ a.contact-info-card:hover {
   z-index: 1000;
 }
 
+.professional-profile-modal,
+.professional-profile-modal * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
 .professional-profile-modal {
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 250, 251, 0.96)),
@@ -879,15 +1139,16 @@ a.contact-info-card:hover {
   box-shadow: 0 28px 80px rgba(25, 20, 23, 0.2);
   display: grid;
   gap: clamp(1rem, 2vw, 1.25rem);
-  max-height: 90vh;
-  max-width: 940px;
-  overflow-x: hidden;
+  max-height: min(90vh, 820px);
+  max-width: calc(100vw - clamp(1rem, 4vw, 3rem));
+  overflow-x: clip;
   overflow-y: auto;
   padding: clamp(1rem, 2.5vw, 1.5rem);
   position: relative;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
-  width: min(100%, 940px);
+  width: min(960px, calc(100vw - clamp(1rem, 4vw, 3rem)));
 }
 
 .professional-modal-close {
@@ -1026,7 +1287,7 @@ a.contact-info-card:hover {
 .professional-modal-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
 }
 
 .professional-modal-grid section {
@@ -1066,19 +1327,50 @@ a.contact-info-card:hover {
 .professional-modal-gallery {
   display: grid;
   gap: 0.7rem;
-  grid-template-columns: 1.15fr 0.92fr 0.92fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(190px, 100%), 1fr));
 }
 
 .professional-modal-gallery img {
   aspect-ratio: 4 / 3;
+  background: var(--specialty-soft, rgba(212, 122, 158, 0.12));
   border-radius: 1rem;
+  display: block;
   height: 100%;
+  min-height: 10rem;
   object-fit: cover;
+  overflow: hidden;
   width: 100%;
 }
 
 .professional-modal-gallery img:first-child {
   aspect-ratio: 4 / 3;
+}
+
+.professional-modal-empty-gallery {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px dashed rgba(169, 52, 84, 0.22);
+  border-radius: 1rem;
+  color: var(--color-muted);
+  display: grid;
+  gap: 0.4rem;
+  grid-column: 1 / -1;
+  justify-items: center;
+  min-height: 10rem;
+  padding: 1.35rem;
+  text-align: center;
+}
+
+.professional-modal-empty-gallery svg {
+  color: var(--specialty-color, var(--color-primary-strong));
+}
+
+.professional-modal-empty-gallery strong {
+  color: var(--color-ink);
+}
+
+.professional-modal-empty-gallery span {
+  font-size: 0.9rem;
 }
 
 .professional-modal-footer {
@@ -1089,6 +1381,7 @@ a.contact-info-card:hover {
   border-radius: 1rem;
   bottom: 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   justify-content: space-between;
   margin-top: 0.15rem;
@@ -1099,6 +1392,7 @@ a.contact-info-card:hover {
 
 .professional-modal-footer > div {
   display: grid;
+  flex: 1 1 18rem;
   gap: 0.5rem;
 }
 
@@ -1113,6 +1407,7 @@ a.contact-info-card:hover {
   justify-content: center;
   min-height: 2.85rem;
   padding: 0.75rem 1.05rem;
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
@@ -1451,6 +1746,28 @@ a.contact-info-card:hover {
   padding: 0.4rem;
 }
 
+.brand-card-placeholder {
+  align-items: center;
+  aspect-ratio: 1;
+  background: linear-gradient(135deg, rgba(255, 248, 244, 0.94), rgba(251, 207, 232, 0.24));
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-xs);
+  color: var(--color-primary-strong);
+  display: inline-flex;
+  font-family: var(--font-serif);
+  font-size: 2.1rem;
+  justify-content: center;
+  justify-self: center;
+  max-width: 6.5rem;
+  width: 100%;
+}
+
+.brand-card-placeholder-small {
+  font-size: 1.7rem;
+  max-width: none;
+  width: 100%;
+}
+
 .catalog-feature-card h3,
 .catalog-detail-header h2,
 .catalog-item-card h3 {
@@ -1574,21 +1891,45 @@ a.contact-info-card:hover {
 }
 
 .page-hero-services,
+.page-hero-category,
+.page-hero-booking,
+.page-hero-contact,
+.page-hero-about,
 .page-hero-professionals,
+.page-hero-products,
+.page-hero-checkout,
+.page-hero-payment,
+.page-hero-extraordinary,
 .products-hero {
-  min-height: clamp(20rem, 46vh, 31rem);
-  padding-bottom: clamp(2.4rem, 5vw, 3.5rem);
+  min-height: clamp(17rem, 34vh, 25rem);
+  padding-bottom: clamp(2rem, 4vw, 2.75rem);
 }
 
 .page-hero-services .page-hero-content h1,
+.page-hero-category .page-hero-content h1,
+.page-hero-booking .page-hero-content h1,
+.page-hero-contact .page-hero-content h1,
+.page-hero-about .page-hero-content h1,
 .page-hero-professionals .page-hero-content h1,
+.page-hero-products .page-hero-content h1,
+.page-hero-checkout .page-hero-content h1,
+.page-hero-payment .page-hero-content h1,
+.page-hero-extraordinary .page-hero-content h1,
 .products-hero-content h1 {
-  font-size: clamp(2.5rem, 6.2vw, 5.6rem);
+  font-size: clamp(2.15rem, 5.3vw, 4.6rem);
   max-width: 760px;
 }
 
 .page-hero-services .page-hero-content p,
+.page-hero-category .page-hero-content p,
+.page-hero-booking .page-hero-content p,
+.page-hero-contact .page-hero-content p,
+.page-hero-about .page-hero-content p,
 .page-hero-professionals .page-hero-content p,
+.page-hero-products .page-hero-content p,
+.page-hero-checkout .page-hero-content p,
+.page-hero-payment .page-hero-content p,
+.page-hero-extraordinary .page-hero-content p,
 .products-hero-content p {
   font-size: clamp(0.98rem, 1.6vw, 1.12rem);
   max-width: 520px;
@@ -1649,6 +1990,10 @@ a.contact-info-card:hover {
   border-radius: var(--radius-xs);
   max-width: 6.5rem;
   padding: 0.35rem;
+}
+
+.catalog-page .brand-card-placeholder {
+  max-width: 5.8rem;
 }
 
 .catalog-page .catalog-feature-card h3,
@@ -2076,7 +2421,7 @@ a.contact-info-card:hover {
 }
 
 .products-section .product-media {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
 }
 
 .products-section .product-info {
@@ -2097,7 +2442,12 @@ a.contact-info-card:hover {
 }
 
 .product-brand-detail {
+  display: grid;
   gap: clamp(2rem, 5vw, 4rem);
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
+  width: 100%;
 }
 
 .product-brand-header {
@@ -2111,6 +2461,8 @@ a.contact-info-card:hover {
   display: grid;
   gap: 1.2rem;
   grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+  overflow: hidden;
   padding: clamp(1rem, 2.4vw, 1.5rem);
 }
 
@@ -2124,6 +2476,7 @@ a.contact-info-card:hover {
   display: grid;
   gap: clamp(0.9rem, 2vw, 1.25rem);
   grid-template-columns: 5.2rem minmax(0, 1fr);
+  min-width: 0;
 }
 
 .product-brand-header-copy img {
@@ -2136,13 +2489,23 @@ a.contact-info-card:hover {
   width: 100%;
 }
 
+.product-brand-header-copy > div {
+  min-width: 0;
+}
+
 .product-brand-header-copy h2 {
-  font-size: clamp(2rem, 5vw, 4rem);
-  line-height: 0.95;
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  font-size: clamp(1.9rem, 4.2vw, 3.25rem);
+  font-weight: 430;
+  line-height: 1;
+  margin: 0.28rem 0 0.4rem;
+  overflow-wrap: anywhere;
 }
 
 .product-brand-header-copy p {
   max-width: 620px;
+  overflow-wrap: anywhere;
 }
 
 .product-brand-stats {
@@ -2170,19 +2533,29 @@ a.contact-info-card:hover {
 .product-editorial-list {
   display: grid;
   gap: clamp(2.6rem, 6vw, 5.2rem);
+  min-width: 0;
+  overflow-x: clip;
+  width: 100%;
 }
 
 .product-editorial {
   align-items: center;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.42), rgba(255, 247, 250, 0.22));
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: var(--radius-sm);
   display: grid;
   gap: clamp(1.35rem, 3.5vw, 3.25rem);
-  grid-template-columns: minmax(0, 1.12fr) minmax(300px, 0.88fr);
+  grid-template-columns: minmax(240px, 0.82fr) minmax(0, 1.18fr);
+  isolation: isolate;
+  max-width: 100%;
   min-width: 0;
+  overflow: hidden;
+  padding: clamp(0.85rem, 2vw, 1.25rem);
   position: relative;
 }
 
 .product-editorial.is-reversed {
-  grid-template-columns: minmax(300px, 0.88fr) minmax(0, 1.12fr);
+  grid-template-columns: minmax(0, 1.18fr) minmax(240px, 0.82fr);
 }
 
 .product-editorial.is-reversed .product-editorial-media {
@@ -2198,29 +2571,36 @@ a.contact-info-card:hover {
   background: linear-gradient(135deg, rgba(212, 122, 158, 0.055), rgba(215, 173, 102, 0.05));
   border-radius: var(--radius-md);
   content: "";
-  inset: 11% 5% 11% 21%;
+  inset: 4% 1% 4% 14%;
   pointer-events: none;
   position: absolute;
-  z-index: -1;
+  z-index: 0;
 }
 
 .product-editorial.is-reversed::before {
-  inset: 11% 21% 11% 5%;
+  inset: 4% 14% 4% 1%;
 }
 
 .product-editorial-media {
-  aspect-ratio: 5 / 6;
+  align-self: stretch;
+  aspect-ratio: 1 / 1;
   background: #fff;
   border: 1px solid rgba(255, 255, 255, 0.88);
   border-radius: var(--radius-sm);
   box-shadow: 0 20px 55px rgba(25, 20, 23, 0.11);
+  justify-self: stretch;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   position: relative;
+  width: 100%;
+  z-index: 1;
 }
 
 .product-editorial-media img {
+  display: block;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transform: scale(1.02);
   transition: transform 520ms ease, filter 520ms ease;
   width: 100%;
@@ -2242,8 +2622,17 @@ a.contact-info-card:hover {
   align-content: center;
   display: grid;
   gap: clamp(0.72rem, 1.5vw, 1rem);
+  inline-size: 100%;
+  max-width: 100%;
   min-width: 0;
+  overflow-wrap: anywhere;
   padding-block: clamp(0.6rem, 3vw, 2.25rem);
+  position: relative;
+  z-index: 1;
+}
+
+.product-editorial-copy > * {
+  min-width: 0;
 }
 
 .product-editorial-kicker,
@@ -2258,18 +2647,28 @@ a.contact-info-card:hover {
   font-size: 0.74rem;
   font-weight: 900;
   letter-spacing: 0.14em;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   text-transform: uppercase;
+  white-space: normal;
 }
 
 .product-editorial-copy h3 {
   color: var(--color-ink);
+  display: -webkit-box;
   font-family: var(--font-serif);
-  font-size: clamp(2rem, 4.6vw, 4.35rem);
+  font-size: clamp(1.65rem, 3.2vw, 3.1rem);
   font-weight: 430;
   letter-spacing: 0;
-  line-height: 0.98;
+  line-height: 1.04;
   margin: 0;
-  max-width: 640px;
+  max-width: 100%;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .product-editorial-copy p {
@@ -2277,7 +2676,10 @@ a.contact-info-card:hover {
   font-size: clamp(0.96rem, 1.2vw, 1.05rem);
   line-height: 1.68;
   margin: 0;
-  max-width: 520px;
+  max-width: 62ch;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  word-break: break-word;
 }
 
 .product-editorial-benefits {
@@ -2285,6 +2687,7 @@ a.contact-info-card:hover {
   flex-wrap: wrap;
   gap: 0.45rem;
   max-width: 560px;
+  min-width: 0;
 }
 
 .product-editorial-benefits span {
@@ -2294,7 +2697,11 @@ a.contact-info-card:hover {
   color: var(--color-ink-soft);
   font-size: 0.8rem;
   font-weight: 750;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 0.42rem 0.62rem;
+  white-space: normal;
 }
 
 .product-editorial-benefits svg {
@@ -2307,6 +2714,7 @@ a.contact-info-card:hover {
   flex-wrap: wrap;
   gap: 0.85rem;
   margin-top: 0.15rem;
+  min-width: 0;
 }
 
 .product-editorial-actions strong {
@@ -2315,6 +2723,7 @@ a.contact-info-card:hover {
   font-size: clamp(1.28rem, 2.3vw, 1.85rem);
   font-weight: 500;
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .product-editorial-actions .button {
@@ -2322,15 +2731,40 @@ a.contact-info-card:hover {
   box-shadow: 0 12px 28px rgba(169, 52, 84, 0.14);
   min-height: 2.75rem;
   padding-inline: 1.15rem;
+  white-space: normal;
 }
 
 .page-section {
   padding-block: clamp(2.35rem, 4.5vw, 4rem);
 }
 
+.page-section.standalone-page-section {
+  padding-top: clamp(7rem, 10vw, 8.5rem);
+}
+
+.about-page {
+  padding-bottom: clamp(3rem, 6vw, 5rem);
+}
+
+.payment-result-page {
+  display: grid;
+  justify-items: center;
+  min-height: 70vh;
+}
+
+.payment-result-page .summary-card {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  max-width: 560px;
+  position: static;
+  text-align: center;
+  width: 100%;
+}
+
 .page-hero,
 .products-hero {
-  min-height: clamp(19rem, 40vh, 28rem);
+  min-height: clamp(17rem, 34vh, 25rem);
 }
 
 .page-hero-content h1,
@@ -2367,7 +2801,11 @@ a.contact-info-card:hover {
 .catalog-item-card h3,
 .product-card h3,
 .professional-card h3 {
+  display: -webkit-box;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .service-choice-card p,
@@ -2384,6 +2822,153 @@ a.contact-info-card:hover {
   -webkit-line-clamp: 3;
 }
 
+.balanced-card-grid {
+  --balanced-grid-gap: clamp(0.85rem, 1.7vw, 1.15rem);
+  align-items: stretch;
+  display: grid;
+  gap: var(--balanced-grid-gap);
+  grid-auto-rows: 1fr;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  justify-content: center;
+  margin-inline: auto;
+  max-width: min(100%, 1020px);
+  min-width: 0;
+  width: 100%;
+}
+
+.balanced-card-grid > * {
+  grid-column: span 2;
+  height: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.balanced-card-grid--count-1 {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: min(100%, 330px);
+}
+
+.balanced-card-grid--count-1 > * {
+  grid-column: 1 / -1;
+}
+
+.balanced-card-grid--count-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: min(100%, 680px);
+}
+
+.balanced-card-grid--count-2 > * {
+  grid-column: auto;
+}
+
+.balanced-card-grid--count-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: min(100%, 700px);
+}
+
+.balanced-card-grid--count-4 > * {
+  grid-column: span 2;
+}
+
+.balanced-card-grid--count-5 > :nth-last-child(2),
+.balanced-card-grid--remainder-2 > :nth-last-child(2) {
+  grid-column: 2 / span 2;
+}
+
+.balanced-card-grid--remainder-1 > :last-child {
+  grid-column: 3 / span 2;
+}
+
+.services-preview-band .balanced-card-grid {
+  max-width: min(100%, 960px);
+}
+
+.services-preview-band .service-preview-card {
+  height: 100%;
+  min-height: 17.5rem;
+  padding: 1.1rem;
+}
+
+.services-preview-band .service-preview-card h3 {
+  font-size: 1.08rem;
+}
+
+.services-preview-band .service-preview-card p {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.catalog-page .section-title,
+.products-section .section-title {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.public-category-grid .category-card,
+.category-service-list .category-service-card,
+.public-category-grid .catalog-feature-card {
+  height: 100%;
+}
+
+.public-category-grid .category-card {
+  border-radius: var(--radius-sm);
+  grid-template-columns: minmax(6.4rem, 34%) minmax(0, 1fr);
+  min-height: 12.5rem;
+  max-width: 100%;
+}
+
+.public-category-grid .category-card-content {
+  grid-template-rows: auto auto 1fr auto;
+}
+
+.category-service-list .category-service-card,
+.public-category-grid .catalog-feature-card {
+  grid-template-rows: auto auto auto 1fr auto;
+}
+
+.public-category-grid .category-card-content {
+  min-width: 0;
+}
+
+.public-category-grid .category-card p,
+.public-category-grid .catalog-feature-card p,
+.category-service-list .category-service-card p {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.public-category-grid .category-card-media,
+.public-category-grid .category-card-placeholder {
+  min-height: 100%;
+}
+
+.public-category-grid .catalog-feature-card {
+  min-height: 18rem;
+}
+
+.public-category-grid .brand-feature-card {
+  justify-items: start;
+}
+
+.public-category-grid .brand-feature-card img,
+.public-category-grid .brand-card-placeholder {
+  justify-self: center;
+}
+
+.public-category-grid .category-card-footer,
+.category-service-list .category-service-meta {
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.category-service-list {
+  max-width: min(100%, 1020px);
+}
+
+.category-service-list .category-service-card {
+  min-height: 13.5rem;
+}
+
 .service-choice-image,
 .catalog-feature-card img,
 .catalog-item-media img,
@@ -2395,11 +2980,16 @@ a.contact-info-card:hover {
   width: 100%;
 }
 
+.product-editorial-media img {
+  object-fit: contain;
+}
+
 img[data-fallback="true"] {
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(251, 244, 246, 0.86));
   object-fit: contain;
   padding: clamp(0.7rem, 3vw, 1.15rem);
+  transform: none;
 }
 
 .service-choice-card {
@@ -2436,6 +3026,11 @@ img[data-fallback="true"] {
 .staff-card {
   height: 100%;
   padding: 0.85rem;
+}
+
+.admin-alert .button {
+  margin-left: 0.6rem;
+  width: auto;
 }
 
 .staff-card-header {
@@ -2479,16 +3074,22 @@ img[data-fallback="true"] {
   object-fit: contain;
 }
 
+.catalog-page .public-category-grid .brand-feature-card img {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  padding: 0;
+}
+
 .product-editorial {
   gap: clamp(1.1rem, 2.6vw, 2.4rem);
 }
 
 .product-editorial-media {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
 }
 
 .product-editorial-copy h3 {
-  font-size: clamp(1.75rem, 3.5vw, 3.2rem);
+  font-size: clamp(1.65rem, 3vw, 2.85rem);
 }
 
 .birthdate-field {
@@ -2547,6 +3148,142 @@ img[data-fallback="true"] {
   }
 }
 
+@media (min-width: 700px) and (max-width: 1179px) {
+  .balanced-card-grid,
+  .balanced-card-grid--count-2,
+  .balanced-card-grid--count-3,
+  .balanced-card-grid--count-4,
+  .balanced-card-grid--count-5,
+  .balanced-card-grid--count-6 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    max-width: min(100%, 700px);
+  }
+
+  .balanced-card-grid > * {
+    grid-column: span 2;
+  }
+
+  .balanced-card-grid--count-1 {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: min(100%, 340px);
+  }
+
+  .balanced-card-grid--count-1 > * {
+    grid-column: 1 / -1;
+  }
+
+  .balanced-card-grid--count-5 > :nth-last-child(2),
+  .balanced-card-grid--remainder-2 > :nth-last-child(2) {
+    grid-column: span 2;
+  }
+
+  .balanced-card-grid--odd:not(.balanced-card-grid--count-1) > :last-child {
+    grid-column: 2 / span 2;
+  }
+
+  .public-category-grid .category-card {
+    grid-template-columns: 1fr;
+    max-width: none;
+  }
+
+  .public-category-grid .category-card-media,
+  .public-category-grid .category-card-placeholder {
+    aspect-ratio: 16 / 10;
+    height: auto;
+    min-height: 0;
+  }
+}
+
+@media (max-width: 699px) {
+  .balanced-card-grid,
+  .balanced-card-grid--count-1,
+  .balanced-card-grid--count-2,
+  .balanced-card-grid--count-3,
+  .balanced-card-grid--count-4,
+  .balanced-card-grid--count-5,
+  .balanced-card-grid--count-6 {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: min(100%, 19rem);
+  }
+
+  .balanced-card-grid > *,
+  .balanced-card-grid--count-5 > :nth-last-child(2),
+  .balanced-card-grid--remainder-1 > :last-child,
+  .balanced-card-grid--remainder-2 > :nth-last-child(2),
+  .balanced-card-grid--odd:not(.balanced-card-grid--count-1) > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .services-preview-band .service-preview-card,
+  .public-category-grid .catalog-feature-card,
+  .category-service-list .category-service-card {
+    min-height: 0;
+  }
+
+  .page-hero-services .page-hero-content,
+  .page-hero-products .page-hero-content,
+  .catalog-page .section-title,
+  .products-section .section-title {
+    max-width: min(100%, 20rem);
+  }
+
+  .page-hero-services .page-hero-content h1,
+  .page-hero-products .page-hero-content h1 {
+    font-size: clamp(2.05rem, 10vw, 2.6rem);
+    line-height: 1.04;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .page-hero-services .page-hero-content p,
+  .page-hero-products .page-hero-content p,
+  .catalog-page .section-title p,
+  .products-section .section-title p {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+  }
+
+  .public-category-grid .category-card p,
+  .public-category-grid .catalog-feature-card p,
+  .category-service-list .category-service-card p {
+    display: block;
+    overflow: visible;
+    white-space: normal;
+    word-break: break-word;
+    -webkit-line-clamp: unset;
+  }
+
+  .public-category-grid .category-card-content > *,
+  .public-category-grid .catalog-feature-card > *,
+  .category-service-list .category-service-card > * {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .catalog-page .section-title h1,
+  .products-section .section-title h1 {
+    font-size: clamp(1.9rem, 9vw, 2.35rem);
+    line-height: 1.04;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+  }
+
+  .public-category-grid .category-card {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .public-category-grid .category-card-media,
+  .public-category-grid .category-card-placeholder {
+    aspect-ratio: 16 / 10;
+    height: auto;
+    min-height: 0;
+  }
+}
+
 @keyframes skeleton-pulse {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
@@ -2557,9 +3294,34 @@ img[data-fallback="true"] {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .booking-shell--with-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .booking-shell .booking-summary-panel,
   .booking-shell .summary-card {
     order: -1;
     position: static;
+  }
+
+  .profile-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-readonly-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-birthdate-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .profile-completion-actions {
+    justify-content: stretch;
+  }
+
+  .profile-completion-actions .button {
+    width: 100%;
   }
 
   .contact-layout,
@@ -2713,7 +3475,7 @@ img[data-fallback="true"] {
   }
 
   .product-editorial-media {
-    aspect-ratio: 16 / 11;
+    aspect-ratio: 1 / 1;
   }
 }
 
@@ -2727,8 +3489,13 @@ img[data-fallback="true"] {
   .calendar-card,
   .availability-panel,
   .summary-card,
-  .client-auth-card {
+  .client-auth-card,
+  .upcoming-appointments-card {
     padding: 1rem;
+  }
+
+  .upcoming-appointment-item dl {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .calendar-weekdays,
@@ -2779,10 +3546,17 @@ img[data-fallback="true"] {
   }
 
   .page-hero-services,
+  .page-hero-booking,
+  .page-hero-contact,
+  .page-hero-about,
   .page-hero-professionals,
+  .page-hero-products,
+  .page-hero-checkout,
+  .page-hero-payment,
+  .page-hero-extraordinary,
   .products-hero {
-    min-height: 21rem;
-    padding-top: 6.6rem;
+    min-height: 19rem;
+    padding-top: 6.2rem;
   }
 
   .catalog-page,
@@ -2920,11 +3694,11 @@ img[data-fallback="true"] {
   }
 
   .product-editorial-copy h3 {
-    font-size: clamp(2.1rem, 12vw, 3.4rem);
+    font-size: clamp(1.65rem, 8vw, 2.65rem);
   }
 
   .product-editorial-media {
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 1 / 1;
     border-radius: var(--radius-sm);
   }
 

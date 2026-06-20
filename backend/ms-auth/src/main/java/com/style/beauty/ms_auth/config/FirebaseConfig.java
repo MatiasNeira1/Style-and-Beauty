@@ -25,7 +25,7 @@ public class FirebaseConfig {
 
         try (InputStream serviceAccount = openCredentials()) {
             if (serviceAccount == null) {
-                logger.warn("Firebase Admin SDK no se inicializo: configure FIREBASE_SERVICE_ACCOUNT_JSON, FIREBASE_SERVICE_ACCOUNT_PATH, GOOGLE_APPLICATION_CREDENTIALS o agregue serviceAccountKey.json en resources.");
+                logger.warn("Firebase Admin SDK no se inicializo: configure FIREBASE_SERVICE_ACCOUNT_JSON, FIREBASE_SERVICE_ACCOUNT_PATH, GOOGLE_APPLICATION_CREDENTIALS o agregue firebase-service-account.json en resources.");
                 return;
             }
 
@@ -52,9 +52,18 @@ public class FirebaseConfig {
         }
 
         if (path != null && !path.isBlank()) {
-            return new FileInputStream(path);
+            try {
+                return new FileInputStream(path);
+            } catch (Exception e) {
+                logger.warn("No se pudo leer el archivo en la ruta configurada ({}). Intentando con el classpath...", path);
+            }
         }
 
+        // Intentar con firebase-service-account.json primero, luego serviceAccountKey.json
+        InputStream fromClasspath = getClass().getClassLoader().getResourceAsStream("firebase-service-account.json");
+        if (fromClasspath != null) {
+            return fromClasspath;
+        }
         return getClass().getClassLoader().getResourceAsStream("serviceAccountKey.json");
     }
 }

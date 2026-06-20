@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { Button } from '../ui/Button.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
+import { formatCLP } from '../../utils/priceUtils.js';
 
 export const ProductCard = memo(function ProductCard({ product, onAdd }) {
   const name = product.nombre || product.name || product.nombreProducto || 'Producto profesional';
@@ -9,7 +10,7 @@ export const ProductCard = memo(function ProductCard({ product, onAdd }) {
   const category = product.categoria || 'Cuidado profesional';
   const price = product.precio || product.price || product.precio_total || 0;
   const imageUrl = product.imagenUrl || product.imagen_url || product.imageUrl || product.image;
-  const formattedPrice = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(price);
+  const formattedPrice = formatCLP(price);
 
   return (
     <article className="product-card">

@@ -1,23 +1,39 @@
 package com.style.beauty.ms_cliente.controller;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
+import com.style.beauty.ms_cliente.exception.ProfileNotFoundException;
 import com.style.beauty.ms_cliente.model.PersonaModel;
+import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
+import com.style.beauty.ms_cliente.service.FirebaseClientRoleService;
+import com.style.beauty.ms_cliente.service.FirebaseTokenVerifier;
 import com.style.beauty.ms_cliente.service.PerfilService;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.lang.RuntimeException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.UUID;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/perfiles")
 public class PerfilController {
 
     @Autowired
     private PerfilService perfilService;
+
+    @Autowired
+    private EspecialidadRepository especialidadRepository;
+
+    @Autowired
+    private FirebaseTokenVerifier firebaseTokenVerifier;
+
+    @Autowired
+    private FirebaseClientRoleService firebaseClientRoleService;
 
     @PostMapping("/validar-disponibilidad")
     public ResponseEntity<?> validarDisponibilidad(@RequestBody PerfilRequestDTO requestDTO) {
@@ -37,22 +53,16 @@ public class PerfilController {
             @RequestBody PerfilRequestDTO requestDTO) {
 
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("Falta el header Authorization.");
-            }
-
-            // Limpiamos el token
-            String token = authHeader.replace("Bearer ", "");
-
-            // Desencriptamos con Firebase
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
 
             // Extraemos la Identidad y el Permiso
             String uidVerdadero = decodedToken.getUid();
-            String rolVerdadero = (String) decodedToken.getClaims().get("rol");
+            Object claimRol = decodedToken.getClaims().getOrDefault("rol", decodedToken.getClaims().get("role"));
+            String rolVerdadero = claimRol == null ? null : String.valueOf(claimRol);
 
             if (rolVerdadero == null) {
-                return ResponseEntity.status(403).body("El usuario no tiene un rol asignado en Firebase.");
+                firebaseClientRoleService.ensureClientRoleForPublicProfile(uidVerdadero);
+                rolVerdadero = "CLIENTE";
             }
 
             // Inyectamos la Verdad Absoluta en el DTO (Sobrescribiendo cualquier cosa)
@@ -64,8 +74,8 @@ public class PerfilController {
             
             return ResponseEntity.ok(nuevoPerfil);
 
-        } catch (FirebaseAuthException e) {
-            return ResponseEntity.status(401).body("Token inválido o expirado.");
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
@@ -76,19 +86,16 @@ public class PerfilController {
     @GetMapping("/me")
     public ResponseEntity<?> obtenerMiPerfil(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("Falta el header Authorization.");
-            }
-
-            String token = authHeader.replace("Bearer ", "");
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
             String uidVerdadero = decodedToken.getUid();
 
             PersonaModel miPerfil = perfilService.obtenerMiPerfil(uidVerdadero);
             return ResponseEntity.ok(miPerfil);
 
-        } catch (FirebaseAuthException e) {
-            return ResponseEntity.status(401).body("Token inválido o expirado.");
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
+        } catch (ProfileNotFoundException e) {
+            return profileNotFound(e);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -103,22 +110,63 @@ public class PerfilController {
     @GetMapping("/staff/{idStaff}")
     public ResponseEntity<?> obtenerStaffPublico(@PathVariable UUID idStaff) {
         try {
-            return ResponseEntity.ok(perfilService.obtenerStaffPorId(idStaff));
+            return ResponseEntity.ok(perfilService.obtenerStaffPorIdConFallback(idStaff));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
     }
 
+    @GetMapping("/staff/{idStaff}/portfolio")
+    public ResponseEntity<?> listarPortfolioStaff(@PathVariable UUID idStaff) {
+        try {
+            return ResponseEntity.ok(perfilService.listarPortfolioStaff(idStaff));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping("/staff/{idStaff}/portfolio")
+    public ResponseEntity<?> subirImagenPortfolioStaff(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable UUID idStaff,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            validarStaffPropioOAdmin(authHeader, idStaff);
+            return ResponseEntity.ok(perfilService.subirPortfolioStaff(idStaff, file));
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/staff/{idStaff}/portfolio/{idFoto}")
+    public ResponseEntity<?> eliminarImagenPortfolioStaff(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable UUID idStaff,
+            @PathVariable UUID idFoto) {
+        try {
+            validarStaffPropioOAdmin(authHeader, idStaff);
+            perfilService.eliminarPortfolioStaff(idStaff, idFoto);
+            return ResponseEntity.ok(Map.of("message", "Imagen de portfolio eliminada correctamente."));
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/especialidades")
+    public ResponseEntity<?> listarEspecialidades() {
+        return ResponseEntity.ok(especialidadRepository.findAll());
+    }
+
     @GetMapping("/clientes")
     public ResponseEntity<?> listarClientes(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("Falta el header Authorization.");
-            }
-
-            String token = authHeader.replace("Bearer ", "");
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
-            String rol = (String) decodedToken.getClaims().get("rol");
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
+            Object claimRol = decodedToken.getClaims().getOrDefault("rol", decodedToken.getClaims().get("role"));
+            String rol = claimRol == null ? null : String.valueOf(claimRol);
 
             // SEGURIDAD: Solo STAFF puede ver la lista de todos los clientes
             if (!"STAFF".equalsIgnoreCase(rol) && !"ADMIN".equalsIgnoreCase(rol)) {
@@ -127,8 +175,8 @@ public class PerfilController {
 
             return ResponseEntity.ok(perfilService.listarTodosLosClientes());
 
-        } catch (FirebaseAuthException e) {
-            return ResponseEntity.status(401).body("Token inválido.");
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
         }
     }
 
@@ -139,19 +187,16 @@ public class PerfilController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody PerfilRequestDTO requestDTO) {
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("Falta el header Authorization.");
-            }
-
-            String token = authHeader.replace("Bearer ", "");
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
             String uidVerdadero = decodedToken.getUid();
 
             PersonaModel perfilActualizado = perfilService.actualizarMiPerfil(uidVerdadero, requestDTO);
             return ResponseEntity.ok(perfilActualizado);
 
-        } catch (FirebaseAuthException e) {
-            return ResponseEntity.status(401).body("Token inválido.");
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
+        } catch (ProfileNotFoundException e) {
+            return profileNotFound(e);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -161,21 +206,44 @@ public class PerfilController {
     @DeleteMapping("/eliminar")
     public ResponseEntity<?> eliminarPerfil(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("Falta el header Authorization.");
-            }
-
-            String token = authHeader.replace("Bearer ", "");
-            FirebaseToken decodedToken = FirebaseAuth.getInstance().verifyIdToken(token);
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
             String uidVerdadero = decodedToken.getUid();
 
             perfilService.eliminarMiPerfil(uidVerdadero);
             return ResponseEntity.ok("Perfil eliminado correctamente de la base de datos.");
 
-        } catch (FirebaseAuthException e) {
-            return ResponseEntity.status(401).body("Token inválido.");
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
+        } catch (ProfileNotFoundException e) {
+            return profileNotFound(e);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    private ResponseEntity<String> responseStatus(ResponseStatusException e) {
+        return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+    }
+
+    private ResponseEntity<Map<String, String>> profileNotFound(ProfileNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                "message", e.getMessage(),
+                "code", "PROFILE_NOT_FOUND"
+        ));
+    }
+
+    private void validarStaffPropioOAdmin(String authHeader, UUID idStaff) {
+        FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
+        Object claimRol = decodedToken.getClaims().getOrDefault("rol", decodedToken.getClaims().get("role"));
+        String rol = claimRol == null ? null : String.valueOf(claimRol);
+
+        if ("ADMIN".equalsIgnoreCase(rol)) {
+            return;
+        }
+
+        PersonaModel staff = perfilService.obtenerStaffPorId(idStaff);
+        if (!decodedToken.getUid().equals(staff.getIdAuth())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo puedes modificar tu propio portfolio.");
         }
     }
 }

@@ -43,6 +43,7 @@ export const router = createBrowserRouter([
       { path: 'servicios/:categoria', element: lazyRoute(() => import('../pages/public/ServiceCategoryPage.jsx'), 'ServiceCategoryPage') },
       { path: 'profesionales', element: lazyRoute(() => import('../pages/public/ProfessionalsPage.jsx'), 'ProfessionalsPage') },
       { path: 'productos', element: lazyRoute(() => import('../pages/public/ProductsPage.jsx'), 'ProductsPage') },
+      { path: 'productos/:categorySlug', element: lazyRoute(() => import('../pages/public/ProductsPage.jsx'), 'ProductsPage') },
       { path: 'nosotros', element: lazyRoute(() => import('../pages/public/AboutPage.jsx'), 'AboutPage') },
       { path: 'contacto', element: lazyRoute(() => import('../pages/public/ContactPage.jsx'), 'ContactPage') },
       { path: 'reservar', element: protectedRoute(lazyRoute(() => import('../pages/client/BookingPage.jsx'), 'BookingPage')) },
@@ -54,6 +55,11 @@ export const router = createBrowserRouter([
       { path: 'perfil', element: protectedRoute(lazyRoute(() => import('../pages/client/ProfilePage.jsx'), 'ProfilePage')) },
       { path: 'reserva-extraordinaria', element: protectedRoute(lazyRoute(() => import('../pages/client/ExtraordinaryBookingPage.jsx'), 'ExtraordinaryBookingPage')) },
     ],
+  },
+  {
+    path: '/staff',
+    element: protectedRoute(lazyRoute(() => import('../pages/staff/StaffPortalPage.jsx'), 'StaffPortalPage'), ['STAFF', 'ADMIN']),
+    errorElement: <RouteErrorBoundary />,
   },
   {
     path: '/admin',

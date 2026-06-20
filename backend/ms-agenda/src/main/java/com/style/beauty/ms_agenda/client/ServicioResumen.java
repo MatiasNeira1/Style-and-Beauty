@@ -2,6 +2,7 @@ package com.style.beauty.ms_agenda.client;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public record ServicioResumen(
@@ -16,6 +17,12 @@ public record ServicioResumen(
         Integer duracionMinutos,
 
         @JsonAlias({"holgura_minutos", "holguraMinutos", "holguraMin"})
-        Integer holguraMinutos
+        Integer holguraMinutos,
+
+        @JsonAlias({"precio_total", "precioTotal", "precio", "price"})
+        BigDecimal precioTotal
 ){
+    public ServicioResumen(UUID idServicio, String nombre, String categoria, Integer duracionMinutos, Integer holguraMinutos) {
+        this(idServicio, nombre, categoria, duracionMinutos, holguraMinutos, null);
+    }
 }

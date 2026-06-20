@@ -1,24 +1,11 @@
-const PAGOS_API_BASE_URL =
-  (import.meta.env.VITE_PAGOS_API_BASE_URL || import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080')
-    .replace(/\/$/, '')
-    .replace(/\/api$/i, '');
+import { API_BASE_URL, request } from './apiClient.js';
 
 export async function crearTransaccionWebpay(payload) {
-  const response = await fetch(
-    `${PAGOS_API_BASE_URL}/api/pagos/webpay/crear`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    },
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || 'Error al crear transaccion Webpay');
-  }
-
-  return response.json();
+  return request({
+    baseURL: API_BASE_URL,
+    url: '/api/pagos/webpay/crear',
+    method: 'POST',
+    authRequired: true,
+    data: payload,
+  });
 }

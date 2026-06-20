@@ -154,6 +154,12 @@ Configurar secretos/variables:
 - `TZ=America/Santiago`
 - `APP_AGENDA_ZONE=America/Santiago`
 
+Microservicios esperados en Azure Container Apps:
+
+- `sb-catalogo`
+- `sb-perfiles`
+- `sb-inventario`
+
 Modo ahorro entorno TEST:
 
 ```bash

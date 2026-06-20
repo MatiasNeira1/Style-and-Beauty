@@ -33,8 +33,11 @@ public class StaffModel extends PersonaModel {
     @Column(name = "experiencia_anios")
     private Integer experienciaAnios;
 
-    @Column(nullable = false)
+    @Transient
     private Boolean activo = true;
+
+    @Transient
+    private List<StaffPortfolioImageModel> portfolioImages;
 
     @OneToMany(mappedBy = "staff", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore

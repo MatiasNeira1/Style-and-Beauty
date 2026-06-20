@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, Clock, ExternalLink, Instagram, Lock, Mail, MapPin, MessageCircle, Phone, Send } from 'lucide-react';
 import { Button } from '../../components/ui/Button.jsx';
@@ -7,6 +7,8 @@ import { Card } from '../../components/ui/Card.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { contactService } from '../../services/contactService.js';
+import { isProfileNotFoundError } from '../../services/apiClient.js';
+import { profileService } from '../../services/profileService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 
 const whatsappUrl = 'https://wa.me/56958612677';
@@ -24,12 +26,30 @@ const contactItems = [
   { icon: Clock, label: 'Horario', value: 'Lun a Sáb, 09:00 a 19:30' },
 ];
 
+const defaultContactReason = 'Solicitud de contacto';
+const contactReasons = ['Agradecimiento', 'Queja', 'Sugerencia', defaultContactReason];
+
+function profileName(profile) {
+  return `${profile?.nombre || ''} ${profile?.apellidos || ''}`.trim() || 'Cliente Style and Beauty';
+}
+
 export function ContactPage() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sent, setSent] = useState(false);
   const contactMutation = useMutation({ mutationFn: contactService.sendMessage });
+  const profileQuery = useQuery({
+    queryKey: ['my-profile'],
+    queryFn: profileService.getMyProfile,
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  const profile = profileQuery.data;
+  const contactName = profileName(profile);
+  const contactEmailProfile = profile?.emailContacto || profile?.email || '';
+  const contactPhoneProfile = profile?.telefono || '';
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -43,10 +63,10 @@ export function ContactPage() {
     const form = event.currentTarget;
     const formData = new FormData(form);
     const payload = {
-      name: formData.get('name'),
-      email: formData.get('email'),
-      phone: formData.get('phone'),
-      subject: formData.get('subject'),
+      name: contactName,
+      email: contactEmailProfile,
+      phone: contactPhoneProfile,
+      subject: formData.get('subject') || defaultContactReason,
       message: formData.get('message'),
     };
 
@@ -87,16 +107,35 @@ export function ContactPage() {
               </Card>
             ) : (
               <form className="stack" onSubmit={handleSubmit}>
-                <div className="form-grid">
-                  <Input id="contact-name" name="name" label="Nombre" required />
-                  <Input id="contact-email" name="email" label="Email" type="email" required />
-                  <Input id="contact-phone" name="phone" label="Teléfono" />
-                  <Input id="contact-subject" name="subject" label="Motivo" />
+                {profileQuery.isLoading && <p className="professional-empty">Cargando tus datos de cliente...</p>}
+                {profileQuery.isError && (
+                  <p className="admin-alert">
+                    {isProfileNotFoundError(profileQuery.error)
+                      ? 'Completa tu perfil de cliente antes de enviar un mensaje.'
+                      : profileQuery.error?.message || 'No fue posible cargar tu perfil.'}
+                    {isProfileNotFoundError(profileQuery.error) && (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/perfil')}>Ir a mi perfil</Button>
+                    )}
+                  </p>
+                )}
+                {profile && (
+                  <div className="contact-profile-summary">
+                    <span className="card-kicker">Datos del cliente</span>
+                    <strong>{contactName}</strong>
+                    <p>{contactEmailProfile || 'Correo no registrado'} · {contactPhoneProfile || 'Telefono no registrado'}</p>
+                  </div>
+                )}
+                <div className="form-grid form-grid-single">
+                  <Input id="contact-subject" name="subject" label="Motivo" as="select" defaultValue={defaultContactReason} required>
+                    {contactReasons.map((reason) => (
+                      <option key={reason} value={reason}>{reason}</option>
+                    ))}
+                  </Input>
                 </div>
                 <Input id="contact-message" name="message" as="textarea" label="Mensaje" rows={6} required />
                 {sent && <p className="success-alert">Mensaje enviado. El equipo te contactara a la brevedad.</p>}
                 {contactMutation.isError && <p className="admin-alert">{contactMutation.error?.message || 'No fue posible enviar el mensaje.'}</p>}
-                <Button type="submit" disabled={contactMutation.isPending}>
+                <Button type="submit" disabled={contactMutation.isPending || profileQuery.isLoading || profileQuery.isError || !profile?.idPersona}>
                   <Send size={18} /> {contactMutation.isPending ? 'Enviando...' : 'Enviar mensaje'}
                 </Button>
               </form>

@@ -28,12 +28,20 @@ public class ServicioStaffController {
         return ResponseEntity.ok(servicioStaffService.asignar(request));
     }
 
-    @GetMapping("/api/servicio/{idServicio}/staff")
+    @GetMapping({
+            "/api/servicio/{idServicio}/staff",
+            "/api/servicios/{idServicio}/staff",
+            "/api/catalogo/servicios/{idServicio}/staff"
+    })
     public List<StaffServicioResponse> listarPorServicio(@PathVariable UUID idServicio) {
         return servicioStaffService.listarPorServicio(idServicio);
     }
 
-    @GetMapping("/api/servicio/{idServicio}/staff/{idStaff}/validar")
+    @GetMapping({
+            "/api/servicio/{idServicio}/staff/{idStaff}/validar",
+            "/api/servicios/{idServicio}/staff/{idStaff}/validar",
+            "/api/catalogo/servicios/{idServicio}/staff/{idStaff}/validar"
+    })
     public boolean validarStaffServicio(
             @PathVariable UUID idServicio,
             @PathVariable UUID idStaff

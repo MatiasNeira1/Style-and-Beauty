@@ -19,6 +19,59 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../../components/ui/Button.jsx';
 import { useAuth } from '../../store/AuthContext.jsx';
 
+function validateRut(rut) {
+  if (!rut || typeof rut !== 'string') return false;
+  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (cleanRut.length < 2) return false;
+  
+  const body = cleanRut.slice(0, -1);
+  const dv = cleanRut.slice(-1);
+  
+  let sum = 0;
+  let multiplier = 2;
+  for (let i = body.length - 1; i >= 0; i--) {
+    sum += parseInt(body[i], 10) * multiplier;
+    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  }
+  
+  const expectedDv = 11 - (sum % 11);
+  let calculatedDv = '';
+  if (expectedDv === 11) {
+    calculatedDv = '0';
+  } else if (expectedDv === 10) {
+    calculatedDv = 'K';
+  } else {
+    calculatedDv = String(expectedDv);
+  }
+  
+  return calculatedDv === dv;
+}
+
+function formatRut(value) {
+  if (!value) return '';
+  let clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
+  if (clean.length === 0) return '';
+  clean = clean.slice(0, 9);
+  
+  if (clean.length <= 1) {
+    return clean;
+  }
+  
+  const dv = clean.slice(-1);
+  const body = clean.slice(0, -1);
+  
+  let formattedBody = '';
+  if (body.length <= 3) {
+    formattedBody = body;
+  } else if (body.length <= 6) {
+    formattedBody = body.slice(0, body.length - 3) + '.' + body.slice(body.length - 3);
+  } else {
+    formattedBody = body.slice(0, body.length - 6) + '.' + body.slice(body.length - 6, body.length - 3) + '.' + body.slice(body.length - 3);
+  }
+  
+  return formattedBody + '-' + dv;
+}
+
 const initialForm = {
   rut: '',
   nombre: '',
@@ -148,6 +201,10 @@ const getRegisterErrorMessage = (registerError) => {
 
   if (normalizedMessage.includes('obligatorio') || normalizedMessage.includes('requerido')) {
     return 'Completa todos los campos obligatorios.';
+  }
+
+  if (normalizedMessage.includes('rol') || normalizedMessage.includes('role') || normalizedMessage.includes('claim')) {
+    return 'No se pudo completar la creación de tu perfil. Intenta nuevamente.';
   }
 
   return message || 'No se pudo crear la cuenta.';
@@ -401,7 +458,8 @@ export function RegisterPage() {
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
+    const finalValue = name === 'rut' ? formatRut(value) : value;
+    setForm((current) => ({ ...current, [name]: finalValue }));
   };
 
   const updateFormValue = (name, value) => {
@@ -414,6 +472,11 @@ export function RegisterPage() {
 
     if (!form.rut || !form.nombre || !form.emailContacto || !form.password || !form.fechaNacimiento || !form.genero) {
       setError('Completa todos los campos obligatorios.');
+      return;
+    }
+
+    if (!validateRut(form.rut)) {
+      setError('El RUT no es válido (ej: 12.345.678-9).');
       return;
     }
 
@@ -439,6 +502,17 @@ export function RegisterPage() {
         ...form,
         genero: form.genero.trim().toLowerCase(),
       };
+
+      try {
+        const pendingData = {
+          ...profile,
+          emailContacto: profile.emailContacto || form.emailContacto,
+        };
+        window.localStorage.setItem('style_beauty_pending_profile', JSON.stringify(pendingData));
+        window.sessionStorage.setItem('style_beauty_pending_profile', JSON.stringify(pendingData));
+      } catch (storageErr) {
+        console.warn('Failed to save pending profile data in RegisterPage:', storageErr);
+      }
 
       await registerClient({
         email: form.emailContacto,

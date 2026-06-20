@@ -1,26 +1,74 @@
 import { AGENDA_API_BASE_URL, PROFILES_API_BASE_URL, request } from './apiClient.js';
+import { assertBookingDateAllowed } from '../utils/bookingDateRules.js';
 
-function normalizeAvailabilityPayload({ serviceId, professionalId, date }) {
-  return {
-    idServicio: serviceId,
-    idStaff: professionalId,
-    fecha: date,
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isValidUuid(value) {
+  return typeof value === 'string' && UUID_PATTERN.test(value.trim());
+}
+
+function normalizeAvailabilityPayload({ idServicio, idStaff, fecha, idCliente }) {
+  if (!isValidUuid(idServicio) || !isValidUuid(idStaff) || !fecha) {
+    throw new Error('Selecciona servicio, profesional y fecha para consultar disponibilidad.');
+  }
+  assertBookingDateAllowed(fecha);
+
+  const data = {
+    idServicio,
+    idStaff,
+    fecha,
   };
+  if (isValidUuid(idCliente)) data.idCliente = idCliente;
+  return data;
 }
 
 export const reservationService = {
   getMe: () => request({ baseURL: PROFILES_API_BASE_URL, url: '/api/perfiles/me', authRequired: true }),
 
-  getAvailability: ({ serviceId, professionalId, date }) =>
+  listMyUpcomingReservations: () =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/mis-proximas',
+      authRequired: true,
+    }),
+
+  listMyHistoryReservations: () =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/historial',
+      authRequired: true,
+    }),
+
+  evaluateReservation: (reservationId, rating, comment) =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: `/api/agenda/citas/${reservationId}/evaluar`,
+      method: 'POST',
+      authRequired: true,
+      data: {
+        calificacion: rating,
+        comentarioCalificacion: comment,
+      },
+    }),
+
+  getAvailability: ({ idServicio, idStaff, fecha, idCliente }) =>
     request({
       baseURL: AGENDA_API_BASE_URL,
       url: '/api/agenda/citas/disponibilidad',
       method: 'POST',
-      data: normalizeAvailabilityPayload({ serviceId, professionalId, date }),
+      data: normalizeAvailabilityPayload({ idServicio, idStaff, fecha, idCliente }),
     }),
 
-  createReservation: ({ serviceId, professionalId, startsAt, note, clientId }) =>
-    request({
+  createReservation: ({ serviceId, professionalId, startsAt, note, clientId }) => {
+    if (!clientId) {
+      throw new Error('Tu perfil de cliente debe estar completo para confirmar la reserva.');
+    }
+    if (!isValidUuid(serviceId) || !isValidUuid(professionalId) || !startsAt) {
+      throw new Error('Selecciona servicio, profesional y horario para continuar.');
+    }
+    assertBookingDateAllowed(startsAt.slice(0, 10));
+
+    return request({
       baseURL: AGENDA_API_BASE_URL,
       url: '/api/agenda/citas',
       method: 'POST',
@@ -32,5 +80,15 @@ export const reservationService = {
         fechaHoraInicio: startsAt,
         observacionCliente: note,
       },
+    });
+  },
+
+  cancelReservation: (reservationId) =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: `/api/agenda/citas/${reservationId}`,
+      method: 'DELETE',
+      authRequired: true,
     }),
+  isValidUuid,
 };

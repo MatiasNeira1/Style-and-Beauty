@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
 import { Card } from '../ui/Card.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
+import { formatCLP } from '../../utils/priceUtils.js';
 
 function getServiceId(service) {
   return service.id_servicio || service.idServicio || service.id || service.nombre;
@@ -10,7 +10,7 @@ function getServiceId(service) {
 function servicePrice(service) {
   const value = service.precio_total ?? service.precio ?? service.price;
   if (value === undefined || value === null || value === '') return 'Consultar';
-  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
+  return formatCLP(value);
 }
 
 function serviceDuration(service) {
@@ -53,18 +53,15 @@ export function ServiceSelector({ services = [], selectedId, onSelect }) {
       )}
 
       <div className="grid-list">
-        {filteredServices.map((service, index) => {
+        {filteredServices.map((service) => {
           const id = getServiceId(service);
           const isSelected = id === selectedId;
           return (
-            <motion.button
+            <button
               key={id}
               type="button"
               className={isSelected ? 'select-card active' : 'select-card'}
               onClick={() => onSelect?.(service)}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.035 }}
             >
               <Card className="service-choice-card">
                 <SafeImage className="service-choice-image" src={serviceImage(service)} alt={service.nombre || service.name || 'Servicio'} />
@@ -76,7 +73,7 @@ export function ServiceSelector({ services = [], selectedId, onSelect }) {
                 <p>{service.descripcion || service.description || 'Atención personalizada con acabado profesional.'}</p>
                 <span className="choice-meta">{serviceDuration(service)}</span>
               </Card>
-            </motion.button>
+            </button>
           );
         })}
       </div>

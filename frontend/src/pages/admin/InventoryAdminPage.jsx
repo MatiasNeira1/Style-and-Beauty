@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Camera, Edit3, Image as ImageIcon, Package, PackagePlus, PowerOff, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, Camera, Edit3, Package, PackagePlus, Plus, Power, PowerOff, Save, Search, Trash2, X } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
+import { Modal } from '../../components/ui/Modal.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { inventoryService } from '../../services/inventoryService.js';
 import { formatCurrencyCLP } from '../../utils/adminFormatters.js';
@@ -13,8 +14,20 @@ const initialProductForm = {
   nombre: '',
   categoria: '',
   descripcion: '',
+  imagenUrl: '',
   precio: '',
 };
+
+const PRODUCT_NAME_MAX_LENGTH = 70;
+const PRODUCT_DESCRIPTION_MAX_LENGTH = 180;
+
+const PRODUCT_CATEGORIES = [
+  'Cabello',
+  'Nails',
+  'Cuidados de la piel',
+  'Spa',
+  'Maquillaje',
+];
 
 const initialStockForm = {
   idProducto: '',
@@ -23,35 +36,249 @@ const initialStockForm = {
   stockMinimo: '',
 };
 
-const initialMovementForm = {
-  idProducto: '',
-  tipoMovimiento: 'ENTRADA',
-  cantidad: '',
-  motivo: '',
-};
-
 function getProductId(product) {
   return product.idProducto || product.id || product.uuid;
 }
 
 function productImage(product) {
-  return product.imagenUrl || product.imageUrl || product.imagen_url || product.imagen || product.image;
+  return product?.imagenUrl || product?.imageUrl || product?.imagen_url || product?.imagen || product?.image || '';
+}
+
+function productFormFrom(product) {
+  return {
+    nombre: String(product.nombre || '').slice(0, PRODUCT_NAME_MAX_LENGTH),
+    categoria: product.categoria || '',
+    descripcion: String(product.descripcion || '').slice(0, PRODUCT_DESCRIPTION_MAX_LENGTH),
+    imagenUrl: productImage(product) || '',
+    precio: product.precio ?? '',
+  };
+}
+
+function ProductFormModal({
+  open,
+  title,
+  form,
+  imagePreview,
+  imageError,
+  categoryError,
+  isEditing,
+  isSaving,
+  error,
+  onChange,
+  onImageChange,
+  onClose,
+  onSubmit,
+}) {
+  return (
+    <Modal open={open} title={title} onClose={onClose}>
+      <form className="admin-modal-form" onSubmit={onSubmit}>
+        <div className="admin-modal-section form-grid">
+          <Input
+            label="Nombre"
+            id="inventory-name"
+            name="nombre"
+            value={form.nombre}
+            onChange={onChange}
+            placeholder="Crema hidratante"
+            maxLength={PRODUCT_NAME_MAX_LENGTH}
+            hint={`${form.nombre.length}/${PRODUCT_NAME_MAX_LENGTH} caracteres`}
+            required
+          />
+          <Input as="select" label="Categoría" id="inventory-category" name="categoria" value={form.categoria} onChange={onChange} error={categoryError} required>
+            <option value="">Seleccionar categoría</option>
+            {PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+          </Input>
+          <Input label="Precio" id="inventory-price" name="precio" type="number" min="0" step="10" value={form.precio} onChange={onChange} placeholder="Precio ($xx.xxx)" required />
+          <Input
+            as="textarea"
+            label="Descripcion"
+            id="inventory-description"
+            name="descripcion"
+            value={form.descripcion}
+            onChange={onChange}
+            placeholder="Breve descripcion visible para clientes"
+            maxLength={PRODUCT_DESCRIPTION_MAX_LENGTH}
+            hint={`${form.descripcion.length}/${PRODUCT_DESCRIPTION_MAX_LENGTH} caracteres`}
+            rows={3}
+          />
+        </div>
+        <div className="admin-image-field compact">
+          {imagePreview && <SafeImage src={imagePreview} alt="Imagen del producto" />}
+          <label className="button button-ghost button-sm staff-file-button">
+            <span className="button-content"><Camera size={14} /> Imagen</span>
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onImageChange(event.target.files?.[0])} />
+          </label>
+          <span className="admin-modal-hint">
+            {isEditing ? 'Puedes conservar la imagen actual. ' : 'La imagen es obligatoria para publicar productos. '}
+            Resolución recomendable: 1200 x 1200 px
+          </span>
+        </div>
+        {imageError && <p className="admin-alert compact">{imageError}</p>}
+        {error && <p className="admin-alert">{error.message}</p>}
+        <div className="admin-modal-actions">
+          <Button type="button" variant="ghost" onClick={onClose}><X size={16} /> Cancelar</Button>
+          <Button type="submit" disabled={isSaving}>
+            <Save size={16} />
+            {isSaving ? 'Guardando...' : 'Guardar producto'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function CategoryCoverModal({
+  open,
+  category,
+  imagePreview,
+  imageError,
+  isSaving,
+  onImageChange,
+  onClose,
+  onSubmit,
+}) {
+  return (
+    <Modal open={open} title={`Portada de ${category || 'categoría'}`} onClose={onClose} closeDisabled={isSaving}>
+      <form className="admin-modal-form" onSubmit={onSubmit}>
+        <div className="admin-cover-modal-preview">
+          {imagePreview ? (
+            <SafeImage src={imagePreview} alt={`Portada de ${category}`} />
+          ) : (
+            <span aria-hidden="true">{category?.slice(0, 1).toUpperCase() || '?'}</span>
+          )}
+        </div>
+        <label className="button button-ghost button-sm staff-file-button">
+          <span className="button-content"><Camera size={14} /> Seleccionar imagen</span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => {
+              onImageChange(event.target.files?.[0]);
+              event.target.value = '';
+            }}
+          />
+        </label>
+        <p className="admin-modal-hint">Resolución recomendable: 1200 x 1200 px</p>
+        {imageError && <p className="admin-alert compact">{imageError}</p>}
+        <div className="admin-modal-actions">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}><X size={16} /> Cerrar</Button>
+          <Button type="submit" disabled={isSaving}>
+            <Save size={16} /> {isSaving ? 'Subiendo...' : 'Guardar portada'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function StockFormModal({
+  open,
+  form,
+  products,
+  isSaving,
+  error,
+  onChange,
+  onClose,
+  onSubmit,
+}) {
+  return (
+    <Modal open={open} title="Registrar stock inicial" onClose={onClose}>
+      <form className="admin-modal-form" onSubmit={onSubmit}>
+        <div className="admin-modal-section form-grid">
+          <Input as="select" label="Producto" id="stock-product" name="idProducto" value={form.idProducto} onChange={onChange} required>
+            <option value="">Seleccionar producto</option>
+            {products.map((product) => <option key={getProductId(product)} value={getProductId(product)}>{product.nombre}</option>)}
+          </Input>
+          <Input label="Cantidad" id="stock-qty" name="cantidadActual" type="number" min="0" value={form.cantidadActual} onChange={onChange} placeholder="Ej. 12" required />
+          <Input label="Unidad" id="stock-unit" name="unidadMedida" value={form.unidadMedida} onChange={onChange} placeholder="unidad, ml, gr" required />
+          <Input label="Stock minimo" id="stock-min" name="stockMinimo" type="number" min="0" value={form.stockMinimo} onChange={onChange} placeholder="Ej. 5" />
+        </div>
+        <p className="admin-modal-hint">Usa este modal solo para cargar la existencia inicial del producto. Los movimientos avanzados se habilitaran cuando existan sucursales.</p>
+        {error && <p className="admin-alert">{error.message}</p>}
+        <div className="admin-modal-actions">
+          <Button type="button" variant="ghost" onClick={onClose}><X size={16} /> Cancelar</Button>
+          <Button type="submit" disabled={isSaving}><PackagePlus size={16} /> {isSaving ? 'Registrando...' : 'Registrar stock'}</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function ProductDetailModal({
+  product,
+  stock,
+  onClose,
+  onEdit,
+  onDelete,
+  onToggleStatus,
+  onUploadImage,
+  isMutating,
+}) {
+  return (
+    <Modal open={Boolean(product)} title="Detalle del producto" onClose={onClose}>
+      {product && (
+        <div className="admin-detail-modal">
+          <div className="admin-detail-hero with-media">
+            <SafeImage src={productImage(product)} alt={product.nombre || 'Producto'} />
+            <div>
+              <span>{product.categoria || 'Sin categoria'}</span>
+              <h3>{product.nombre || 'Producto sin nombre'}</h3>
+              <p>{product.descripcion || 'Sin descripcion registrada.'}</p>
+            </div>
+            <AdminStatusBadge status={product.activo ? 'ACTIVO' : 'INACTIVO'} />
+          </div>
+          <div className="admin-detail-grid">
+            <div><span>Precio</span><strong>{formatCurrencyCLP(product.precio || 0)}</strong></div>
+            <div><span>Stock</span><strong>{stock?.cantidadActual ?? 0} {stock?.unidadMedida || 'unidades'}</strong></div>
+            <div><span>Minimo</span><strong>{stock?.stockMinimo ?? 0}</strong></div>
+            <div><span>ID</span><strong>{getProductId(product)}</strong></div>
+          </div>
+          <div className="admin-modal-actions">
+            <Button type="button" variant="ghost" onClick={onClose}>Cerrar</Button>
+            <Button type="button" variant="ghost" onClick={() => onEdit(product)}><Edit3 size={16} /> Editar</Button>
+            <label className="button button-ghost staff-file-button">
+              <span className="button-content"><Camera size={16} /> Cambiar imagen</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onUploadImage(product, event)} />
+            </label>
+            {product.activo === true ? (
+              <Button type="button" variant="ghost" onClick={() => onToggleStatus(product)} disabled={isMutating}><PowerOff size={16} /> Desactivar</Button>
+            ) : (
+              <Button type="button" variant="ghost" onClick={() => onToggleStatus(product)} disabled={isMutating}><Power size={16} /> Habilitar</Button>
+            )}
+            <Button type="button" variant="ghost" onClick={() => onDelete(getProductId(product))} disabled={isMutating}><Trash2 size={16} /> Eliminar</Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
 }
 
 export function InventoryAdminPage() {
   const queryClient = useQueryClient();
   const [productForm, setProductForm] = useState(initialProductForm);
   const [editingProductId, setEditingProductId] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productModalOpen, setProductModalOpen] = useState(false);
   const [productImageFile, setProductImageFile] = useState(null);
   const [productImagePreview, setProductImagePreview] = useState('');
   const [productImageError, setProductImageError] = useState('');
+  const [productCategoryError, setProductCategoryError] = useState('');
   const [stockForm, setStockForm] = useState(initialStockForm);
-  const [movementForm, setMovementForm] = useState(initialMovementForm);
+  const [stockModalOpen, setStockModalOpen] = useState(false);
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('TODAS');
+  const [statusFilter, setStatusFilter] = useState('TODOS');
+  const [coverCategory, setCoverCategory] = useState(null);
+  const [categoryCoverFile, setCategoryCoverFile] = useState(null);
+  const [categoryCoverPreview, setCategoryCoverPreview] = useState('');
+  const [categoryCoverError, setCategoryCoverError] = useState('');
 
   const productsQuery = useQuery({ queryKey: ['inventory-admin'], queryFn: inventoryService.listProducts });
   const stockQuery = useQuery({ queryKey: ['inventory-stock'], queryFn: inventoryService.listStock });
+  const categoryCoversQuery = useQuery({ queryKey: ['category-covers'], queryFn: inventoryService.getCategoryCovers });
 
-  const products = Array.isArray(productsQuery.data) ? productsQuery.data : [];
+  const products = useMemo(() => (Array.isArray(productsQuery.data) ? productsQuery.data : []), [productsQuery.data]);
   const stockByProduct = useMemo(() => {
     const stockRows = Array.isArray(stockQuery.data) ? stockQuery.data : [];
     return stockRows.reduce((acc, stock) => {
@@ -59,11 +286,53 @@ export function InventoryAdminPage() {
       return acc;
     }, {});
   }, [stockQuery.data]);
+  const filteredProducts = useMemo(() => {
+    const needle = inventorySearch.trim().toLowerCase();
+    return products.filter((product) => {
+      const productId = getProductId(product);
+      const stock = stockByProduct[productId];
+      const qty = Number(stock?.cantidadActual ?? 0);
+      const min = Number(stock?.stockMinimo ?? 0);
+      const haystack = [
+        product.nombre,
+        product.categoria,
+        product.descripcion,
+        productId,
+      ].filter(Boolean).join(' ').toLowerCase();
+      const matchesSearch = needle ? haystack.includes(needle) : true;
+      const matchesCategory = categoryFilter === 'TODAS' ? true : product.categoria === categoryFilter;
+      const matchesStatus = statusFilter === 'TODOS'
+        ? true
+        : statusFilter === 'ACTIVO'
+          ? product.activo !== false
+          : statusFilter === 'INACTIVO'
+            ? product.activo === false
+            : statusFilter === 'BAJO_STOCK'
+              ? qty <= min
+              : qty === 0;
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [categoryFilter, inventorySearch, products, statusFilter, stockByProduct]);
 
   const invalidateInventory = () => {
     queryClient.invalidateQueries({ queryKey: ['inventory-admin'] });
     queryClient.invalidateQueries({ queryKey: ['inventory-stock'] });
     queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
+  };
+
+  const applyUpdatedProduct = (updatedProduct) => {
+    if (!updatedProduct) return;
+    const updatedProductId = getProductId(updatedProduct);
+    queryClient.setQueryData(['inventory-admin'], (current) => {
+      const currentProducts = Array.isArray(current) ? current : [];
+      const exists = currentProducts.some((product) => getProductId(product) === updatedProductId);
+      return exists
+        ? currentProducts.map((product) => (getProductId(product) === updatedProductId ? updatedProduct : product))
+        : [...currentProducts, updatedProduct];
+    });
+    setSelectedProduct((current) => (
+      current && getProductId(current) === updatedProductId ? updatedProduct : current
+    ));
   };
 
   useEffect(() => {
@@ -72,6 +341,100 @@ export function InventoryAdminPage() {
     setProductImagePreview(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [productImageFile]);
+
+  useEffect(() => {
+    if (!categoryCoverFile) return undefined;
+    const objectUrl = URL.createObjectURL(categoryCoverFile);
+    setCategoryCoverPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [categoryCoverFile]);
+
+  const categoryCoversByName = useMemo(() => {
+    const rows = Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : [];
+    return rows.reduce((acc, cover) => {
+      if (cover?.categoria) acc[cover.categoria] = cover;
+      return acc;
+    }, {});
+  }, [categoryCoversQuery.data]);
+
+  const openCategoryCover = (category) => {
+    setCoverCategory(category);
+    setCategoryCoverFile(null);
+    setCategoryCoverPreview(categoryCoversByName[category]?.imagenUrl || '');
+    setCategoryCoverError('');
+  };
+
+  const closeCategoryCover = () => {
+    setCoverCategory(null);
+    setCategoryCoverFile(null);
+    setCategoryCoverPreview('');
+    setCategoryCoverError('');
+  };
+
+  const validateAndSetCategoryCover = (file) => {
+    const currentCoverUrl = categoryCoversByName[coverCategory]?.imagenUrl || '';
+    setCategoryCoverError('');
+    if (!file) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentCoverUrl);
+      setCategoryCoverError('Selecciona una imagen para la portada.');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentCoverUrl);
+      setCategoryCoverError('Solo se permiten imágenes JPG, PNG o WEBP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentCoverUrl);
+      setCategoryCoverError('La imagen no puede superar 5 MB.');
+      return;
+    }
+    setCategoryCoverFile(file);
+  };
+
+  const resetProductModal = () => {
+    setProductModalOpen(false);
+    setEditingProductId(null);
+    setEditingProduct(null);
+    setProductForm(initialProductForm);
+    setProductImageFile(null);
+    setProductImagePreview('');
+    setProductImageError('');
+    setProductCategoryError('');
+  };
+
+  const resetStockModal = () => {
+    setStockModalOpen(false);
+    setStockForm(initialStockForm);
+  };
+
+  const openCreateProduct = () => {
+    setSelectedProduct(null);
+    setEditingProductId(null);
+    setEditingProduct(null);
+    setProductForm(initialProductForm);
+    setProductImagePreview('');
+    setProductImageFile(null);
+    setProductImageError('');
+    setProductCategoryError('');
+    setProductModalOpen(true);
+  };
+
+  const openEditProduct = (product) => {
+    const existingImageUrl = productImage(product) || '';
+    setSelectedProduct(null);
+    setEditingProductId(getProductId(product));
+    setEditingProduct(product);
+    setProductForm({ ...productFormFrom(product), imagenUrl: existingImageUrl });
+    setProductImagePreview(existingImageUrl);
+    setProductImageFile(null);
+    setProductImageError('');
+    setProductCategoryError('');
+    setProductModalOpen(true);
+  };
 
   const validateAndSetProductImage = (file) => {
     setProductImageError('');
@@ -97,124 +460,103 @@ export function InventoryAdminPage() {
       let savedProduct;
       if (editingProductId) {
         savedProduct = await inventoryService.updateProduct(editingProductId, payload);
-      } else {
-        savedProduct = await inventoryService.createProduct(payload);
+        if (productImageFile) {
+          return inventoryService.uploadProductImage(editingProductId, productImageFile);
+        }
+        return savedProduct;
       }
-
-      if (productImageFile) {
-        return inventoryService.uploadProductImage(getProductId(savedProduct) || editingProductId, productImageFile);
-      }
-
-      return savedProduct;
+      return inventoryService.createProductWithImage(payload, productImageFile);
     },
-    onSuccess: () => {
-      setProductForm(initialProductForm);
-      setEditingProductId(null);
-      setProductImageFile(null);
-      setProductImagePreview('');
-      setProductImageError('');
+    onSuccess: (updatedProduct) => {
+      applyUpdatedProduct(updatedProduct);
+      resetProductModal();
       invalidateInventory();
     },
   });
 
   const createStockMutation = useMutation({
-    mutationFn: (payload) =>
-      inventoryService.createStock({
-        ...payload,
-        cantidadActual: Number(payload.cantidadActual),
-        stockMinimo: payload.stockMinimo === '' ? 0 : Number(payload.stockMinimo),
-      }),
+    mutationFn: (payload) => inventoryService.createStock({
+      ...payload,
+      cantidadActual: Number(payload.cantidadActual),
+      stockMinimo: payload.stockMinimo === '' ? 0 : Number(payload.stockMinimo),
+    }),
     onSuccess: () => {
       setStockForm(initialStockForm);
+      setStockModalOpen(false);
       invalidateInventory();
     },
   });
 
-  const movementMutation = useMutation({
-    mutationFn: (payload) =>
-      inventoryService.registerMovement({
-        ...payload,
-        cantidad: Number(payload.cantidad),
-      }),
-    onSuccess: () => {
-      setMovementForm(initialMovementForm);
+  const productStatusMutation = useMutation({
+    mutationFn: (product) => (
+      product.activo === true
+        ? inventoryService.deactivateProduct(getProductId(product))
+        : inventoryService.activateProduct(getProductId(product))
+    ),
+    onSuccess: (updatedProduct) => {
+      applyUpdatedProduct(updatedProduct);
       invalidateInventory();
     },
   });
-
-  const deactivateMutation = useMutation({
-    mutationFn: inventoryService.deactivateProduct,
-    onSuccess: invalidateInventory,
-  });
-
   const deleteMutation = useMutation({
     mutationFn: inventoryService.deleteProduct,
-    onSuccess: invalidateInventory,
+    onSuccess: () => {
+      setSelectedProduct(null);
+      invalidateInventory();
+    },
   });
-
   const productImageMutation = useMutation({
     mutationFn: ({ productId, file }) => inventoryService.uploadProductImage(productId, file),
-    onSuccess: invalidateInventory,
+    onSuccess: (updatedProduct) => {
+      applyUpdatedProduct(updatedProduct);
+      invalidateInventory();
+    },
   });
-
-  const deleteProductImageMutation = useMutation({
-    mutationFn: inventoryService.deleteProductImage,
-    onSuccess: invalidateInventory,
+  const categoryCoverMutation = useMutation({
+    mutationFn: ({ category, file }) => inventoryService.uploadCategoryCover(category, file),
+    onSuccess: (updatedCover) => {
+      queryClient.setQueryData(['category-covers'], (current) => {
+        const covers = Array.isArray(current) ? current : [];
+        const exists = covers.some((cover) => cover.categoria === updatedCover.categoria);
+        return exists
+          ? covers.map((cover) => (cover.categoria === updatedCover.categoria ? updatedCover : cover))
+          : [...covers, updatedCover];
+      });
+      closeCategoryCover();
+    },
+    onError: (error) => {
+      setCategoryCoverError(error.message || 'No se pudo actualizar la portada.');
+    },
   });
-
-  const handleProductChange = (event) => {
-    const { name, value } = event.target;
-    setProductForm((current) => ({ ...current, [name]: value }));
-  };
-
-  const handleStockChange = (event) => {
-    const { name, value } = event.target;
-    setStockForm((current) => ({ ...current, [name]: value }));
-  };
-
-  const handleMovementChange = (event) => {
-    const { name, value } = event.target;
-    setMovementForm((current) => ({ ...current, [name]: value }));
-  };
 
   const handleProductSubmit = (event) => {
     event.preventDefault();
     if (productImageError) return;
-    saveProductMutation.mutate({
-      ...productForm,
-      precio: Number(productForm.precio),
-    });
-  };
+    const isEditing = Boolean(editingProductId);
+    const existingImageUrl = isEditing
+      ? productForm.imagenUrl || productImage(editingProduct)
+      : '';
+    const hasExistingImage = Boolean(existingImageUrl || productImagePreview);
+    const hasNewImage = Boolean(productImageFile);
+    const normalizedPrice = Number(productForm.precio);
 
-  const handleStockSubmit = (event) => {
-    event.preventDefault();
-    createStockMutation.mutate(stockForm);
-  };
-
-  const handleMovementSubmit = (event) => {
-    event.preventDefault();
-    movementMutation.mutate(movementForm);
-  };
-
-  const startEditing = (product) => {
-    setEditingProductId(getProductId(product));
-    setProductImageFile(null);
-    setProductImagePreview(productImage(product) || '');
-    setProductImageError('');
-    setProductForm({
-      nombre: product.nombre || '',
-      categoria: product.categoria || '',
-      descripcion: product.descripcion || '',
-      precio: product.precio ?? '',
-    });
-  };
-
-  const cancelEditing = () => {
-    setEditingProductId(null);
-    setProductForm(initialProductForm);
-    setProductImageFile(null);
-    setProductImagePreview('');
-    setProductImageError('');
+    if (!PRODUCT_CATEGORIES.includes(productForm.categoria)) {
+      setProductCategoryError('Selecciona una categoría válida.');
+      return;
+    }
+    if ((!isEditing && !hasNewImage) || (isEditing && !hasExistingImage && !hasNewImage)) {
+      setProductImageError('La imagen del producto es obligatoria.');
+      return;
+    }
+    setProductCategoryError('');
+    const payload = {
+      nombre: productForm.nombre.trim(),
+      categoria: productForm.categoria,
+      descripcion: productForm.descripcion.trim(),
+      precio: normalizedPrice,
+      ...(isEditing && existingImageUrl ? { imagenUrl: existingImageUrl } : {}),
+    };
+    saveProductMutation.mutate(payload);
   };
 
   const handleTableProductImageChange = (product, event) => {
@@ -222,6 +564,15 @@ export function InventoryAdminPage() {
     event.target.value = '';
     if (!file) return;
     productImageMutation.mutate({ productId: getProductId(product), file });
+  };
+
+  const handleCategoryCoverSubmit = (event) => {
+    event.preventDefault();
+    if (!categoryCoverFile) {
+      setCategoryCoverError('Selecciona una imagen para la portada.');
+      return;
+    }
+    categoryCoverMutation.mutate({ category: coverCategory, file: categoryCoverFile });
   };
 
   const isLoading = productsQuery.isLoading || stockQuery.isLoading;
@@ -234,6 +585,7 @@ export function InventoryAdminPage() {
     const qty = stockByProduct[getProductId(product)]?.cantidadActual || 0;
     return sum + Number(product.precio || 0) * Number(qty);
   }, 0);
+  const isMutating = productStatusMutation.isPending || deleteMutation.isPending || productImageMutation.isPending;
 
   return (
     <div className="admin-dashboard">
@@ -241,96 +593,105 @@ export function InventoryAdminPage() {
         eyebrow="Gestion"
         title="Inventario de productos"
         description="Control de productos, existencias, alertas de bajo stock y movimientos."
+        actions={<Button type="button" size="sm" onClick={openCreateProduct}><Plus size={16} /> Agregar producto</Button>}
       />
 
       <AdminKpiGrid>
-        <AdminKpiCard icon={Package} title="Total productos" value={products.length} trend={6} microcopy="Productos registrados" tone="rose" />
+        <AdminKpiCard icon={Package} title="Total productos" value={products.length} trend={0} microcopy="Productos registrados" tone="rose" />
         <AdminKpiCard icon={AlertCircle} title="Bajo stock" value={lowStock.length} trend={lowStock.length ? -8 : 0} microcopy="Reponer con prioridad" tone="gold" />
         <AdminKpiCard icon={PowerOff} title="Sin stock" value={outStock.length} trend={outStock.length ? -12 : 0} microcopy="Stock en cero" tone="ink" />
-        <AdminKpiCard icon={PackagePlus} title="Valor estimado" value={formatCurrencyCLP(estimatedValue)} trend={4} microcopy="Precio x cantidad actual" tone="sage" />
+        <AdminKpiCard icon={PackagePlus} title="Valor estimado" value={formatCurrencyCLP(estimatedValue)} trend={0} microcopy="Precio x cantidad actual" tone="sage" />
       </AdminKpiGrid>
 
-      <form className="admin-panel" onSubmit={handleProductSubmit}>
-        <h3>{editingProductId ? 'Editar producto' : 'Crear producto'}</h3>
-        <div className="form-grid">
-          <Input label="Nombre" id="inventory-name" name="nombre" value={productForm.nombre} onChange={handleProductChange} required />
-          <Input label="Categoria" id="inventory-category" name="categoria" value={productForm.categoria} onChange={handleProductChange} required />
-          <Input label="Precio" id="inventory-price" name="precio" type="number" min="0" step="100" value={productForm.precio} onChange={handleProductChange} required />
-          <Input label="Descripcion" id="inventory-description" name="descripcion" value={productForm.descripcion} onChange={handleProductChange} />
+      <section className="admin-panel compact-panel admin-inventory-actions">
+        <header>
+          <div>
+            <h3>Acciones de inventario</h3>
+            <p>Registra stock inicial desde un modal. Los movimientos se habilitaran cuando existan sucursales.</p>
+          </div>
+          <div className="admin-action-row">
+            <Button type="button" size="sm" onClick={() => setStockModalOpen(true)}><PackagePlus size={16} /> Registrar stock inicial</Button>
+            <Button type="button" size="sm" variant="secondary" disabled><Save size={16} /> Movimiento de stock - Proximamente</Button>
+          </div>
+        </header>
+      </section>
+
+      <section className="admin-panel compact-panel admin-category-covers">
+        <header>
+          <div>
+            <h3>Portadas de categorías</h3>
+            <p>Imágenes de las tarjetas públicas en /productos. No modifican productos individuales.</p>
+          </div>
+        </header>
+        {categoryCoversQuery.isError && <p className="admin-alert compact">{categoryCoversQuery.error.message}</p>}
+        <div className="admin-category-cover-grid">
+          {PRODUCT_CATEGORIES.map((category) => {
+            const coverUrl = categoryCoversByName[category]?.imagenUrl || '';
+            return (
+              <article className="admin-category-cover-card" key={category}>
+                <div className="admin-category-cover-media">
+                  {coverUrl ? (
+                    <SafeImage src={coverUrl} alt={`Portada de ${category}`} />
+                  ) : (
+                    <span aria-hidden="true">{category.slice(0, 1).toUpperCase()}</span>
+                  )}
+                </div>
+                <div>
+                  <strong>{category}</strong>
+                  <span className={coverUrl ? 'admin-cover-status configured' : 'admin-cover-status'}>
+                    {coverUrl ? 'Portada configurada' : 'Sin portada configurada'}
+                  </span>
+                </div>
+                <Button type="button" size="sm" variant="ghost" onClick={() => openCategoryCover(category)}>
+                  <Camera size={14} /> Cambiar portada
+                </Button>
+              </article>
+            );
+          })}
         </div>
-        <div className="admin-image-field">
-          <SafeImage src={productImagePreview} alt="Imagen del producto" />
-          <label className="button button-ghost button-sm staff-file-button">
-            <span className="button-content"><Camera size={14} /> Imagen</span>
-            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => validateAndSetProductImage(event.target.files?.[0])} />
-          </label>
-          {productImageError && <p className="admin-alert compact">{productImageError}</p>}
-        </div>
-        {saveProductMutation.isError && <p className="admin-alert">{saveProductMutation.error.message}</p>}
-        {(productImageMutation.isError || deleteProductImageMutation.isError) && <p className="admin-alert">{productImageMutation.error?.message || deleteProductImageMutation.error?.message}</p>}
-        <div className="flex flex-wrap gap-3">
-          <Button type="submit" disabled={saveProductMutation.isPending}>
-            <Save size={16} />
-            {saveProductMutation.isPending ? 'Guardando...' : editingProductId ? 'Guardar cambios' : 'Crear producto'}
-          </Button>
-          {editingProductId && (
-            <Button type="button" variant="ghost" onClick={cancelEditing}>
-              <X size={16} />
-              Cancelar
-            </Button>
+      </section>
+
+      <section className="admin-panel compact-panel">
+        <header>
+          <div>
+            <h3>Busqueda y filtros</h3>
+            <p>Busca por producto, categoria, descripcion o ID.</p>
+          </div>
+          {(inventorySearch || categoryFilter !== 'TODAS' || statusFilter !== 'TODOS') && (
+            <button
+              type="button"
+              className="admin-text-button"
+              onClick={() => {
+                setInventorySearch('');
+                setCategoryFilter('TODAS');
+                setStatusFilter('TODOS');
+              }}
+            >
+              Limpiar filtros
+            </button>
           )}
+        </header>
+        <div className="admin-local-filter-grid">
+          <label className="field admin-search-field">
+            <span>Buscar</span>
+            <div className="admin-filter-search">
+              <Search size={16} />
+              <input value={inventorySearch} onChange={(event) => setInventorySearch(event.target.value)} placeholder="Producto, categoria o ID" />
+            </div>
+          </label>
+          <Input as="select" label="Categoria" id="inventory-category-filter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+            <option value="TODAS">Todas las categorias</option>
+            {PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+          </Input>
+          <Input as="select" label="Estado" id="inventory-status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="TODOS">Todos los estados</option>
+            <option value="ACTIVO">Activos</option>
+            <option value="INACTIVO">Inactivos</option>
+            <option value="BAJO_STOCK">Bajo stock</option>
+            <option value="SIN_STOCK">Sin stock</option>
+          </Input>
         </div>
-      </form>
-
-      <div className="grid-list">
-        <form className="admin-panel" onSubmit={handleStockSubmit}>
-          <h3>Registrar stock inicial</h3>
-          <div className="form-grid">
-            <Input as="select" label="Producto" id="stock-product" name="idProducto" value={stockForm.idProducto} onChange={handleStockChange} required>
-              <option value="">Seleccionar producto</option>
-              {products.map((product) => (
-                <option key={getProductId(product)} value={getProductId(product)}>
-                  {product.nombre}
-                </option>
-              ))}
-            </Input>
-            <Input label="Cantidad" id="stock-qty" name="cantidadActual" type="number" min="0" value={stockForm.cantidadActual} onChange={handleStockChange} required />
-            <Input label="Unidad" id="stock-unit" name="unidadMedida" value={stockForm.unidadMedida} onChange={handleStockChange} required />
-            <Input label="Stock minimo" id="stock-min" name="stockMinimo" type="number" min="0" value={stockForm.stockMinimo} onChange={handleStockChange} />
-          </div>
-          {createStockMutation.isError && <p className="admin-alert">{createStockMutation.error.message}</p>}
-          <Button type="submit" disabled={createStockMutation.isPending}>
-            <PackagePlus size={16} />
-            {createStockMutation.isPending ? 'Registrando...' : 'Registrar stock'}
-          </Button>
-        </form>
-
-        <form className="admin-panel" onSubmit={handleMovementSubmit}>
-          <h3>Movimiento de stock</h3>
-          <div className="form-grid">
-            <Input as="select" label="Producto" id="movement-product" name="idProducto" value={movementForm.idProducto} onChange={handleMovementChange} required>
-              <option value="">Seleccionar producto</option>
-              {products.map((product) => (
-                <option key={getProductId(product)} value={getProductId(product)}>
-                  {product.nombre}
-                </option>
-              ))}
-            </Input>
-            <Input as="select" label="Tipo" id="movement-type" name="tipoMovimiento" value={movementForm.tipoMovimiento} onChange={handleMovementChange} required>
-              <option value="ENTRADA">Entrada</option>
-              <option value="SALIDA">Salida</option>
-              <option value="AJUSTE">Ajuste</option>
-            </Input>
-            <Input label="Cantidad" id="movement-qty" name="cantidad" type="number" min="1" value={movementForm.cantidad} onChange={handleMovementChange} required />
-            <Input label="Motivo" id="movement-reason" name="motivo" value={movementForm.motivo} onChange={handleMovementChange} />
-          </div>
-          {movementMutation.isError && <p className="admin-alert">{movementMutation.error.message}</p>}
-          <Button type="submit" disabled={movementMutation.isPending}>
-            <Save size={16} />
-            {movementMutation.isPending ? 'Aplicando...' : 'Aplicar movimiento'}
-          </Button>
-        </form>
-      </div>
+      </section>
 
       {isLoading ? (
         <AdminSkeleton rows={5} />
@@ -338,38 +699,26 @@ export function InventoryAdminPage() {
         <p className="admin-alert">{error.message}</p>
       ) : (
         <DataTable
+          compact
+          onRowClick={(product) => setSelectedProduct(product)}
+          getRowKey={(product) => getProductId(product)}
+          getRowLabel={(product) => `Ver detalle de ${product.nombre || 'producto'}`}
           columns={[
             {
               key: 'nombre',
               label: 'Producto',
               render: (row) => (
-                <div className="admin-media-cell">
+                <div className="admin-media-cell compact">
                   <SafeImage src={productImage(row)} alt={row.nombre || 'Producto'} />
-                  <div className="flex flex-col">
-                    <span className="font-bold text-ink">{row.nombre || 'Producto sin nombre'}</span>
-                    {row.descripcion && <span className="text-xs text-ink-soft font-normal max-w-sm truncate">{row.descripcion}</span>}
+                  <div className="admin-table-main-cell">
+                    <strong>{row.nombre || 'Producto sin nombre'}</strong>
+                    <span>{row.descripcion || 'Sin descripcion'}</span>
                   </div>
                 </div>
               ),
             },
-            {
-              key: 'categoria',
-              label: 'Categoria',
-              render: (row) => (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#d7ad66]/10 text-[#a87d32] border border-[#d7ad66]/20">
-                  {row.categoria || 'Sin categoria'}
-                </span>
-              ),
-            },
-            {
-              key: 'precio',
-              label: 'Precio',
-              render: (row) => (
-                <span className="text-ink font-bold">
-                  {formatCurrencyCLP(row.precio || 0)}
-                </span>
-              ),
-            },
+            { key: 'categoria', label: 'Categoria', render: (row) => row.categoria || 'Sin categoria' },
+            { key: 'precio', label: 'Precio', render: (row) => formatCurrencyCLP(row.precio || 0) },
             {
               key: 'stock',
               label: 'Stock',
@@ -377,59 +726,77 @@ export function InventoryAdminPage() {
                 const stock = stockByProduct[getProductId(row)];
                 const qty = stock?.cantidadActual ?? 0;
                 const min = stock?.stockMinimo ?? 0;
-                const isLow = qty <= min;
-                return (
-                  <div className="flex items-center gap-1.5 font-bold text-sm">
-                    {isLow ? (
-                      <span className="flex items-center gap-1 text-primary">
-                        <AlertCircle size={14} />
-                        <span>{qty} {stock?.unidadMedida || 'unidades'}</span>
-                      </span>
-                    ) : (
-                      <span className="text-sage">{qty} {stock?.unidadMedida || 'unidades'}</span>
-                    )}
-                  </div>
-                );
+                return <span className={qty <= min ? 'admin-table-danger' : ''}>{qty} {stock?.unidadMedida || 'unidades'}</span>;
               },
             },
             { key: 'activo', label: 'Estado', render: (row) => <AdminStatusBadge status={row.activo ? 'ACTIVO' : 'INACTIVO'} /> },
-            {
-              key: 'acciones',
-              label: 'Acciones',
-              render: (row) => {
-                const productId = getProductId(row);
-                return (
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" size="sm" variant="ghost" onClick={() => startEditing(row)}>
-                      <Edit3 size={14} />
-                      Editar
-                    </Button>
-                    <label className="button button-ghost button-sm staff-file-button">
-                      <span className="button-content"><Camera size={14} /> Imagen</span>
-                      <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleTableProductImageChange(row, event)} />
-                    </label>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => deleteProductImageMutation.mutate(productId)} disabled={deleteProductImageMutation.isPending || !productImage(row)}>
-                      <ImageIcon size={14} />
-                      Quitar
-                    </Button>
-                    {row.activo && (
-                      <Button type="button" size="sm" variant="ghost" onClick={() => deactivateMutation.mutate(productId)} disabled={deactivateMutation.isPending}>
-                        <PowerOff size={14} />
-                        Desactivar
-                      </Button>
-                    )}
-                    <Button type="button" size="sm" variant="ghost" onClick={() => deleteMutation.mutate(productId)} disabled={deleteMutation.isPending}>
-                      <Trash2 size={14} />
-                      Eliminar
-                    </Button>
-                  </div>
-                );
-              },
-            },
           ]}
-          rows={products}
-          emptyMessage="No hay productos registrados. Crea un producto para comenzar a controlar inventario."
+          rows={filteredProducts}
+          emptyMessage="No hay productos registrados. Agrega un producto para comenzar a controlar inventario."
         />
+      )}
+
+      <ProductFormModal
+        open={productModalOpen}
+        title={editingProductId ? 'Editar producto' : 'Agregar producto'}
+        form={productForm}
+        imagePreview={productImagePreview}
+        imageError={productImageError}
+        categoryError={productCategoryError}
+        isEditing={Boolean(editingProductId)}
+        isSaving={saveProductMutation.isPending}
+        error={saveProductMutation.error}
+        onChange={(event) => {
+          const { name, value } = event.target;
+          setProductForm((current) => ({ ...current, [name]: value }));
+          if (name === 'categoria') setProductCategoryError('');
+        }}
+        onImageChange={validateAndSetProductImage}
+        onClose={resetProductModal}
+        onSubmit={handleProductSubmit}
+      />
+
+      <CategoryCoverModal
+        open={Boolean(coverCategory)}
+        category={coverCategory}
+        imagePreview={categoryCoverPreview}
+        imageError={categoryCoverError}
+        isSaving={categoryCoverMutation.isPending}
+        onImageChange={validateAndSetCategoryCover}
+        onClose={closeCategoryCover}
+        onSubmit={handleCategoryCoverSubmit}
+      />
+
+      <StockFormModal
+        open={stockModalOpen}
+        form={stockForm}
+        products={products}
+        isSaving={createStockMutation.isPending}
+        error={createStockMutation.error}
+        onChange={(event) => {
+          const { name, value } = event.target;
+          setStockForm((current) => ({ ...current, [name]: value }));
+        }}
+        onClose={resetStockModal}
+        onSubmit={(event) => {
+          event.preventDefault();
+          createStockMutation.mutate(stockForm);
+        }}
+      />
+
+      <ProductDetailModal
+        product={selectedProduct}
+        stock={selectedProduct ? stockByProduct[getProductId(selectedProduct)] : null}
+        onClose={() => setSelectedProduct(null)}
+        onEdit={openEditProduct}
+        onDelete={(id) => deleteMutation.mutate(id)}
+        onToggleStatus={(product) => productStatusMutation.mutate(product)}
+        onUploadImage={handleTableProductImageChange}
+        isMutating={isMutating}
+      />
+
+      {(productImageMutation.isError || productStatusMutation.isError || deleteMutation.isError) && (
+        <p className="admin-alert">{productImageMutation.error?.message || productStatusMutation.error?.message || deleteMutation.error?.message}</p>
       )}
     </div>
   );

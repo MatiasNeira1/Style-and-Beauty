@@ -13,7 +13,7 @@ public class CatalogoClient {
 
     public CatalogoClient(
             RestClient.Builder builder,
-            @Value("${ms.catalogo.base-url:http://localhost:8083}") String catalogoBaseUrl
+            @Value("${ms.catalogo.base-url}") String catalogoBaseUrl
     ) {
         this.restClient = builder.baseUrl(catalogoBaseUrl).build();
     }

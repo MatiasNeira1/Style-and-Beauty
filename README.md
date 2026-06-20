@@ -31,7 +31,7 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 ```
 
-El archivo `frontend/public/_redirects` habilita rutas SPA de React Router. El archivo `frontend/public/_headers` agrega headers basicos de seguridad y cache immutable para assets.
+Cloudflare Pages sirve rutas SPA de React Router automaticamente cuando no existe un `404.html` de nivel raiz en el build. No agregar un `_redirects` global como `/* /index.html 200`: Cloudflare lo rechaza como loop. El archivo `frontend/public/_headers` agrega headers basicos de seguridad y cache immutable para assets.
 
 ## Ejecucion local
 

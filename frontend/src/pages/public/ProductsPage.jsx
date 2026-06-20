@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Reveal } from '../../components/animations/Reveal.jsx';
 import { ProductsBrands } from '../../components/shop/ProductsBrands.jsx';
 import { ProductsByBrand } from '../../components/shop/ProductsByBrand.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
+import { inventoryService } from '../../services/inventoryService.js';
 import { productService } from '../../services/productService.js';
 import { useCart } from '../../store/CartContext.jsx';
 
@@ -17,25 +18,37 @@ function slugify(value) {
     .replace(/(^-|-$)/g, '') || 'sin-categoria';
 }
 
-function categoryCard(category, count) {
+function productImage(product) {
+  return product?.imagenUrl || product?.imagen_url || product?.imageUrl || product?.image || product?.imagen;
+}
+
+function categoryCard(category, data, coverUrl) {
   const name = category || 'Sin categoria';
 
   return {
     id: slugify(name),
     nombre: name,
-    descripcion: `${count} productos disponibles en inventario.`,
-    count,
-    logo: '/logo.jpg',
+    descripcion: `${data.count} productos disponibles en inventario.`,
+    count: data.count,
+    coverUrl: coverUrl || '',
+    logo: coverUrl || data.logo,
   };
 }
 
 export function ProductsPage() {
   const { addItem } = useCart();
   const location = useLocation();
-  const [selectedBrand, setSelectedBrand] = useState(null);
+  const navigate = useNavigate();
+  const { categorySlug } = useParams();
   const productsQuery = useQuery({
     queryKey: ['public-products'],
     queryFn: productService.listProducts,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
+  });
+  const categoryCoversQuery = useQuery({
+    queryKey: ['category-covers'],
+    queryFn: inventoryService.getCategoryCovers,
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 30,
   });
@@ -45,17 +58,38 @@ export function ProductsPage() {
     return rows.filter((product) => product.activo !== false);
   }, [productsQuery.data]);
 
+  const coversByCategory = useMemo(() => {
+    const rows = Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : [];
+    return rows.reduce((acc, cover) => {
+      if (cover?.categoria && cover?.imagenUrl) {
+        acc[slugify(cover.categoria)] = cover.imagenUrl;
+      }
+      return acc;
+    }, {});
+  }, [categoryCoversQuery.data]);
+
   const productBrands = useMemo(() => {
     const countsByCategory = products.reduce((acc, product) => {
       const category = product.categoria || 'Sin categoria';
-      acc[category] = (acc[category] || 0) + 1;
+      if (!acc[category]) {
+        acc[category] = { count: 0, logo: productImage(product) };
+      }
+      acc[category].count += 1;
+      if (!acc[category].logo) {
+        acc[category].logo = productImage(product);
+      }
       return acc;
     }, {});
 
     return Object.entries(countsByCategory)
       .sort(([first], [second]) => first.localeCompare(second))
-      .map(([category, count]) => categoryCard(category, count));
-  }, [products]);
+      .map(([category, data]) => categoryCard(category, data, coversByCategory[slugify(category)]));
+  }, [coversByCategory, products]);
+
+  const selectedBrand = useMemo(
+    () => productBrands.find((brand) => brand.id === categorySlug) || null,
+    [categorySlug, productBrands],
+  );
 
   const visibleProducts = useMemo(() => (
     selectedBrand
@@ -65,27 +99,34 @@ export function ProductsPage() {
 
   const heroTitle = selectedBrand?.nombre || 'Productos profesionales';
   const heroSubtitle = selectedBrand?.descripcion || 'Primero elige una categoria y luego revisa productos disponibles.';
+  const heroCoverUrl = selectedBrand?.coverUrl || '';
 
   useEffect(() => {
-    if (location.state?.showProductsHome) {
-      setSelectedBrand(null);
+    if (location.state?.showProductsHome && categorySlug) {
+      navigate('/productos', { replace: true });
     }
-  }, [location.state?.showProductsHome]);
+  }, [categorySlug, location.state?.showProductsHome, navigate]);
 
   const handleSelectBrand = useCallback((brand) => {
-    setSelectedBrand(brand);
-  }, []);
+    navigate(`/productos/${brand.id}`);
+  }, [navigate]);
 
   const handleBackToBrands = useCallback(() => {
-    setSelectedBrand(null);
-  }, []);
+    navigate('/productos');
+  }, [navigate]);
 
   return (
     <>
-      <section className="products-hero">
-        <div className="products-hero-media" />
-        <div className="products-hero-overlay" />
-        <div className="products-hero-content">
+      <section
+        className="page-hero page-hero-products"
+        style={heroCoverUrl ? {
+          '--page-hero-image': `url("${heroCoverUrl}")`,
+          '--page-hero-position': 'center',
+        } : undefined}
+      >
+        <div className="page-hero-media" />
+        <div className="page-hero-overlay" />
+        <div className="page-hero-content">
           <span className="card-kicker">Shop</span>
           <h1>{heroTitle}</h1>
           <p>{heroSubtitle}</p>
@@ -95,7 +136,7 @@ export function ProductsPage() {
       <section className="page-section products-section catalog-page">
         {!selectedBrand ? (
           <>
-            <SectionTitle eyebrow="Categorias" title="Catalogo por categorias">
+            <SectionTitle eyebrow="Categorias" title="Productos por categoria">
               Productos profesionales cargados desde inventario.
             </SectionTitle>
             {productsQuery.isLoading ? (
@@ -111,9 +152,7 @@ export function ProductsPage() {
                 <p style={{ color: 'var(--color-muted)', marginTop: '0.5rem', maxWidth: '400px', marginInline: 'auto' }}>No pudimos cargar los productos en este momento. Por favor, intenta de nuevo más tarde.</p>
               </div>
             ) : productBrands.length ? (
-              <Reveal>
-                <ProductsBrands brands={productBrands} onSelect={handleSelectBrand} />
-              </Reveal>
+              <ProductsBrands brands={productBrands} onSelect={handleSelectBrand} />
             ) : (
               <div className="client-empty-state" style={{ padding: '4rem 1rem', background: 'var(--color-surface-glass)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-line)' }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '4rem', height: '4rem', borderRadius: '50%', background: 'rgba(212, 122, 158, 0.1)', color: 'var(--color-primary-strong)', marginBottom: '1rem' }}>

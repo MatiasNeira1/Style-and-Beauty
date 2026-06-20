@@ -101,6 +101,7 @@ Use immutable tags for demos, for example `2026-06-08-db65796`, not only
 | `VITE_API_URL` | `https://api.styleandbeauty.me/api` | No |
 | `VITE_API_BASE_URL` | `https://api.styleandbeauty.me` | No |
 | `VITE_ASSETS_BASE_URL` | empty or CDN URL | No |
+| `VITE_HOME_HERO_IMAGE_URL` | public Azure Blob URL for the jefes image | No |
 | `VITE_USE_MOCKS` | `false` | No |
 | `VITE_FIREBASE_API_KEY` | Firebase Web API key | No, but environment-specific |
 | `VITE_FIREBASE_AUTH_DOMAIN` | `<project>.firebaseapp.com` | No |
@@ -154,6 +155,12 @@ Use immutable tags for demos, for example `2026-06-08-db65796`, not only
 ### Azure Blob Storage
 
 Images are uploaded only through backend endpoints. Configure `AZURE_STORAGE_CONNECTION_STRING` as a Container Apps secret and `AZURE_STORAGE_CONTAINER=stylebeauty` for `ms-perfiles`, `ms-catalogo` and `ms-inventario`.
+
+Expected Container Apps service names for this integration:
+
+- `sb-catalogo`
+- `sb-perfiles`
+- `sb-inventario`
 
 See `docs/azure-blob-storage.md` for upload/delete endpoints, frontend routes touched, Docker commands and Container Apps scale-to-zero notes.
 | `GOOGLE_CALENDAR_DEFAULT_CALENDAR_ID` | agenda if enabled | Usually no |
@@ -315,6 +322,10 @@ Runtime:
 - Protected endpoints return expected `200/201` with fresh Firebase token.
 - CORS preflight succeeds from final frontend domain.
 - Logs have no Firebase Admin, datasource, migration, or pool exhaustion errors.
+- For production booking/profile flows, keep `sb-auth`, `sb-perfiles`,
+  `sb-agenda`, `sb-catalogo` and `sb-gateway` warm with at least
+  `minReplicas=1`, or expect first-hit latency/timeouts while ACA scales from
+  zero.
 
 ## Runtime Files and n8n
 
