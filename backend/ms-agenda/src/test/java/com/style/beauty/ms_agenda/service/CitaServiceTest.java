@@ -602,7 +602,9 @@ class CitaServiceTest {
         assertThatThrownBy(() -> citaService.finalizarCitaStaff(idCita, ID_STAFF))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("otro profesional");
-      
+    }
+
+    @Test
     void listarPorClientePermiteFiltrosNulosYMapeaLaRespuesta() {
         Cita cita = cita(at(9, 0), at(10, 0), at(10, 30));
         cita.setIdCita(UUID.randomUUID());
