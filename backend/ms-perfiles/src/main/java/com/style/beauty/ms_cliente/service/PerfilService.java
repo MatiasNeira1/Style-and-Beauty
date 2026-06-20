@@ -280,6 +280,29 @@ public class PerfilService {
         return actualizarPerfil(idAuth, dto, false);
     }
 
+    @Transactional
+    public PersonaModel actualizarFotoPropia(String idAuth, MultipartFile file) {
+        PersonaModel persona = obtenerMiPerfil(idAuth);
+        String fotoActual;
+        String carpeta;
+
+        if (persona instanceof ClienteModel cliente) {
+            fotoActual = cliente.getFotoUrl();
+            carpeta = "perfiles/clientes";
+            String imageUrl = azureBlobStorageService.replace(fotoActual, file, carpeta);
+            cliente.setFotoUrl(imageUrl);
+        } else if (persona instanceof StaffModel staff) {
+            fotoActual = esLogoCorporativo(staff.getFotoUrl()) ? null : staff.getFotoUrl();
+            carpeta = "profesionales";
+            String imageUrl = azureBlobStorageService.replace(fotoActual, file, carpeta);
+            staff.setFotoUrl(imageUrl);
+        } else {
+            throw new IllegalArgumentException("El perfil actual no admite una foto de perfil.");
+        }
+
+        return personaRepository.save(persona);
+    }
+
     public PersonaModel actualizarPerfilComoAdmin(String idAuth, PerfilRequestDTO dto) {
         return actualizarPerfil(idAuth, dto, true);
     }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { CalendarClock, UserRound, Save, Activity, Stethoscope, Star, MessageSquarePlus, CheckCircle } from 'lucide-react';
+import { CalendarClock, UserRound, Save, Activity, Stethoscope, Star, MessageSquarePlus, CheckCircle, Camera } from 'lucide-react';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Input } from '../../components/ui/Input.jsx';
@@ -224,78 +224,28 @@ function BirthDateSelects({ value, onChange, error }) {
   );
 }
 
-function compressImage(file, maxWidth = 80, maxHeight = 80, quality = 0.5) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-
-        const minSize = Math.min(width, height);
-        canvas.width = maxWidth;
-        canvas.height = maxHeight;
-        const ctx = canvas.getContext('2d');
-        
-        const sx = (width - minSize) / 2;
-        const sy = (height - minSize) / 2;
-        
-        ctx.drawImage(img, sx, sy, minSize, minSize, 0, 0, maxWidth, maxHeight);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = reject;
-    };
-    reader.onerror = reject;
-  });
-}
-
-function ProfilePictureUpload({ photoUrl, onPhotoChange }) {
-  const handleFileChange = async (event) => {
+function ProfilePictureUpload({ photoUrl, onPhotoChange, isUploading = false, error = '', initials = '' }) {
+  const handleFileChange = (event) => {
     const file = event.target.files?.[0];
-    if (file) {
-      try {
-        const compressed = await compressImage(file);
-        onPhotoChange(compressed);
-      } catch (err) {
-        console.error('Error compressing image:', err);
-      }
-    }
+    event.target.value = '';
+    if (file) onPhotoChange(file);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
-      <label style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', cursor: 'pointer', display: 'block', border: '2px solid var(--color-primary-light)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', transition: 'all 0.2s ease-in-out', margin: '0 auto' }}>
-        <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+    <div className="profile-photo-control">
+      <label className="profile-photo-avatar">
+        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} disabled={isUploading} />
         {photoUrl ? (
-          <img src={photoUrl} alt="Foto de perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={photoUrl} alt="Foto de perfil" />
         ) : (
-          <div style={{ width: '100%', height: '100%', background: 'rgba(212, 122, 158, 0.08)', color: 'var(--color-primary-strong)', display: 'grid', placeItems: 'center' }}>
-            <UserRound size={40} />
+          <div className="profile-photo-placeholder">
+            {initials ? <span>{initials}</span> : <UserRound size={48} />}
           </div>
         )}
-        <div 
-          style={{ 
-            position: 'absolute', 
-            inset: 0, 
-            background: 'rgba(0, 0, 0, 0.4)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            color: '#fff', 
-            opacity: 0, 
-            transition: 'opacity 0.2s ease' 
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-          onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
-        >
-          <span style={{ fontSize: '0.7rem', fontWeight: 600 }}>Cambiar</span>
-        </div>
+        <span className="profile-photo-action"><Camera size={15} /> {isUploading ? 'Subiendo...' : 'Cambiar foto'}</span>
       </label>
-      <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>Haz clic para cambiar foto</span>
+      <span className="profile-photo-hint">JPG, PNG o WEBP · máximo 5 MB</span>
+      {error && <span className="profile-photo-error">{error}</span>}
     </div>
   );
 }
@@ -655,12 +605,9 @@ export function ProfilePage() {
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [photoPreview, setPhotoPreview] = useState('');
-
-  useEffect(() => {
-    if (user?.photoURL) {
-      setPhotoPreview(user.photoURL);
-    }
-  }, [user]);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoError, setPhotoError] = useState('');
+  const [photoUploadPending, setPhotoUploadPending] = useState(false);
 
   // Fetch real profile data from backend
   const { data: profile, isLoading, error: profileError } = useQuery({
@@ -669,6 +616,17 @@ export function ProfilePage() {
     enabled: !!user,
     retry: false,
   });
+
+  useEffect(() => {
+    if (!photoFile) setPhotoPreview(profile?.fotoUrl || user?.photoURL || '');
+  }, [photoFile, profile?.fotoUrl, user?.photoURL]);
+
+  useEffect(() => {
+    if (!photoFile) return undefined;
+    const objectUrl = URL.createObjectURL(photoFile);
+    setPhotoPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [photoFile]);
 
   const upcomingAppointmentsQuery = useQuery({
     queryKey: ['my-upcoming-reservations', profile?.idPersona],
@@ -745,6 +703,50 @@ export function ProfilePage() {
     }
   }, [profileError, reset, user]);
 
+  const handlePhotoChange = (file) => {
+    setPhotoError('');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setPhotoFile(null);
+      setPhotoError('Selecciona una imagen JPG, PNG o WEBP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoFile(null);
+      setPhotoError('La imagen no puede superar 5 MB.');
+      return;
+    }
+    setPhotoFile(file);
+  };
+
+  const uploadSelectedPhoto = async () => {
+    if (!photoFile) return null;
+    setPhotoUploadPending(true);
+    setPhotoError('');
+    try {
+      const updatedProfile = await profileService.uploadMyPhoto(photoFile);
+      const persistedUrl = updatedProfile?.fotoUrl || '';
+      queryClient.setQueryData(['myProfile'], updatedProfile);
+      queryClient.setQueryData(['my-profile'], updatedProfile);
+      setPhotoPreview(persistedUrl);
+      setPhotoFile(null);
+
+      if (persistedUrl) {
+        try {
+          const sessionWithPhoto = await firebaseAuthService.updatePhoto(persistedUrl);
+          setSession(sessionWithPhoto);
+        } catch (firebaseError) {
+          console.warn('La foto se guardó en el perfil, pero Firebase no pudo sincronizarla:', firebaseError);
+        }
+      }
+      return updatedProfile;
+    } catch (error) {
+      setPhotoError(error.message || 'No se pudo actualizar la foto de perfil.');
+      throw error;
+    } finally {
+      setPhotoUploadPending(false);
+    }
+  };
+
   const updateMutation = useMutation({
     mutationFn: profileService.updateMyProfile,
     onSuccess: (updatedProfile) => {
@@ -764,14 +766,6 @@ export function ProfilePage() {
       if (!user?.uid) {
         throw new Error('Debes iniciar sesion para completar tu perfil.');
       }
-      if (photoPreview && photoPreview !== user?.photoURL) {
-        try {
-          const sessionWithPhoto = await firebaseAuthService.updatePhoto(photoPreview);
-          setSession(sessionWithPhoto);
-        } catch (photoErr) {
-          console.warn('Failed to upload profile photo to Firebase Auth:', photoErr);
-        }
-      }
       await authService.registerClient({ uid: user.uid });
       const session = await firebaseAuthService.refreshSession();
       setSession({
@@ -787,12 +781,15 @@ export function ProfilePage() {
           role: 'CLIENTE',
         },
       });
-      return profileService.createProfile({
+      const createdProfile = await profileService.createProfile({
         ...values,
         emailContacto: values.emailContacto || user?.email,
         genero: values.genero || 'no_especifica',
         tipoPerfil: 'CLIENTE',
       });
+      queryClient.setQueryData(['myProfile'], createdProfile);
+      queryClient.setQueryData(['my-profile'], createdProfile);
+      return (await uploadSelectedPhoto()) || createdProfile;
     },
     onSuccess: async (createdProfile) => {
       queryClient.setQueryData(['myProfile'], createdProfile);
@@ -841,7 +838,13 @@ export function ProfilePage() {
             {successMsg && <div className="success-alert">{successMsg}</div>}
 
             <form onSubmit={handleSubmit((values) => createProfileMutation.mutate(values))} className="profile-completion-form">
-              <ProfilePictureUpload photoUrl={photoPreview} onPhotoChange={setPhotoPreview} />
+              <ProfilePictureUpload
+                photoUrl={photoPreview}
+                onPhotoChange={handlePhotoChange}
+                isUploading={photoUploadPending || createProfileMutation.isPending}
+                error={photoError}
+                initials={`${watchedValues?.nombre?.[0] || ''}${watchedValues?.apellidos?.[0] || ''}`.toUpperCase()}
+              />
               
               <div style={{ marginBottom: '2rem' }}>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-ink)' }}>
@@ -937,7 +940,7 @@ export function ProfilePage() {
 
               <div className="profile-completion-actions">
                 <Button type="button" variant="ghost" onClick={logout}>Cerrar sesion</Button>
-                <Button type="submit" disabled={createProfileMutation.isPending}>
+                <Button type="submit" disabled={createProfileMutation.isPending || photoUploadPending}>
                   {createProfileMutation.isPending ? 'Creando perfil...' : 'Crear mi perfil cliente'}
                 </Button>
               </div>
@@ -964,20 +967,17 @@ export function ProfilePage() {
   }
 
   const onSubmit = async (data) => {
-    if (photoPreview && photoPreview !== user?.photoURL) {
-      try {
-        const sessionWithPhoto = await firebaseAuthService.updatePhoto(photoPreview);
-        setSession(sessionWithPhoto);
-      } catch (photoErr) {
-        console.warn('Failed to upload profile photo to Firebase Auth:', photoErr);
-      }
+    try {
+      await uploadSelectedPhoto();
+      await updateMutation.mutateAsync({
+        telefono: data.telefono,
+        alergias: data.alergias,
+        medicamentos: data.medicamentos,
+        afeccionesPiel: data.afeccionesPiel,
+      });
+    } catch {
+      // Los mensajes de error se muestran desde la mutación o la subida de foto.
     }
-    updateMutation.mutate({
-      telefono: data.telefono,
-      alergias: data.alergias,
-      medicamentos: data.medicamentos,
-      afeccionesPiel: data.afeccionesPiel,
-    });
   };
   const loyaltyPoints = Number(profile?.puntosFidelidad ?? 0);
   const existingProfileEmail = profile?.emailContacto || user?.email || '';
@@ -1084,8 +1084,8 @@ export function ProfilePage() {
           </Card>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button type="submit" disabled={updateMutation.isPending} style={{ padding: '0.8rem 2rem' }}>
-              {updateMutation.isPending ? 'Guardando...' : <><Save size={18} /> Guardar Cambios</>}
+            <Button type="submit" disabled={updateMutation.isPending || photoUploadPending} style={{ padding: '0.8rem 2rem' }}>
+              {updateMutation.isPending || photoUploadPending ? 'Guardando...' : <><Save size={18} /> Guardar Cambios</>}
             </Button>
           </div>
         </form>
@@ -1093,7 +1093,13 @@ export function ProfilePage() {
 
         <div className="profile-side-stack">
         <Card className="profile-card" style={{ textAlign: 'center', padding: '2rem' }}>
-          <ProfilePictureUpload photoUrl={photoPreview} onPhotoChange={setPhotoPreview} />
+          <ProfilePictureUpload
+            photoUrl={photoPreview}
+            onPhotoChange={handlePhotoChange}
+            isUploading={photoUploadPending || updateMutation.isPending}
+            error={photoError}
+            initials={`${profile?.nombre?.[0] || ''}${profile?.apellidos?.[0] || ''}`.toUpperCase()}
+          />
           <h3 style={{ marginBottom: '0.5rem' }}>{profile?.nombre || user?.email}</h3>
           <p style={{ fontSize: '0.9rem', marginBottom: '1.5rem' }}>{profileRoleLabel(user, profile)}</p>
           <Button variant="ghost" onClick={logout} style={{ width: '100%', color: '#b91c1c', borderColor: '#fca5a5' }}>

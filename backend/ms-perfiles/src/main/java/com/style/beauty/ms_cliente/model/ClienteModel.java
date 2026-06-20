@@ -13,6 +13,9 @@ import lombok.EqualsAndHashCode;
 @PrimaryKeyJoinColumn(name = "id_cliente", referencedColumnName = "id_persona")
 public class ClienteModel extends PersonaModel {
 
+    @Column(name = "foto_url")
+    private String fotoUrl;
+
     @Column(name = "puntos_fidelidad", nullable = false)
     private Integer puntosFidelidad = 0;
 

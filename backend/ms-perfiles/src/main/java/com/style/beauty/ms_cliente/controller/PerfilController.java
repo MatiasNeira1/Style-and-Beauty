@@ -101,6 +101,22 @@ public class PerfilController {
         }
     }
 
+    @PostMapping(value = "/me/foto", consumes = "multipart/form-data")
+    public ResponseEntity<?> actualizarMiFoto(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
+            return ResponseEntity.ok(perfilService.actualizarFotoPropia(decodedToken.getUid(), file));
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
+        } catch (ProfileNotFoundException e) {
+            return profileNotFound(e);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     // Listar Clientes (Endpoint Restringido)
     @GetMapping("/staff")
     public ResponseEntity<?> listarStaffPublico() {
