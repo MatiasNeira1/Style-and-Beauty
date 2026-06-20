@@ -9,6 +9,7 @@ import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
+import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.service.CitaService;
@@ -39,9 +40,9 @@ public class CitaController {
     }
 
     @GetMapping("/staff/{idStaff}")
-    public List<Cita> listarPorStaff(@PathVariable UUID idStaff) {
+    public List<CitaAgendaResponse> listarPorStaff(@PathVariable UUID idStaff) {
         log.info("Entrando a endpoint GET /api/agenda/citas/staff/{idStaff}: idStaff={}", idStaff);
-        return citaService.listarPorStaff(idStaff);
+        return citaService.listarAgendaStaff(idStaff);
     }
 
     @GetMapping("/disponibilidad")
@@ -160,5 +161,27 @@ public class CitaController {
     public void cancelar(@PathVariable UUID id) {
         log.info("Entrando a endpoint DELETE /api/agenda/citas/{id}: id={}", id);
         citaService.cancelar(id);
+    }
+
+    @PostMapping("/{id:[0-9a-fA-F-]+}/evaluar")
+    public Cita evaluarCita(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable UUID id,
+            @Valid @RequestBody EvaluarCitaRequest request) {
+        log.info("Entrando a endpoint POST /api/agenda/citas/{id}/evaluar: id={}, calificacion={}", id, request.calificacion());
+
+        String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
+        PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
+        return citaService.evaluarCita(id, cliente.idPersona(), request);
+    }
+
+    @GetMapping("/mis-citas-finalizadas")
+    public List<CitaAgendaResponse> misCitasFinalizadas(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        log.info("Entrando a endpoint GET /api/agenda/citas/mis-citas-finalizadas");
+
+        String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
+        PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
+        return citaService.listarCitasFinalizadasCliente(cliente.idPersona());
     }
 }

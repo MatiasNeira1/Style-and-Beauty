@@ -18,6 +18,8 @@ public record CitaAgendaResponse(
         EstadoCita estadoCita,
         String observacionCliente,
         String observacionStaff,
-        String googleCalendarEventId
+        String googleCalendarEventId,
+        Integer calificacion,
+        String comentarioCalificacion
 ) {
 }

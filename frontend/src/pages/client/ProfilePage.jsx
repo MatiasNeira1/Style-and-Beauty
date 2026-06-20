@@ -393,6 +393,152 @@ function UpcomingAppointmentsCard({ query }) {
   );
 }
 
+function StarRating({ value, onChange, disabled }) {
+  return (
+    <div style={{ display: 'flex', gap: '0.2rem' }}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          disabled={disabled}
+          onClick={() => onChange?.(star)}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: disabled ? 'default' : 'pointer',
+            padding: '2px',
+            color: star <= value ? '#e2b47e' : '#d1d5db',
+            transition: 'color 0.15s',
+          }}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill={star <= value ? '#e2b47e' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PastAppointmentsCard() {
+  const queryClient = useQueryClient();
+  const [ratings, setRatings] = useState({});
+  const [comments, setComments] = useState({});
+
+  const { data: finalized = [], isLoading, isError } = useQuery({
+    queryKey: ['my-finalized-appointments'],
+    queryFn: reservationService.listFinalized,
+    staleTime: 30_000,
+  });
+
+  const evaluateMutation = useMutation({
+    mutationFn: ({ id, calificacion, comentario }) =>
+      reservationService.evaluateReservation(id, { calificacion, comentario }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-finalized-appointments'] });
+    },
+  });
+
+  const pendingRating = finalized.filter((a) => a.calificacion == null);
+  const alreadyRated = finalized.filter((a) => a.calificacion != null);
+
+  if (isLoading) return null;
+  if (isError) return null;
+  if (finalized.length === 0) return null;
+
+  return (
+    <Card style={{ padding: '1.5rem' }}>
+      <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-ink)' }}>
+        <Stethoscope size={18} color="var(--color-primary-strong)" /> Evalúa a tu profesional
+      </h4>
+
+      {pendingRating.length === 0 && (
+        <p style={{ fontSize: '0.9rem', color: 'var(--color-muted)' }}>
+          Ya evaluaste todas tus citas finalizadas. ¡Gracias!
+        </p>
+      )}
+
+      {pendingRating.map((appointment) => {
+        const currentRating = ratings[appointment.idCita] || 0;
+        const currentComment = comments[appointment.idCita] || '';
+        const isPending = evaluateMutation.isPending && evaluateMutation.variables?.id === appointment.idCita;
+
+        return (
+          <div
+            key={appointment.idCita}
+            style={{
+              padding: '0.8rem',
+              marginBottom: '0.6rem',
+              borderRadius: '8px',
+              background: 'rgba(0,0,0,0.02)',
+              border: '1px solid rgba(0,0,0,0.06)',
+            }}
+          >
+            <strong style={{ fontSize: '0.85rem' }}>{appointment.nombreServicio || 'Servicio'}</strong>
+            <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: '0.2rem 0 0.5rem' }}>
+              {appointment.nombreCliente ? `Profesional: ${appointment.nombreCliente}` : ''}
+              {appointment.fechaHoraInicio ? ` — ${formatAppointmentDate(appointment.fechaHoraInicio)}` : ''}
+            </p>
+
+            <StarRating
+              value={currentRating}
+              onChange={(val) => setRatings((prev) => ({ ...prev, [appointment.idCita]: val }))}
+              disabled={isPending}
+            />
+
+            <textarea
+              placeholder="Comentario (opcional)"
+              value={currentComment}
+              onChange={(e) => setComments((prev) => ({ ...prev, [appointment.idCita]: e.target.value }))}
+              disabled={isPending}
+              style={{
+                width: '100%',
+                marginTop: '0.5rem',
+                padding: '0.4rem',
+                border: '1px solid rgba(0,0,0,0.1)',
+                borderRadius: '6px',
+                fontSize: '0.85rem',
+                resize: 'vertical',
+                minHeight: '40px',
+              }}
+            />
+
+            <Button
+              type="button"
+              disabled={currentRating === 0 || isPending}
+              onClick={() =>
+                evaluateMutation.mutate({
+                  id: appointment.idCita,
+                  calificacion: currentRating,
+                  comentario: currentComment || null,
+                })
+              }
+              style={{ marginTop: '0.5rem', padding: '0.4rem 1rem', fontSize: '0.85rem' }}
+            >
+              {isPending ? 'Enviando...' : 'Enviar valoración'}
+            </Button>
+          </div>
+        );
+      })}
+
+      {alreadyRated.length > 0 && (
+        <details style={{ marginTop: '0.8rem' }}>
+          <summary style={{ cursor: 'pointer', fontSize: '0.85rem', color: 'var(--color-primary-strong)' }}>
+            Ver mis valoraciones anteriores ({alreadyRated.length})
+          </summary>
+          {alreadyRated.map((a) => (
+            <div key={a.idCita} style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(0,0,0,0.04)', fontSize: '0.85rem' }}>
+              <strong>{a.nombreServicio}</strong>
+              <span style={{ marginLeft: '0.5rem', color: '#e2b47e' }}>{'★'.repeat(a.calificacion)}{'☆'.repeat(5 - a.calificacion)}</span>
+              {a.comentarioCalificacion && <p style={{ margin: '0.2rem 0 0', color: 'var(--color-muted)' }}>{a.comentarioCalificacion}</p>}
+            </div>
+          ))}
+        </details>
+      )}
+    </Card>
+  );
+}
+
 export function ProfilePage() {
   const { user, logout, setSession } = useAuth();
   const queryClient = useQueryClient();
@@ -836,6 +982,7 @@ export function ProfilePage() {
         </Card>
 
         <UpcomingAppointmentsCard query={upcomingAppointmentsQuery} />
+        <PastAppointmentsCard />
         </div>
       </section>
     </>
