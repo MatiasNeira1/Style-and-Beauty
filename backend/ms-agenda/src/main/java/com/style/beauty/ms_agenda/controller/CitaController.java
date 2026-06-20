@@ -116,6 +116,17 @@ public class CitaController {
         return citaService.listarAgendaStaff(staff.idPersona());
     }
 
+    @PatchMapping("/mis-citas/{id:[0-9a-fA-F-]+}/finalizar")
+    public Cita finalizarMiCita(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable UUID id) {
+        log.info("Entrando a endpoint PATCH /api/agenda/citas/mis-citas/{id}/finalizar: id={}", id);
+
+        String uid = firebaseTokenVerifier.authenticatedUid(authHeader);
+        PerfilResumen staff = perfilClient.obtenerStaffPorAuthId(uid);
+        return citaService.finalizarCitaStaff(id, staff.idPersona());
+    }
+
     @GetMapping("/{id:[0-9a-fA-F-]+}")
     public Cita buscarPorId(@PathVariable UUID id) {
         log.info("Entrando a endpoint GET /api/agenda/citas/{id}: id={}", id);

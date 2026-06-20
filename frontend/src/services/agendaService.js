@@ -93,6 +93,10 @@ export const agendaService = {
     if (!isValidUuid(idCita)) throw new Error('La reserva seleccionada no es valida.');
     return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/citas/${idCita}/estado`, method: 'PATCH', authRequired: true, data: payload });
   },
+  finalizeMyBooking: (idCita) => {
+    if (!isValidUuid(idCita)) throw new Error('La reserva seleccionada no es valida.');
+    return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/citas/mis-citas/${idCita}/finalizar`, method: 'PATCH', authRequired: true });
+  },
   cancelBooking: (idCita) => {
     if (!isValidUuid(idCita)) throw new Error('La reserva seleccionada no es valida.');
     return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/citas/${idCita}`, method: 'DELETE', authRequired: true });

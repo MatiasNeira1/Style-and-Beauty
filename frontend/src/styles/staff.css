@@ -1127,6 +1127,12 @@
   gap: 1rem;
 }
 
+.staff-table-muted-action {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
 .staff-dashboard-panel,
 .staff-status-panel {
   background: rgba(255, 255, 255, 0.9);
@@ -1828,4 +1834,3 @@
     width: 100%;
   }
 }
-

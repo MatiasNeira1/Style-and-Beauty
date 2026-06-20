@@ -34,6 +34,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -571,6 +572,36 @@ class CitaServiceTest {
         assertThat(citas.get(0).nombreCliente()).isEqualTo("Cliente Agenda");
         assertThat(citas.get(0).nombreServicio()).isEqualTo("Corte mujer");
         verify(citaRepository).findByIdStaff(ID_STAFF);
+    }
+
+    @Test
+    void finalizarCitaStaffMarcaFinalizadaYRegistraHistorial() {
+        UUID idCita = UUID.randomUUID();
+        Cita cita = cita(at(9, 0), at(10, 0), at(10, 15));
+        cita.setIdCita(idCita);
+        cita.setEstadoCita(EstadoCita.CONFIRMADA);
+        when(citaRepository.findById(idCita)).thenReturn(Optional.of(cita));
+        when(citaRepository.save(any(Cita.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Cita finalizada = citaService.finalizarCitaStaff(idCita, ID_STAFF);
+
+        assertThat(finalizada.getEstadoCita()).isEqualTo(EstadoCita.FINALIZADA);
+        assertThat(finalizada.getExpiracionReserva()).isNull();
+        assertThat(finalizada.getObservacionStaff()).isEqualTo("Cita finalizada por staff.");
+        verify(historialCitaRepository).save(any());
+    }
+
+    @Test
+    void finalizarCitaStaffRechazaCitaDeOtroProfesional() {
+        UUID idCita = UUID.randomUUID();
+        Cita cita = cita(ID_CLIENTE, ID_STAFF_ANTERIOR, at(9, 0), at(10, 0), at(10, 15), 60, 15);
+        cita.setIdCita(idCita);
+        cita.setEstadoCita(EstadoCita.CONFIRMADA);
+        when(citaRepository.findById(idCita)).thenReturn(Optional.of(cita));
+
+        assertThatThrownBy(() -> citaService.finalizarCitaStaff(idCita, ID_STAFF))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("otro profesional");
     }
 
     private PerfilResumen perfil(UUID id, String nombre, String apellidos, String email) {

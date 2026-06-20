@@ -2,6 +2,8 @@ package com.style.beauty.ms_agenda.controller;
 
 import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
+import com.style.beauty.ms_agenda.entity.Cita;
+import com.style.beauty.ms_agenda.enums.EstadoCita;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.service.CitaService;
 import com.style.beauty.ms_agenda.service.FirebaseTokenVerifier;
@@ -21,6 +23,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -94,5 +97,26 @@ class CitaControllerTest {
                 .andExpect(content().json("[]"));
 
         verify(citaService).listarAgendaStaff(ID_STAFF);
+    }
+
+    @Test
+    void finalizarMiCitaUsaStaffAutenticado() throws Exception {
+        UUID idCita = UUID.fromString("30000000-0000-4000-8000-000000000001");
+        Cita finalizada = Cita.builder()
+                .idCita(idCita)
+                .idStaff(ID_STAFF)
+                .estadoCita(EstadoCita.FINALIZADA)
+                .build();
+
+        when(firebaseTokenVerifier.authenticatedUid("Bearer token")).thenReturn("firebase-staff-uid");
+        when(perfilClient.obtenerStaffPorAuthId("firebase-staff-uid"))
+                .thenReturn(new PerfilResumen(ID_STAFF, "firebase-staff-uid", "2-7", "Martina", "Salas", "martina.salas@stylebeauty.cl", null, true, null));
+        when(citaService.finalizarCitaStaff(idCita, ID_STAFF)).thenReturn(finalizada);
+
+        mockMvc.perform(patch("/api/agenda/citas/mis-citas/{id}/finalizar", idCita)
+                        .header("Authorization", "Bearer token"))
+                .andExpect(status().isOk());
+
+        verify(citaService).finalizarCitaStaff(idCita, ID_STAFF);
     }
 }
