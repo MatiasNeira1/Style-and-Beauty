@@ -198,34 +198,6 @@ public class CitaService {
                 .toList();
     }
 
-    @Transactional
-    public Cita evaluarCita(UUID idCita, UUID idCliente, EvaluarCitaRequest request) {
-        Cita cita = buscarPorId(idCita);
-
-        if (!cita.getIdCliente().equals(idCliente)) {
-            throw new BusinessException("No tienes autorización para evaluar esta cita");
-        }
-
-        if (cita.getEstadoCita() != EstadoCita.FINALIZADA) {
-            throw new BusinessException("Solo puedes evaluar citas que hayan sido finalizadas");
-        }
-
-        cita.setCalificacion(request.calificacion());
-        cita.setComentarioCalificacion(request.comentarioCalificacion());
-
-        Cita actualizada = citaRepository.save(cita);
-
-        registrarHistorial(
-                idCita,
-                AccionHistorial.MODIFICADA,
-                cita.getEstadoCita().name(),
-                cita.getEstadoCita().name(),
-                "Cliente evaluó la cita con " + request.calificacion() + " estrellas"
-        );
-
-        return actualizada;
-    }
-
     public List<DisponibilidadSlot> calcularDisponibilidad(DisponibilidadRequest request) {
         log.info("Calculando disponibilidad: idServicio={}, idStaff={}, fecha={}",
                 request.idServicio(), request.idStaff(), request.fecha());
@@ -598,7 +570,7 @@ public class CitaService {
         }
 
         cita.setCalificacion(request.calificacion());
-        cita.setComentarioCalificacion(request.comentario());
+        cita.setComentarioCalificacion(request.comentarioCalificacion());
 
         Cita evaluada = citaRepository.save(cita);
 
