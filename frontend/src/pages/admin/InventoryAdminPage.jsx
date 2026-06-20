@@ -41,7 +41,7 @@ function getProductId(product) {
 }
 
 function productImage(product) {
-  return product.imagenUrl || product.imageUrl || product.imagen_url || product.imagen || product.image;
+  return product?.imagenUrl || product?.imageUrl || product?.imagen_url || product?.imagen || product?.image || '';
 }
 
 function productFormFrom(product) {
@@ -103,7 +103,7 @@ function ProductFormModal({
           />
         </div>
         <div className="admin-image-field compact">
-          <SafeImage src={imagePreview} alt="Imagen del producto" />
+          {imagePreview && <SafeImage src={imagePreview} alt="Imagen del producto" />}
           <label className="button button-ghost button-sm staff-file-button">
             <span className="button-content"><Camera size={14} /> Imagen</span>
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onImageChange(event.target.files?.[0])} />
@@ -415,7 +415,9 @@ export function InventoryAdminPage() {
     event.preventDefault();
     if (productImageError) return;
     const isEditing = Boolean(editingProductId);
-    const existingImageUrl = productForm.imagenUrl || productImage(editingProduct) || '';
+    const existingImageUrl = isEditing
+      ? productForm.imagenUrl || productImage(editingProduct)
+      : '';
     const hasExistingImage = Boolean(existingImageUrl || productImagePreview);
     const hasNewImage = Boolean(productImageFile);
     const normalizedPrice = Number(productForm.precio);
