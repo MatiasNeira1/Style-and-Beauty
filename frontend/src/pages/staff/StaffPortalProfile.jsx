@@ -15,6 +15,7 @@ import {
   Star,
   User,
 } from 'lucide-react';
+import { staffService } from '../../services/staffService.js';
 
 function displayValue(value) {
   return value || '-';

@@ -90,5 +90,22 @@ export const reservationService = {
       method: 'DELETE',
       authRequired: true,
     }),
+
+  evaluateReservation: (reservationId, { calificacion, comentario }) =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: `/api/agenda/citas/${reservationId}/evaluar`,
+      method: 'POST',
+      authRequired: true,
+      data: { calificacion, comentario },
+    }),
+
+  listFinalized: () =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/mis-citas-finalizadas',
+      authRequired: true,
+    }),
+
   isValidUuid,
 };

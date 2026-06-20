@@ -7,6 +7,7 @@ import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
 import com.style.beauty.ms_agenda.dto.CitaAgendaResponse;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
@@ -90,6 +91,19 @@ public class CitaService {
         log.info("Listando citas en ms-agenda para staff: idStaff={}", idStaff);
         liberarReservasVencidas();
         return citaRepository.findByIdStaff(idStaff);
+    }
+
+    public List<CitaAgendaResponse> listarCitasFinalizadasCliente(UUID idCliente) {
+        log.info("Listando citas finalizadas para cliente: idCliente={}", idCliente);
+
+        Map<UUID, String> nombresClientes = new HashMap<>();
+        Map<UUID, String> nombresServicios = new HashMap<>();
+
+        return citaRepository.findByIdClienteAndEstadoCita(idCliente, EstadoCita.FINALIZADA)
+                .stream()
+                .sorted(Comparator.comparing(Cita::getFechaHoraInicio).reversed())
+                .map(cita -> toAgendaResponse(cita, nombresClientes, nombresServicios))
+                .toList();
     }
 
     public List<CitaAgendaResponse> listarAgendaStaff(UUID idStaff) {
@@ -566,6 +580,40 @@ public class CitaService {
     }
 
     @Transactional
+    public Cita evaluarCita(UUID idCita, UUID idCliente, EvaluarCitaRequest request) {
+        log.info("Evaluando cita: idCita={}, idCliente={}, calificacion={}", idCita, idCliente, request.calificacion());
+
+        Cita cita = buscarPorId(idCita);
+
+        if (!Objects.equals(cita.getIdCliente(), idCliente)) {
+            throw new BusinessException("Solo puedes evaluar tus propias citas.");
+        }
+
+        if (cita.getEstadoCita() != EstadoCita.FINALIZADA) {
+            throw new BusinessException("Solo puedes evaluar citas que ya fueron finalizadas.");
+        }
+
+        if (cita.getCalificacion() != null) {
+            throw new BusinessException("Esta cita ya fue evaluada anteriormente.");
+        }
+
+        cita.setCalificacion(request.calificacion());
+        cita.setComentarioCalificacion(request.comentario());
+
+        Cita evaluada = citaRepository.save(cita);
+
+        registrarHistorial(
+                idCita,
+                AccionHistorial.MODIFICADA,
+                EstadoCita.FINALIZADA.name(),
+                EstadoCita.FINALIZADA.name(),
+                "Cliente evaluó la cita con calificación " + request.calificacion()
+        );
+
+        return evaluada;
+    }
+
+    @Transactional
     public void cancelar(UUID id) {
         log.info("Cancelando cita: id={}", id);
 
@@ -975,7 +1023,9 @@ public class CitaService {
                 cita.getEstadoCita(),
                 cita.getObservacionCliente(),
                 cita.getObservacionStaff(),
-                cita.getGoogleCalendarEventId()
+                cita.getGoogleCalendarEventId(),
+                cita.getCalificacion(),
+                cita.getComentarioCalificacion()
         );
     }
 

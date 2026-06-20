@@ -75,6 +75,11 @@ public class Cita {
 
     private OffsetDateTime updatedAt;
 
+    private Integer calificacion;
+
+    @Column(columnDefinition = "TEXT")
+    private String comentarioCalificacion;
+
     @PrePersist
     public void prePersist() {
         createdAt = OffsetDateTime.now();

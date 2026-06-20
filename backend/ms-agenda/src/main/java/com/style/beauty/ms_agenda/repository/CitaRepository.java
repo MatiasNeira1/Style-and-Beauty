@@ -16,6 +16,8 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
 
     List<Cita> findByIdStaff(UUID idStaff);
 
+    List<Cita> findByIdClienteAndEstadoCita(UUID idCliente, EstadoCita estadoCita);
+
     @Query("""
         SELECT c FROM Cita c
         WHERE c.idStaff = :idStaff
