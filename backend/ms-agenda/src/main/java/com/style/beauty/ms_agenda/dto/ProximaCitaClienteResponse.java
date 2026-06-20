@@ -17,6 +17,8 @@ public record ProximaCitaClienteResponse(
         Integer holguraMin,
         String estadoCita,
         BigDecimal valorServicio,
-        BigDecimal abonoReserva
+        BigDecimal abonoReserva,
+        Integer calificacion,
+        String comentarioCalificacion
 ) {
 }

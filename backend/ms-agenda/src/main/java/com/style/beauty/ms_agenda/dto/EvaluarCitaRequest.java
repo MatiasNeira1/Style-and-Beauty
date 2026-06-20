@@ -10,6 +10,6 @@ public record EvaluarCitaRequest(
         @Max(value = 5, message = "La calificación máxima es 5")
         Integer calificacion,
 
-        String comentario
+        String comentarioCalificacion
 ) {
 }

@@ -32,6 +32,25 @@ export const reservationService = {
       authRequired: true,
     }),
 
+  listMyHistoryReservations: () =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/historial',
+      authRequired: true,
+    }),
+
+  evaluateReservation: (reservationId, rating, comment) =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: `/api/agenda/citas/${reservationId}/evaluar`,
+      method: 'POST',
+      authRequired: true,
+      data: {
+        calificacion: rating,
+        comentarioCalificacion: comment,
+      },
+    }),
+
   getAvailability: ({ idServicio, idStaff, fecha, idCliente }) =>
     request({
       baseURL: AGENDA_API_BASE_URL,

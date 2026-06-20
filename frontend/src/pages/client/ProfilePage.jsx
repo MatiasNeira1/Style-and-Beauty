@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { CalendarClock, UserRound, Save, Activity, Stethoscope } from 'lucide-react';
+import { CalendarClock, UserRound, Save, Activity, Stethoscope, Star, MessageSquarePlus, CheckCircle } from 'lucide-react';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Input } from '../../components/ui/Input.jsx';
@@ -393,147 +393,257 @@ function UpcomingAppointmentsCard({ query }) {
   );
 }
 
-function StarRating({ value, onChange, disabled }) {
+
+function PastAppointmentItem({ appointment, onEvaluate }) {
+  const [isRatingOpen, setIsRatingOpen] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  const start = appointment.fechaHoraInicio || appointment.inicio;
+  const end = appointment.fechaHoraFinAtencion || appointment.fechaHoraFin || appointment.fin;
+  
+  const calificacion = appointment.calificacion;
+  const comentarioCalificacion = appointment.comentarioCalificacion;
+
+  const ratingDescriptions = {
+    1: 'Muy malo',
+    2: 'Malo',
+    3: 'Aceptable',
+    4: 'Bueno',
+    5: '¡Excelente!'
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitError('');
+    setIsSubmitting(true);
+    try {
+      await onEvaluate(appointment.idCita, rating, comment);
+      setIsRatingOpen(false);
+    } catch (err) {
+      setSubmitError(err?.message || 'No se pudo guardar la calificación.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div style={{ display: 'flex', gap: '0.2rem' }}>
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange?.(star)}
-          style={{
-            background: 'none',
-            border: 'none',
-            cursor: disabled ? 'default' : 'pointer',
-            padding: '2px',
-            color: star <= value ? '#e2b47e' : '#d1d5db',
-            transition: 'color 0.15s',
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill={star <= value ? '#e2b47e' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-          </svg>
-        </button>
-      ))}
-    </div>
+    <article className="upcoming-appointment-item past-appointment-item" style={{ borderLeft: '4px solid var(--color-sage)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <strong style={{ fontSize: '1.05rem', color: 'var(--color-ink)' }}>{appointment.servicioNombre || appointment.servicio || 'Servicio'}</strong>
+          <span style={{ display: 'block', fontSize: '0.85rem', color: 'var(--color-muted)', marginTop: '0.25rem' }}>
+            Con {appointment.profesionalNombre || appointment.profesional || 'Profesional'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <span style={{
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            background: 'rgba(155, 176, 152, 0.15)',
+            color: '#4f694c',
+            padding: '0.25rem 0.6rem',
+            borderRadius: '100px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.25rem'
+          }}>
+            <CheckCircle size={12} /> Finalizada
+          </span>
+        </div>
+      </div>
+      
+      <dl style={{ margin: '1rem 0 0.5rem 0' }}>
+        <div>
+          <dt>Fecha</dt>
+          <dd>{formatAppointmentDate(start)}</dd>
+        </div>
+        <div>
+          <dt>Horario</dt>
+          <dd>{formatAppointmentTime(start)}{end ? ` - ${formatAppointmentTime(end)}` : ''}</dd>
+        </div>
+        <div>
+          <dt>Precio</dt>
+          <dd>{formatCLP(appointment.valorServicio || appointment.precio || 0)}</dd>
+        </div>
+      </dl>
+
+      {/* Rating Display / Action */}
+      <div className="past-appointment-rating-section" style={{ borderTop: '1px dashed var(--color-line)', paddingTop: '0.75rem', marginTop: '0.75rem' }}>
+        {calificacion !== null && calificacion !== undefined ? (
+          // Already rated
+          <div className="rated-display" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--color-ink-soft)' }}>Tu evaluación:</span>
+              <div style={{ display: 'flex', gap: '2px' }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    size={16}
+                    fill={star <= calificacion ? '#e2b47e' : 'none'}
+                    color={star <= calificacion ? '#e2b47e' : '#d1d5db'}
+                  />
+                ))}
+              </div>
+              <span style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>({calificacion}/5)</span>
+            </div>
+            {comentarioCalificacion && (
+              <p style={{ fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--color-ink-soft)', background: 'var(--color-bg-deep)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-xs)', marginTop: '0.25rem' }}>
+                &ldquo;{comentarioCalificacion}&rdquo;
+              </p>
+            )}
+          </div>
+        ) : (
+          // Not rated yet
+          <>
+            {!isRatingOpen ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsRatingOpen(true)}
+                style={{
+                  fontSize: '0.8rem',
+                  color: 'var(--color-primary-strong)',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: 'var(--radius-xs)',
+                  border: '1px solid var(--color-primary-glow)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  background: 'none'
+                }}
+              >
+                <MessageSquarePlus size={14} /> Evaluar experiencia
+              </Button>
+            ) : (
+              <form onSubmit={handleSubmit} className="stack" style={{ gap: '0.75rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink-soft)' }}>
+                    ¿Cómo calificarías el servicio?
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setRating(star)}
+                          onMouseEnter={() => setHoverRating(star)}
+                          onMouseLeave={() => setHoverRating(0)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '2px',
+                            transition: 'transform 0.15s ease'
+                          }}
+                        >
+                          <Star
+                            size={22}
+                            fill={(hoverRating || rating) >= star ? '#e2b47e' : 'none'}
+                            color={(hoverRating || rating) >= star ? '#e2b47e' : '#d1d5db'}
+                            style={{
+                              transform: (hoverRating || rating) === star ? 'scale(1.15)' : 'scale(1)',
+                              transition: 'transform 0.15s ease'
+                            }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-primary-strong)' }}>
+                      {ratingDescriptions[hoverRating || rating]}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--color-ink-soft)' }}>
+                    Comentario (Opcional)
+                  </label>
+                  <textarea
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Cuéntanos más sobre el resultado, la atención..."
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem 0.75rem',
+                      fontSize: '0.85rem',
+                      borderRadius: 'var(--radius-xs)',
+                      border: '1px solid var(--color-line)',
+                      minHeight: '60px',
+                      resize: 'vertical',
+                      outline: 'none',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </div>
+
+                {submitError && (
+                  <p className="admin-alert error" style={{ margin: 0, padding: '0.5rem 0.75rem', fontSize: '0.8rem' }}>
+                    {submitError}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsRatingOpen(false);
+                      setSubmitError('');
+                    }}
+                    style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={isSubmitting}
+                    style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}
+                  >
+                    {isSubmitting ? 'Guardando...' : 'Enviar'}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </>
+        )}
+      </div>
+    </article>
   );
 }
 
-function PastAppointmentsCard() {
-  const queryClient = useQueryClient();
-  const [ratings, setRatings] = useState({});
-  const [comments, setComments] = useState({});
-
-  const { data: finalized = [], isLoading, isError } = useQuery({
-    queryKey: ['my-finalized-appointments'],
-    queryFn: reservationService.listFinalized,
-    staleTime: 30_000,
-  });
-
-  const evaluateMutation = useMutation({
-    mutationFn: ({ id, calificacion, comentario }) =>
-      reservationService.evaluateReservation(id, { calificacion, comentario }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-finalized-appointments'] });
-    },
-  });
-
-  const pendingRating = finalized.filter((a) => a.calificacion == null);
-  const alreadyRated = finalized.filter((a) => a.calificacion != null);
-
-  if (isLoading) return null;
-  if (isError) return null;
-  if (finalized.length === 0) return null;
+function PastAppointmentsCard({ query, onEvaluate }) {
+  const appointments = Array.isArray(query.data) ? query.data : [];
 
   return (
-    <Card style={{ padding: '1.5rem' }}>
+    <Card className="upcoming-appointments-card past-appointments-card">
       <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', color: 'var(--color-ink)' }}>
-        <Stethoscope size={18} color="var(--color-primary-strong)" /> Evalúa a tu profesional
+        <CheckCircle size={18} color="var(--color-sage)" />
+        Historial de citas atendidas
       </h4>
 
-      {pendingRating.length === 0 && (
-        <p style={{ fontSize: '0.9rem', color: 'var(--color-muted)' }}>
-          Ya evaluaste todas tus citas finalizadas. ¡Gracias!
-        </p>
+      {query.isLoading && <p className="profile-empty-state">Cargando historial...</p>}
+      {query.isError && <p className="admin-alert">No pudimos cargar tu historial de citas.</p>}
+      {!query.isLoading && !query.isError && appointments.length === 0 && (
+        <p className="profile-empty-state">No tienes citas finalizadas en tu historial.</p>
       )}
 
-      {pendingRating.map((appointment) => {
-        const currentRating = ratings[appointment.idCita] || 0;
-        const currentComment = comments[appointment.idCita] || '';
-        const isPending = evaluateMutation.isPending && evaluateMutation.variables?.id === appointment.idCita;
-
-        return (
-          <div
-            key={appointment.idCita}
-            style={{
-              padding: '0.8rem',
-              marginBottom: '0.6rem',
-              borderRadius: '8px',
-              background: 'rgba(0,0,0,0.02)',
-              border: '1px solid rgba(0,0,0,0.06)',
-            }}
-          >
-            <strong style={{ fontSize: '0.85rem' }}>{appointment.nombreServicio || 'Servicio'}</strong>
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-muted)', margin: '0.2rem 0 0.5rem' }}>
-              {appointment.nombreCliente ? `Profesional: ${appointment.nombreCliente}` : ''}
-              {appointment.fechaHoraInicio ? ` — ${formatAppointmentDate(appointment.fechaHoraInicio)}` : ''}
-            </p>
-
-            <StarRating
-              value={currentRating}
-              onChange={(val) => setRatings((prev) => ({ ...prev, [appointment.idCita]: val }))}
-              disabled={isPending}
+      {!query.isLoading && !query.isError && appointments.length > 0 && (
+        <div className="upcoming-appointments-list past-appointments-list">
+          {appointments.map((appointment) => (
+            <PastAppointmentItem
+              key={appointment.idCita}
+              appointment={appointment}
+              onEvaluate={onEvaluate}
             />
-
-            <textarea
-              placeholder="Comentario (opcional)"
-              value={currentComment}
-              onChange={(e) => setComments((prev) => ({ ...prev, [appointment.idCita]: e.target.value }))}
-              disabled={isPending}
-              style={{
-                width: '100%',
-                marginTop: '0.5rem',
-                padding: '0.4rem',
-                border: '1px solid rgba(0,0,0,0.1)',
-                borderRadius: '6px',
-                fontSize: '0.85rem',
-                resize: 'vertical',
-                minHeight: '40px',
-              }}
-            />
-
-            <Button
-              type="button"
-              disabled={currentRating === 0 || isPending}
-              onClick={() =>
-                evaluateMutation.mutate({
-                  id: appointment.idCita,
-                  calificacion: currentRating,
-                  comentario: currentComment || null,
-                })
-              }
-              style={{ marginTop: '0.5rem', padding: '0.4rem 1rem', fontSize: '0.85rem' }}
-            >
-              {isPending ? 'Enviando...' : 'Enviar valoración'}
-            </Button>
-          </div>
-        );
-      })}
-
-      {alreadyRated.length > 0 && (
-        <details style={{ marginTop: '0.8rem' }}>
-          <summary style={{ cursor: 'pointer', fontSize: '0.85rem', color: 'var(--color-primary-strong)' }}>
-            Ver mis valoraciones anteriores ({alreadyRated.length})
-          </summary>
-          {alreadyRated.map((a) => (
-            <div key={a.idCita} style={{ padding: '0.5rem 0', borderBottom: '1px solid rgba(0,0,0,0.04)', fontSize: '0.85rem' }}>
-              <strong>{a.nombreServicio}</strong>
-              <span style={{ marginLeft: '0.5rem', color: '#e2b47e' }}>{'★'.repeat(a.calificacion)}{'☆'.repeat(5 - a.calificacion)}</span>
-              {a.comentarioCalificacion && <p style={{ margin: '0.2rem 0 0', color: 'var(--color-muted)' }}>{a.comentarioCalificacion}</p>}
-            </div>
           ))}
-        </details>
+        </div>
       )}
     </Card>
   );
@@ -566,6 +676,25 @@ export function ProfilePage() {
     enabled: Boolean(profile?.idPersona && !profileError),
     retry: false,
   });
+
+  const historyAppointmentsQuery = useQuery({
+    queryKey: ['my-history-reservations', profile?.idPersona],
+    queryFn: reservationService.listMyHistoryReservations,
+    enabled: Boolean(profile?.idPersona && !profileError),
+    retry: false,
+  });
+
+  const evaluateMutation = useMutation({
+    mutationFn: ({ appointmentId, rating, comment }) =>
+      reservationService.evaluateReservation(appointmentId, rating, comment),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-history-reservations', profile?.idPersona] });
+    },
+  });
+
+  const handleEvaluate = async (appointmentId, rating, comment) => {
+    await evaluateMutation.mutateAsync({ appointmentId, rating, comment });
+  };
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
@@ -982,7 +1111,7 @@ export function ProfilePage() {
         </Card>
 
         <UpcomingAppointmentsCard query={upcomingAppointmentsQuery} />
-        <PastAppointmentsCard />
+        <PastAppointmentsCard query={historyAppointmentsQuery} onEvaluate={handleEvaluate} />
         </div>
       </section>
     </>

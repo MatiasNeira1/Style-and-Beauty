@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, Camera, Edit3, Package, PackagePlus, Plus, PowerOff, Save, Search, Trash2, X } from 'lucide-react';
+import { AlertCircle, Camera, Edit3, Package, PackagePlus, Plus, Power, PowerOff, Save, Search, Trash2, X } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
@@ -14,8 +14,20 @@ const initialProductForm = {
   nombre: '',
   categoria: '',
   descripcion: '',
+  imagenUrl: '',
   precio: '',
 };
+
+const PRODUCT_NAME_MAX_LENGTH = 70;
+const PRODUCT_DESCRIPTION_MAX_LENGTH = 180;
+
+const PRODUCT_CATEGORIES = [
+  'Cabello',
+  'Nails',
+  'Cuidados de la piel',
+  'Spa',
+  'Maquillaje',
+];
 
 const initialStockForm = {
   idProducto: '',
@@ -29,14 +41,15 @@ function getProductId(product) {
 }
 
 function productImage(product) {
-  return product.imagenUrl || product.imageUrl || product.imagen_url || product.imagen || product.image;
+  return product?.imagenUrl || product?.imageUrl || product?.imagen_url || product?.imagen || product?.image || '';
 }
 
 function productFormFrom(product) {
   return {
-    nombre: product.nombre || '',
+    nombre: String(product.nombre || '').slice(0, PRODUCT_NAME_MAX_LENGTH),
     categoria: product.categoria || '',
-    descripcion: product.descripcion || '',
+    descripcion: String(product.descripcion || '').slice(0, PRODUCT_DESCRIPTION_MAX_LENGTH),
+    imagenUrl: productImage(product) || '',
     precio: product.precio ?? '',
   };
 }
@@ -47,6 +60,7 @@ function ProductFormModal({
   form,
   imagePreview,
   imageError,
+  categoryError,
   isEditing,
   isSaving,
   error,
@@ -59,18 +73,45 @@ function ProductFormModal({
     <Modal open={open} title={title} onClose={onClose}>
       <form className="admin-modal-form" onSubmit={onSubmit}>
         <div className="admin-modal-section form-grid">
-          <Input label="Nombre" id="inventory-name" name="nombre" value={form.nombre} onChange={onChange} placeholder="Crema hidratante" required />
-          <Input label="Categoria" id="inventory-category" name="categoria" value={form.categoria} onChange={onChange} placeholder="Cuidado facial" required />
-          <Input label="Precio" id="inventory-price" name="precio" type="number" min="0" step="100" value={form.precio} onChange={onChange} placeholder="Precio ($xx.xxx)" required />
-          <Input label="Descripcion" id="inventory-description" name="descripcion" value={form.descripcion} onChange={onChange} placeholder="Breve descripcion visible para clientes" />
+          <Input
+            label="Nombre"
+            id="inventory-name"
+            name="nombre"
+            value={form.nombre}
+            onChange={onChange}
+            placeholder="Crema hidratante"
+            maxLength={PRODUCT_NAME_MAX_LENGTH}
+            hint={`${form.nombre.length}/${PRODUCT_NAME_MAX_LENGTH} caracteres`}
+            required
+          />
+          <Input as="select" label="Categoría" id="inventory-category" name="categoria" value={form.categoria} onChange={onChange} error={categoryError} required>
+            <option value="">Seleccionar categoría</option>
+            {PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+          </Input>
+          <Input label="Precio" id="inventory-price" name="precio" type="number" min="0" step="10" value={form.precio} onChange={onChange} placeholder="Precio ($xx.xxx)" required />
+          <Input
+            as="textarea"
+            label="Descripcion"
+            id="inventory-description"
+            name="descripcion"
+            value={form.descripcion}
+            onChange={onChange}
+            placeholder="Breve descripcion visible para clientes"
+            maxLength={PRODUCT_DESCRIPTION_MAX_LENGTH}
+            hint={`${form.descripcion.length}/${PRODUCT_DESCRIPTION_MAX_LENGTH} caracteres`}
+            rows={3}
+          />
         </div>
         <div className="admin-image-field compact">
-          <SafeImage src={imagePreview} alt="Imagen del producto" />
+          {imagePreview && <SafeImage src={imagePreview} alt="Imagen del producto" />}
           <label className="button button-ghost button-sm staff-file-button">
             <span className="button-content"><Camera size={14} /> Imagen</span>
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onImageChange(event.target.files?.[0])} />
           </label>
-          <span className="admin-modal-hint">{isEditing ? 'Puedes conservar la imagen actual.' : 'La imagen es obligatoria para publicar productos.'}</span>
+          <span className="admin-modal-hint">
+            {isEditing ? 'Puedes conservar la imagen actual. ' : 'La imagen es obligatoria para publicar productos. '}
+            Resolución recomendable: 1200 x 1200 px
+          </span>
         </div>
         {imageError && <p className="admin-alert compact">{imageError}</p>}
         {error && <p className="admin-alert">{error.message}</p>}
@@ -79,6 +120,50 @@ function ProductFormModal({
           <Button type="submit" disabled={isSaving}>
             <Save size={16} />
             {isSaving ? 'Guardando...' : 'Guardar producto'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function CategoryCoverModal({
+  open,
+  category,
+  imagePreview,
+  imageError,
+  isSaving,
+  onImageChange,
+  onClose,
+  onSubmit,
+}) {
+  return (
+    <Modal open={open} title={`Portada de ${category || 'categoría'}`} onClose={onClose} closeDisabled={isSaving}>
+      <form className="admin-modal-form" onSubmit={onSubmit}>
+        <div className="admin-cover-modal-preview">
+          {imagePreview ? (
+            <SafeImage src={imagePreview} alt={`Portada de ${category}`} />
+          ) : (
+            <span aria-hidden="true">{category?.slice(0, 1).toUpperCase() || '?'}</span>
+          )}
+        </div>
+        <label className="button button-ghost button-sm staff-file-button">
+          <span className="button-content"><Camera size={14} /> Seleccionar imagen</span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => {
+              onImageChange(event.target.files?.[0]);
+              event.target.value = '';
+            }}
+          />
+        </label>
+        <p className="admin-modal-hint">Resolución recomendable: 1200 x 1200 px</p>
+        {imageError && <p className="admin-alert compact">{imageError}</p>}
+        <div className="admin-modal-actions">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}><X size={16} /> Cerrar</Button>
+          <Button type="submit" disabled={isSaving}>
+            <Save size={16} /> {isSaving ? 'Subiendo...' : 'Guardar portada'}
           </Button>
         </div>
       </form>
@@ -125,7 +210,7 @@ function ProductDetailModal({
   onClose,
   onEdit,
   onDelete,
-  onDeactivate,
+  onToggleStatus,
   onUploadImage,
   isMutating,
 }) {
@@ -155,8 +240,10 @@ function ProductDetailModal({
               <span className="button-content"><Camera size={16} /> Cambiar imagen</span>
               <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onUploadImage(product, event)} />
             </label>
-            {product.activo && (
-              <Button type="button" variant="ghost" onClick={() => onDeactivate(getProductId(product))} disabled={isMutating}><PowerOff size={16} /> Desactivar</Button>
+            {product.activo === true ? (
+              <Button type="button" variant="ghost" onClick={() => onToggleStatus(product)} disabled={isMutating}><PowerOff size={16} /> Desactivar</Button>
+            ) : (
+              <Button type="button" variant="ghost" onClick={() => onToggleStatus(product)} disabled={isMutating}><Power size={16} /> Habilitar</Button>
             )}
             <Button type="button" variant="ghost" onClick={() => onDelete(getProductId(product))} disabled={isMutating}><Trash2 size={16} /> Eliminar</Button>
           </div>
@@ -170,19 +257,26 @@ export function InventoryAdminPage() {
   const queryClient = useQueryClient();
   const [productForm, setProductForm] = useState(initialProductForm);
   const [editingProductId, setEditingProductId] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [productImageFile, setProductImageFile] = useState(null);
   const [productImagePreview, setProductImagePreview] = useState('');
   const [productImageError, setProductImageError] = useState('');
+  const [productCategoryError, setProductCategoryError] = useState('');
   const [stockForm, setStockForm] = useState(initialStockForm);
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('TODAS');
   const [statusFilter, setStatusFilter] = useState('TODOS');
+  const [coverCategory, setCoverCategory] = useState(null);
+  const [categoryCoverFile, setCategoryCoverFile] = useState(null);
+  const [categoryCoverPreview, setCategoryCoverPreview] = useState('');
+  const [categoryCoverError, setCategoryCoverError] = useState('');
 
   const productsQuery = useQuery({ queryKey: ['inventory-admin'], queryFn: inventoryService.listProducts });
   const stockQuery = useQuery({ queryKey: ['inventory-stock'], queryFn: inventoryService.listStock });
+  const categoryCoversQuery = useQuery({ queryKey: ['category-covers'], queryFn: inventoryService.getCategoryCovers });
 
   const products = useMemo(() => (Array.isArray(productsQuery.data) ? productsQuery.data : []), [productsQuery.data]);
   const stockByProduct = useMemo(() => {
@@ -192,7 +286,6 @@ export function InventoryAdminPage() {
       return acc;
     }, {});
   }, [stockQuery.data]);
-  const productCategories = useMemo(() => [...new Set(products.map((product) => product.categoria).filter(Boolean))].sort(), [products]);
   const filteredProducts = useMemo(() => {
     const needle = inventorySearch.trim().toLowerCase();
     return products.filter((product) => {
@@ -227,6 +320,21 @@ export function InventoryAdminPage() {
     queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
   };
 
+  const applyUpdatedProduct = (updatedProduct) => {
+    if (!updatedProduct) return;
+    const updatedProductId = getProductId(updatedProduct);
+    queryClient.setQueryData(['inventory-admin'], (current) => {
+      const currentProducts = Array.isArray(current) ? current : [];
+      const exists = currentProducts.some((product) => getProductId(product) === updatedProductId);
+      return exists
+        ? currentProducts.map((product) => (getProductId(product) === updatedProductId ? updatedProduct : product))
+        : [...currentProducts, updatedProduct];
+    });
+    setSelectedProduct((current) => (
+      current && getProductId(current) === updatedProductId ? updatedProduct : current
+    ));
+  };
+
   useEffect(() => {
     if (!productImageFile) return undefined;
     const objectUrl = URL.createObjectURL(productImageFile);
@@ -234,13 +342,68 @@ export function InventoryAdminPage() {
     return () => URL.revokeObjectURL(objectUrl);
   }, [productImageFile]);
 
+  useEffect(() => {
+    if (!categoryCoverFile) return undefined;
+    const objectUrl = URL.createObjectURL(categoryCoverFile);
+    setCategoryCoverPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [categoryCoverFile]);
+
+  const categoryCoversByName = useMemo(() => {
+    const rows = Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : [];
+    return rows.reduce((acc, cover) => {
+      if (cover?.categoria) acc[cover.categoria] = cover;
+      return acc;
+    }, {});
+  }, [categoryCoversQuery.data]);
+
+  const openCategoryCover = (category) => {
+    setCoverCategory(category);
+    setCategoryCoverFile(null);
+    setCategoryCoverPreview(categoryCoversByName[category]?.imagenUrl || '');
+    setCategoryCoverError('');
+  };
+
+  const closeCategoryCover = () => {
+    setCoverCategory(null);
+    setCategoryCoverFile(null);
+    setCategoryCoverPreview('');
+    setCategoryCoverError('');
+  };
+
+  const validateAndSetCategoryCover = (file) => {
+    const currentCoverUrl = categoryCoversByName[coverCategory]?.imagenUrl || '';
+    setCategoryCoverError('');
+    if (!file) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentCoverUrl);
+      setCategoryCoverError('Selecciona una imagen para la portada.');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentCoverUrl);
+      setCategoryCoverError('Solo se permiten imágenes JPG, PNG o WEBP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentCoverUrl);
+      setCategoryCoverError('La imagen no puede superar 5 MB.');
+      return;
+    }
+    setCategoryCoverFile(file);
+  };
+
   const resetProductModal = () => {
     setProductModalOpen(false);
     setEditingProductId(null);
+    setEditingProduct(null);
     setProductForm(initialProductForm);
     setProductImageFile(null);
     setProductImagePreview('');
     setProductImageError('');
+    setProductCategoryError('');
   };
 
   const resetStockModal = () => {
@@ -251,20 +414,25 @@ export function InventoryAdminPage() {
   const openCreateProduct = () => {
     setSelectedProduct(null);
     setEditingProductId(null);
+    setEditingProduct(null);
     setProductForm(initialProductForm);
     setProductImagePreview('');
     setProductImageFile(null);
     setProductImageError('');
+    setProductCategoryError('');
     setProductModalOpen(true);
   };
 
   const openEditProduct = (product) => {
+    const existingImageUrl = productImage(product) || '';
     setSelectedProduct(null);
     setEditingProductId(getProductId(product));
-    setProductForm(productFormFrom(product));
-    setProductImagePreview(productImage(product) || '');
+    setEditingProduct(product);
+    setProductForm({ ...productFormFrom(product), imagenUrl: existingImageUrl });
+    setProductImagePreview(existingImageUrl);
     setProductImageFile(null);
     setProductImageError('');
+    setProductCategoryError('');
     setProductModalOpen(true);
   };
 
@@ -299,7 +467,8 @@ export function InventoryAdminPage() {
       }
       return inventoryService.createProductWithImage(payload, productImageFile);
     },
-    onSuccess: () => {
+    onSuccess: (updatedProduct) => {
+      applyUpdatedProduct(updatedProduct);
       resetProductModal();
       invalidateInventory();
     },
@@ -318,7 +487,17 @@ export function InventoryAdminPage() {
     },
   });
 
-  const deactivateMutation = useMutation({ mutationFn: inventoryService.deactivateProduct, onSuccess: invalidateInventory });
+  const productStatusMutation = useMutation({
+    mutationFn: (product) => (
+      product.activo === true
+        ? inventoryService.deactivateProduct(getProductId(product))
+        : inventoryService.activateProduct(getProductId(product))
+    ),
+    onSuccess: (updatedProduct) => {
+      applyUpdatedProduct(updatedProduct);
+      invalidateInventory();
+    },
+  });
   const deleteMutation = useMutation({
     mutationFn: inventoryService.deleteProduct,
     onSuccess: () => {
@@ -329,19 +508,55 @@ export function InventoryAdminPage() {
   const productImageMutation = useMutation({
     mutationFn: ({ productId, file }) => inventoryService.uploadProductImage(productId, file),
     onSuccess: (updatedProduct) => {
-      setSelectedProduct((current) => (getProductId(current) === getProductId(updatedProduct) ? updatedProduct : current));
+      applyUpdatedProduct(updatedProduct);
       invalidateInventory();
+    },
+  });
+  const categoryCoverMutation = useMutation({
+    mutationFn: ({ category, file }) => inventoryService.uploadCategoryCover(category, file),
+    onSuccess: (updatedCover) => {
+      queryClient.setQueryData(['category-covers'], (current) => {
+        const covers = Array.isArray(current) ? current : [];
+        const exists = covers.some((cover) => cover.categoria === updatedCover.categoria);
+        return exists
+          ? covers.map((cover) => (cover.categoria === updatedCover.categoria ? updatedCover : cover))
+          : [...covers, updatedCover];
+      });
+      closeCategoryCover();
+    },
+    onError: (error) => {
+      setCategoryCoverError(error.message || 'No se pudo actualizar la portada.');
     },
   });
 
   const handleProductSubmit = (event) => {
     event.preventDefault();
     if (productImageError) return;
-    if (!editingProductId && !productImageFile) {
-      setProductImageError('Selecciona una imagen para publicar el producto.');
+    const isEditing = Boolean(editingProductId);
+    const existingImageUrl = isEditing
+      ? productForm.imagenUrl || productImage(editingProduct)
+      : '';
+    const hasExistingImage = Boolean(existingImageUrl || productImagePreview);
+    const hasNewImage = Boolean(productImageFile);
+    const normalizedPrice = Number(productForm.precio);
+
+    if (!PRODUCT_CATEGORIES.includes(productForm.categoria)) {
+      setProductCategoryError('Selecciona una categoría válida.');
       return;
     }
-    saveProductMutation.mutate({ ...productForm, precio: Number(productForm.precio) });
+    if ((!isEditing && !hasNewImage) || (isEditing && !hasExistingImage && !hasNewImage)) {
+      setProductImageError('La imagen del producto es obligatoria.');
+      return;
+    }
+    setProductCategoryError('');
+    const payload = {
+      nombre: productForm.nombre.trim(),
+      categoria: productForm.categoria,
+      descripcion: productForm.descripcion.trim(),
+      precio: normalizedPrice,
+      ...(isEditing && existingImageUrl ? { imagenUrl: existingImageUrl } : {}),
+    };
+    saveProductMutation.mutate(payload);
   };
 
   const handleTableProductImageChange = (product, event) => {
@@ -349,6 +564,15 @@ export function InventoryAdminPage() {
     event.target.value = '';
     if (!file) return;
     productImageMutation.mutate({ productId: getProductId(product), file });
+  };
+
+  const handleCategoryCoverSubmit = (event) => {
+    event.preventDefault();
+    if (!categoryCoverFile) {
+      setCategoryCoverError('Selecciona una imagen para la portada.');
+      return;
+    }
+    categoryCoverMutation.mutate({ category: coverCategory, file: categoryCoverFile });
   };
 
   const isLoading = productsQuery.isLoading || stockQuery.isLoading;
@@ -361,7 +585,7 @@ export function InventoryAdminPage() {
     const qty = stockByProduct[getProductId(product)]?.cantidadActual || 0;
     return sum + Number(product.precio || 0) * Number(qty);
   }, 0);
-  const isMutating = deactivateMutation.isPending || deleteMutation.isPending || productImageMutation.isPending;
+  const isMutating = productStatusMutation.isPending || deleteMutation.isPending || productImageMutation.isPending;
 
   return (
     <div className="admin-dashboard">
@@ -390,6 +614,41 @@ export function InventoryAdminPage() {
             <Button type="button" size="sm" variant="secondary" disabled><Save size={16} /> Movimiento de stock - Proximamente</Button>
           </div>
         </header>
+      </section>
+
+      <section className="admin-panel compact-panel admin-category-covers">
+        <header>
+          <div>
+            <h3>Portadas de categorías</h3>
+            <p>Imágenes de las tarjetas públicas en /productos. No modifican productos individuales.</p>
+          </div>
+        </header>
+        {categoryCoversQuery.isError && <p className="admin-alert compact">{categoryCoversQuery.error.message}</p>}
+        <div className="admin-category-cover-grid">
+          {PRODUCT_CATEGORIES.map((category) => {
+            const coverUrl = categoryCoversByName[category]?.imagenUrl || '';
+            return (
+              <article className="admin-category-cover-card" key={category}>
+                <div className="admin-category-cover-media">
+                  {coverUrl ? (
+                    <SafeImage src={coverUrl} alt={`Portada de ${category}`} />
+                  ) : (
+                    <span aria-hidden="true">{category.slice(0, 1).toUpperCase()}</span>
+                  )}
+                </div>
+                <div>
+                  <strong>{category}</strong>
+                  <span className={coverUrl ? 'admin-cover-status configured' : 'admin-cover-status'}>
+                    {coverUrl ? 'Portada configurada' : 'Sin portada configurada'}
+                  </span>
+                </div>
+                <Button type="button" size="sm" variant="ghost" onClick={() => openCategoryCover(category)}>
+                  <Camera size={14} /> Cambiar portada
+                </Button>
+              </article>
+            );
+          })}
+        </div>
       </section>
 
       <section className="admin-panel compact-panel">
@@ -422,7 +681,7 @@ export function InventoryAdminPage() {
           </label>
           <Input as="select" label="Categoria" id="inventory-category-filter" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
             <option value="TODAS">Todas las categorias</option>
-            {productCategories.map((category) => <option key={category} value={category}>{category}</option>)}
+            {PRODUCT_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
           </Input>
           <Input as="select" label="Estado" id="inventory-status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="TODOS">Todos los estados</option>
@@ -483,16 +742,29 @@ export function InventoryAdminPage() {
         form={productForm}
         imagePreview={productImagePreview}
         imageError={productImageError}
+        categoryError={productCategoryError}
         isEditing={Boolean(editingProductId)}
         isSaving={saveProductMutation.isPending}
         error={saveProductMutation.error}
         onChange={(event) => {
           const { name, value } = event.target;
           setProductForm((current) => ({ ...current, [name]: value }));
+          if (name === 'categoria') setProductCategoryError('');
         }}
         onImageChange={validateAndSetProductImage}
         onClose={resetProductModal}
         onSubmit={handleProductSubmit}
+      />
+
+      <CategoryCoverModal
+        open={Boolean(coverCategory)}
+        category={coverCategory}
+        imagePreview={categoryCoverPreview}
+        imageError={categoryCoverError}
+        isSaving={categoryCoverMutation.isPending}
+        onImageChange={validateAndSetCategoryCover}
+        onClose={closeCategoryCover}
+        onSubmit={handleCategoryCoverSubmit}
       />
 
       <StockFormModal
@@ -518,13 +790,13 @@ export function InventoryAdminPage() {
         onClose={() => setSelectedProduct(null)}
         onEdit={openEditProduct}
         onDelete={(id) => deleteMutation.mutate(id)}
-        onDeactivate={(id) => deactivateMutation.mutate(id)}
+        onToggleStatus={(product) => productStatusMutation.mutate(product)}
         onUploadImage={handleTableProductImageChange}
         isMutating={isMutating}
       />
 
-      {(productImageMutation.isError || deactivateMutation.isError || deleteMutation.isError) && (
-        <p className="admin-alert">{productImageMutation.error?.message || deactivateMutation.error?.message || deleteMutation.error?.message}</p>
+      {(productImageMutation.isError || productStatusMutation.isError || deleteMutation.isError) && (
+        <p className="admin-alert">{productImageMutation.error?.message || productStatusMutation.error?.message || deleteMutation.error?.message}</p>
       )}
     </div>
   );

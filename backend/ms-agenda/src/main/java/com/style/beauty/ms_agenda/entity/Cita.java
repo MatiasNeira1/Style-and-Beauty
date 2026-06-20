@@ -66,6 +66,11 @@ public class Cita {
     @Column(columnDefinition = "TEXT")
     private String observacionStaff;
 
+    private Integer calificacion;
+
+    @Column(columnDefinition = "TEXT")
+    private String comentarioCalificacion;
+
     private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;

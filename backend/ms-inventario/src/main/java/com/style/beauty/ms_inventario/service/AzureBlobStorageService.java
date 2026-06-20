@@ -56,7 +56,7 @@ public class AzureBlobStorageService {
         try {
             blobClient.upload(file.getInputStream(), file.getSize(), true);
             blobClient.setHttpHeaders(new BlobHttpHeaders().setContentType(file.getContentType()));
-            return blobClient.getBlobUrl();
+            return publicBlobUrl(blobClient, blobName);
         } catch (IOException e) {
             throw new IllegalStateException("No se pudo leer la imagen para subirla a Azure Blob Storage.", e);
         }
@@ -72,11 +72,24 @@ public class AzureBlobStorageService {
     }
 
     public String replace(String oldBlobUrl, MultipartFile newFile, String folder) {
-        validateImage(newFile);
+        String newBlobUrl = upload(newFile, folder);
         if (oldBlobUrl != null && !oldBlobUrl.isBlank()) {
             delete(oldBlobUrl);
         }
-        return upload(newFile, folder);
+        return newBlobUrl;
+    }
+
+    String publicBlobUrl(BlobClient blobClient, String expectedBlobName) {
+        String blobUrl = blobClient.getBlobUrl()
+                .replace("%2F", "/")
+                .replace("%2f", "/");
+        String actualBlobName = extractBlobNameFromUrl(blobUrl);
+
+        if (!expectedBlobName.equals(actualBlobName)) {
+            throw new IllegalStateException("La URL generada no corresponde al blob subido.");
+        }
+
+        return blobUrl;
     }
 
     public String extractBlobNameFromUrl(String blobUrl) {

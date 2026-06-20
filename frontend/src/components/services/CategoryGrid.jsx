@@ -9,14 +9,18 @@ function serviceImage(service) {
   return service?.imageUrl || service?.imagenUrl || service?.imagen_url || service?.imagen || service?.fotoUrl;
 }
 
-export const CategoryGrid = memo(function CategoryGrid({ services = [] }) {
+export const CategoryGrid = memo(function CategoryGrid({ services = [], categoryCovers = [] }) {
   const categories = useMemo(() => Object.entries(groupByCategory(services)), [services]);
+  const coversByCategory = useMemo(() => categoryCovers.reduce((acc, cover) => {
+    if (cover?.categoria && cover?.imagenUrl) acc[categorySlug(cover.categoria)] = cover.imagenUrl;
+    return acc;
+  }, {}), [categoryCovers]);
 
   return (
     <BalancedGrid className="category-grid public-category-grid">
       {categories.map(([category, categoryServices]) => {
         const sample = categoryServices[0];
-        const imageUrl = serviceImage(sample);
+        const imageUrl = coversByCategory[categorySlug(category)] || serviceImage(sample);
 
         return (
           <Link key={category} className="category-card" to={`/servicios/${categorySlug(category)}`}>

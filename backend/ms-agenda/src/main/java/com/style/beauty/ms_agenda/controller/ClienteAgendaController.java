@@ -24,8 +24,8 @@ public class ClienteAgendaController {
     @GetMapping("/{idCliente}/citas")
     public List<CitaAgendaResponse> listarCitasPorCliente(
             @PathVariable UUID idCliente,
-            @RequestParam LocalDate desde,
-            @RequestParam LocalDate hasta,
+            @RequestParam(required = false) LocalDate desde,
+            @RequestParam(required = false) LocalDate hasta,
             @RequestParam(required = false) EstadoCita estado) {
         return citaService.listarPorCliente(idCliente, desde, hasta, estado);
     }
