@@ -3061,6 +3061,12 @@ img[data-fallback="true"] {
   object-fit: contain;
 }
 
+.catalog-page .public-category-grid .brand-feature-card img {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  padding: 0;
+}
+
 .product-editorial {
   gap: clamp(1.1rem, 2.6vw, 2.4rem);
 }

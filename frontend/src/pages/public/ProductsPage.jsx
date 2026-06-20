@@ -5,6 +5,7 @@ import { Reveal } from '../../components/animations/Reveal.jsx';
 import { ProductsBrands } from '../../components/shop/ProductsBrands.jsx';
 import { ProductsByBrand } from '../../components/shop/ProductsByBrand.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
+import { inventoryService } from '../../services/inventoryService.js';
 import { productService } from '../../services/productService.js';
 import { useCart } from '../../store/CartContext.jsx';
 
@@ -21,7 +22,7 @@ function productImage(product) {
   return product?.imagenUrl || product?.imagen_url || product?.imageUrl || product?.image || product?.imagen;
 }
 
-function categoryCard(category, data) {
+function categoryCard(category, data, coverUrl) {
   const name = category || 'Sin categoria';
 
   return {
@@ -29,7 +30,7 @@ function categoryCard(category, data) {
     nombre: name,
     descripcion: `${data.count} productos disponibles en inventario.`,
     count: data.count,
-    logo: data.logo,
+    logo: coverUrl || data.logo,
   };
 }
 
@@ -43,11 +44,27 @@ export function ProductsPage() {
     staleTime: 1000 * 60 * 10,
     gcTime: 1000 * 60 * 30,
   });
+  const categoryCoversQuery = useQuery({
+    queryKey: ['category-covers'],
+    queryFn: inventoryService.getCategoryCovers,
+    staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
+  });
 
   const products = useMemo(() => {
     const rows = Array.isArray(productsQuery.data) ? productsQuery.data : [];
     return rows.filter((product) => product.activo !== false);
   }, [productsQuery.data]);
+
+  const coversByCategory = useMemo(() => {
+    const rows = Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : [];
+    return rows.reduce((acc, cover) => {
+      if (cover?.categoria && cover?.imagenUrl) {
+        acc[slugify(cover.categoria)] = cover.imagenUrl;
+      }
+      return acc;
+    }, {});
+  }, [categoryCoversQuery.data]);
 
   const productBrands = useMemo(() => {
     const countsByCategory = products.reduce((acc, product) => {
@@ -64,8 +81,8 @@ export function ProductsPage() {
 
     return Object.entries(countsByCategory)
       .sort(([first], [second]) => first.localeCompare(second))
-      .map(([category, data]) => categoryCard(category, data));
-  }, [products]);
+      .map(([category, data]) => categoryCard(category, data, coversByCategory[slugify(category)]));
+  }, [coversByCategory, products]);
 
   const visibleProducts = useMemo(() => (
     selectedBrand
