@@ -53,8 +53,8 @@ public class StaffAgendaController {
     @GetMapping("/{idStaff}/citas")
     public List<CitaAgendaResponse> listarCitasPorStaff(
             @PathVariable UUID idStaff,
-            @RequestParam LocalDate desde,
-            @RequestParam LocalDate hasta,
+            @RequestParam(required = false) LocalDate desde,
+            @RequestParam(required = false) LocalDate hasta,
             @RequestParam(required = false) EstadoCita estado) {
         return citaService.listarPorStaff(idStaff, desde, hasta, estado);
     }
