@@ -38,7 +38,13 @@
 }
 
 .profile-page-layout {
+  align-items: start;
   padding: clamp(3rem, 5vw, 5rem) var(--page-x);
+}
+
+.profile-page-layout > * {
+  align-self: start;
+  min-width: 0;
 }
 
 .profile-readonly-grid {
@@ -77,6 +83,13 @@
 .upcoming-appointments-list {
   display: grid;
   gap: 0.8rem;
+  max-height: clamp(16rem, 34vh, 23rem);
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.35rem;
+  scrollbar-gutter: stable;
 }
 
 .upcoming-appointment-item {
@@ -85,7 +98,7 @@
   display: grid;
   gap: 0.75rem;
   min-width: 0;
-  padding: 0.85rem;
+  padding: 0.75rem;
 }
 
 .upcoming-appointment-item strong,

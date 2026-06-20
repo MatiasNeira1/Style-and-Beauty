@@ -24,6 +24,11 @@ public class ServicioController {
         return service.listarTodos();
     }
 
+    @GetMapping("/admin/todos")
+    public List<Servicio> listarTodosAdmin() {
+        return service.listarTodosIncluyendoInactivos();
+    }
+
     // GET /api/servicio/{id} — Buscar servicio por ID
     @GetMapping("/{id}")
     public ResponseEntity<Servicio> buscarPorId(@PathVariable UUID id) {
@@ -53,7 +58,7 @@ public class ServicioController {
             @RequestParam Integer duracion_minutos,
             @RequestParam(required = false) Integer holgura_minutos,
             @RequestParam Double precio_total,
-            @RequestParam Double monto_fianza,
+            @RequestParam(required = false, defaultValue = "15000") Double monto_fianza,
             @RequestParam(defaultValue = "true") Boolean activo,
             @RequestParam("file") MultipartFile file) {
         return ResponseEntity.ok(service.guardarConImagen(
@@ -90,6 +95,20 @@ public class ServicioController {
     @DeleteMapping("/{id}/imagen")
     public ResponseEntity<Servicio> eliminarImagen(@PathVariable UUID id) {
         return service.eliminarImagen(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PatchMapping("/{id}/activar")
+    public ResponseEntity<Servicio> activar(@PathVariable UUID id) {
+        return service.cambiarEstado(id, true)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PatchMapping("/{id}/desactivar")
+    public ResponseEntity<Servicio> desactivar(@PathVariable UUID id) {
+        return service.cambiarEstado(id, false)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Reveal } from '../../components/animations/Reveal.jsx';
 import { ProductsBrands } from '../../components/shop/ProductsBrands.jsx';
 import { ProductsByBrand } from '../../components/shop/ProductsByBrand.jsx';
@@ -30,6 +30,7 @@ function categoryCard(category, data, coverUrl) {
     nombre: name,
     descripcion: `${data.count} productos disponibles en inventario.`,
     count: data.count,
+    coverUrl: coverUrl || '',
     logo: coverUrl || data.logo,
   };
 }
@@ -37,7 +38,8 @@ function categoryCard(category, data, coverUrl) {
 export function ProductsPage() {
   const { addItem } = useCart();
   const location = useLocation();
-  const [selectedBrand, setSelectedBrand] = useState(null);
+  const navigate = useNavigate();
+  const { categorySlug } = useParams();
   const productsQuery = useQuery({
     queryKey: ['public-products'],
     queryFn: productService.listProducts,
@@ -84,6 +86,11 @@ export function ProductsPage() {
       .map(([category, data]) => categoryCard(category, data, coversByCategory[slugify(category)]));
   }, [coversByCategory, products]);
 
+  const selectedBrand = useMemo(
+    () => productBrands.find((brand) => brand.id === categorySlug) || null,
+    [categorySlug, productBrands],
+  );
+
   const visibleProducts = useMemo(() => (
     selectedBrand
       ? products.filter((product) => slugify(product.categoria || 'Sin categoria') === selectedBrand.id)
@@ -92,24 +99,31 @@ export function ProductsPage() {
 
   const heroTitle = selectedBrand?.nombre || 'Productos profesionales';
   const heroSubtitle = selectedBrand?.descripcion || 'Primero elige una categoria y luego revisa productos disponibles.';
+  const heroCoverUrl = selectedBrand?.coverUrl || '';
 
   useEffect(() => {
-    if (location.state?.showProductsHome) {
-      setSelectedBrand(null);
+    if (location.state?.showProductsHome && categorySlug) {
+      navigate('/productos', { replace: true });
     }
-  }, [location.state?.showProductsHome]);
+  }, [categorySlug, location.state?.showProductsHome, navigate]);
 
   const handleSelectBrand = useCallback((brand) => {
-    setSelectedBrand(brand);
-  }, []);
+    navigate(`/productos/${brand.id}`);
+  }, [navigate]);
 
   const handleBackToBrands = useCallback(() => {
-    setSelectedBrand(null);
-  }, []);
+    navigate('/productos');
+  }, [navigate]);
 
   return (
     <>
-      <section className="page-hero page-hero-products">
+      <section
+        className="page-hero page-hero-products"
+        style={heroCoverUrl ? {
+          '--page-hero-image': `url("${heroCoverUrl}")`,
+          '--page-hero-position': 'center',
+        } : undefined}
+      >
         <div className="page-hero-media" />
         <div className="page-hero-overlay" />
         <div className="page-hero-content">
