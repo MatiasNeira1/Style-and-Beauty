@@ -127,6 +127,52 @@ function ProductFormModal({
   );
 }
 
+function CategoryCoverModal({
+  open,
+  category,
+  imagePreview,
+  imageError,
+  successMessage,
+  isSaving,
+  onImageChange,
+  onClose,
+  onSubmit,
+}) {
+  return (
+    <Modal open={open} title={`Portada de ${category || 'categoría'}`} onClose={onClose}>
+      <form className="admin-modal-form" onSubmit={onSubmit}>
+        <div className="admin-cover-modal-preview">
+          {imagePreview ? (
+            <SafeImage src={imagePreview} alt={`Portada de ${category}`} />
+          ) : (
+            <span aria-hidden="true">{category?.slice(0, 1).toUpperCase() || '?'}</span>
+          )}
+        </div>
+        <label className="button button-ghost button-sm staff-file-button">
+          <span className="button-content"><Camera size={14} /> Seleccionar imagen</span>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => {
+              onImageChange(event.target.files?.[0]);
+              event.target.value = '';
+            }}
+          />
+        </label>
+        <p className="admin-modal-hint">Resolución recomendable: 1200 x 1200 px</p>
+        {imageError && <p className="admin-alert compact">{imageError}</p>}
+        {successMessage && <p className="admin-cover-success">{successMessage}</p>}
+        <div className="admin-modal-actions">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}><X size={16} /> Cerrar</Button>
+          <Button type="submit" disabled={isSaving}>
+            <Save size={16} /> {isSaving ? 'Subiendo...' : 'Guardar portada'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function StockFormModal({
   open,
   form,
@@ -225,9 +271,15 @@ export function InventoryAdminPage() {
   const [inventorySearch, setInventorySearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('TODAS');
   const [statusFilter, setStatusFilter] = useState('TODOS');
+  const [coverCategory, setCoverCategory] = useState(null);
+  const [categoryCoverFile, setCategoryCoverFile] = useState(null);
+  const [categoryCoverPreview, setCategoryCoverPreview] = useState('');
+  const [categoryCoverError, setCategoryCoverError] = useState('');
+  const [categoryCoverSuccess, setCategoryCoverSuccess] = useState('');
 
   const productsQuery = useQuery({ queryKey: ['inventory-admin'], queryFn: inventoryService.listProducts });
   const stockQuery = useQuery({ queryKey: ['inventory-stock'], queryFn: inventoryService.listStock });
+  const categoryCoversQuery = useQuery({ queryKey: ['category-covers'], queryFn: inventoryService.getCategoryCovers });
 
   const products = useMemo(() => (Array.isArray(productsQuery.data) ? productsQuery.data : []), [productsQuery.data]);
   const stockByProduct = useMemo(() => {
@@ -292,6 +344,62 @@ export function InventoryAdminPage() {
     setProductImagePreview(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [productImageFile]);
+
+  useEffect(() => {
+    if (!categoryCoverFile) return undefined;
+    const objectUrl = URL.createObjectURL(categoryCoverFile);
+    setCategoryCoverPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [categoryCoverFile]);
+
+  const categoryCoversByName = useMemo(() => {
+    const rows = Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : [];
+    return rows.reduce((acc, cover) => {
+      if (cover?.categoria) acc[cover.categoria] = cover;
+      return acc;
+    }, {});
+  }, [categoryCoversQuery.data]);
+
+  const openCategoryCover = (category) => {
+    setCoverCategory(category);
+    setCategoryCoverFile(null);
+    setCategoryCoverPreview(categoryCoversByName[category]?.imagenUrl || '');
+    setCategoryCoverError('');
+    setCategoryCoverSuccess('');
+  };
+
+  const closeCategoryCover = () => {
+    setCoverCategory(null);
+    setCategoryCoverFile(null);
+    setCategoryCoverPreview('');
+    setCategoryCoverError('');
+    setCategoryCoverSuccess('');
+  };
+
+  const validateAndSetCategoryCover = (file) => {
+    const currentCoverUrl = categoryCoversByName[coverCategory]?.imagenUrl || '';
+    setCategoryCoverError('');
+    setCategoryCoverSuccess('');
+    if (!file) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentCoverUrl);
+      setCategoryCoverError('Selecciona una imagen para la portada.');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentCoverUrl);
+      setCategoryCoverError('Solo se permiten imágenes JPG, PNG o WEBP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentCoverUrl);
+      setCategoryCoverError('La imagen no puede superar 5 MB.');
+      return;
+    }
+    setCategoryCoverFile(file);
+  };
 
   const resetProductModal = () => {
     setProductModalOpen(false);
@@ -410,6 +518,26 @@ export function InventoryAdminPage() {
       invalidateInventory();
     },
   });
+  const categoryCoverMutation = useMutation({
+    mutationFn: ({ category, file }) => inventoryService.uploadCategoryCover(category, file),
+    onSuccess: (updatedCover) => {
+      queryClient.setQueryData(['category-covers'], (current) => {
+        const covers = Array.isArray(current) ? current : [];
+        const exists = covers.some((cover) => cover.categoria === updatedCover.categoria);
+        return exists
+          ? covers.map((cover) => (cover.categoria === updatedCover.categoria ? updatedCover : cover))
+          : [...covers, updatedCover];
+      });
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(updatedCover.imagenUrl || '');
+      setCategoryCoverSuccess('Portada actualizada correctamente.');
+      setCategoryCoverError('');
+    },
+    onError: (error) => {
+      setCategoryCoverSuccess('');
+      setCategoryCoverError(error.message || 'No se pudo actualizar la portada.');
+    },
+  });
 
   const handleProductSubmit = (event) => {
     event.preventDefault();
@@ -446,6 +574,15 @@ export function InventoryAdminPage() {
     event.target.value = '';
     if (!file) return;
     productImageMutation.mutate({ productId: getProductId(product), file });
+  };
+
+  const handleCategoryCoverSubmit = (event) => {
+    event.preventDefault();
+    if (!categoryCoverFile) {
+      setCategoryCoverError('Selecciona una imagen para la portada.');
+      return;
+    }
+    categoryCoverMutation.mutate({ category: coverCategory, file: categoryCoverFile });
   };
 
   const isLoading = productsQuery.isLoading || stockQuery.isLoading;
@@ -487,6 +624,41 @@ export function InventoryAdminPage() {
             <Button type="button" size="sm" variant="secondary" disabled><Save size={16} /> Movimiento de stock - Proximamente</Button>
           </div>
         </header>
+      </section>
+
+      <section className="admin-panel compact-panel admin-category-covers">
+        <header>
+          <div>
+            <h3>Portadas de categorías</h3>
+            <p>Imágenes de las tarjetas públicas en /productos. No modifican productos individuales.</p>
+          </div>
+        </header>
+        {categoryCoversQuery.isError && <p className="admin-alert compact">{categoryCoversQuery.error.message}</p>}
+        <div className="admin-category-cover-grid">
+          {PRODUCT_CATEGORIES.map((category) => {
+            const coverUrl = categoryCoversByName[category]?.imagenUrl || '';
+            return (
+              <article className="admin-category-cover-card" key={category}>
+                <div className="admin-category-cover-media">
+                  {coverUrl ? (
+                    <SafeImage src={coverUrl} alt={`Portada de ${category}`} />
+                  ) : (
+                    <span aria-hidden="true">{category.slice(0, 1).toUpperCase()}</span>
+                  )}
+                </div>
+                <div>
+                  <strong>{category}</strong>
+                  <span className={coverUrl ? 'admin-cover-status configured' : 'admin-cover-status'}>
+                    {coverUrl ? 'Portada configurada' : 'Sin portada configurada'}
+                  </span>
+                </div>
+                <Button type="button" size="sm" variant="ghost" onClick={() => openCategoryCover(category)}>
+                  <Camera size={14} /> Cambiar portada
+                </Button>
+              </article>
+            );
+          })}
+        </div>
       </section>
 
       <section className="admin-panel compact-panel">
@@ -592,6 +764,18 @@ export function InventoryAdminPage() {
         onImageChange={validateAndSetProductImage}
         onClose={resetProductModal}
         onSubmit={handleProductSubmit}
+      />
+
+      <CategoryCoverModal
+        open={Boolean(coverCategory)}
+        category={coverCategory}
+        imagePreview={categoryCoverPreview}
+        imageError={categoryCoverError}
+        successMessage={categoryCoverSuccess}
+        isSaving={categoryCoverMutation.isPending}
+        onImageChange={validateAndSetCategoryCover}
+        onClose={closeCategoryCover}
+        onSubmit={handleCategoryCoverSubmit}
       />
 
       <StockFormModal

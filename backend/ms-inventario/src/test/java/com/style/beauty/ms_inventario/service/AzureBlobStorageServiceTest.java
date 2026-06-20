@@ -150,4 +150,22 @@ class AzureBlobStorageServiceTest {
         );
         verify(blobClient, times(1)).upload(any(InputStream.class), eq(file.getSize()), eq(true));
     }
+
+    @Test
+    void publicBlobUrlPreservesNestedCategoryFolderSeparators() {
+        BlobClient blobClient = mock(BlobClient.class);
+        when(blobClient.getBlobUrl()).thenReturn(
+                "https://stylebeautyimages.blob.core.windows.net/stylebeauty/categorias%2Fcabello%2Fuuid-portada.webp"
+        );
+
+        String blobUrl = storageService.publicBlobUrl(
+                blobClient,
+                "categorias/cabello/uuid-portada.webp"
+        );
+
+        assertThat(blobUrl).isEqualTo(
+                "https://stylebeautyimages.blob.core.windows.net/stylebeauty/categorias/cabello/uuid-portada.webp"
+        );
+        assertThat(blobUrl).doesNotContain("%2F");
+    }
 }
