@@ -616,18 +616,10 @@
   border: 3px solid rgba(191, 91, 132, 0.2);
   border-radius: 50%;
   box-shadow: 0 14px 32px rgba(87, 55, 64, 0.14);
-  cursor: pointer;
   display: block;
   overflow: hidden;
   position: relative;
   width: clamp(8rem, 12vw, 10rem);
-}
-
-.profile-photo-avatar input {
-  height: 1px;
-  opacity: 0;
-  position: absolute;
-  width: 1px;
 }
 
 .profile-photo-avatar img,
@@ -650,26 +642,9 @@
   justify-content: center;
 }
 
-.profile-photo-action {
-  align-items: center;
-  background: linear-gradient(180deg, rgba(25, 20, 23, 0.08), rgba(25, 20, 23, 0.78));
-  bottom: 0;
-  color: #fff;
-  display: flex;
-  font-size: 0.78rem;
-  font-weight: 800;
-  gap: 0.35rem;
+.profile-photo-button {
   justify-content: center;
-  left: 0;
-  min-height: 2.65rem;
-  padding: 0.65rem 0.5rem 0.5rem;
-  position: absolute;
-  right: 0;
-}
-
-.profile-photo-avatar:hover .profile-photo-action,
-.profile-photo-avatar:focus-within .profile-photo-action {
-  background: linear-gradient(180deg, rgba(25, 20, 23, 0.1), rgba(25, 20, 23, 0.88));
+  min-width: 9rem;
 }
 
 .profile-photo-hint,
@@ -685,6 +660,80 @@
 .profile-photo-error {
   color: #b4234c;
   font-weight: 700;
+}
+
+.profile-photo-modal {
+  max-width: 34rem;
+}
+
+.profile-photo-modal-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.profile-photo-modal-previews {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-photo-modal-previews figure {
+  align-items: center;
+  display: grid;
+  gap: 0.55rem;
+  justify-items: center;
+  margin: 0;
+}
+
+.profile-photo-modal-previews figcaption,
+.profile-photo-modal-hint {
+  color: var(--color-muted);
+  font-size: 0.78rem;
+  margin: 0;
+  text-align: center;
+}
+
+.profile-photo-modal-avatar {
+  aspect-ratio: 1 / 1;
+  border: 2px solid var(--color-line);
+  border-radius: 50%;
+  box-shadow: 0 10px 24px rgba(87, 55, 64, 0.1);
+  overflow: hidden;
+  width: min(100%, 8.5rem);
+}
+
+.profile-photo-modal-avatar.preview {
+  border-color: rgba(191, 91, 132, 0.45);
+}
+
+.profile-photo-modal-avatar img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.profile-photo-file-button {
+  cursor: pointer;
+  justify-content: center;
+  justify-self: center;
+}
+
+.profile-photo-file-button input {
+  display: none;
+}
+
+.profile-photo-modal-actions {
+  align-items: center;
+  border-top: 1px solid var(--color-line);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+}
+
+.profile-missing-role-card > svg {
+  color: var(--color-primary-strong);
+  margin-inline: auto;
 }
 
 .category-service-thumbnail {
@@ -3344,6 +3393,18 @@ img[data-fallback="true"] {
 @media (max-width: 699px) {
   .profile-photo-avatar {
     width: clamp(6.5rem, 32vw, 8rem);
+  }
+
+  .profile-photo-modal-previews {
+    gap: 0.75rem;
+  }
+
+  .profile-photo-modal-avatar {
+    width: min(100%, 7rem);
+  }
+
+  .profile-photo-modal-actions .button {
+    flex: 1;
   }
 
   .page-hero-services.page-hero-category {
