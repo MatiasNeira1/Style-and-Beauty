@@ -1,2 +1,0 @@
-{"__type":"$$EventMessageAudit","id":"8b6d193e-7104-4def-8b13-f6da67130cf8","ts":"2026-06-19T11:33:53.271-04:00","eventName":"n8n.audit.workflow.activated","message":"n8n.audit.workflow.activated","payload":{"workflowId":"vc7ptmNCMmGh0gvE","workflowName":"Chatbot Style Beauty - Webpay REVISADO CORREGIDO","activeVersionId":"24ee6f8d-1292-447c-9257-be6be0b6c594","activationMode":"init"}}
-{"__type":"$$EventMessageConfirm","confirm":"8b6d193e-7104-4def-8b13-f6da67130cf8","ts":"2026-06-19T11:33:53.273-04:00","source":{"id":"0","name":"eventBus"}}
