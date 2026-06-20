@@ -1,13 +1,15 @@
 import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
   CalendarCheck,
   CalendarDays,
+  CheckCircle2,
   Scissors,
   Users,
 } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
+import { Button } from '../../components/ui/Button.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
 import { agendaService } from '../../services/agendaService.js';
 import { catalogService } from '../../services/catalogService.js';
@@ -15,6 +17,7 @@ import { paymentService } from '../../services/paymentService.js';
 import { profileService } from '../../services/profileService.js';
 
 const completedStatuses = new Set(['FINALIZADA', 'FINALIZADO']);
+const finalizableStatuses = new Set(['CONFIRMADA', 'EN_ATENCION']);
 const paidStatuses = new Set(['APROBADA', 'PAGADO', 'PAGADA', 'COMPLETADO', 'COMPLETADA', 'EXITOSO', 'EXITOSA']);
 const dayLabels = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
 const statusDefinitions = [
@@ -181,6 +184,10 @@ function statusBucket(status) {
   return 'pending';
 }
 
+function canFinalizeBooking(row) {
+  return Boolean(row?.id && finalizableStatuses.has(String(row.estado || '').toUpperCase()));
+}
+
 function ChartBars({ title, subtitle, data }) {
   const max = Math.max(...data.map((item) => item.value), 1);
 
@@ -259,7 +266,46 @@ function StatusPanel({ items }) {
   );
 }
 
-function ReadOnlyTable({ eyebrow, title, rows, emptyMessage = 'No hay registros para mostrar.' }) {
+function ReadOnlyTable({
+  eyebrow,
+  title,
+  rows,
+  emptyMessage = 'No hay registros para mostrar.',
+  onFinalize,
+  finalizingId,
+}) {
+  const columns = [
+    { key: 'fecha', label: 'Fecha', render: (row) => formatDateTime(row.fecha) },
+    { key: 'cliente', label: 'Cliente' },
+    { key: 'servicio', label: 'Servicio' },
+    { key: 'profesional', label: 'Profesional' },
+    { key: 'estado', label: 'Estado' },
+    { key: 'precio', label: 'Precio', render: (row) => currency(row.precio) },
+  ];
+
+  if (onFinalize) {
+    columns.push({
+      key: 'acciones',
+      label: 'Acciones',
+      render: (row) => (
+        canFinalizeBooking(row) ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => onFinalize(row.id)}
+            disabled={finalizingId === row.id}
+          >
+            <CheckCircle2 size={14} />
+            {finalizingId === row.id ? 'Finalizando' : 'Finalizar'}
+          </Button>
+        ) : (
+          <span className="staff-table-muted-action">Sin accion</span>
+        )
+      ),
+    });
+  }
+
   return (
     <section className="staff-dashboard-panel">
       <div className="staff-dashboard-panel-header">
@@ -270,14 +316,7 @@ function ReadOnlyTable({ eyebrow, title, rows, emptyMessage = 'No hay registros 
       </div>
       <DataTable
         emptyMessage={emptyMessage}
-        columns={[
-          { key: 'fecha', label: 'Fecha', render: (row) => formatDateTime(row.fecha) },
-          { key: 'cliente', label: 'Cliente' },
-          { key: 'servicio', label: 'Servicio' },
-          { key: 'profesional', label: 'Profesional' },
-          { key: 'estado', label: 'Estado' },
-          { key: 'precio', label: 'Precio', render: (row) => currency(row.precio) },
-        ]}
+        columns={columns}
         rows={rows}
       />
     </section>
@@ -285,12 +324,13 @@ function ReadOnlyTable({ eyebrow, title, rows, emptyMessage = 'No hay registros 
 }
 
 export function StaffDashboard({ currentStaff, fullName: professionalName, view = 'dashboard' }) {
+  const queryClient = useQueryClient();
   const currentStaffIds = useMemo(() => staffIds(currentStaff), [currentStaff]);
   const currentStaffId = primaryStaffId(currentStaff);
 
   const bookingsQuery = useQuery({
     queryKey: ['staff-dashboard-bookings', currentStaffId],
-    queryFn: () => agendaService.listBookingsByStaff(currentStaffId),
+    queryFn: agendaService.listMyStaffBookings,
     enabled: Boolean(currentStaffId),
   });
 
@@ -307,6 +347,15 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
   const paymentsQuery = useQuery({
     queryKey: ['staff-dashboard-payments'],
     queryFn: paymentService.listTransactions,
+  });
+
+  const finalizeBookingMutation = useMutation({
+    mutationFn: agendaService.finalizeMyBooking,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard-bookings', currentStaffId] });
+      queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
+    },
   });
 
   const {
@@ -398,8 +447,8 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
         return {
           id: bookingId,
           fecha: bookingDate(booking),
-          cliente: fullName(clientsById[String(clientId)]) || clientId || 'Sin cliente',
-          servicio: service.nombre || service.nombreServicio || serviceId || 'Sin servicio',
+          cliente: booking.nombreCliente || fullName(clientsById[String(clientId)]) || clientId || 'Sin cliente',
+          servicio: booking.nombreServicio || service.nombre || service.nombreServicio || serviceId || 'Sin servicio',
           profesional: professionalName,
           estado: booking.estadoCita || booking.estado || 'Sin estado',
           precio: price,
@@ -511,8 +560,17 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
           Clientes no disponible para enriquecer el historial. Se mostraran identificadores internos cuando corresponda.
         </p>
       )}
+
+      {finalizeBookingMutation.isError && (
+        <p className="admin-alert">
+          {finalizeBookingMutation.error?.message || 'No se pudo finalizar la cita. Intenta nuevamente.'}
+        </p>
+      )}
     </>
   );
+
+  const finalizingId = finalizeBookingMutation.isPending ? finalizeBookingMutation.variables : null;
+  const handleFinalizeBooking = (idCita) => finalizeBookingMutation.mutate(idCita);
 
   if (view === 'agenda') {
     return (
@@ -523,8 +581,22 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
         </div>
         {alerts}
         <div className="staff-agenda-grid">
-          <ReadOnlyTable eyebrow="Hoy" title="Citas para hoy" rows={todayRows} emptyMessage="No tienes citas asignadas para hoy." />
-          <ReadOnlyTable eyebrow="Semana" title="Citas de la semana" rows={weekRows} emptyMessage="No tienes citas asignadas esta semana." />
+          <ReadOnlyTable
+            eyebrow="Hoy"
+            title="Citas para hoy"
+            rows={todayRows}
+            emptyMessage="No tienes citas asignadas para hoy."
+            onFinalize={handleFinalizeBooking}
+            finalizingId={finalizingId}
+          />
+          <ReadOnlyTable
+            eyebrow="Semana"
+            title="Citas de la semana"
+            rows={weekRows}
+            emptyMessage="No tienes citas asignadas esta semana."
+            onFinalize={handleFinalizeBooking}
+            finalizingId={finalizingId}
+          />
         </div>
       </div>
     );
@@ -534,7 +606,14 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
     return (
       <div className="staff-dashboard">
         {alerts}
-        <ReadOnlyTable eyebrow="Historial" title="Servicios y citas asignadas" rows={historyRows} emptyMessage="Aun no hay servicios asociados a tu agenda." />
+        <ReadOnlyTable
+          eyebrow="Historial"
+          title="Servicios y citas asignadas"
+          rows={historyRows}
+          emptyMessage="Aun no hay servicios asociados a tu agenda."
+          onFinalize={handleFinalizeBooking}
+          finalizingId={finalizingId}
+        />
       </div>
     );
   }
@@ -560,7 +639,14 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
         <ChartBars title="Ganancias mensuales" subtitle="Comparativo de los ultimos seis meses." data={monthlyRevenue} />
       </div>
 
-      <ReadOnlyTable eyebrow="Historial" title="Servicios y citas asignadas" rows={historyRows} emptyMessage="Aun no hay servicios asociados a tu agenda." />
+      <ReadOnlyTable
+        eyebrow="Historial"
+        title="Servicios y citas asignadas"
+        rows={historyRows}
+        emptyMessage="Aun no hay servicios asociados a tu agenda."
+        onFinalize={handleFinalizeBooking}
+        finalizingId={finalizingId}
+      />
     </div>
   );
 }

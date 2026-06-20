@@ -154,7 +154,7 @@ public class AdminController {
 
     private boolean esAdmin(String authHeader) {
         FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
-        Object rolObj = decodedToken.getClaims().get("rol");
+        Object rolObj = decodedToken.getClaims().getOrDefault("rol", decodedToken.getClaims().get("role"));
         String rol = rolObj == null ? null : String.valueOf(rolObj);
         return "ADMIN".equalsIgnoreCase(rol);
     }

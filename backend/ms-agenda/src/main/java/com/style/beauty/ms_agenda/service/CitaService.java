@@ -44,6 +44,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -88,6 +89,20 @@ public class CitaService {
         log.info("Listando citas en ms-agenda para staff: idStaff={}", idStaff);
         liberarReservasVencidas();
         return citaRepository.findByIdStaff(idStaff);
+    }
+
+    public List<CitaAgendaResponse> listarAgendaStaff(UUID idStaff) {
+        log.info("Listando agenda enriquecida para staff: idStaff={}", idStaff);
+        liberarReservasVencidas();
+
+        Map<UUID, String> nombresClientes = new HashMap<>();
+        Map<UUID, String> nombresServicios = new HashMap<>();
+
+        return citaRepository.findByIdStaff(idStaff)
+                .stream()
+                .sorted(Comparator.comparing(Cita::getFechaHoraInicio))
+                .map(cita -> toAgendaResponse(cita, nombresClientes, nombresServicios))
+                .toList();
     }
 
     public List<CitaAgendaResponse> listarPorCliente(
@@ -471,6 +486,39 @@ public class CitaService {
                 estadoAnterior.name(),
                 request.estadoCita().name(),
                 "Cambio de estado de cita"
+        );
+
+        return actualizada;
+    }
+
+    @Transactional
+    public Cita finalizarCitaStaff(UUID id, UUID idStaff) {
+        log.info("Finalizando cita desde panel staff: id={}, idStaff={}", id, idStaff);
+
+        Cita cita = buscarPorId(id);
+        if (!Objects.equals(cita.getIdStaff(), idStaff)) {
+            throw new BusinessException("No puedes finalizar una cita asignada a otro profesional.");
+        }
+
+        if (cita.getEstadoCita() == EstadoCita.CANCELADA
+                || cita.getEstadoCita() == EstadoCita.EXPIRADA
+                || cita.getEstadoCita() == EstadoCita.RECHAZADA) {
+            throw new BusinessException("Solo puedes finalizar citas activas o confirmadas.");
+        }
+
+        EstadoCita estadoAnterior = cita.getEstadoCita();
+        cita.setEstadoCita(EstadoCita.FINALIZADA);
+        cita.setExpiracionReserva(null);
+        cita.setObservacionStaff("Cita finalizada por staff.");
+
+        Cita actualizada = citaRepository.save(cita);
+
+        registrarHistorial(
+                id,
+                AccionHistorial.FINALIZADA,
+                estadoAnterior.name(),
+                EstadoCita.FINALIZADA.name(),
+                "Cita finalizada por staff"
         );
 
         return actualizada;

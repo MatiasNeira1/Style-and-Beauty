@@ -165,7 +165,8 @@ public class PerfilController {
     public ResponseEntity<?> listarClientes(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         try {
             FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
-            String rol = (String) decodedToken.getClaims().get("rol");
+            Object claimRol = decodedToken.getClaims().getOrDefault("rol", decodedToken.getClaims().get("role"));
+            String rol = claimRol == null ? null : String.valueOf(claimRol);
 
             // SEGURIDAD: Solo STAFF puede ver la lista de todos los clientes
             if (!"STAFF".equalsIgnoreCase(rol) && !"ADMIN".equalsIgnoreCase(rol)) {
