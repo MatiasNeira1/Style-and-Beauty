@@ -4,6 +4,7 @@ import { CalendarClock, UserRound, Save, Activity, Stethoscope, Star, MessageSqu
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Input } from '../../components/ui/Input.jsx';
+import { Modal } from '../../components/ui/Modal.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { authService } from '../../services/authService.js';
@@ -224,17 +225,10 @@ function BirthDateSelects({ value, onChange, error }) {
   );
 }
 
-function ProfilePictureUpload({ photoUrl, onPhotoChange, isUploading = false, error = '', initials = '' }) {
-  const handleFileChange = (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (file) onPhotoChange(file);
-  };
-
+function ProfileAvatar({ photoUrl, onChangePhoto, disabled = false, initials = '', hint = '' }) {
   return (
     <div className="profile-photo-control">
-      <label className="profile-photo-avatar">
-        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} disabled={isUploading} />
+      <div className="profile-photo-avatar">
         {photoUrl ? (
           <img src={photoUrl} alt="Foto de perfil" />
         ) : (
@@ -242,11 +236,57 @@ function ProfilePictureUpload({ photoUrl, onPhotoChange, isUploading = false, er
             {initials ? <span>{initials}</span> : <UserRound size={48} />}
           </div>
         )}
-        <span className="profile-photo-action"><Camera size={15} /> {isUploading ? 'Subiendo...' : 'Cambiar foto'}</span>
-      </label>
-      <span className="profile-photo-hint">JPG, PNG o WEBP · máximo 5 MB</span>
-      {error && <span className="profile-photo-error">{error}</span>}
+      </div>
+      <Button type="button" variant="ghost" size="sm" onClick={onChangePhoto} disabled={disabled} className="profile-photo-button">
+        <Camera size={15} /> Cambiar foto
+      </Button>
+      {hint && <span className="profile-photo-hint">{hint}</span>}
     </div>
+  );
+}
+
+function ProfilePhotoModal({ open, currentPhoto, previewPhoto, file, error, isSaving, initials, onFileChange, onClose, onSave }) {
+  const handleFileChange = (event) => {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = '';
+    if (selectedFile) onFileChange(selectedFile);
+  };
+
+  const renderAvatar = (src) => (
+    src ? <img src={src} alt="Foto de perfil" /> : (
+      <div className="profile-photo-placeholder">
+        {initials ? <span>{initials}</span> : <UserRound size={48} />}
+      </div>
+    )
+  );
+
+  return (
+    <Modal open={open} title="Cambiar foto de perfil" onClose={onClose} closeDisabled={isSaving} className="profile-photo-modal">
+      <form className="profile-photo-modal-form" onSubmit={onSave}>
+        <div className="profile-photo-modal-previews">
+          <figure>
+            <div className="profile-photo-modal-avatar">{renderAvatar(currentPhoto)}</div>
+            <figcaption>Foto actual</figcaption>
+          </figure>
+          <figure>
+            <div className="profile-photo-modal-avatar preview">{renderAvatar(previewPhoto || currentPhoto)}</div>
+            <figcaption>{file ? 'Nueva foto' : 'Vista previa'}</figcaption>
+          </figure>
+        </div>
+
+        <label className="button button-ghost profile-photo-file-button">
+          <Camera size={16} /> Seleccionar imagen
+          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFileChange} disabled={isSaving} />
+        </label>
+        <p className="profile-photo-modal-hint">JPG, PNG o WEBP · máximo 5 MB</p>
+        {error && <p className="admin-alert compact">{error}</p>}
+
+        <div className="profile-photo-modal-actions">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}>Cancelar</Button>
+          <Button type="submit" disabled={isSaving || !file}>{isSaving ? 'Guardando...' : 'Guardar cambios'}</Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -608,12 +648,16 @@ export function ProfilePage() {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoError, setPhotoError] = useState('');
   const [photoUploadPending, setPhotoUploadPending] = useState(false);
+  const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const authRole = String(user?.rol || user?.role || '').toUpperCase();
+  const isAdminAccount = authRole === 'ADMIN';
+  const isStaffAccount = authRole === 'STAFF';
 
   // Fetch real profile data from backend
   const { data: profile, isLoading, error: profileError } = useQuery({
     queryKey: ['myProfile'],
     queryFn: profileService.getMyProfile,
-    enabled: !!user,
+    enabled: Boolean(user && !isAdminAccount),
     retry: false,
   });
 
@@ -681,7 +725,7 @@ export function ProfilePage() {
 
   // Pre-populate completion form with pending registration data if no profile exists
   useEffect(() => {
-    if (isProfileNotFoundError(profileError)) {
+    if (isProfileNotFoundError(profileError) && !isAdminAccount && !isStaffAccount) {
       try {
         const stored = window.localStorage.getItem('style_beauty_pending_profile')
           || window.sessionStorage.getItem('style_beauty_pending_profile');
@@ -701,7 +745,7 @@ export function ProfilePage() {
         console.error('Error parsing pending profile data:', err);
       }
     }
-  }, [profileError, reset, user]);
+  }, [isAdminAccount, isStaffAccount, profileError, reset, user]);
 
   const handlePhotoChange = (file) => {
     setPhotoError('');
@@ -718,6 +762,21 @@ export function ProfilePage() {
     setPhotoFile(file);
   };
 
+  const openPhotoModal = () => {
+    setPhotoError('');
+    setPhotoFile(null);
+    setPhotoPreview(profile?.fotoUrl || user?.photoURL || '');
+    setPhotoModalOpen(true);
+  };
+
+  const closePhotoModal = () => {
+    if (photoUploadPending) return;
+    setPhotoModalOpen(false);
+    setPhotoFile(null);
+    setPhotoError('');
+    setPhotoPreview(profile?.fotoUrl || user?.photoURL || '');
+  };
+
   const uploadSelectedPhoto = async () => {
     if (!photoFile) return null;
     setPhotoUploadPending(true);
@@ -729,21 +788,28 @@ export function ProfilePage() {
       queryClient.setQueryData(['my-profile'], updatedProfile);
       setPhotoPreview(persistedUrl);
       setPhotoFile(null);
-
-      if (persistedUrl) {
-        try {
-          const sessionWithPhoto = await firebaseAuthService.updatePhoto(persistedUrl);
-          setSession(sessionWithPhoto);
-        } catch (firebaseError) {
-          console.warn('La foto se guardó en el perfil, pero Firebase no pudo sincronizarla:', firebaseError);
-        }
-      }
       return updatedProfile;
     } catch (error) {
       setPhotoError(error.message || 'No se pudo actualizar la foto de perfil.');
       throw error;
     } finally {
       setPhotoUploadPending(false);
+    }
+  };
+
+  const handlePhotoSave = async (event) => {
+    event.preventDefault();
+    if (!photoFile) {
+      setPhotoError('Selecciona una imagen antes de guardar.');
+      return;
+    }
+    try {
+      await uploadSelectedPhoto();
+      setPhotoModalOpen(false);
+      setSuccessMsg('Foto actualizada correctamente.');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch {
+      // El error permanece visible dentro del modal.
     }
   };
 
@@ -789,7 +855,7 @@ export function ProfilePage() {
       });
       queryClient.setQueryData(['myProfile'], createdProfile);
       queryClient.setQueryData(['my-profile'], createdProfile);
-      return (await uploadSelectedPhoto()) || createdProfile;
+      return createdProfile;
     },
     onSuccess: async (createdProfile) => {
       queryClient.setQueryData(['myProfile'], createdProfile);
@@ -808,6 +874,23 @@ export function ProfilePage() {
     },
   });
 
+  if (isAdminAccount) {
+    return (
+      <>
+        <ProfileHero />
+        <section className="page-section profile-completion-section">
+          <Card className="client-auth-card profile-missing-role-card">
+            <UserRound size={42} />
+            <h2>Perfil administrativo</h2>
+            <p>Esta cuenta administrativa no tiene perfil cliente asociado.</p>
+            <small>Cuenta autenticada: {user?.email || 'sin correo disponible'}</small>
+            <Button type="button" variant="ghost" onClick={logout}>Cerrar sesión</Button>
+          </Card>
+        </section>
+      </>
+    );
+  }
+
   if (isLoading) {
     return (
       <>
@@ -818,6 +901,23 @@ export function ProfilePage() {
   }
 
   if (isProfileNotFoundError(profileError)) {
+    if (isStaffAccount) {
+      return (
+        <>
+          <ProfileHero />
+          <section className="page-section profile-completion-section">
+            <Card className="client-auth-card profile-missing-role-card">
+              <UserRound size={42} />
+              <h2>Perfil profesional no disponible</h2>
+              <p>Esta cuenta no tiene un perfil profesional asociado. Solicita al administrador revisar tu registro.</p>
+              <small>Cuenta autenticada: {user?.email || 'sin correo disponible'}</small>
+              <Button type="button" variant="ghost" onClick={logout}>Cerrar sesión</Button>
+            </Card>
+          </section>
+        </>
+      );
+    }
+
     const isMissingIdentity = ['rut', 'nombre', 'apellidos', 'emailContacto', 'fechaNacimiento']
       .some((field) => !String(watchedValues?.[field] || '').trim());
 
@@ -838,11 +938,10 @@ export function ProfilePage() {
             {successMsg && <div className="success-alert">{successMsg}</div>}
 
             <form onSubmit={handleSubmit((values) => createProfileMutation.mutate(values))} className="profile-completion-form">
-              <ProfilePictureUpload
+              <ProfileAvatar
                 photoUrl={photoPreview}
-                onPhotoChange={handlePhotoChange}
-                isUploading={photoUploadPending || createProfileMutation.isPending}
-                error={photoError}
+                disabled
+                hint="Podrás agregar una foto después de crear tu perfil cliente."
                 initials={`${watchedValues?.nombre?.[0] || ''}${watchedValues?.apellidos?.[0] || ''}`.toUpperCase()}
               />
               
@@ -968,7 +1067,6 @@ export function ProfilePage() {
 
   const onSubmit = async (data) => {
     try {
-      await uploadSelectedPhoto();
       await updateMutation.mutateAsync({
         telefono: data.telefono,
         alergias: data.alergias,
@@ -1084,8 +1182,8 @@ export function ProfilePage() {
           </Card>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button type="submit" disabled={updateMutation.isPending || photoUploadPending} style={{ padding: '0.8rem 2rem' }}>
-              {updateMutation.isPending || photoUploadPending ? 'Guardando...' : <><Save size={18} /> Guardar Cambios</>}
+            <Button type="submit" disabled={updateMutation.isPending} style={{ padding: '0.8rem 2rem' }}>
+              {updateMutation.isPending ? 'Guardando...' : <><Save size={18} /> Guardar Cambios</>}
             </Button>
           </div>
         </form>
@@ -1093,11 +1191,11 @@ export function ProfilePage() {
 
         <div className="profile-side-stack">
         <Card className="profile-card" style={{ textAlign: 'center', padding: '2rem' }}>
-          <ProfilePictureUpload
+          <ProfileAvatar
             photoUrl={photoPreview}
-            onPhotoChange={handlePhotoChange}
-            isUploading={photoUploadPending || updateMutation.isPending}
-            error={photoError}
+            onChangePhoto={openPhotoModal}
+            disabled={photoUploadPending}
+            hint="La imagen se guarda en tu perfil."
             initials={`${profile?.nombre?.[0] || ''}${profile?.apellidos?.[0] || ''}`.toUpperCase()}
           />
           <h3 style={{ marginBottom: '0.5rem' }}>{profile?.nombre || user?.email}</h3>
@@ -1120,6 +1218,19 @@ export function ProfilePage() {
         <PastAppointmentsCard query={historyAppointmentsQuery} onEvaluate={handleEvaluate} />
         </div>
       </section>
+
+      <ProfilePhotoModal
+        open={photoModalOpen}
+        currentPhoto={profile?.fotoUrl || user?.photoURL || ''}
+        previewPhoto={photoPreview}
+        file={photoFile}
+        error={photoError}
+        isSaving={photoUploadPending}
+        initials={`${profile?.nombre?.[0] || ''}${profile?.apellidos?.[0] || ''}`.toUpperCase()}
+        onFileChange={handlePhotoChange}
+        onClose={closePhotoModal}
+        onSave={handlePhotoSave}
+      />
     </>
   );
 }
