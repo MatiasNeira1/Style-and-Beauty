@@ -41,6 +41,10 @@ export function RequireAuth({ children, roles }) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
+  if (user && !user.emailVerified) {
+    return <Navigate to="/verificacion-pendiente" replace state={{ from: location }} />;
+  }
+
   if (sessionQuery.error?.status === 401) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }

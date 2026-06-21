@@ -52,6 +52,7 @@ export const router = createBrowserRouter([
       { path: 'pago/error', element: lazyRoute(() => import('../pages/client/PaymentResultPage.jsx'), 'PaymentErrorPage') },
       { path: 'login', element: lazyRoute(() => import('../pages/auth/LoginPage.jsx'), 'LoginPage') },
       { path: 'registro', element: lazyRoute(() => import('../pages/auth/RegisterPage.jsx'), 'RegisterPage') },
+      { path: 'verificacion-pendiente', element: lazyRoute(() => import('../pages/auth/VerificationPendingPage.jsx'), 'VerificationPendingPage') },
       { path: 'perfil', element: protectedRoute(lazyRoute(() => import('../pages/client/ProfilePage.jsx'), 'ProfilePage')) },
       { path: 'reserva-extraordinaria', element: protectedRoute(lazyRoute(() => import('../pages/client/ExtraordinaryBookingPage.jsx'), 'ExtraordinaryBookingPage')) },
     ],
