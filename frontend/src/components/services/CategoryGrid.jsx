@@ -29,7 +29,7 @@ export const CategoryGrid = memo(function CategoryGrid({ services = [], category
                 className="category-card-media"
                 src={imageUrl}
                 alt={category}
-                loading="lazy"
+                loading="eager"
                 width={640}
                 height={400}
               />

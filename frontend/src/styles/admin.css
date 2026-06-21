@@ -1826,17 +1826,218 @@
   overflow: hidden;
 }
 
-.admin-category-cover-media img,
-.admin-cover-modal-preview img {
+.admin-category-cover-media img {
   height: 100%;
   object-fit: cover;
   width: 100%;
 }
 
-.admin-cover-modal-preview {
-  font-size: 3rem;
-  max-width: 18rem;
+.admin-service-cover-modal {
+  max-width: min(860px, calc(100vw - 2rem));
+}
+
+.admin-cover-modal-form {
+  gap: 0.85rem;
+}
+
+.admin-cover-preview-stage {
+  align-items: stretch;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: minmax(0, 1.35fr) minmax(17rem, 0.85fr);
+  min-width: 0;
+}
+
+.admin-cover-preview-stack {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+}
+
+.admin-cover-preview-card {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(251, 207, 232, 0.28), transparent 11rem),
+    rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(191, 91, 132, 0.14);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 14px 36px rgba(78, 44, 58, 0.08);
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.7rem;
+}
+
+.admin-cover-preview-label {
+  color: var(--color-primary-strong);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.admin-cover-hero-frame,
+.admin-cover-card-media {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(255, 248, 244, 0.96), rgba(251, 207, 232, 0.3));
+  color: var(--color-primary-strong);
+  display: flex;
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 6vw, 4rem);
+  justify-content: center;
+  overflow: hidden;
+}
+
+.admin-cover-hero-frame {
+  aspect-ratio: 16 / 7.4;
+  border: 1px solid rgba(191, 91, 132, 0.14);
+  border-radius: calc(var(--radius-sm) - 0.2rem);
+  min-height: 12rem;
+  position: relative;
+}
+
+.admin-cover-hero-frame img,
+.admin-cover-card-media img {
+  height: 100%;
+  object-fit: cover;
   width: 100%;
+}
+
+.admin-cover-hero-overlay {
+  background:
+    linear-gradient(180deg, rgba(25, 20, 23, 0.1), rgba(25, 20, 23, 0.54)),
+    linear-gradient(90deg, rgba(25, 20, 23, 0.58), rgba(25, 20, 23, 0.08) 72%);
+  inset: 0;
+  position: absolute;
+}
+
+.admin-cover-hero-copy {
+  bottom: clamp(0.85rem, 3vw, 1.25rem);
+  color: #fff;
+  display: grid;
+  gap: 0.18rem;
+  left: clamp(0.85rem, 3vw, 1.35rem);
+  max-width: calc(100% - 2rem);
+  position: absolute;
+  text-shadow: 0 2px 18px rgba(25, 20, 23, 0.32);
+  z-index: 1;
+}
+
+.admin-cover-hero-copy span,
+.admin-cover-card-content span {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-cover-hero-copy strong {
+  font-family: var(--font-serif);
+  font-size: clamp(1.6rem, 4.6vw, 2.8rem);
+  line-height: 0.95;
+  overflow-wrap: anywhere;
+}
+
+.admin-cover-card-frame {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--color-line);
+  border-radius: calc(var(--radius-sm) - 0.15rem);
+  display: grid;
+  grid-template-columns: minmax(5.4rem, 34%) minmax(0, 1fr);
+  min-height: 8.6rem;
+  overflow: hidden;
+}
+
+.admin-cover-card-media {
+  border-right: 1px solid rgba(191, 91, 132, 0.12);
+  min-height: 100%;
+}
+
+.admin-cover-card-content {
+  color: var(--color-text);
+  display: grid;
+  gap: 0.32rem;
+  grid-template-rows: auto auto 1fr;
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.admin-cover-card-content span {
+  color: var(--color-primary);
+}
+
+.admin-cover-card-content strong {
+  color: var(--color-primary-strong);
+  font-family: var(--font-serif);
+  font-size: clamp(1.05rem, 2.5vw, 1.32rem);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.admin-cover-card-content p {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-cover-modal-preview {
+  aspect-ratio: 16 / 10;
+  font-size: 2.3rem;
+  min-height: 0;
+  width: 100%;
+}
+
+.admin-cover-modal-preview img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.admin-cover-modal-controls {
+  background: rgba(255, 248, 244, 0.66);
+  border: 1px solid rgba(191, 91, 132, 0.12);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.75rem;
+}
+
+.admin-cover-file-control {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.85rem;
+  min-width: 0;
+}
+
+.admin-cover-file-control .admin-modal-hint {
+  flex: 1 1 13rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.admin-cover-file-input {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.admin-cover-file-input:focus-visible + .staff-file-button {
+  outline: 3px solid rgba(191, 91, 132, 0.34);
+  outline-offset: 3px;
+}
+
+.staff-file-button.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .admin-service-category-covers .admin-category-cover-grid {
@@ -1901,108 +2102,230 @@
   width: 4.8rem;
 }
 
-.admin-service-detail-modal .modal-close-text {
-  display: none;
-}
-
 @media (max-width: 768px) {
-  .admin-service-detail-modal {
-    max-height: calc(100dvh - 24px);
-    overscroll-behavior: contain;
+  .admin-shell .modal-backdrop {
+    align-items: flex-start;
+    display: flex;
+    inset: 0;
+    justify-content: center;
     overflow-y: auto;
-    scrollbar-width: none;
-    width: min(40rem, calc(100vw - 24px));
+    padding: 16px;
+    position: fixed;
   }
 
-  .admin-service-detail-modal::-webkit-scrollbar {
+  .admin-shell .modal {
+    border-radius: 24px;
+    box-sizing: border-box;
+    margin: auto;
+    max-height: calc(100dvh - 32px);
+    max-width: 100%;
+    overscroll-behavior: contain;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: none;
+    width: min(100%, 420px);
+  }
+
+  .admin-shell .modal::-webkit-scrollbar,
+  .admin-shell .admin-modal-steps::-webkit-scrollbar {
     display: none;
   }
 
-  .admin-service-detail-modal > header {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 0.7rem;
+  .admin-shell .modal > .modal-header {
+    align-items: start;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr) 2.75rem;
     position: static;
   }
 
-  .admin-service-detail-modal > header h2 {
-    font-size: clamp(1.2rem, 5.4vw, 1.55rem);
+  .admin-shell .modal > .modal-header .modal-title {
+    display: -webkit-box;
+    font-size: clamp(1.2rem, 5vw, 1.5rem);
     line-height: 1.15;
     max-width: 100%;
+    overflow: hidden;
     overflow-wrap: normal;
     text-wrap: balance;
     white-space: normal;
     word-break: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
-  .admin-service-detail-modal > header > .modal-close-action {
-    align-self: center;
+  .admin-shell .modal > .modal-header .modal-close {
+    align-self: start;
     background: rgba(191, 91, 132, 0.12);
     border: 1px solid rgba(191, 91, 132, 0.3);
-    border-radius: 999px;
+    border-radius: 50%;
     color: var(--color-primary-strong);
-    min-height: 2.5rem;
-    width: min(100%, 10rem);
+    height: 2.75rem;
+    max-width: 2.75rem;
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    padding: 0;
+    width: 2.75rem;
   }
 
-  .admin-service-detail-modal > header > .modal-close-action:hover,
-  .admin-service-detail-modal > header > .modal-close-action:focus-visible {
+  .admin-shell .modal > .modal-header .modal-close:hover,
+  .admin-shell .modal > .modal-header .modal-close:active,
+  .admin-shell .modal > .modal-header .modal-close:focus-visible {
     background: rgba(191, 91, 132, 0.2);
     border-color: rgba(191, 91, 132, 0.5);
     box-shadow: 0 0 0 3px rgba(191, 91, 132, 0.13);
   }
 
-  .admin-service-detail-modal .modal-close-text {
-    display: inline;
-  }
-
-  .admin-service-detail-modal > .modal-body {
+  .admin-shell .modal > .modal-body,
+  .admin-shell .modal .modal-detail-panel,
+  .admin-shell .modal .admin-check-list {
     max-height: none;
     overflow: visible;
     padding-right: 0;
   }
 
-  .admin-service-detail-modal .admin-detail-hero.with-media {
+  .admin-shell .modal .admin-modal-form,
+  .admin-shell .modal .staff-modal-form,
+  .admin-shell .modal .admin-modal-section,
+  .admin-shell .modal .staff-form-section,
+  .admin-shell .modal .form-grid,
+  .admin-shell .modal .staff-form-grid {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .admin-shell .modal .form-grid,
+  .admin-shell .modal .staff-form-grid,
+  .admin-shell .modal .admin-category-inline {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-shell .modal .field,
+  .admin-shell .modal .field > input,
+  .admin-shell .modal .field > select,
+  .admin-shell .modal .field > textarea {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .admin-shell .admin-modal-steps {
+    display: grid;
+    grid-auto-columns: max-content;
+    grid-auto-flow: column;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline proximity;
+    scrollbar-width: none;
+  }
+
+  .admin-shell .admin-modal-steps button {
+    min-height: 2.75rem;
+    scroll-snap-align: start;
+  }
+
+  .admin-shell .modal .admin-detail-hero.with-media {
     grid-template-columns: 5rem minmax(0, 1fr);
   }
 
-  .admin-service-detail-modal .admin-detail-hero.with-media .admin-status-badge {
+  .admin-shell .modal .admin-detail-hero.with-media .admin-status-badge {
     grid-column: 1 / -1;
     justify-self: start;
   }
 
-  .admin-service-detail-modal .admin-modal-actions {
+  .admin-shell .modal .admin-modal-actions,
+  .admin-shell .modal .staff-form-footer {
     display: grid;
     grid-template-columns: 1fr;
     width: 100%;
   }
 
-  .admin-service-detail-modal .admin-modal-actions .button,
-  .admin-service-detail-modal .admin-modal-actions .staff-file-button {
+  .admin-shell .modal .admin-modal-actions .button,
+  .admin-shell .modal .admin-modal-actions .staff-file-button,
+  .admin-shell .modal .staff-form-footer .button {
+    justify-content: center;
+    min-height: 2.75rem;
+    width: 100%;
+  }
+
+  .admin-shell .modal .admin-cover-preview-stage,
+  .admin-shell .modal .admin-cover-preview-stack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-shell .modal .admin-cover-hero-frame {
+    aspect-ratio: 16 / 9;
+    min-height: 0;
+  }
+
+  .admin-shell .modal .admin-cover-card-frame {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .admin-shell .modal .admin-cover-card-media {
+    aspect-ratio: 16 / 10;
+    border-right: 0;
+    min-height: 0;
+  }
+
+  .admin-shell .modal .admin-cover-file-control {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-shell .modal .admin-cover-file-control .staff-file-button {
     justify-content: center;
     width: 100%;
   }
 }
 
 @media (max-width: 430px) {
-  .admin-service-detail-modal .admin-detail-hero.with-media {
+  .admin-shell .modal .admin-detail-hero.with-media {
     grid-template-columns: 1fr;
   }
 
-  .admin-service-detail-modal .admin-service-thumbnail.detail {
+  .admin-shell .modal .admin-service-thumbnail.detail {
     height: 5.5rem;
     justify-self: center;
     width: 5.5rem;
   }
 
-  .admin-service-detail-modal .admin-detail-hero.with-media .admin-status-badge {
+  .admin-shell .modal .admin-detail-hero.with-media .admin-status-badge {
     grid-column: auto;
+  }
+
+  .admin-shell .modal .admin-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-shell .modal .admin-cover-preview-card,
+  .admin-shell .modal .admin-cover-modal-controls {
+    padding: 0.62rem;
+  }
+
+  .admin-shell .modal .admin-cover-card-content {
+    padding: 0.68rem;
+  }
+
+  .admin-shell .modal .admin-cover-hero-copy {
+    bottom: 0.75rem;
+    left: 0.75rem;
   }
 }
 
 @media (max-width: 360px) {
-  .admin-service-detail-modal .admin-detail-grid {
-    grid-template-columns: 1fr;
+  .admin-shell .modal-backdrop {
+    padding: 10px;
+  }
+
+  .admin-shell .modal {
+    border-radius: 20px;
+    max-height: calc(100dvh - 20px);
+  }
+
+  .admin-shell .modal > .modal-header .modal-title {
+    font-size: 1.15rem;
   }
 }
 
