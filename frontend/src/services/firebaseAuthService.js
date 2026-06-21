@@ -20,6 +20,7 @@ function toSession(firebaseUser, tokenResult) {
     user: {
       uid: firebaseUser.uid,
       email: firebaseUser.email,
+      emailVerified: firebaseUser.emailVerified,
       rol: normalizedRole,
       role: normalizedRole ? normalizedRole.toLowerCase() : null,
       photoURL: firebaseUser.photoURL || null,
@@ -43,6 +44,7 @@ export const firebaseAuthService = {
       user: {
         uid: credential.user.uid,
         email: credential.user.email,
+        emailVerified: credential.user.emailVerified,
         rol: 'CLIENTE',
         role: 'cliente',
         photoURL: credential.user.photoURL || null,

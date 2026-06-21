@@ -649,6 +649,7 @@ export function ProfilePage() {
   const [photoError, setPhotoError] = useState('');
   const [photoUploadPending, setPhotoUploadPending] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [hasPendingProfileData, setHasPendingProfileData] = useState(false);
   const authRole = String(user?.rol || user?.role || '').toUpperCase();
   const isAdminAccount = authRole === 'ADMIN';
   const isStaffAccount = authRole === 'STAFF';
@@ -698,6 +699,32 @@ export function ProfilePage() {
     await evaluateMutation.mutateAsync({ appointmentId, rating, comment });
   };
 
+  const handlePhoneChange = (event) => {
+    const { value } = event.target;
+    let cleanValue = value.replace(/[^0-9+\s]/g, '');
+    const digitsOnly = cleanValue.replace(/[^\d]/g, '');
+    if (digitsOnly.length > 11) {
+      let digitCount = 0;
+      let truncated = '';
+      for (let i = 0; i < cleanValue.length; i++) {
+        const char = cleanValue[i];
+        if (/\d/.test(char)) {
+          if (digitCount < 11) {
+            truncated += char;
+            digitCount++;
+          }
+        } else {
+          truncated += char;
+        }
+      }
+      cleanValue = truncated;
+    }
+    if (cleanValue.length > 15) {
+      cleanValue = cleanValue.slice(0, 15);
+    }
+    setValue('telefono', cleanValue, { shouldValidate: true, shouldDirty: true });
+  };
+
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
     defaultValues: {
       emailContacto: user?.email || '',
@@ -731,6 +758,7 @@ export function ProfilePage() {
           || window.sessionStorage.getItem('style_beauty_pending_profile');
         if (stored) {
           const pending = JSON.parse(stored);
+          setHasPendingProfileData(true);
           reset({
             rut: pending.rut || '',
             nombre: pending.nombre || '',
@@ -832,6 +860,25 @@ export function ProfilePage() {
       if (!user?.uid) {
         throw new Error('Debes iniciar sesion para completar tu perfil.');
       }
+      
+      // Guardar en Firestore la información de perfil final
+      const { getFirestore, doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      const { firebaseApp } = await import('../../services/firebaseClient.js');
+      const db = getFirestore(firebaseApp);
+      const userDocRef = doc(db, 'usuarios', user.uid);
+      await setDoc(userDocRef, {
+        email: user.email,
+        rol: 'cliente',
+        nombre: values.nombre,
+        apellidos: values.apellidos || '',
+        rut: values.rut || '',
+        telefono: values.telefono || '',
+        fechaNacimiento: values.fechaNacimiento || '',
+        genero: values.genero || '',
+        estado: 'activo',
+        fechaRegistro: serverTimestamp(),
+      });
+
       await authService.registerClient({ uid: user.uid });
       const session = await firebaseAuthService.refreshSession();
       setSession({
@@ -952,6 +999,7 @@ export function ProfilePage() {
                 <div className="profile-form-grid">
                   <Input 
                     label="RUT" 
+                    readOnly={hasPendingProfileData}
                     {...register('rut', { 
                       required: 'El RUT es obligatorio.',
                       validate: (value) => validateRut(value) || 'El RUT no es válido (ej: 12.345.678-9).',
@@ -965,6 +1013,7 @@ export function ProfilePage() {
                   />
                   <Input
                     label="Nombre"
+                    readOnly={hasPendingProfileData}
                     {...register('nombre', { required: 'El nombre es obligatorio.' })}
                     placeholder="Camila"
                     required
@@ -972,6 +1021,7 @@ export function ProfilePage() {
                   />
                   <Input
                     label="Apellidos"
+                    readOnly={hasPendingProfileData}
                     {...register('apellidos', { required: 'El apellido es obligatorio.' })}
                     placeholder="Gonzalez Perez"
                     required
@@ -979,6 +1029,7 @@ export function ProfilePage() {
                   />
                   <Input
                     label="Email de contacto"
+                    readOnly={hasPendingProfileData}
                     {...register('emailContacto', {
                       required: 'El email es obligatorio.',
                       pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'Formato esperado: correo@dominio.cl.' },
@@ -1005,8 +1056,10 @@ export function ProfilePage() {
                   </Input>
                   <Input
                     label="Telefono"
+                    readOnly={hasPendingProfileData}
                     {...register('telefono', {
                       validate: (value) => validatePhone(value) || 'Formato esperado: +56 9 1234 5678.',
+                      onChange: handlePhoneChange,
                     })}
                     placeholder="+56 9 1234 5678"
                     error={errors.telefono?.message}
@@ -1143,6 +1196,7 @@ export function ProfilePage() {
                 <Input
                   {...register('telefono', {
                     validate: (value) => validatePhone(value) || 'Formato esperado: +56 9 1234 5678.',
+                    onChange: handlePhoneChange,
                   })}
                   placeholder="+56 9 1234 5678"
                   error={errors.telefono?.message}

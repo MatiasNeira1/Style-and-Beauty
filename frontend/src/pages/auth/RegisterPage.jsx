@@ -14,14 +14,18 @@ import {
   Sparkles,
   User,
   UsersRound,
-  MailCheck,
 } from 'lucide-react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button.jsx';
 import { authService } from '../../services/authService.js';
 
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const RUT_REGEX = /^(\d{1,2}\.\d{3}\.\d{3}-[\dkK]|\d{7,8}-[\dkK])$/;
+const CHILE_PHONE_REGEX = /^\+56\s?9\s?\d{4}\s?\d{4}$/;
+
 function validateRut(rut) {
   if (!rut || typeof rut !== 'string') return false;
+  if (!RUT_REGEX.test(rut)) return false;
   const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
   if (cleanRut.length < 2) return false;
 
@@ -449,16 +453,13 @@ function PremiumGenderSelect({ value, onChange }) {
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const maxBirthDate = getMaxBirthDateIso();
 
-  const [isVerificationSent, setIsVerificationSent] = useState(false);
-  const [pendingUser, setPendingUser] = useState(null);
-  const [isVerifying, setIsVerifying] = useState(false);
+
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -466,21 +467,72 @@ export function RegisterPage() {
     setForm((current) => ({ ...current, [name]: finalValue }));
   };
 
+  const handlePhoneChange = (event) => {
+    const { value } = event.target;
+    let cleanValue = value.replace(/[^0-9+\s]/g, '');
+    const digitsOnly = cleanValue.replace(/[^\d]/g, '');
+    if (digitsOnly.length > 11) {
+      let digitCount = 0;
+      let truncated = '';
+      for (let i = 0; i < cleanValue.length; i++) {
+        const char = cleanValue[i];
+        if (/\d/.test(char)) {
+          if (digitCount < 11) {
+            truncated += char;
+            digitCount++;
+          }
+        } else {
+          truncated += char;
+        }
+      }
+      cleanValue = truncated;
+    }
+    if (cleanValue.length > 15) {
+      cleanValue = cleanValue.slice(0, 15);
+    }
+    updateFormValue('telefono', cleanValue);
+  };
+
   const updateFormValue = (name, value) => {
     setForm((current) => ({ ...current, [name]: value }));
   };
+
+  const isFormInvalid = useMemo(() => {
+    return (
+      !form.rut ||
+      !form.nombre ||
+      !form.emailContacto ||
+      !form.password ||
+      !form.fechaNacimiento ||
+      !form.genero ||
+      !form.telefono ||
+      !validateRut(form.rut) ||
+      !EMAIL_REGEX.test(form.emailContacto) ||
+      !CHILE_PHONE_REGEX.test(form.telefono)
+    );
+  }, [form]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
 
-    if (!form.rut || !form.nombre || !form.emailContacto || !form.password || !form.fechaNacimiento || !form.genero) {
+    if (!form.rut || !form.nombre || !form.emailContacto || !form.password || !form.fechaNacimiento || !form.genero || !form.telefono) {
       setError('Completa todos los campos obligatorios.');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(form.emailContacto)) {
+      setError('El formato del email no es válido.');
       return;
     }
 
     if (!validateRut(form.rut)) {
       setError('El RUT no es válido (ej: 12.345.678-9).');
+      return;
+    }
+
+    if (!CHILE_PHONE_REGEX.test(form.telefono)) {
+      setError('El formato del teléfono no es válido (ej: +56 9 1234 5678).');
       return;
     }
 
@@ -507,43 +559,19 @@ export function RegisterPage() {
         genero: form.genero.trim().toLowerCase(),
       };
 
-      // 1. Guardar en Auth y Firestore simultáneamente, y enviar correo
-      const user = await authService.registerUserWithVerification(profile, password);
+      // 1. Create account in Firebase Auth, send verification, sign out
+      await authService.registerUserWithVerification(profile, password);
 
-      setPendingUser(user);
-      setIsVerificationSent(true);
+      // 2. Store profile data temporarily in sessionStorage (NO Firestore write)
+      window.sessionStorage.setItem('style_beauty_pending_profile', JSON.stringify(profile));
+
+      // 3. Navigate to verification pending page
+      navigate('/verificacion-pendiente', { replace: true });
 
     } catch (registerError) {
       setError(getRegisterErrorMessage(registerError));
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleVerifyEmail = async () => {
-    if (!pendingUser) return;
-    setIsVerifying(true);
-    setError('');
-
-    try {
-      await pendingUser.reload();
-      if (!pendingUser.emailVerified) {
-        setError('Aún no hemos detectado la verificación. Revisa tu bandeja de entrada o spam.');
-        setIsVerifying(false);
-        return;
-      }
-
-      const redirectTo = location.state?.from?.pathname || '/perfil';
-      const redirectState = location.state?.from?.state;
-      navigate(redirectTo, { replace: true, state: redirectState });
-    } catch (err) {
-      if (err.message.includes('verificado')) {
-        setError('Aún no hemos detectado la verificación. Revisa tu bandeja de entrada o spam.');
-      } else {
-        setError('Error conectando con la base de datos. Intenta nuevamente.');
-      }
-    } finally {
-      setIsVerifying(false);
     }
   };
 
@@ -612,8 +640,7 @@ export function RegisterPage() {
           animate="visible"
           aria-labelledby="register-title"
         >
-          {!isVerificationSent ? (
-            <>
+          <>
               <motion.div className="register-heading" variants={itemVariants}>
                 <span className="register-eyebrow">Nueva cuenta</span>
                 <h1 id="register-title">
@@ -695,7 +722,7 @@ export function RegisterPage() {
                     id="register-telefono"
                     name="telefono"
                     value={form.telefono}
-                    onChange={handleChange}
+                    onChange={handlePhoneChange}
                     placeholder="+56 9 1234 5678"
                   />
                   <BirthDateSelects
@@ -708,14 +735,14 @@ export function RegisterPage() {
                     onChange={(value) => updateFormValue('genero', value)}
                   />
                 </motion.div>
-
+ 
                 {error && (
                   <motion.p className="admin-alert register-error" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
                     {error}
                   </motion.p>
                 )}
-
-                <Button className="register-submit" type="submit" disabled={isSubmitting}>
+ 
+                <Button className="register-submit" type="submit" disabled={isSubmitting || isFormInvalid}>
                   {isSubmitting ? 'Creando cuenta...' : 'Crear mi espacio beauty'}
                 </Button>
 
@@ -724,66 +751,6 @@ export function RegisterPage() {
                 </p>
               </motion.form>
             </>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="register-form-card"
-              style={{ textAlign: 'center', padding: '3rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
-            >
-              <MailCheck size={64} color="var(--color-primary-strong)" style={{ margin: '0 auto 1.5rem' }} />
-              <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--color-ink)' }}>Revisa tu correo electrónico</h2>
-              <p style={{ color: 'var(--color-muted)', marginBottom: '2rem', lineHeight: '1.5' }}>
-                Hemos enviado un enlace de confirmación a <strong>{form.emailContacto}</strong>.<br />
-                Haz clic en el enlace para validar tu cuenta y poder ingresar.
-              </p>
-
-              {error && (
-                <p className="admin-alert register-error" style={{ marginBottom: '1.5rem', width: '100%', textAlign: 'left' }}>
-                  {error}
-                </p>
-              )}
-
-              <Button
-                onClick={handleVerifyEmail}
-                disabled={isVerifying}
-                style={{ width: '100%', marginBottom: '1rem', padding: '1rem' }}
-              >
-                {isVerifying ? 'Verificando estado...' : 'Ya verifiqué mi correo'}
-              </Button>
-
-              <Button
-                variant="ghost"
-                onClick={async () => {
-                  try {
-                    await authService.registerUserWithVerification({
-                      ...form,
-                      genero: form.genero.trim().toLowerCase(),
-                      emailContacto: form.emailContacto
-                    }, form.password);
-                    setError('Correo reenviado. Por favor revisa tu bandeja de entrada o spam.');
-                  } catch (e) {
-                    if (e.code === 'auth/email-already-in-use') {
-                      // Si ya existe en auth, solo reenviamos el correo sin intentar crear en firestore de nuevo
-                      try {
-                        const { getAuth, sendEmailVerification } = await import('firebase/auth');
-                        const auth = getAuth();
-                        if (auth.currentUser) {
-                          await sendEmailVerification(auth.currentUser);
-                          setError('Correo reenviado exitosamente.');
-                        }
-                      } catch (err2) { }
-                    } else {
-                      setError('No se pudo reenviar el correo. ' + getRegisterErrorMessage(e));
-                    }
-                  }
-                }}
-                style={{ width: '100%' }}
-              >
-                Reenviar correo
-              </Button>
-            </motion.div>
-          )}
         </motion.section>
       </section>
     </main>
