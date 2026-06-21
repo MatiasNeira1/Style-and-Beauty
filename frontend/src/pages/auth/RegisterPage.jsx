@@ -772,7 +772,9 @@ export function RegisterPage() {
                           await sendEmailVerification(auth.currentUser);
                           setError('Correo reenviado exitosamente.');
                         }
-                      } catch (err2) { }
+                      } catch {
+                        setError('No se pudo reenviar el correo. Inicia sesion nuevamente e intentalo otra vez.');
+                      }
                     } else {
                       setError('No se pudo reenviar el correo. ' + getRegisterErrorMessage(e));
                     }

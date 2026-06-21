@@ -183,7 +183,7 @@ export function StaffPortalProfile({ currentStaff, fullName, initials, specialty
                     </div>
                     {c.comentarioCalificacion && (
                       <p style={{ fontSize: '0.9rem', margin: 0, color: 'var(--color-text, #1f2937)', fontStyle: 'italic' }}>
-                        "{c.comentarioCalificacion}"
+                        &ldquo;{c.comentarioCalificacion}&rdquo;
                       </p>
                     )}
                   </div>
