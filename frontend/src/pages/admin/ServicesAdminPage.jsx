@@ -186,7 +186,7 @@ function ServiceFormModal({
   };
 
   return (
-    <Modal open={open} title={title} onClose={onClose}>
+    <Modal open={open} title={title} className="admin-service-form-modal" onClose={onClose}>
       <form className="admin-modal-form" onSubmit={onSubmit}>
         <div className="admin-modal-steps" aria-label="Pasos del servicio">
           {['Categoria', 'Informacion', 'Profesionales', 'Imagen'].map((label, index) => (
@@ -345,35 +345,88 @@ function ServiceCategoryCoverModal({
   onClose,
   onSubmit,
 }) {
+  const previewAlt = `Vista previa de portada de ${category || 'categoría'}`;
+  const previewInitial = category?.slice(0, 1).toUpperCase() || '?';
+  const fileInputId = 'service-category-cover-file';
+  const renderPreviewImage = (alt) => (
+    imagePreview ? (
+      <SafeImage src={imagePreview} alt={alt} />
+    ) : (
+      <span aria-hidden="true">{previewInitial}</span>
+    )
+  );
+
   return (
     <Modal
       open={Boolean(category)}
       title={`Portada de ${category || 'categoría'}`}
+      className="admin-service-cover-modal"
       onClose={onClose}
       closeDisabled={isSaving}
     >
-      <form className="admin-modal-form" onSubmit={onSubmit}>
-        <div className="admin-cover-modal-preview">
-          {imagePreview ? (
-            <SafeImage src={imagePreview} alt={`Portada de ${category}`} />
-          ) : (
-            <span aria-hidden="true">{category?.slice(0, 1).toUpperCase() || '?'}</span>
-          )}
+      <form className="admin-modal-form admin-cover-modal-form" onSubmit={onSubmit}>
+        <div className="admin-cover-preview-stage" role="group" aria-label="Previsualizaciones de portada">
+          <article className="admin-cover-preview-card admin-cover-preview-hero">
+            <p className="admin-cover-preview-label">Vista hero</p>
+            <div className="admin-cover-hero-frame">
+              {renderPreviewImage(`${previewAlt} en hero principal`)}
+              <div className="admin-cover-hero-overlay" aria-hidden="true" />
+              <div className="admin-cover-hero-copy" aria-hidden="true">
+                <span>Servicios</span>
+                <strong>{category || 'Categoría'}</strong>
+              </div>
+            </div>
+          </article>
+
+          <div className="admin-cover-preview-stack">
+            <article className="admin-cover-preview-card admin-cover-preview-category-card">
+              <p className="admin-cover-preview-label">Vista tarjeta</p>
+              <div className="admin-cover-card-frame">
+                <div className="admin-cover-card-media">
+                  {renderPreviewImage(`${previewAlt} en tarjeta de categoría`)}
+                </div>
+                <div className="admin-cover-card-content" aria-hidden="true">
+                  <span>{category || 'Categoría'}</span>
+                  <strong>{category || 'Categoría'}</strong>
+                  <p>Servicios especializados del área.</p>
+                </div>
+              </div>
+            </article>
+
+            <article className="admin-cover-preview-card admin-cover-preview-base">
+              <p className="admin-cover-preview-label">Imagen base</p>
+              <div className="admin-cover-modal-preview">
+                {renderPreviewImage(`${previewAlt} completa`)}
+              </div>
+            </article>
+          </div>
         </div>
-        <label className="button button-ghost button-sm staff-file-button">
-          <span className="button-content"><Camera size={14} /> Seleccionar imagen</span>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(event) => {
-              onImageChange(event.target.files?.[0]);
-              event.target.value = '';
-            }}
-            disabled={isSaving}
-          />
-        </label>
-        <p className="admin-modal-hint">Resolución recomendable: 1200 x 1200 px</p>
-        {imageError && <p className="admin-alert compact">{imageError}</p>}
+
+        <div className="admin-cover-modal-controls">
+          <div className="admin-cover-file-control">
+            <input
+              id={fileInputId}
+              className="admin-cover-file-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => {
+                onImageChange(event.target.files?.[0]);
+                event.target.value = '';
+              }}
+              disabled={isSaving}
+            />
+            <label
+              className={`button button-ghost button-sm staff-file-button${isSaving ? ' is-disabled' : ''}`}
+              htmlFor={fileInputId}
+              aria-disabled={isSaving}
+            >
+              <span className="button-content"><Camera size={14} /> Seleccionar imagen</span>
+            </label>
+            <p className="admin-modal-hint">Resolución recomendable: 1200 x 1200 px</p>
+          </div>
+          {imageError && <p className="admin-alert compact">{imageError}</p>}
+        </div>
+
         <div className="admin-modal-actions">
           <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}><X size={16} /> Cerrar</Button>
           <Button type="submit" disabled={isSaving}>
@@ -406,7 +459,6 @@ function ServiceDetailModal({
       open={Boolean(service)}
       title="Detalle del servicio"
       className="admin-service-detail-modal"
-      closeButtonText="Cerrar"
       onClose={onClose}
     >
       {service && (

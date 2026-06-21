@@ -36,12 +36,19 @@ export function ServiceCategoryPage() {
     <>
       <section
         className="page-hero page-hero-services page-hero-category"
-        style={categoryCoverUrl ? {
-          '--page-hero-image': `url("${categoryCoverUrl}")`,
-          '--page-hero-position': 'center',
-        } : undefined}
+        style={{ '--page-hero-position': 'center' }}
       >
-        <div className="page-hero-media" />
+        <SafeImage
+          src={categoryCoverUrl || '/hero-salon.png'}
+          fallback="/hero-salon.png"
+          alt=""
+          aria-hidden="true"
+          className="page-hero-media page-hero-image"
+          loading="eager"
+          fetchPriority="high"
+          width={1024}
+          height={1024}
+        />
         <div className="page-hero-overlay" />
         <div className="page-hero-content">
           <span className="card-kicker">Categoria</span>
@@ -78,7 +85,13 @@ export function ServiceCategoryPage() {
                   <div className="category-service-heading">
                     <div className="category-service-thumbnail">
                       {serviceImage(service) ? (
-                        <SafeImage src={serviceImage(service)} alt={service.nombre || service.name || 'Servicio'} />
+                        <SafeImage
+                          src={serviceImage(service)}
+                          alt={service.nombre || service.name || 'Servicio'}
+                          loading="eager"
+                          width={160}
+                          height={160}
+                        />
                       ) : (
                         <span aria-hidden="true">{String(service.nombre || service.name || 'S').slice(0, 1).toUpperCase()}</span>
                       )}
