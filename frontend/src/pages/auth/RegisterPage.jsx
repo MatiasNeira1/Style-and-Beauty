@@ -22,6 +22,7 @@ import { authService } from '../../services/authService.js';
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const RUT_REGEX = /^(\d{1,2}\.\d{3}\.\d{3}-[\dkK]|\d{7,8}-[\dkK])$/;
 const CHILE_PHONE_REGEX = /^\+56\s?9\s?\d{4}\s?\d{4}$/;
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~\-]).{8,}$/;
 
 function validateRut(rut) {
   if (!rut || typeof rut !== 'string') return false;
@@ -507,8 +508,8 @@ export function RegisterPage() {
       !form.genero ||
       !form.telefono ||
       !validateRut(form.rut) ||
-      !EMAIL_REGEX.test(form.emailContacto) ||
-      !CHILE_PHONE_REGEX.test(form.telefono)
+      !CHILE_PHONE_REGEX.test(form.telefono) ||
+      !PASSWORD_REGEX.test(form.password)
     );
   }, [form]);
 
@@ -533,6 +534,11 @@ export function RegisterPage() {
 
     if (!CHILE_PHONE_REGEX.test(form.telefono)) {
       setError('El formato del teléfono no es válido (ej: +56 9 1234 5678).');
+      return;
+    }
+
+    if (!PASSWORD_REGEX.test(form.password)) {
+      setError('La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, un número y un símbolo especial.');
       return;
     }
 
@@ -694,28 +700,44 @@ export function RegisterPage() {
                     placeholder="tuemail@correo.com"
                     required
                   />
-                  <PremiumField
-                    icon={Lock}
-                    label="Contraseña"
-                    id="register-password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    minLength="6"
-                    value={form.password}
-                    onChange={handleChange}
-                    placeholder="Mínimo 6 caracteres"
-                    required
-                    trailing={
-                      <button
-                        className="password-toggle"
-                        type="button"
-                        onClick={() => setShowPassword((current) => !current)}
-                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                      >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    }
-                  />
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <PremiumField
+                      icon={Lock}
+                      label="Contraseña"
+                      id="register-password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      minLength="8"
+                      value={form.password}
+                      onChange={handleChange}
+                      placeholder="Crea una contraseña segura"
+                      required
+                      trailing={
+                        <button
+                          className="password-toggle"
+                          type="button"
+                          onClick={() => setShowPassword((current) => !current)}
+                          aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        >
+                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      }
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.75rem', marginTop: '0.5rem', paddingLeft: '0.25rem' }}>
+                      <span style={{ color: form.password.length >= 8 ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Mínimo 8 caracteres
+                      </span>
+                      <span style={{ color: /[A-Z]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Al menos 1 letra mayúscula
+                      </span>
+                      <span style={{ color: /\d/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Al menos 1 número
+                      </span>
+                      <span style={{ color: /[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~\-]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Al menos 1 símbolo especial
+                      </span>
+                    </div>
+                  </div>
                   <PremiumField
                     icon={Phone}
                     label="Teléfono"
