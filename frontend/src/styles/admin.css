@@ -1054,10 +1054,14 @@
 
 .admin-chart-height {
   height: 320px;
+  min-height: 320px;
+  min-width: 0;
+  width: 100%;
 }
 
 .admin-chart-height.compact {
   height: 260px;
+  min-height: 260px;
 }
 
 .admin-chart-tooltip {
@@ -1100,6 +1104,7 @@
   display: grid;
   gap: 0.75rem;
   grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
 }
 
 .admin-chart-legend {
@@ -2402,11 +2407,6 @@
 
   .admin-kpi-card {
     align-items: flex-start;
-  }
-
-  .admin-chart-height,
-  .admin-chart-height.compact {
-    height: 240px;
   }
 
   .admin-reservation-list article,

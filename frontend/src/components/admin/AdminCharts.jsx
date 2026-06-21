@@ -19,6 +19,17 @@ import { AdminEmptyState } from './AdminPrimitives.jsx';
 
 const chartColors = ['#bf5b84', '#e2b47e', '#9bb098', '#7a1e38', '#d47a9e', '#51474c'];
 const axisTick = { fill: '#82787c', fontSize: 12, fontWeight: 700 };
+const CHART_HEIGHT = 320;
+const COMPACT_CHART_HEIGHT = 260;
+
+function hasLabel(item, key) {
+  return String(item?.[key] ?? '').trim().length > 0;
+}
+
+function hasFiniteValue(item, key) {
+  const value = item?.[key];
+  return value !== null && value !== '' && Number.isFinite(Number(value));
+}
 
 function PremiumTooltip({ active, payload, label, currency = false }) {
   if (!active || !payload?.length) return null;
@@ -37,12 +48,15 @@ function PremiumTooltip({ active, payload, label, currency = false }) {
 }
 
 export function RevenueChart({ data = [] }) {
-  if (!data.length) return <AdminEmptyState compact title="Sin ingresos para graficar" description="Cuando existan pagos, veras la evolucion del periodo aqui." />;
-  const hasPreviousPeriod = data.some((item) => Number(item.anterior || 0) > 0);
+  const validData = Array.isArray(data)
+    ? data.filter((item) => hasLabel(item, 'label') && hasFiniteValue(item, 'ingresos'))
+    : [];
+  if (!validData.length) return <AdminEmptyState compact title="Sin ingresos para graficar" description="Cuando existan pagos, veras la evolucion del periodo aqui." />;
+  const hasPreviousPeriod = validData.some((item) => hasFiniteValue(item, 'anterior') && Number(item.anterior) > 0);
   return (
     <div className="admin-chart-height">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 12, right: 14, left: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={CHART_HEIGHT} minWidth={0} minHeight={CHART_HEIGHT}>
+        <AreaChart data={validData} margin={{ top: 12, right: 14, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="revenueFill" x1="0" x2="0" y1="0" y2="1">
               <stop offset="5%" stopColor="#bf5b84" stopOpacity={0.32} />
@@ -63,17 +77,20 @@ export function RevenueChart({ data = [] }) {
 }
 
 export function ProfessionalPerformanceChart({ data = [] }) {
-  if (!data.length) return <AdminEmptyState compact title="Sin desempeno profesional disponible" description="Asigna reservas a profesionales para comparar su rendimiento." />;
+  const validData = Array.isArray(data)
+    ? data.filter((item) => hasLabel(item, 'name') && hasFiniteValue(item, 'ingresos'))
+    : [];
+  if (!validData.length) return <AdminEmptyState compact title="Sin desempeno profesional disponible" description="Asigna reservas a profesionales para comparar su rendimiento." />;
   return (
     <div className="admin-chart-height compact">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} layout="vertical" margin={{ top: 4, right: 18, left: 12, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={COMPACT_CHART_HEIGHT} minWidth={0} minHeight={COMPACT_CHART_HEIGHT}>
+        <BarChart data={validData} layout="vertical" margin={{ top: 4, right: 18, left: 12, bottom: 0 }}>
           <CartesianGrid stroke="rgba(81,71,76,.10)" horizontal={false} strokeDasharray="4 8" />
           <XAxis type="number" hide />
           <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={axisTick} width={98} />
           <Tooltip content={<PremiumTooltip currency />} />
           <Bar dataKey="ingresos" name="Ingresos" radius={[0, 12, 12, 0]} background={{ fill: 'rgba(25,20,23,.04)', radius: 12 }}>
-            {data.map((_, index) => <Cell key={index} fill={chartColors[index % chartColors.length]} />)}
+            {validData.map((_, index) => <Cell key={index} fill={chartColors[index % chartColors.length]} />)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -82,21 +99,24 @@ export function ProfessionalPerformanceChart({ data = [] }) {
 }
 
 export function ServiceDistributionChart({ data = [] }) {
-  if (!data.length) return <AdminEmptyState compact title="Sin servicios para distribuir" description="La distribucion aparecera cuando existan reservas o pagos asociados." />;
+  const validData = Array.isArray(data)
+    ? data.filter((item) => hasLabel(item, 'name') && hasFiniteValue(item, 'value') && Number(item.value) > 0)
+    : [];
+  if (!validData.length) return <AdminEmptyState compact title="Sin servicios para distribuir" description="La distribucion aparecera cuando existan reservas o pagos asociados." />;
   return (
     <div className="admin-donut-layout">
       <div className="admin-chart-height compact">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={COMPACT_CHART_HEIGHT} minWidth={0} minHeight={COMPACT_CHART_HEIGHT}>
           <PieChart>
-            <Pie data={data} dataKey="value" nameKey="name" innerRadius={58} outerRadius={88} paddingAngle={3} stroke="rgba(255,255,255,.85)" strokeWidth={3}>
-              {data.map((_, index) => <Cell key={index} fill={chartColors[index % chartColors.length]} />)}
+            <Pie data={validData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={88} paddingAngle={3} stroke="rgba(255,255,255,.85)" strokeWidth={3}>
+              {validData.map((_, index) => <Cell key={index} fill={chartColors[index % chartColors.length]} />)}
             </Pie>
             <Tooltip content={<PremiumTooltip />} />
           </PieChart>
         </ResponsiveContainer>
       </div>
       <div className="admin-chart-legend">
-        {data.map((item, index) => (
+        {validData.map((item, index) => (
           <span key={item.name}>
             <i style={{ background: chartColors[index % chartColors.length] }} />
             {item.name} <strong>{item.value}</strong>
