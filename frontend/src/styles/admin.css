@@ -1901,6 +1901,111 @@
   width: 4.8rem;
 }
 
+.admin-service-detail-modal .modal-close-text {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .admin-service-detail-modal {
+    max-height: calc(100dvh - 24px);
+    overscroll-behavior: contain;
+    overflow-y: auto;
+    scrollbar-width: none;
+    width: min(40rem, calc(100vw - 24px));
+  }
+
+  .admin-service-detail-modal::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-service-detail-modal > header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.7rem;
+    position: static;
+  }
+
+  .admin-service-detail-modal > header h2 {
+    font-size: clamp(1.2rem, 5.4vw, 1.55rem);
+    line-height: 1.15;
+    max-width: 100%;
+    overflow-wrap: normal;
+    text-wrap: balance;
+    white-space: normal;
+    word-break: normal;
+  }
+
+  .admin-service-detail-modal > header > .modal-close-action {
+    align-self: center;
+    background: rgba(191, 91, 132, 0.12);
+    border: 1px solid rgba(191, 91, 132, 0.3);
+    border-radius: 999px;
+    color: var(--color-primary-strong);
+    min-height: 2.5rem;
+    width: min(100%, 10rem);
+  }
+
+  .admin-service-detail-modal > header > .modal-close-action:hover,
+  .admin-service-detail-modal > header > .modal-close-action:focus-visible {
+    background: rgba(191, 91, 132, 0.2);
+    border-color: rgba(191, 91, 132, 0.5);
+    box-shadow: 0 0 0 3px rgba(191, 91, 132, 0.13);
+  }
+
+  .admin-service-detail-modal .modal-close-text {
+    display: inline;
+  }
+
+  .admin-service-detail-modal > .modal-body {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .admin-service-detail-modal .admin-detail-hero.with-media {
+    grid-template-columns: 5rem minmax(0, 1fr);
+  }
+
+  .admin-service-detail-modal .admin-detail-hero.with-media .admin-status-badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .admin-service-detail-modal .admin-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .admin-service-detail-modal .admin-modal-actions .button,
+  .admin-service-detail-modal .admin-modal-actions .staff-file-button {
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+@media (max-width: 430px) {
+  .admin-service-detail-modal .admin-detail-hero.with-media {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-service-detail-modal .admin-service-thumbnail.detail {
+    height: 5.5rem;
+    justify-self: center;
+    width: 5.5rem;
+  }
+
+  .admin-service-detail-modal .admin-detail-hero.with-media .admin-status-badge {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 360px) {
+  .admin-service-detail-modal .admin-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 699px) {
   .admin-service-category-covers .admin-category-cover-grid {
     grid-template-columns: 1fr;

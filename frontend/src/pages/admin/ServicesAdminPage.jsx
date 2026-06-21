@@ -402,7 +402,13 @@ function ServiceDetailModal({
   const names = selectedStaffNames(staff, relatedIds);
 
   return (
-    <Modal open={Boolean(service)} title="Detalle del servicio" onClose={onClose}>
+    <Modal
+      open={Boolean(service)}
+      title="Detalle del servicio"
+      className="admin-service-detail-modal"
+      closeButtonText="Cerrar"
+      onClose={onClose}
+    >
       {service && (
         <div className="admin-detail-modal">
           <div className="admin-detail-hero with-media">

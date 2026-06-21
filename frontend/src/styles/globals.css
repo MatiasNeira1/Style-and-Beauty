@@ -574,6 +574,14 @@ img { max-width: 100%; display: block; }
   filter: saturate(1.08) contrast(1.04);
 }
 
+.page-hero-image {
+  background: none;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--page-hero-position, center);
+  width: 100%;
+}
+
 .page-hero-services,
 .page-hero-category {
   --page-hero-image: url("/hero-salon.png");

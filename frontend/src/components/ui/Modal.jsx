@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { Button } from './Button.jsx';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
-export function Modal({ open, title, children, onClose, className = '', closeDisabled = false }) {
+export function Modal({ open, title, children, onClose, className = '', closeDisabled = false, closeButtonText = '' }) {
   useBodyScrollLock(open);
 
   useEffect(() => {
@@ -32,8 +32,15 @@ export function Modal({ open, title, children, onClose, className = '', closeDis
       <section className={`modal ${className}`.trim()} role="dialog" aria-modal="true" aria-label={title}>
         <header>
           <h2>{title}</h2>
-          <Button variant="ghost" onClick={onClose} aria-label="Cerrar" disabled={closeDisabled}>
+          <Button
+            variant="ghost"
+            className={closeButtonText ? 'modal-close-action' : ''}
+            onClick={onClose}
+            aria-label="Cerrar"
+            disabled={closeDisabled}
+          >
             <X size={18} />
+            {closeButtonText && <span className="modal-close-text">{closeButtonText}</span>}
           </Button>
         </header>
         <div className="modal-body">
