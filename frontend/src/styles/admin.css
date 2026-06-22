@@ -746,6 +746,10 @@
   max-width: min(880px, calc(100vw - 2rem));
 }
 
+.admin-multi-summary-modal {
+  max-width: min(760px, calc(100vw - 2rem));
+}
+
 .admin-reservation-form {
   display: grid;
   gap: 1rem;
@@ -883,28 +887,21 @@
 }
 
 .admin-multi-reservation-header,
-.admin-multi-service-card header,
-.admin-multi-summary header,
-.admin-multi-summary footer {
+.admin-multi-service-card header {
   align-items: flex-start;
   display: flex;
   gap: 0.85rem;
   justify-content: space-between;
 }
 
-.admin-multi-reservation-header h3,
-.admin-multi-summary h3 {
+.admin-multi-reservation-header h3 {
   color: var(--color-ink);
   font-size: 1rem;
   margin: 0 0 0.18rem;
 }
 
 .admin-multi-reservation-header p,
-.admin-multi-summary header p,
-.admin-multi-service-card small,
-.admin-multi-summary small,
-.admin-multi-summary footer,
-.admin-multi-summary header > span {
+.admin-multi-service-card small {
   color: var(--color-muted);
   font-size: 0.82rem;
   margin: 0;
@@ -948,8 +945,7 @@
   gap: 0.45rem;
 }
 
-.admin-multi-service-meta span,
-.admin-multi-summary footer span {
+.admin-multi-service-meta span {
   background: rgba(25, 20, 23, 0.06);
   border: 1px solid rgba(25, 20, 23, 0.06);
   border-radius: 999px;
@@ -964,19 +960,82 @@
   justify-content: flex-start;
 }
 
+.admin-multi-service-auto-note {
+  align-items: center;
+  background: rgba(191, 91, 132, 0.08);
+  border: 1px solid rgba(191, 91, 132, 0.14);
+  border-radius: 13px;
+  color: var(--color-primary-strong);
+  display: flex;
+  font-size: 0.82rem;
+  font-weight: 850;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.62rem 0.7rem;
+}
+
 .admin-multi-summary {
-  background: linear-gradient(135deg, rgba(25, 20, 23, 0.94), rgba(74, 48, 59, 0.94));
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(251, 207, 232, 0.36), transparent 15rem),
+    linear-gradient(135deg, rgba(255, 248, 244, 0.96), rgba(255, 255, 255, 0.92));
+  border: 1px solid rgba(191, 91, 132, 0.16);
   border-radius: 18px;
-  color: white;
+  color: var(--color-ink);
   padding: 1rem;
 }
 
-.admin-multi-summary h3,
-.admin-multi-summary header p,
-.admin-multi-summary header > span,
-.admin-multi-summary footer {
-  color: white;
+.admin-multi-summary-hero {
+  align-items: stretch;
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: minmax(0, 1fr) minmax(13rem, 0.55fr);
+}
+
+.admin-multi-summary-hero p,
+.admin-multi-summary-hero span,
+.admin-multi-summary-money span,
+.admin-multi-summary-money small {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  margin: 0;
+}
+
+.admin-multi-summary-hero h3 {
+  color: var(--color-ink);
+  font-size: clamp(1.28rem, 2.7vw, 1.72rem);
+  line-height: 1.05;
+  margin: 0.08rem 0 0.24rem;
+}
+
+.admin-multi-summary-money {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(191, 91, 132, 0.16);
+  border-radius: 16px;
+  display: grid;
+  gap: 0.22rem;
+  padding: 0.82rem;
+}
+
+.admin-multi-summary-money strong {
+  color: var(--color-primary-strong);
+  font-size: 1.28rem;
+}
+
+.admin-multi-summary-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.admin-multi-summary-kpis span {
+  background: rgba(191, 91, 132, 0.08);
+  border: 1px solid rgba(191, 91, 132, 0.14);
+  border-radius: 999px;
+  color: var(--color-primary-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 0.36rem 0.62rem;
 }
 
 .admin-multi-summary-list {
@@ -984,40 +1043,78 @@
 }
 
 .admin-multi-summary-list article {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(25, 20, 23, 0.08);
   border-radius: 14px;
-  display: grid;
-  gap: 0.2rem;
+  display: flex;
+  gap: 0.7rem;
   padding: 0.78rem;
 }
 
-.admin-multi-summary-list strong {
+.admin-multi-summary-order {
+  align-items: center;
+  background: var(--color-ink);
+  border-radius: 999px;
   color: white;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  font-weight: 950;
+  height: 2rem;
+  justify-content: center;
+  width: 2rem;
+}
+
+.admin-multi-summary-card-main {
+  display: grid;
+  flex: 1;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.admin-multi-summary-card-head {
+  align-items: center;
+  display: flex;
+  gap: 0.6rem;
+  justify-content: space-between;
+}
+
+.admin-multi-summary-list strong {
+  color: var(--color-ink);
   font-size: 0.94rem;
 }
 
-.admin-multi-summary-list span,
-.admin-multi-summary-list small {
-  color: rgba(255, 255, 255, 0.78);
+.admin-multi-summary-list .admin-multi-summary-card-head span {
+  color: var(--color-primary-strong);
+  font-size: 0.82rem;
+  font-weight: 950;
+}
+
+.admin-multi-summary-detail-grid {
+  display: grid;
+  gap: 0.22rem 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-multi-summary-list span {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
 }
 
 .admin-multi-summary-list em {
-  color: #fbd38d;
+  color: #9f1239;
   font-size: 0.78rem;
   font-style: normal;
   font-weight: 850;
 }
 
-.admin-multi-summary footer {
+.admin-multi-summary-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.65rem;
   flex-wrap: wrap;
-  justify-content: flex-start;
-}
-
-.admin-multi-summary footer span {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: white;
+  justify-content: flex-end;
 }
 
 .admin-reservation-actions {
@@ -3318,18 +3415,27 @@
   .admin-reservation-availability-header,
   .admin-multi-reservation-header,
   .admin-multi-service-card header,
-  .admin-multi-summary header,
-  .admin-multi-summary footer {
+  .admin-multi-summary-hero,
+  .admin-multi-summary-actions {
     display: grid;
   }
 
   .admin-reservation-availability-header .admin-secondary-action,
   .admin-multi-reservation-header .admin-secondary-action,
   .admin-multi-service-actions .admin-secondary-action,
+  .admin-multi-summary-actions .button,
   .admin-reservation-actions,
   .admin-reservation-actions .button {
     justify-content: center;
     width: 100%;
+  }
+
+  .admin-multi-summary-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-multi-summary-hero {
+    grid-template-columns: 1fr;
   }
 
   .admin-reservation-actions {

@@ -2,6 +2,35 @@ import { useEffect } from 'react';
 
 let activeLocks = 0;
 let previousStyles;
+let guardsAttached = false;
+
+function eventStartedInsideModal(event) {
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+  if (path.some((target) => target?.classList?.contains?.('modal'))) {
+    return true;
+  }
+
+  return event.target instanceof Element && Boolean(event.target.closest('.modal'));
+}
+
+function preventBackgroundScroll(event) {
+  if (activeLocks <= 0 || eventStartedInsideModal(event)) return;
+  event.preventDefault();
+}
+
+function attachScrollGuards() {
+  if (guardsAttached) return;
+  document.addEventListener('wheel', preventBackgroundScroll, { capture: true, passive: false });
+  document.addEventListener('touchmove', preventBackgroundScroll, { capture: true, passive: false });
+  guardsAttached = true;
+}
+
+function detachScrollGuards() {
+  if (!guardsAttached) return;
+  document.removeEventListener('wheel', preventBackgroundScroll, { capture: true });
+  document.removeEventListener('touchmove', preventBackgroundScroll, { capture: true });
+  guardsAttached = false;
+}
 
 function lockPageScroll() {
   if (activeLocks === 0) {
@@ -18,6 +47,7 @@ function lockPageScroll() {
     body.style.overflow = 'hidden';
     documentElement.style.overflow = 'hidden';
     if (scrollbarGap > 0) body.style.paddingRight = `${scrollbarGap}px`;
+    attachScrollGuards();
   }
 
   activeLocks += 1;
@@ -33,6 +63,7 @@ function unlockPageScroll() {
   body.style.overflow = previousStyles.bodyOverflow;
   body.style.paddingRight = previousStyles.bodyPaddingRight;
   documentElement.style.overflow = previousStyles.htmlOverflow;
+  detachScrollGuards();
   previousStyles = undefined;
 }
 

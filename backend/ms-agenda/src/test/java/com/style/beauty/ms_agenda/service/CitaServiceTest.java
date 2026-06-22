@@ -91,8 +91,8 @@ class CitaServiceTest {
 
         when(perfilClient.obtenerCliente(ID_CLIENTE)).thenReturn(perfil(ID_CLIENTE, "Cliente", "Demo", "cliente@example.com"));
         when(perfilClient.obtenerStaff(ID_STAFF)).thenReturn(perfil(ID_STAFF, "Staff", "Demo", "staff@example.com"));
-        when(servicioClient.obtenerServicio(ID_SERVICIO)).thenReturn(new ServicioResumen(ID_SERVICIO, "Corte", "Cabello", 60, 30));
-        when(servicioClient.obtenerServicio(ID_SERVICIO_2)).thenReturn(new ServicioResumen(ID_SERVICIO_2, "Peinado", "Cabello", 45, 15));
+        when(servicioClient.obtenerServicio(ID_SERVICIO)).thenReturn(new ServicioResumen(ID_SERVICIO, "Corte", "Cabello", 60, 30, BigDecimal.valueOf(30_000)));
+        when(servicioClient.obtenerServicio(ID_SERVICIO_2)).thenReturn(new ServicioResumen(ID_SERVICIO_2, "Peinado", "Cabello", 45, 15, BigDecimal.valueOf(25_000)));
         when(servicioClient.staffRealizaServicio(ID_SERVICIO, ID_STAFF)).thenReturn(true);
         when(servicioClient.staffRealizaServicio(ID_SERVICIO_2, ID_STAFF)).thenReturn(true);
         when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(ID_STAFF, FECHA.getDayOfWeek().getValue()))
@@ -350,12 +350,59 @@ class CitaServiceTest {
 
     @Test
     void crearDesdeAdminGeneraReservaConfirmadaSinExpiracion() {
-        Cita creada = citaService.crearDesdeAdmin(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 30), null, null, "Admin"));
+        Cita creada = citaService.crearDesdeAdmin(new CrearCitaRequest(
+                ID_CLIENTE,
+                ID_STAFF,
+                ID_SERVICIO,
+                at(9, 30),
+                null,
+                null,
+                "Admin",
+                BigDecimal.valueOf(10_000)
+        ));
 
         assertThat(creada.getEstadoCita()).isEqualTo(EstadoCita.CONFIRMADA);
         assertThat(creada.getExpiracionReserva()).isNull();
         assertThat(creada.getObservacionCliente()).isEqualTo("Admin");
+        assertThat(creada.getMontoAbonado()).isEqualByComparingTo("10000");
+        assertThat(creada.getTotalEstimado()).isEqualByComparingTo("30000");
+        assertThat(creada.getSaldoPendiente()).isEqualByComparingTo("20000");
         verify(citaRepository, never()).actualizarExpiracionReservasPendientesCliente(any(), any(), any());
+    }
+
+    @Test
+    void crearDesdeAdminRechazaAbonoFaltante() {
+        assertThatThrownBy(() -> citaService.crearDesdeAdmin(new CrearCitaRequest(
+                ID_CLIENTE,
+                ID_STAFF,
+                ID_SERVICIO,
+                at(9, 30),
+                null,
+                null,
+                "Admin"
+        )))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Ingresa el abono realizado");
+
+        verify(citaRepository, never()).saveAndFlush(any(Cita.class));
+    }
+
+    @Test
+    void crearDesdeAdminRechazaAbonoMayorAlTotal() {
+        assertThatThrownBy(() -> citaService.crearDesdeAdmin(new CrearCitaRequest(
+                ID_CLIENTE,
+                ID_STAFF,
+                ID_SERVICIO,
+                at(9, 30),
+                null,
+                null,
+                "Admin",
+                BigDecimal.valueOf(40_000)
+        )))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("mayor al total");
+
+        verify(citaRepository, never()).saveAndFlush(any(Cita.class));
     }
 
     @Test
@@ -363,6 +410,7 @@ class CitaServiceTest {
         CrearCitasLoteRequest request = new CrearCitasLoteRequest(
                 ID_CLIENTE,
                 FECHA,
+                BigDecimal.valueOf(20_000),
                 List.of(
                         new CrearCitasLoteRequest.ReservaLoteRequest(ID_SERVICIO, ID_STAFF, LocalTime.of(8, 0), "Primera", null),
                         new CrearCitasLoteRequest.ReservaLoteRequest(ID_SERVICIO_2, ID_STAFF, LocalTime.of(10, 0), "Segunda", null)
@@ -373,6 +421,9 @@ class CitaServiceTest {
 
         assertThat(response.totalServicios()).isEqualTo(2);
         assertThat(response.tiempoTotalMin()).isEqualTo(180);
+        assertThat(response.totalEstimado()).isEqualByComparingTo("55000");
+        assertThat(response.abono()).isEqualByComparingTo("20000");
+        assertThat(response.saldoPendiente()).isEqualByComparingTo("35000");
         assertThat(response.reservas()).extracting(CrearCitasLoteResponse.ReservaLoteCreadaResponse::fechaHoraInicio)
                 .containsExactly(at(8, 0), at(10, 0));
 
@@ -382,6 +433,9 @@ class CitaServiceTest {
             assertThat(cita.getEstadoCita()).isEqualTo(EstadoCita.CONFIRMADA);
             assertThat(cita.getIdCliente()).isEqualTo(ID_CLIENTE);
             assertThat(cita.getExpiracionReserva()).isNull();
+            assertThat(cita.getMontoAbonado()).isEqualByComparingTo("20000");
+            assertThat(cita.getTotalEstimado()).isEqualByComparingTo("55000");
+            assertThat(cita.getSaldoPendiente()).isEqualByComparingTo("35000");
         });
     }
 
@@ -390,6 +444,7 @@ class CitaServiceTest {
         CrearCitasLoteRequest request = new CrearCitasLoteRequest(
                 ID_CLIENTE,
                 FECHA,
+                BigDecimal.ZERO,
                 List.of(
                         new CrearCitasLoteRequest.ReservaLoteRequest(ID_SERVICIO, ID_STAFF, LocalTime.of(8, 0), null, null),
                         new CrearCitasLoteRequest.ReservaLoteRequest(ID_SERVICIO, ID_STAFF, LocalTime.of(9, 30), null, null)

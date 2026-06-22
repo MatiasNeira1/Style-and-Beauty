@@ -444,11 +444,13 @@ public class CitaService {
 
         liberarReservasVencidas();
         validarLoteBase(request);
+        BigDecimal abono = validarAbonoAdmin(request.abono());
         perfilClient.obtenerCliente(request.idCliente());
 
         List<Cita> preparadas = new ArrayList<>();
         Set<UUID> servicios = new HashSet<>();
         OffsetDateTime finAnterior = null;
+        BigDecimal totalEstimado = BigDecimal.ZERO;
 
         for (CrearCitasLoteRequest.ReservaLoteRequest reserva : request.reservas()) {
             if (!servicios.add(reserva.idServicio())) {
@@ -458,6 +460,7 @@ public class CitaService {
             var staff = perfilClient.obtenerStaff(reserva.idStaff());
             ServicioResumen servicio = servicioClient.obtenerServicio(reserva.idServicio());
             validarStaffRealizaServicio(reserva.idServicio(), reserva.idStaff());
+            totalEstimado = totalEstimado.add(precioServicio(servicio));
 
             int duracion = duracionServicio(servicio);
             int holgura = holguraService.calcularHolguraMin(servicio, staff.holguraCitaMinutos());
@@ -500,8 +503,14 @@ public class CitaService {
             finAnterior = finVisible;
         }
 
+        validarAbonoNoSupereTotal(abono, totalEstimado);
+        BigDecimal saldoPendiente = calcularSaldoPendiente(totalEstimado, abono);
+
         List<Cita> guardadas = new ArrayList<>();
         for (Cita cita : preparadas) {
+            cita.setMontoAbonado(abono);
+            cita.setTotalEstimado(totalEstimado);
+            cita.setSaldoPendiente(saldoPendiente);
             Cita guardada = guardarSinSolape(cita);
             registrarHistorial(
                     guardada.getIdCita(),
@@ -513,7 +522,7 @@ public class CitaService {
             guardadas.add(guardada);
         }
 
-        return toLoteResponse(request.idCliente(), request.fecha(), guardadas);
+        return toLoteResponse(request.idCliente(), request.fecha(), totalEstimado, abono, saldoPendiente, guardadas);
     }
 
     private Cita crearConReglas(CrearCitaRequest request, EstadoCita estadoInicial, boolean reservaTemporal) {
@@ -531,6 +540,10 @@ public class CitaService {
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
         validarStaffRealizaServicio(request.idServicio(), request.idStaff());
+        BigDecimal totalEstimado = precioServicio(servicio);
+        BigDecimal abono = reservaTemporal ? normalizarAbonoOpcional(request.abono()) : validarAbonoAdmin(request.abono());
+        validarAbonoNoSupereTotal(abono, totalEstimado);
+        BigDecimal saldoPendiente = calcularSaldoPendiente(totalEstimado, abono);
 
         int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio, staff.holguraCitaMinutos());
@@ -566,6 +579,9 @@ public class CitaService {
                 .tipoCita(TipoCita.NORMAL)
                 .expiracionReserva(expiracionReserva)
                 .observacionCliente(request.observacionCliente())
+                .montoAbonado(abono)
+                .totalEstimado(totalEstimado)
+                .saldoPendiente(saldoPendiente)
                 .build();
 
         Cita guardada = guardarSinSolape(cita);
@@ -597,8 +613,8 @@ public class CitaService {
 
         validarFechaReservable(request.fecha());
 
-        if (request.reservas() == null || request.reservas().isEmpty()) {
-            throw new BusinessException("Agrega al menos un servicio para crear la agenda.");
+        if (request.reservas() == null || request.reservas().size() < 2) {
+            throw new BusinessException("Agrega al menos dos servicios para crear la agenda.");
         }
     }
 
@@ -669,7 +685,14 @@ public class CitaService {
                 : nota;
     }
 
-    private CrearCitasLoteResponse toLoteResponse(UUID idCliente, LocalDate fecha, List<Cita> citas) {
+    private CrearCitasLoteResponse toLoteResponse(
+            UUID idCliente,
+            LocalDate fecha,
+            BigDecimal totalEstimado,
+            BigDecimal abono,
+            BigDecimal saldoPendiente,
+            List<Cita> citas
+    ) {
         List<Cita> ordenadas = citas.stream()
                 .sorted(Comparator.comparing(Cita::getFechaHoraInicio))
                 .toList();
@@ -700,6 +723,9 @@ public class CitaService {
                 fecha,
                 reservas.size(),
                 tiempoTotal,
+                totalEstimado,
+                abono,
+                saldoPendiente,
                 reservas
         );
     }
@@ -865,6 +891,49 @@ public class CitaService {
         }
 
         return servicio.duracionMinutos();
+    }
+
+    private BigDecimal precioServicio(ServicioResumen servicio) {
+        if (servicio.precioTotal() == null || servicio.precioTotal().compareTo(BigDecimal.ZERO) < 0) {
+            return BigDecimal.ZERO;
+        }
+        return servicio.precioTotal();
+    }
+
+    private BigDecimal validarAbonoAdmin(BigDecimal abono) {
+        BigDecimal normalizado = normalizarAbonoOpcional(abono);
+        if (normalizado == null) {
+            throw new BusinessException("Ingresa el abono realizado para continuar.");
+        }
+        return normalizado;
+    }
+
+    private BigDecimal normalizarAbonoOpcional(BigDecimal abono) {
+        if (abono == null) {
+            return null;
+        }
+        if (abono.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("Ingresa el abono realizado para continuar.");
+        }
+        return abono;
+    }
+
+    private void validarAbonoNoSupereTotal(BigDecimal abono, BigDecimal totalEstimado) {
+        if (abono == null || totalEstimado == null || totalEstimado.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        if (abono.compareTo(totalEstimado) > 0) {
+            throw new BusinessException("El abono no puede ser mayor al total de la reserva.");
+        }
+    }
+
+    private BigDecimal calcularSaldoPendiente(BigDecimal totalEstimado, BigDecimal abono) {
+        if (totalEstimado == null || totalEstimado.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal abonado = abono == null ? BigDecimal.ZERO : abono;
+        BigDecimal saldo = totalEstimado.subtract(abonado);
+        return saldo.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : saldo;
     }
 
     private void validarDuracionYHolgura(int duracion, int holgura) {
