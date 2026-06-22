@@ -5,6 +5,8 @@ import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
 import com.style.beauty.ms_agenda.dto.CitaAgendaResponse;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
@@ -167,6 +169,18 @@ public class CitaController {
 
         firebaseTokenVerifier.authenticatedAdminUid(authHeader);
         return citaService.crearDesdeAdmin(request);
+    }
+
+    @PostMapping("/lote")
+    public CrearCitasLoteResponse crearLoteDesdeAdmin(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @Valid @RequestBody CrearCitasLoteRequest request) {
+        log.info("Entrando a endpoint POST /api/agenda/citas/lote");
+        log.info("Request recibido crear lote admin: idCliente={}, fecha={}, reservas={}",
+                request.idCliente(), request.fecha(), request.reservas() == null ? 0 : request.reservas().size());
+
+        firebaseTokenVerifier.authenticatedAdminUid(authHeader);
+        return citaService.crearLoteDesdeAdmin(request);
     }
 
     @PatchMapping("/{id:[0-9a-fA-F-]+}/estado")

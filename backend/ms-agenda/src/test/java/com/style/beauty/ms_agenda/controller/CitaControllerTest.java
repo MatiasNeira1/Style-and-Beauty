@@ -3,6 +3,8 @@ package com.style.beauty.ms_agenda.controller;
 import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteResponse;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.enums.EstadoCita;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
@@ -17,6 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -154,5 +158,44 @@ class CitaControllerTest {
         ArgumentCaptor<CrearCitaRequest> captor = ArgumentCaptor.forClass(CrearCitaRequest.class);
         verify(citaService).crearDesdeAdmin(captor.capture());
         assertThat(captor.getValue().idCliente()).isEqualTo(ID_CLIENTE);
+    }
+
+    @Test
+    void postCrearLoteDesdeAdminExigeAdminYPropagaPayload() throws Exception {
+        when(citaService.crearLoteDesdeAdmin(any(CrearCitasLoteRequest.class)))
+                .thenReturn(new CrearCitasLoteResponse(ID_CLIENTE, LocalDate.of(2030, 1, 7), 2, 180, List.of()));
+
+        mockMvc.perform(post("/api/agenda/citas/lote")
+                        .header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "idCliente": "10000000-0000-4000-8000-000000000001",
+                                  "fecha": "2030-01-07",
+                                  "reservas": [
+                                    {
+                                      "idServicio": "40000000-0000-4000-8000-000000000001",
+                                      "idStaff": "20000000-0000-4000-8000-000000000001",
+                                      "horaInicio": "08:00",
+                                      "notaInterna": "Primera"
+                                    },
+                                    {
+                                      "idServicio": "40000000-0000-4000-8000-000000000002",
+                                      "idStaff": "20000000-0000-4000-8000-000000000001",
+                                      "horaInicio": "10:00",
+                                      "notaInterna": "Segunda"
+                                    }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        verify(firebaseTokenVerifier).authenticatedAdminUid("Bearer admin-token");
+        ArgumentCaptor<CrearCitasLoteRequest> captor = ArgumentCaptor.forClass(CrearCitasLoteRequest.class);
+        verify(citaService).crearLoteDesdeAdmin(captor.capture());
+        assertThat(captor.getValue().idCliente()).isEqualTo(ID_CLIENTE);
+        assertThat(captor.getValue().fecha()).isEqualTo(LocalDate.of(2030, 1, 7));
+        assertThat(captor.getValue().reservas()).hasSize(2);
+        assertThat(captor.getValue().reservas().get(0).horaInicio()).isEqualTo(LocalTime.of(8, 0));
     }
 }

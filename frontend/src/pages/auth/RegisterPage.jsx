@@ -546,11 +546,14 @@ export function RegisterPage() {
     setIsSubmitting(true);
 
     try {
-      const { password, confirmPassword, ...profile } = {
+      const profile = {
         ...form,
         rut: normalizeRut(form.rut),
         genero: form.genero.trim().toLowerCase(),
       };
+      const { password } = profile;
+      delete profile.password;
+      delete profile.confirmPassword;
 
       // 1. Create account in Firebase Auth, send verification, sign out
       await authService.registerUserWithVerification(profile, password);

@@ -7,6 +7,8 @@ import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
 import com.style.beauty.ms_agenda.dto.CitaAgendaResponse;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteResponse;
 import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
@@ -35,6 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -43,10 +46,12 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -432,6 +437,85 @@ public class CitaService {
         return crearConReglas(request, EstadoCita.CONFIRMADA, false);
     }
 
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public CrearCitasLoteResponse crearLoteDesdeAdmin(CrearCitasLoteRequest request) {
+        log.info("Creando lote de citas admin: idCliente={}, fecha={}, reservas={}",
+                request.idCliente(), request.fecha(), request.reservas() == null ? 0 : request.reservas().size());
+
+        liberarReservasVencidas();
+        validarLoteBase(request);
+        perfilClient.obtenerCliente(request.idCliente());
+
+        List<Cita> preparadas = new ArrayList<>();
+        Set<UUID> servicios = new HashSet<>();
+        OffsetDateTime finAnterior = null;
+
+        for (CrearCitasLoteRequest.ReservaLoteRequest reserva : request.reservas()) {
+            if (!servicios.add(reserva.idServicio())) {
+                throw new BusinessException("La agenda múltiple requiere servicios distintos.");
+            }
+
+            var staff = perfilClient.obtenerStaff(reserva.idStaff());
+            ServicioResumen servicio = servicioClient.obtenerServicio(reserva.idServicio());
+            validarStaffRealizaServicio(reserva.idServicio(), reserva.idStaff());
+
+            int duracion = duracionServicio(servicio);
+            int holgura = holguraService.calcularHolguraMin(servicio, staff.holguraCitaMinutos());
+            validarDuracionYHolgura(duracion, holgura);
+
+            OffsetDateTime inicio = request.fecha()
+                    .atTime(reserva.horaInicio())
+                    .atZone(zoneId())
+                    .toOffsetDateTime();
+            OffsetDateTime finAtencion = inicio.plusMinutes(duracion);
+            OffsetDateTime finVisible = finAtencion.plusMinutes(holgura);
+
+            if (finAnterior != null && inicio.isBefore(finAnterior)) {
+                throw new BusinessException("No fue posible encadenar todos los servicios dentro del horario laboral del profesional.");
+            }
+
+            validarFechaHoraReservable(inicio, finVisible);
+            validarJornada(reserva.idStaff(), inicio, finVisible);
+            validarBloqueos(reserva.idStaff(), inicio, finVisible);
+            validarChoqueCitas(reserva.idStaff(), inicio, finVisible);
+            validarChoqueCliente(request.idCliente(), inicio, finVisible);
+            validarChoqueLote(preparadas, request.idCliente(), reserva.idStaff(), inicio, finVisible);
+            validarSlotLoteMasCercano(reserva.idStaff(), request.fecha(), inicio, finVisible, duracion, holgura, finAnterior);
+
+            Cita cita = Cita.builder()
+                    .idCliente(request.idCliente())
+                    .idStaff(reserva.idStaff())
+                    .idServicio(reserva.idServicio())
+                    .fechaHoraInicio(inicio)
+                    .fechaHoraFin(finVisible)
+                    .fechaHoraFinAtencion(finAtencion)
+                    .duracionServicioMin(duracion)
+                    .holguraMin(holgura)
+                    .estadoCita(EstadoCita.CONFIRMADA)
+                    .tipoCita(TipoCita.NORMAL)
+                    .observacionCliente(notaLote(reserva))
+                    .build();
+
+            preparadas.add(cita);
+            finAnterior = finVisible;
+        }
+
+        List<Cita> guardadas = new ArrayList<>();
+        for (Cita cita : preparadas) {
+            Cita guardada = guardarSinSolape(cita);
+            registrarHistorial(
+                    guardada.getIdCita(),
+                    AccionHistorial.CREADA,
+                    null,
+                    guardada.getEstadoCita().name(),
+                    "Reserva creada en agenda multiple desde panel administrativo"
+            );
+            guardadas.add(guardada);
+        }
+
+        return toLoteResponse(request.idCliente(), request.fecha(), guardadas);
+    }
+
     private Cita crearConReglas(CrearCitaRequest request, EstadoCita estadoInicial, boolean reservaTemporal) {
         log.info("Creando cita: idServicio={}, idStaff={}, idCliente={}, fechaHoraInicio={}",
                 request.idServicio(), request.idStaff(), request.idCliente(), request.fechaHoraInicio());
@@ -500,6 +584,124 @@ public class CitaService {
         );
 
         return guardada;
+    }
+
+    private void validarLoteBase(CrearCitasLoteRequest request) {
+        if (request.idCliente() == null) {
+            throw new BusinessException("Selecciona un cliente para crear la agenda.");
+        }
+
+        if (request.fecha() == null) {
+            throw new BusinessException("Selecciona una fecha para crear la agenda.");
+        }
+
+        validarFechaReservable(request.fecha());
+
+        if (request.reservas() == null || request.reservas().isEmpty()) {
+            throw new BusinessException("Agrega al menos un servicio para crear la agenda.");
+        }
+    }
+
+    private void validarSlotLoteMasCercano(
+            UUID idStaff,
+            LocalDate fecha,
+            OffsetDateTime inicio,
+            OffsetDateTime finVisible,
+            int duracion,
+            int holgura,
+            OffsetDateTime finAnterior
+    ) {
+        List<DisponibilidadSlot> slots = calcularDisponibilidadParaDia(
+                idStaff,
+                fecha,
+                duracion,
+                holgura,
+                null
+        ).stream()
+                .sorted(Comparator.comparing(DisponibilidadSlot::inicio))
+                .toList();
+
+        if (finAnterior == null) {
+            boolean existeSlot = slots.stream()
+                    .anyMatch(slot -> slot.inicio().isEqual(inicio)
+                            && slot.finVisible().isEqual(finVisible));
+
+            if (!existeSlot) {
+                throw new BusinessException("El horario seleccionado ya no esta disponible");
+            }
+            return;
+        }
+
+        DisponibilidadSlot slotEsperado = slots.stream()
+                .filter(slot -> !slot.inicio().isBefore(finAnterior))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("No fue posible encadenar todos los servicios dentro del horario laboral del profesional."));
+
+        if (!slotEsperado.inicio().isEqual(inicio) || !slotEsperado.finVisible().isEqual(finVisible)) {
+            throw new BusinessException("Los servicios posteriores deben usar el horario disponible mas cercano al termino del servicio anterior.");
+        }
+    }
+
+    private void validarChoqueLote(
+            List<Cita> preparadas,
+            UUID idCliente,
+            UUID idStaff,
+            OffsetDateTime inicio,
+            OffsetDateTime finVisible
+    ) {
+        for (Cita cita : preparadas) {
+            boolean mismoStaff = Objects.equals(cita.getIdStaff(), idStaff);
+            boolean mismoCliente = Objects.equals(cita.getIdCliente(), idCliente);
+            if ((mismoStaff || mismoCliente)
+                    && haySolape(cita.getFechaHoraInicio(), cita.getFechaHoraFin(), inicio, finVisible)) {
+                if (mismoStaff) {
+                    throw new BusinessException("El profesional ya tiene una reserva en ese horario.");
+                }
+                throw new BusinessException("El cliente ya tiene una reserva en ese horario.");
+            }
+        }
+    }
+
+    private String notaLote(CrearCitasLoteRequest.ReservaLoteRequest reserva) {
+        String nota = reserva.nota();
+        return nota == null || nota.isBlank()
+                ? "Reserva creada desde agenda multiple del panel administrativo"
+                : nota;
+    }
+
+    private CrearCitasLoteResponse toLoteResponse(UUID idCliente, LocalDate fecha, List<Cita> citas) {
+        List<Cita> ordenadas = citas.stream()
+                .sorted(Comparator.comparing(Cita::getFechaHoraInicio))
+                .toList();
+
+        int tiempoTotal = ordenadas.isEmpty()
+                ? 0
+                : (int) Duration.between(
+                        ordenadas.get(0).getFechaHoraInicio(),
+                        ordenadas.get(ordenadas.size() - 1).getFechaHoraFin()
+                ).toMinutes();
+
+        List<CrearCitasLoteResponse.ReservaLoteCreadaResponse> reservas = ordenadas.stream()
+                .map(cita -> new CrearCitasLoteResponse.ReservaLoteCreadaResponse(
+                        cita.getIdCita(),
+                        cita.getIdServicio(),
+                        cita.getIdStaff(),
+                        cita.getFechaHoraInicio(),
+                        cita.getFechaHoraFin(),
+                        cita.getFechaHoraFinAtencion(),
+                        cita.getDuracionServicioMin(),
+                        cita.getHolguraMin(),
+                        cita.getEstadoCita()
+                ))
+                .toList();
+
+        return new CrearCitasLoteResponse(
+                idCliente,
+                fecha,
+                reservas.size(),
+                tiempoTotal,
+                reservas
+        );
     }
 
     @Transactional

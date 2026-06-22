@@ -82,6 +82,33 @@ export const agendaService = {
       data: payload,
     });
   },
+  createAdminBookingBatch: (payload) => {
+    if (!isValidUuid(payload?.idCliente)) throw new Error('Selecciona un cliente para reservar.');
+    requireValue(payload?.fecha, 'Selecciona una fecha para reservar.');
+    assertBookingDateAllowed(payload.fecha);
+    if (!Array.isArray(payload?.reservas) || payload.reservas.length < 2) {
+      throw new Error('Agrega al menos dos servicios para crear una agenda múltiple.');
+    }
+
+    const selectedServices = new Set();
+    payload.reservas.forEach((booking, index) => {
+      if (!isValidUuid(booking?.idServicio)) throw new Error(`Selecciona el servicio ${index + 1}.`);
+      if (!isValidUuid(booking?.idStaff)) throw new Error(`Selecciona el profesional del servicio ${index + 1}.`);
+      requireValue(booking?.horaInicio, `Selecciona la hora de inicio del servicio ${index + 1}.`);
+      if (selectedServices.has(booking.idServicio)) {
+        throw new Error('La reserva múltiple requiere servicios distintos.');
+      }
+      selectedServices.add(booking.idServicio);
+    });
+
+    return request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/lote',
+      method: 'POST',
+      authRequired: true,
+      data: payload,
+    });
+  },
   getAvailability: (payload) => {
     return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: availabilityPayload(payload) });
   },
