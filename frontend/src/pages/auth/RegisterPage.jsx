@@ -14,14 +14,19 @@ import {
   Sparkles,
   User,
   UsersRound,
-  MailCheck,
 } from 'lucide-react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button.jsx';
 import { authService } from '../../services/authService.js';
 
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const RUT_REGEX = /^(\d{1,2}\.\d{3}\.\d{3}-[\dkK]|\d{7,8}-[\dkK])$/;
+const CHILE_PHONE_REGEX = /^\+56\s?9\s?\d{4}\s?\d{4}$/;
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~\-]).{8,}$/;
+
 function validateRut(rut) {
   if (!rut || typeof rut !== 'string') return false;
+  if (!RUT_REGEX.test(rut)) return false;
   const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
   if (cleanRut.length < 2) return false;
 
@@ -449,16 +454,13 @@ function PremiumGenderSelect({ value, onChange }) {
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [form, setForm] = useState(initialForm);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const maxBirthDate = getMaxBirthDateIso();
 
-  const [isVerificationSent, setIsVerificationSent] = useState(false);
-  const [pendingUser, setPendingUser] = useState(null);
-  const [isVerifying, setIsVerifying] = useState(false);
+
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -466,21 +468,77 @@ export function RegisterPage() {
     setForm((current) => ({ ...current, [name]: finalValue }));
   };
 
+  const handlePhoneChange = (event) => {
+    const { value } = event.target;
+    let cleanValue = value.replace(/[^0-9+\s]/g, '');
+    const digitsOnly = cleanValue.replace(/[^\d]/g, '');
+    if (digitsOnly.length > 11) {
+      let digitCount = 0;
+      let truncated = '';
+      for (let i = 0; i < cleanValue.length; i++) {
+        const char = cleanValue[i];
+        if (/\d/.test(char)) {
+          if (digitCount < 11) {
+            truncated += char;
+            digitCount++;
+          }
+        } else {
+          truncated += char;
+        }
+      }
+      cleanValue = truncated;
+    }
+    if (cleanValue.length > 15) {
+      cleanValue = cleanValue.slice(0, 15);
+    }
+    updateFormValue('telefono', cleanValue);
+  };
+
   const updateFormValue = (name, value) => {
     setForm((current) => ({ ...current, [name]: value }));
   };
+
+  const isFormInvalid = useMemo(() => {
+    return (
+      !form.rut ||
+      !form.nombre ||
+      !form.emailContacto ||
+      !form.password ||
+      !form.fechaNacimiento ||
+      !form.genero ||
+      !form.telefono ||
+      !validateRut(form.rut) ||
+      !CHILE_PHONE_REGEX.test(form.telefono) ||
+      !PASSWORD_REGEX.test(form.password)
+    );
+  }, [form]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
 
-    if (!form.rut || !form.nombre || !form.emailContacto || !form.password || !form.fechaNacimiento || !form.genero) {
+    if (!form.rut || !form.nombre || !form.emailContacto || !form.password || !form.fechaNacimiento || !form.genero || !form.telefono) {
       setError('Completa todos los campos obligatorios.');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(form.emailContacto)) {
+      setError('El formato del email no es válido.');
       return;
     }
 
     if (!validateRut(form.rut)) {
       setError('El RUT no es válido (ej: 12.345.678-9).');
+      return;
+    }
+
+    if (!CHILE_PHONE_REGEX.test(form.telefono)) {
+      setError('El formato del teléfono no es válido (ej: +56 9 1234 5678).');
+      return;
+    }
+
+    if (!PASSWORD_REGEX.test(form.password)) {
+      setError('La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, un número y un símbolo especial.');
       return;
     }
 
@@ -507,43 +565,19 @@ export function RegisterPage() {
         genero: form.genero.trim().toLowerCase(),
       };
 
-      // 1. Guardar en Auth y Firestore simultáneamente, y enviar correo
-      const user = await authService.registerUserWithVerification(profile, password);
+      // 1. Create account in Firebase Auth, send verification, sign out
+      await authService.registerUserWithVerification(profile, password);
 
-      setPendingUser(user);
-      setIsVerificationSent(true);
+      // 2. Store profile data temporarily in sessionStorage (NO Firestore write)
+      window.sessionStorage.setItem('style_beauty_pending_profile', JSON.stringify(profile));
+
+      // 3. Navigate to verification pending page
+      navigate('/verificacion-pendiente', { replace: true });
 
     } catch (registerError) {
       setError(getRegisterErrorMessage(registerError));
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleVerifyEmail = async () => {
-    if (!pendingUser) return;
-    setIsVerifying(true);
-    setError('');
-
-    try {
-      await pendingUser.reload();
-      if (!pendingUser.emailVerified) {
-        setError('Aún no hemos detectado la verificación. Revisa tu bandeja de entrada o spam.');
-        setIsVerifying(false);
-        return;
-      }
-
-      const redirectTo = location.state?.from?.pathname || '/perfil';
-      const redirectState = location.state?.from?.state;
-      navigate(redirectTo, { replace: true, state: redirectState });
-    } catch (err) {
-      if (err.message.includes('verificado')) {
-        setError('Aún no hemos detectado la verificación. Revisa tu bandeja de entrada o spam.');
-      } else {
-        setError('Error conectando con la base de datos. Intenta nuevamente.');
-      }
-    } finally {
-      setIsVerifying(false);
     }
   };
 
@@ -612,8 +646,7 @@ export function RegisterPage() {
           animate="visible"
           aria-labelledby="register-title"
         >
-          {!isVerificationSent ? (
-            <>
+          <>
               <motion.div className="register-heading" variants={itemVariants}>
                 <span className="register-eyebrow">Nueva cuenta</span>
                 <h1 id="register-title">
@@ -667,35 +700,51 @@ export function RegisterPage() {
                     placeholder="tuemail@correo.com"
                     required
                   />
-                  <PremiumField
-                    icon={Lock}
-                    label="Contraseña"
-                    id="register-password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    minLength="6"
-                    value={form.password}
-                    onChange={handleChange}
-                    placeholder="Mínimo 6 caracteres"
-                    required
-                    trailing={
-                      <button
-                        className="password-toggle"
-                        type="button"
-                        onClick={() => setShowPassword((current) => !current)}
-                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                      >
-                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    }
-                  />
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <PremiumField
+                      icon={Lock}
+                      label="Contraseña"
+                      id="register-password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      minLength="8"
+                      value={form.password}
+                      onChange={handleChange}
+                      placeholder="Crea una contraseña segura"
+                      required
+                      trailing={
+                        <button
+                          className="password-toggle"
+                          type="button"
+                          onClick={() => setShowPassword((current) => !current)}
+                          aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        >
+                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      }
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.75rem', marginTop: '0.5rem', paddingLeft: '0.25rem' }}>
+                      <span style={{ color: form.password.length >= 8 ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Mínimo 8 caracteres
+                      </span>
+                      <span style={{ color: /[A-Z]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Al menos 1 letra mayúscula
+                      </span>
+                      <span style={{ color: /\d/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Al menos 1 número
+                      </span>
+                      <span style={{ color: /[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~\-]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Al menos 1 símbolo especial
+                      </span>
+                    </div>
+                  </div>
                   <PremiumField
                     icon={Phone}
                     label="Teléfono"
                     id="register-telefono"
                     name="telefono"
                     value={form.telefono}
-                    onChange={handleChange}
+                    onChange={handlePhoneChange}
                     placeholder="+56 9 1234 5678"
                   />
                   <BirthDateSelects
@@ -708,14 +757,14 @@ export function RegisterPage() {
                     onChange={(value) => updateFormValue('genero', value)}
                   />
                 </motion.div>
-
+ 
                 {error && (
                   <motion.p className="admin-alert register-error" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
                     {error}
                   </motion.p>
                 )}
-
-                <Button className="register-submit" type="submit" disabled={isSubmitting}>
+ 
+                <Button className="register-submit" type="submit" disabled={isSubmitting || isFormInvalid}>
                   {isSubmitting ? 'Creando cuenta...' : 'Crear mi espacio beauty'}
                 </Button>
 
