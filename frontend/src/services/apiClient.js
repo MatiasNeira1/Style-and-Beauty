@@ -158,7 +158,11 @@ apiClient.interceptors.response.use(
     const normalizedMessage = rawMessage.toLowerCase();
     let message = rawMessage;
 
-    if (normalizedMessage.includes('correo') && (normalizedMessage.includes('existe') || normalizedMessage.includes('registrado'))) {
+    if (normalizedMessage.includes('rut') && (normalizedMessage.includes('registrado') || normalizedMessage.includes('existe'))) {
+      message = 'El RUT ingresado ya se encuentra registrado.';
+    } else if (normalizedMessage.includes('rut') && (normalizedMessage.includes('válido') || normalizedMessage.includes('valido') || normalizedMessage.includes('obligatorio'))) {
+      message = rawMessage;
+    } else if (normalizedMessage.includes('correo') && (normalizedMessage.includes('existe') || normalizedMessage.includes('registrado'))) {
       message = 'Este email ya está registrado.';
     } else if (normalizedMessage.includes('obligatorio') || normalizedMessage.includes('requerido')) {
       message = 'Completa todos los campos obligatorios.';

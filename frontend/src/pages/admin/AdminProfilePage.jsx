@@ -6,10 +6,10 @@ import { Camera, LogOut, Save, ShieldCheck, UserRound } from 'lucide-react';
 import { AdminErrorState, AdminPageHeader, AdminSkeleton } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
-import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { profileService } from '../../services/profileService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
+import { formatRut, normalizeRut, validateRut } from '../../utils/rutUtils.js';
 
 function joinName(profile, user) {
   const profileName = [profile?.nombre, profile?.apellidos].filter(Boolean).join(' ');
@@ -41,49 +41,9 @@ function getProfileRole(profile, user) {
   return profile?.rol || profile?.tipoPerfil || user?.rol || user?.role || 'No disponible';
 }
 
-function validateRut(rut) {
-  if (!rut || typeof rut !== 'string') return false;
-  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (cleanRut.length < 2) return false;
-  const body = cleanRut.slice(0, -1);
-  const dv = cleanRut.slice(-1);
-  let sum = 0;
-  let multiplier = 2;
-  for (let i = body.length - 1; i >= 0; i -= 1) {
-    sum += parseInt(body[i], 10) * multiplier;
-    multiplier = multiplier === 7 ? 2 : multiplier + 1;
-  }
-  const expectedDv = 11 - (sum % 11);
-  const calculatedDv = expectedDv === 11 ? '0' : expectedDv === 10 ? 'K' : String(expectedDv);
-  return calculatedDv === dv;
-}
-
 function validatePhone(value) {
   if (!value) return true;
   return /^\+?[0-9\s-]{8,18}$/.test(value.trim());
-}
-
-function compressProfileImage(file, size = 96, quality = 0.55) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const image = new Image();
-      image.onload = () => {
-        const canvas = document.createElement('canvas');
-        const minSize = Math.min(image.width, image.height);
-        const sx = (image.width - minSize) / 2;
-        const sy = (image.height - minSize) / 2;
-        canvas.width = size;
-        canvas.height = size;
-        canvas.getContext('2d').drawImage(image, sx, sy, minSize, minSize, 0, 0, size, size);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      image.onerror = reject;
-      image.src = event.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 function ReadOnlyItem({ label, value }) {
@@ -96,12 +56,12 @@ function ReadOnlyItem({ label, value }) {
 }
 
 export function AdminProfilePage() {
-  const { user, logout, setSession } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [photoPreview, setPhotoPreview] = useState(user?.photoURL || '');
+  const [photoPreview, setPhotoPreview] = useState('');
 
   const profileQuery = useQuery({
     queryKey: ['my-profile'],
@@ -132,16 +92,16 @@ export function AdminProfilePage() {
   const defaultValues = useMemo(() => ({
     nombre: profile.nombre || '',
     apellidos: profile.apellidos || '',
-    rut: profile.rut || '',
+    rut: profile.rut ? formatRut(profile.rut) : '',
     emailContacto: email === 'No disponible' ? '' : email,
     telefono: profile.telefono || '',
   }), [email, profile.apellidos, profile.nombre, profile.rut, profile.telefono]);
 
-  const { register, handleSubmit, reset } = useForm({ defaultValues });
+  const { register, handleSubmit, reset, setValue } = useForm({ defaultValues });
 
   useEffect(() => {
-    setPhotoPreview(user?.photoURL || '');
-  }, [user?.photoURL]);
+    setPhotoPreview(profile?.fotoUrl || '');
+  }, [profile?.fotoUrl]);
 
   useEffect(() => {
     reset(defaultValues);
@@ -158,7 +118,7 @@ export function AdminProfilePage() {
           throw new Error('Faltan datos obligatorios por completar.');
         }
         if (!validateRut(values.rut)) {
-          throw new Error('Ingresa un RUT valido, por ejemplo 12.345.678-9.');
+          throw new Error('Ingresa un RUT válido.');
         }
         const idAuth = profile.idAuth || user?.uid;
         if (!idAuth) {
@@ -167,7 +127,7 @@ export function AdminProfilePage() {
         return profileService.updateProfileByAuthId(idAuth, {
           nombre: values.nombre.trim(),
           apellidos: values.apellidos.trim(),
-          rut: values.rut.trim(),
+          rut: normalizeRut(values.rut),
           emailContacto: values.emailContacto || user?.email,
           telefono: values.telefono?.trim() || '',
         });
@@ -192,24 +152,28 @@ export function AdminProfilePage() {
 
   const photoMutation = useMutation({
     mutationFn: async (file) => {
+      if (!canEditProfile) {
+        throw new Error('La foto solo puede guardarse cuando el perfil existe en el backend.');
+      }
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
         throw new Error('Solo se permiten imagenes JPG, PNG o WEBP.');
       }
       if (file.size > 5 * 1024 * 1024) {
         throw new Error('La imagen no puede superar 5 MB.');
       }
-      const compressed = await compressProfileImage(file);
-      return firebaseAuthService.updatePhoto(compressed);
+      return profileService.uploadMyPhoto(file);
     },
-    onSuccess: (session) => {
-      setSession(session);
-      setPhotoPreview(session?.user?.photoURL || '');
+    onSuccess: (updatedProfile) => {
+      const mergedProfile = { ...profile, ...updatedProfile };
+      queryClient.setQueryData(['my-profile'], mergedProfile);
+      queryClient.setQueryData(['auth-session', user?.uid], mergedProfile);
+      setPhotoPreview(updatedProfile?.fotoUrl || '');
       setErrorMsg('');
-      setSuccessMsg('Foto de perfil actualizada.');
+      setSuccessMsg('Perfil actualizado correctamente');
     },
     onError: (err) => {
       setSuccessMsg('');
-      setErrorMsg(err?.message || 'No se pudo actualizar la foto.');
+      setErrorMsg(err?.message || 'La imagen no pudo guardarse. Sube una imagen válida.');
     },
   });
 
@@ -281,6 +245,7 @@ export function AdminProfilePage() {
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              disabled={!canEditProfile || photoMutation.isPending}
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 event.target.value = '';
@@ -341,7 +306,10 @@ export function AdminProfilePage() {
                 label="RUT"
                 placeholder="12.345.678-9"
                 disabled={!canEditProfile || updateMutation.isPending || Boolean(profile.rut)}
-                {...register('rut')}
+                {...register('rut', {
+                  onChange: (event) => setValue('rut', formatRut(event.target.value)),
+                  onBlur: (event) => setValue('rut', formatRut(event.target.value), { shouldValidate: true }),
+                })}
               />
               <Input
                 id="admin-profile-email"

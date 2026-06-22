@@ -18,77 +18,11 @@ import {
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button.jsx';
 import { authService } from '../../services/authService.js';
+import { formatRut, normalizeRut, validateRut } from '../../utils/rutUtils.js';
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const RUT_REGEX = /^(\d{1,3}\.\d{3}\.\d{3}-[\dkK]|\d{7,9}-[\dkK])$/;
 const CHILE_PHONE_REGEX = /^\+56\s?9\s?\d{4}\s?\d{4}$/;
-const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~\-]).{8,15}$/;
-
-function validateRut(rut) {
-  if (!rut || typeof rut !== 'string') return false;
-  
-  if (RUT_REGEX.test(rut)) {
-    const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
-    if (cleanRut.length < 2) return false;
-  
-    const body = cleanRut.slice(0, -1);
-    const dv = cleanRut.slice(-1);
-  
-    let sum = 0;
-    let multiplier = 2;
-    for (let i = body.length - 1; i >= 0; i--) {
-      sum += parseInt(body[i], 10) * multiplier;
-      multiplier = multiplier === 7 ? 2 : multiplier + 1;
-    }
-  
-    const expectedDv = 11 - (sum % 11);
-    let calculatedDv = '';
-    if (expectedDv === 11) {
-      calculatedDv = '0';
-    } else if (expectedDv === 10) {
-      calculatedDv = 'K';
-    } else {
-      calculatedDv = String(expectedDv);
-    }
-  
-    return calculatedDv === dv;
-  }
-
-  // If it doesn't match Chilean RUT, allow 6 to 15 alphanumeric characters for foreign IDs
-  const cleanForeignId = rut.replace(/[^a-zA-Z0-9]/g, '');
-  return cleanForeignId.length >= 6 && cleanForeignId.length <= 15;
-}
-
-function formatRut(value) {
-  if (!value) return '';
-  const isRutLike = /^[0-9kK.\-]+$/.test(value);
-
-  if (isRutLike) {
-    let clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
-    if (clean.length === 0) return '';
-    clean = clean.slice(0, 10);
-  
-    if (clean.length <= 1) {
-      return clean;
-    }
-  
-    const dv = clean.slice(-1);
-    const body = clean.slice(0, -1);
-  
-    let formattedBody = '';
-    if (body.length <= 3) {
-      formattedBody = body;
-    } else if (body.length <= 6) {
-      formattedBody = body.slice(0, body.length - 3) + '.' + body.slice(body.length - 3);
-    } else {
-      formattedBody = body.slice(0, body.length - 6) + '.' + body.slice(body.length - 6, body.length - 3) + '.' + body.slice(body.length - 3);
-    }
-  
-    return formattedBody + '-' + dv;
-  }
-
-  return value.toUpperCase().slice(0, 15);
-}
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~-]).{8,}$/;
 
 const initialForm = {
   rut: '',
@@ -559,18 +493,23 @@ export function RegisterPage() {
     event.preventDefault();
     setError('');
 
-    if (!form.rut || !form.nombre || !form.emailContacto || !form.password || !form.confirmPassword || !form.fechaNacimiento || !form.genero || !form.telefono) {
+    if (!form.rut) {
+      setError('El RUT es obligatorio.');
+      return;
+    }
+
+    if (!validateRut(form.rut)) {
+      setError('Ingresa un RUT válido.');
+      return;
+    }
+
+    if (!form.nombre || !form.emailContacto || !form.password || !form.fechaNacimiento || !form.genero || !form.telefono) {
       setError('Completa todos los campos obligatorios.');
       return;
     }
 
     if (!EMAIL_REGEX.test(form.emailContacto)) {
       setError('El formato del email no es válido.');
-      return;
-    }
-
-    if (!validateRut(form.rut)) {
-      setError('El RUT/ID ingresado no es válido.');
       return;
     }
 
@@ -609,6 +548,7 @@ export function RegisterPage() {
     try {
       const { password, confirmPassword, ...profile } = {
         ...form,
+        rut: normalizeRut(form.rut),
         genero: form.genero.trim().toLowerCase(),
       };
 
@@ -714,6 +654,7 @@ export function RegisterPage() {
                     name="rut"
                     value={form.rut}
                     onChange={handleChange}
+                    onBlur={() => updateFormValue('rut', formatRut(form.rut))}
                     placeholder="12.345.678-9"
                     required
                   />
@@ -803,7 +744,7 @@ export function RegisterPage() {
                       <span style={{ color: /\d/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <CheckCircle2 size={12} /> Al menos 1 número
                       </span>
-                      <span style={{ color: /[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~\-]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <span style={{ color: /[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~-]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <CheckCircle2 size={12} /> Al menos 1 símbolo especial
                       </span>
                     </div>

@@ -30,9 +30,15 @@ export function Modal({ open, title, children, onClose, className = '', closeDis
       }}
     >
       <section className={`modal ${className}`.trim()} role="dialog" aria-modal="true" aria-label={title}>
-        <header>
-          <h2>{title}</h2>
-          <Button variant="ghost" onClick={onClose} aria-label="Cerrar" disabled={closeDisabled}>
+        <header className="modal-header">
+          <h2 className="modal-title">{title}</h2>
+          <Button
+            variant="ghost"
+            className="modal-close"
+            onClick={onClose}
+            aria-label="Cerrar modal"
+            disabled={closeDisabled}
+          >
             <X size={18} />
           </Button>
         </header>

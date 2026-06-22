@@ -10,6 +10,7 @@ import { TOKEN_KEY } from '../../services/apiClient.js';
 import { profileService } from '../../services/profileService.js';
 import { Search, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
 import { fullName } from '../../utils/adminFormatters.js';
+import { formatRut, normalizeRut, validateRut } from '../../utils/rutUtils.js';
 
 const initialForm = {
   rut: '',
@@ -42,30 +43,14 @@ function normalizeBirthDate(value) {
   return value;
 }
 
-function validateRut(rut) {
-  if (!rut || typeof rut !== 'string') return false;
-  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (cleanRut.length < 2) return false;
-  const body = cleanRut.slice(0, -1);
-  const dv = cleanRut.slice(-1);
-  let sum = 0;
-  let multiplier = 2;
-  for (let i = body.length - 1; i >= 0; i -= 1) {
-    sum += parseInt(body[i], 10) * multiplier;
-    multiplier = multiplier === 7 ? 2 : multiplier + 1;
-  }
-  const expectedDv = 11 - (sum % 11);
-  const calculatedDv = expectedDv === 11 ? '0' : expectedDv === 10 ? 'K' : String(expectedDv);
-  return calculatedDv === dv;
-}
-
 function validatePhone(value) {
   if (!value) return true;
   return /^\+?[0-9\s-]{8,18}$/.test(value.trim());
 }
 
 function validateClientForm(form) {
-  if (!validateRut(form.rut)) return 'Ingresa un RUT valido, por ejemplo 12.345.678-9.';
+  if (!form.rut?.trim()) return 'El RUT es obligatorio.';
+  if (!validateRut(form.rut)) return 'Ingresa un RUT válido.';
   if (!form.nombre?.trim()) return 'El nombre es obligatorio.';
   if (!form.apellidos?.trim()) return 'El apellido es obligatorio.';
   if (!form.emailContacto?.trim()) return 'El email es obligatorio.';
@@ -133,7 +118,7 @@ function UserDetailModal({ user, onClose, onPromote, isPromoting }) {
             <AdminStatusBadge status="CLIENTE">Cliente</AdminStatusBadge>
           </div>
           <div className="admin-detail-grid">
-            <div><span>RUT</span><strong>{user.rut || 'No disponible'}</strong></div>
+            <div><span>RUT</span><strong>{user.rut ? formatRut(user.rut) : 'No disponible'}</strong></div>
             <div><span>Telefono</span><strong>{user.telefono || 'No disponible'}</strong></div>
             <div><span>Genero</span><strong>{user.genero || 'No disponible'}</strong></div>
             <div><span>ID Auth</span><strong>{user.idAuth || 'No disponible'}</strong></div>
@@ -167,7 +152,11 @@ export function ClientsAdminPage() {
 
   const createMutation = useMutation({
     mutationFn: async (payload) => {
-      const payloadWithNormalizedDate = { ...payload, fechaNacimiento: normalizeBirthDate(payload.fechaNacimiento) };
+      const payloadWithNormalizedDate = {
+        ...payload,
+        rut: normalizeRut(payload.rut),
+        fechaNacimiento: normalizeBirthDate(payload.fechaNacimiento),
+      };
       await profileService.validateAvailability({ ...payloadWithNormalizedDate, tipoPerfil: 'CLIENTE' });
       const user = await authService.createUser({
         email: payloadWithNormalizedDate.emailContacto,
@@ -199,7 +188,8 @@ export function ClientsAdminPage() {
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
-    setForm((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
+    const nextValue = name === 'rut' ? formatRut(value) : value;
+    setForm((current) => ({ ...current, [name]: type === 'checkbox' ? checked : nextValue }));
     setFormError('');
   };
 
@@ -281,7 +271,7 @@ export function ClientsAdminPage() {
             { key: 'nombre', label: 'Nombre', render: (row) => fullName(row) || 'Sin nombre' },
             { key: 'emailContacto', label: 'Email', render: (row) => row.emailContacto || 'Sin email' },
             { key: 'telefono', label: 'Telefono', render: (row) => row.telefono || 'Sin telefono' },
-            { key: 'rut', label: 'RUT', render: (row) => row.rut || 'Sin RUT' },
+            { key: 'rut', label: 'RUT', render: (row) => row.rut ? formatRut(row.rut) : 'Sin RUT' },
             { key: 'puntosFidelidad', label: 'Puntos', render: (row) => row.puntosFidelidad ?? 0 },
           ]}
           rows={filteredClients}

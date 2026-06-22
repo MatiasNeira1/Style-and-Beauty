@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { CategoryGrid } from '../../components/services/CategoryGrid.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { catalogService } from '../../services/catalogService.js';
 
@@ -13,7 +14,16 @@ export function ServicesPage() {
   return (
     <>
       <section className="page-hero page-hero-services">
-        <div className="page-hero-media" />
+        <SafeImage
+          src="/hero-salon.png"
+          alt=""
+          aria-hidden="true"
+          className="page-hero-media page-hero-image"
+          loading="eager"
+          fetchPriority="high"
+          width={1024}
+          height={1024}
+        />
         <div className="page-hero-overlay" />
         <div className="page-hero-content">
           <span className="card-kicker">Catalogo</span>

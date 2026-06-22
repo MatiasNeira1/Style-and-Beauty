@@ -11,7 +11,6 @@ import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
-import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.service.CitaService;
 import com.style.beauty.ms_agenda.service.FirebaseTokenVerifier;
@@ -156,6 +155,18 @@ public class CitaController {
         String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
         PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
         return citaService.crear(request.withCliente(cliente.idPersona()));
+    }
+
+    @PostMapping("/admin")
+    public Cita crearDesdeAdmin(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @Valid @RequestBody CrearCitaRequest request) {
+        log.info("Entrando a endpoint POST /api/agenda/citas/admin");
+        log.info("Request recibido crear cita admin: idCliente={}, idServicio={}, idStaff={}, fechaHoraInicio={}",
+                request.idCliente(), request.idServicio(), request.idStaff(), request.fechaHoraInicio());
+
+        firebaseTokenVerifier.authenticatedAdminUid(authHeader);
+        return citaService.crearDesdeAdmin(request);
     }
 
     @PatchMapping("/{id:[0-9a-fA-F-]+}/estado")

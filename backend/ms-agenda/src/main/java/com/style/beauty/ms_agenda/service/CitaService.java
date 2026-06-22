@@ -13,7 +13,6 @@ import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
-import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.entity.HistorialCita;
@@ -425,6 +424,15 @@ public class CitaService {
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Cita crear(CrearCitaRequest request) {
+        return crearConReglas(request, EstadoCita.PENDIENTE_PAGO, true);
+    }
+
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public Cita crearDesdeAdmin(CrearCitaRequest request) {
+        return crearConReglas(request, EstadoCita.CONFIRMADA, false);
+    }
+
+    private Cita crearConReglas(CrearCitaRequest request, EstadoCita estadoInicial, boolean reservaTemporal) {
         log.info("Creando cita: idServicio={}, idStaff={}, idCliente={}, fechaHoraInicio={}",
                 request.idServicio(), request.idStaff(), request.idCliente(), request.fechaHoraInicio());
 
@@ -448,7 +456,9 @@ public class CitaService {
         OffsetDateTime inicio = normalizarAZoneAgenda(request.fechaHoraInicio());
         OffsetDateTime finAtencion = inicio.plusMinutes(duracion);
         OffsetDateTime finVisible = finAtencion.plusMinutes(holgura);
-        OffsetDateTime expiracionReserva = OffsetDateTime.now(zoneId()).plusMinutes(minutosReservaTemporal);
+        OffsetDateTime expiracionReserva = reservaTemporal
+                ? OffsetDateTime.now(zoneId()).plusMinutes(minutosReservaTemporal)
+                : null;
 
         validarFechaReservable(inicio.toLocalDate());
         validarFechaHoraReservable(inicio, finVisible);
@@ -468,21 +478,25 @@ public class CitaService {
                 .fechaHoraFinAtencion(finAtencion)
                 .duracionServicioMin(duracion)
                 .holguraMin(holgura)
-                .estadoCita(EstadoCita.PENDIENTE_PAGO)
+                .estadoCita(estadoInicial)
                 .tipoCita(TipoCita.NORMAL)
                 .expiracionReserva(expiracionReserva)
                 .observacionCliente(request.observacionCliente())
                 .build();
 
         Cita guardada = guardarSinSolape(cita);
-        refrescarExpiracionReservasPendientesCliente(guardada.getIdCliente(), expiracionReserva);
+        if (reservaTemporal) {
+            refrescarExpiracionReservasPendientesCliente(guardada.getIdCliente(), expiracionReserva);
+        }
 
         registrarHistorial(
                 guardada.getIdCita(),
                 AccionHistorial.CREADA,
                 null,
                 guardada.getEstadoCita().name(),
-                "Reserva temporal agregada al carrito. Expira en " + minutosReservaTemporal + " minutos"
+                reservaTemporal
+                        ? "Reserva temporal agregada al carrito. Expira en " + minutosReservaTemporal + " minutos"
+                        : "Reserva creada desde panel administrativo"
         );
 
         return guardada;

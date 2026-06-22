@@ -583,6 +583,10 @@
   filter: saturate(0.92) contrast(1.03);
 }
 
+.page-hero-category .page-hero-image {
+  object-position: var(--page-hero-position, center);
+}
+
 .page-hero-category .page-hero-overlay {
   background:
     linear-gradient(180deg, rgba(25, 20, 23, 0.12), rgba(25, 20, 23, 0.52)),

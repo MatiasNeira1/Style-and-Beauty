@@ -16,9 +16,12 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { profileService } from '../../services/profileService.js';
+import { useAdminDashboardMetrics } from '../../hooks/admin/useAdminDashboardMetrics.js';
+import { formatTime } from '../../utils/adminFormatters.js';
+import { calculateInventoryMetrics } from '../../utils/inventoryStockRules.js';
 
 const adminGroups = [
   {
@@ -53,6 +56,8 @@ export function AdminLayout() {
   const queryClient = useQueryClient();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationsRef = useRef(null);
   const profileQuery = useQuery({
     queryKey: ['my-profile'],
     queryFn: profileService.getMyProfile,
@@ -60,6 +65,7 @@ export function AdminLayout() {
     retry: false,
     staleTime: 1000 * 60,
   });
+  const dashboardQuery = useAdminDashboardMetrics();
   const today = useMemo(
     () => new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: '2-digit', month: 'long' }).format(new Date()),
     [],
@@ -73,6 +79,69 @@ export function AdminLayout() {
     .map((part) => part[0])
     .join('')
     .toUpperCase();
+  const notificationItems = useMemo(() => {
+    const metrics = dashboardQuery.metrics || {};
+    const raw = metrics.raw || {};
+    const bookings = Array.isArray(raw.bookings) ? raw.bookings : [];
+    const products = Array.isArray(raw.products) ? raw.products : [];
+    const stock = Array.isArray(raw.stock) ? raw.stock : [];
+    const nextBookings = Array.isArray(metrics.nextBookings) ? metrics.nextBookings : [];
+    const pendingBookings = bookings.filter((booking) => String(booking.estadoCita || '').toUpperCase().includes('PENDIENTE'));
+    const inventoryMetrics = calculateInventoryMetrics(products, stock);
+    const outStockCount = inventoryMetrics.outStock.length;
+    const lowStockCount = inventoryMetrics.lowStock.length;
+    const partialErrors = Array.isArray(raw.partialErrors) ? raw.partialErrors.length : 0;
+    const items = [];
+
+    if (nextBookings.length) {
+      const next = nextBookings[0];
+      items.push({
+        id: 'next-booking',
+        tone: 'info',
+        title: 'Reserva próxima',
+        detail: `${formatTime(next.fechaHoraInicio)} · ${next.nombreServicio || next.idServicio || 'Servicio agendado'}`,
+      });
+    }
+
+    if (pendingBookings.length) {
+      items.push({
+        id: 'pending-bookings',
+        tone: 'warning',
+        title: 'Reservas pendientes',
+        detail: `${pendingBookings.length} reservas requieren revisión.`,
+      });
+    }
+
+    if (outStockCount > 0) {
+      items.push({
+        id: 'out-stock',
+        tone: 'danger',
+        title: 'Productos sin stock',
+        detail: `${outStockCount} productos necesitan reposición inmediata.`,
+      });
+    }
+
+    if (lowStockCount > 0) {
+      items.push({
+        id: 'low-stock',
+        tone: 'warning',
+        title: 'Productos bajo stock',
+        detail: `${lowStockCount} productos necesitan reposición.`,
+      });
+    }
+
+    if (partialErrors > 0) {
+      items.push({
+        id: 'partial-errors',
+        tone: 'warning',
+        title: 'Datos incompletos',
+        detail: 'Algunos servicios administrativos no respondieron.',
+      });
+    }
+
+    return items;
+  }, [dashboardQuery.metrics]);
+  const hasNotifications = notificationItems.length > 0;
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -85,8 +154,29 @@ export function AdminLayout() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!notificationsOpen) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!notificationsRef.current?.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setNotificationsOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [notificationsOpen]);
+
   const closeOverlay = () => {
     setIsOpen(false);
+    setNotificationsOpen(false);
   };
 
   const handleLogout = async () => {
@@ -167,11 +257,48 @@ export function AdminLayout() {
             <h1>Panel administrativo</h1>
           </div>
           <div className="admin-topbar-actions">
-            <button type="button" className="admin-icon-button" aria-label="Ver notificaciones">
-              <Bell size={18} />
-              <span />
-            </button>
-            <NavLink to="/admin/agenda" className="admin-quick-create">
+            <div className="admin-notification-menu" ref={notificationsRef}>
+              <button
+                type="button"
+                className={`admin-icon-button ${hasNotifications ? 'has-notifications' : ''}`}
+                aria-label="Ver notificaciones"
+                aria-expanded={notificationsOpen}
+                aria-controls="admin-notification-panel"
+                onClick={() => setNotificationsOpen((current) => !current)}
+              >
+                <Bell size={18} />
+                {hasNotifications && <span>{notificationItems.length}</span>}
+              </button>
+              {notificationsOpen && (
+                <div id="admin-notification-panel" className="admin-notification-panel" role="status">
+                  <header>
+                    <strong>Notificaciones</strong>
+                    <small>Reservas, inventario y alertas administrativas</small>
+                  </header>
+                  {dashboardQuery.isLoading ? (
+                    <p className="admin-notification-empty">Cargando notificaciones...</p>
+                  ) : hasNotifications ? (
+                    <div className="admin-notification-list">
+                      {notificationItems.map((item) => (
+                        <article key={item.id} className={`admin-notification-item ${item.tone}`}>
+                          <span aria-hidden="true" />
+                          <div>
+                            <strong>{item.title}</strong>
+                            <small>{item.detail}</small>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="admin-notification-empty">No hay notificaciones pendientes.</p>
+                  )}
+                  <footer>
+                    <small>Fuente actual: snapshot admin. Endpoint futuro sugerido: GET /api/admin/notificaciones.</small>
+                  </footer>
+                </div>
+              )}
+            </div>
+            <NavLink to="/admin/agenda" state={{ openNewReservation: true }} className="admin-quick-create">
               <Plus size={17} />
               Nueva reserva
             </NavLink>

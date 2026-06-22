@@ -14,62 +14,9 @@ import { reservationService } from '../../services/reservationService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RESERVATION_DEPOSIT_CLP, formatCLP } from '../../utils/priceUtils.js';
+import { formatRut, normalizeRut, validateRut } from '../../utils/rutUtils.js';
 
 const MIN_CLIENT_AGE = 15;
-
-function validateRut(rut) {
-  if (!rut || typeof rut !== 'string') return false;
-  // Limpiar puntos, guiones y espacios
-  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (cleanRut.length < 2) return false;
-  
-  const body = cleanRut.slice(0, -1);
-  const dv = cleanRut.slice(-1);
-  
-  let sum = 0;
-  let multiplier = 2;
-  for (let i = body.length - 1; i >= 0; i--) {
-    sum += parseInt(body[i], 10) * multiplier;
-    multiplier = multiplier === 7 ? 2 : multiplier + 1;
-  }
-  
-  const expectedDv = 11 - (sum % 11);
-  let calculatedDv = '';
-  if (expectedDv === 11) {
-    calculatedDv = '0';
-  } else if (expectedDv === 10) {
-    calculatedDv = 'K';
-  } else {
-    calculatedDv = String(expectedDv);
-  }
-  
-  return calculatedDv === dv;
-}
-
-function formatRut(value) {
-  if (!value) return '';
-  let clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (clean.length === 0) return '';
-  clean = clean.slice(0, 9);
-  
-  if (clean.length <= 1) {
-    return clean;
-  }
-  
-  const dv = clean.slice(-1);
-  const body = clean.slice(0, -1);
-  
-  let formattedBody = '';
-  if (body.length <= 3) {
-    formattedBody = body;
-  } else if (body.length <= 6) {
-    formattedBody = body.slice(0, body.length - 3) + '.' + body.slice(body.length - 3);
-  } else {
-    formattedBody = body.slice(0, body.length - 6) + '.' + body.slice(body.length - 6, body.length - 3) + '.' + body.slice(body.length - 3);
-  }
-  
-  return formattedBody + '-' + dv;
-}
 
 function validatePhone(value) {
   if (!value) return true;
@@ -663,8 +610,8 @@ export function ProfilePage() {
   });
 
   useEffect(() => {
-    if (!photoFile) setPhotoPreview(profile?.fotoUrl || user?.photoURL || '');
-  }, [photoFile, profile?.fotoUrl, user?.photoURL]);
+    if (!photoFile) setPhotoPreview(profile?.fotoUrl || '');
+  }, [photoFile, profile?.fotoUrl]);
 
   useEffect(() => {
     if (!photoFile) return undefined;
@@ -760,7 +707,7 @@ export function ProfilePage() {
           const pending = JSON.parse(stored);
           setHasPendingProfileData(true);
           reset({
-            rut: pending.rut || '',
+            rut: pending.rut ? formatRut(pending.rut) : '',
             nombre: pending.nombre || '',
             apellidos: pending.apellidos || '',
             emailContacto: pending.emailContacto || user?.email || '',
@@ -793,7 +740,7 @@ export function ProfilePage() {
   const openPhotoModal = () => {
     setPhotoError('');
     setPhotoFile(null);
-    setPhotoPreview(profile?.fotoUrl || user?.photoURL || '');
+    setPhotoPreview(profile?.fotoUrl || '');
     setPhotoModalOpen(true);
   };
 
@@ -802,7 +749,7 @@ export function ProfilePage() {
     setPhotoModalOpen(false);
     setPhotoFile(null);
     setPhotoError('');
-    setPhotoPreview(profile?.fotoUrl || user?.photoURL || '');
+    setPhotoPreview(profile?.fotoUrl || '');
   };
 
   const uploadSelectedPhoto = async () => {
@@ -871,7 +818,7 @@ export function ProfilePage() {
         rol: 'cliente',
         nombre: values.nombre,
         apellidos: values.apellidos || '',
-        rut: values.rut || '',
+        rut: normalizeRut(values.rut),
         telefono: values.telefono || '',
         fechaNacimiento: values.fechaNacimiento || '',
         genero: values.genero || '',
@@ -896,6 +843,7 @@ export function ProfilePage() {
       });
       const createdProfile = await profileService.createProfile({
         ...values,
+        rut: normalizeRut(values.rut),
         emailContacto: values.emailContacto || user?.email,
         genero: values.genero || 'no_especifica',
         tipoPerfil: 'CLIENTE',
@@ -1005,7 +953,10 @@ export function ProfilePage() {
                       validate: (value) => validateRut(value) || 'El RUT no es válido (ej: 12.345.678-9).',
                       onChange: (e) => {
                         setValue('rut', formatRut(e.target.value));
-                      }
+                      },
+                      onBlur: (e) => {
+                        setValue('rut', formatRut(e.target.value), { shouldValidate: true });
+                      },
                     })} 
                     placeholder="12.345.678-9" 
                     required 
@@ -1185,7 +1136,7 @@ export function ProfilePage() {
               </div>
               <div className="field">
                 <label>RUT</label>
-                <Input value={profile?.rut || ''} readOnly aria-readonly="true" />
+                <Input value={profile?.rut ? formatRut(profile.rut) : ''} readOnly aria-readonly="true" />
               </div>
               <div className="field">
                 <label>Email de contacto</label>
@@ -1275,7 +1226,7 @@ export function ProfilePage() {
 
       <ProfilePhotoModal
         open={photoModalOpen}
-        currentPhoto={profile?.fotoUrl || user?.photoURL || ''}
+        currentPhoto={profile?.fotoUrl || ''}
         previewPhoto={photoPreview}
         file={photoFile}
         error={photoError}
