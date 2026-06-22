@@ -610,8 +610,8 @@ export function ProfilePage() {
   });
 
   useEffect(() => {
-    if (!photoFile) setPhotoPreview(profile?.fotoUrl || user?.photoURL || '');
-  }, [photoFile, profile?.fotoUrl, user?.photoURL]);
+    if (!photoFile) setPhotoPreview(profile?.fotoUrl || '');
+  }, [photoFile, profile?.fotoUrl]);
 
   useEffect(() => {
     if (!photoFile) return undefined;
@@ -740,7 +740,7 @@ export function ProfilePage() {
   const openPhotoModal = () => {
     setPhotoError('');
     setPhotoFile(null);
-    setPhotoPreview(profile?.fotoUrl || user?.photoURL || '');
+    setPhotoPreview(profile?.fotoUrl || '');
     setPhotoModalOpen(true);
   };
 
@@ -749,7 +749,7 @@ export function ProfilePage() {
     setPhotoModalOpen(false);
     setPhotoFile(null);
     setPhotoError('');
-    setPhotoPreview(profile?.fotoUrl || user?.photoURL || '');
+    setPhotoPreview(profile?.fotoUrl || '');
   };
 
   const uploadSelectedPhoto = async () => {
@@ -1226,7 +1226,7 @@ export function ProfilePage() {
 
       <ProfilePhotoModal
         open={photoModalOpen}
-        currentPhoto={profile?.fotoUrl || user?.photoURL || ''}
+        currentPhoto={profile?.fotoUrl || ''}
         previewPhoto={photoPreview}
         file={photoFile}
         error={photoError}

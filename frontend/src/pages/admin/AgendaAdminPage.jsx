@@ -1,13 +1,18 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  AlertCircle,
   CalendarClock,
   CalendarDays,
+  CalendarPlus,
   CalendarRange,
   CheckCircle2,
   Clock,
   Download,
+  Loader2,
   ListChecks,
+  Plus,
   RefreshCw,
   Search,
   UserRound,
@@ -25,10 +30,12 @@ import {
 import { AdminAutocomplete } from '../../components/admin/AdminAutocomplete.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
+import { Modal } from '../../components/ui/Modal.jsx';
 import { agendaService } from '../../services/agendaService.js';
 import { catalogService } from '../../services/catalogService.js';
 import { profileService } from '../../services/profileService.js';
 import { formatCurrencyCLP, formatDate, formatTime, fullName } from '../../utils/adminFormatters.js';
+import { bookingDateRejectionMessage, filterBookableSlots, formatLocalDate } from '../../utils/bookingDateRules.js';
 
 const statusOptions = ['PENDIENTE_PAGO', 'CONFIRMADA', 'EN_ATENCION', 'FINALIZADA', 'CANCELADA', 'EXPIRADA', 'RECHAZADA'];
 const viewOptions = ['Dia', 'Semana', 'Mes', 'Lista'];
@@ -38,7 +45,7 @@ function monthValue() {
 }
 
 function todayValue() {
-  return new Date().toISOString().slice(0, 10);
+  return formatLocalDate(new Date());
 }
 
 function getBookingId(booking) {
@@ -68,6 +75,28 @@ function getServiceId(service) {
 
 function getPersonId(person) {
   return person.idPersona || person.idCliente || person.idStaff || person.id;
+}
+
+function getSlotStart(slot) {
+  return slot?.inicio || slot?.startsAt || slot?.horaInicio;
+}
+
+function getSlotEnd(slot) {
+  return slot?.finAtencion || slot?.finVisible || slot?.endsAt || slot?.horaFin;
+}
+
+function formatSlotRange(slot) {
+  return `${formatTime(getSlotStart(slot))} - ${formatTime(getSlotEnd(slot))}`;
+}
+
+function initialBookingForm() {
+  return {
+    idCliente: '',
+    idServicio: '',
+    idStaff: '',
+    fecha: '',
+    observacionCliente: '',
+  };
 }
 
 function BookingCard({ booking, service, client, staffMember, statusDraft, onStatusDraftChange, onSaveStatus, onCancel, isMutating }) {
@@ -122,8 +151,293 @@ function BookingCard({ booking, service, client, staffMember, statusDraft, onSta
   );
 }
 
+function AdminReservationModal({ open, onClose, clients, services, staff, onCreated }) {
+  const [form, setForm] = useState(initialBookingForm);
+  const [slots, setSlots] = useState([]);
+  const [selectedSlotStart, setSelectedSlotStart] = useState('');
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
+  const [availabilityBody, setAvailabilityBody] = useState(null);
+  const [formError, setFormError] = useState('');
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const serviceStaffQuery = useQuery({
+    queryKey: ['agenda-admin-service-staff', form.idServicio],
+    queryFn: () => agendaService.listarStaffPorServicio(form.idServicio),
+    enabled: open && agendaService.isValidUuid(form.idServicio),
+    retry: false,
+    staleTime: 1000 * 60,
+  });
+
+  const serviceStaff = Array.isArray(serviceStaffQuery.data) ? serviceStaffQuery.data : [];
+  const staffOptions = form.idServicio ? serviceStaff : staff;
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(initialBookingForm());
+    setSlots([]);
+    setSelectedSlotStart('');
+    setAvailabilityChecked(false);
+    setAvailabilityBody(null);
+    setFormError('');
+    setAvailabilityLoading(false);
+    setSaving(false);
+  }, [open]);
+
+  const resetAvailability = () => {
+    setSlots([]);
+    setSelectedSlotStart('');
+    setAvailabilityChecked(false);
+    setAvailabilityBody(null);
+  };
+
+  const updateField = (field) => (value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    setFormError('');
+    resetAvailability();
+  };
+
+  const validateBase = () => {
+    if (!agendaService.isValidUuid(form.idCliente)) return 'Selecciona un cliente para crear la reserva.';
+    if (!agendaService.isValidUuid(form.idServicio)) return 'Selecciona un servicio para consultar disponibilidad.';
+    if (!agendaService.isValidUuid(form.idStaff)) return 'Selecciona un profesional para consultar disponibilidad.';
+    if (!form.fecha) return 'Selecciona una fecha para consultar disponibilidad.';
+    const dateMessage = bookingDateRejectionMessage(form.fecha);
+    if (dateMessage) return dateMessage;
+    return '';
+  };
+
+  const availabilityPayload = () => ({
+    idServicio: form.idServicio,
+    idStaff: form.idStaff,
+    fecha: form.fecha,
+  });
+
+  const handleConsultAvailability = async () => {
+    const validationMessage = validateBase();
+    if (validationMessage) {
+      setFormError(validationMessage);
+      return;
+    }
+
+    const payload = availabilityPayload();
+    setAvailabilityLoading(true);
+    setFormError('');
+    setSelectedSlotStart('');
+    try {
+      const response = await agendaService.consultarDisponibilidad(payload);
+      const bookableSlots = filterBookableSlots(response);
+      setSlots(bookableSlots);
+      setAvailabilityChecked(true);
+      setAvailabilityBody(payload);
+    } catch (error) {
+      setSlots([]);
+      setAvailabilityChecked(false);
+      setAvailabilityBody(null);
+      setFormError(error?.message || 'No pudimos consultar la disponibilidad. Intenta nuevamente.');
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  };
+
+  const handleSave = async (event) => {
+    event.preventDefault();
+    const validationMessage = validateBase();
+    if (validationMessage) {
+      setFormError(validationMessage);
+      return;
+    }
+    if (!availabilityChecked) {
+      setFormError('Consulta disponibilidad antes de guardar la reserva.');
+      return;
+    }
+    if (!selectedSlotStart) {
+      setFormError('Selecciona una hora disponible para guardar la reserva.');
+      return;
+    }
+
+    const payload = availabilityPayload();
+    setSaving(true);
+    setFormError('');
+    try {
+      const freshSlots = filterBookableSlots(await agendaService.consultarDisponibilidad(payload));
+      const selectedSlot = freshSlots.find((slot) => getSlotStart(slot) === selectedSlotStart);
+      if (!selectedSlot) {
+        setSlots(freshSlots);
+        setSelectedSlotStart('');
+        setAvailabilityChecked(true);
+        setAvailabilityBody(payload);
+        throw new Error('La hora seleccionada ya no está disponible. Consulta disponibilidad nuevamente.');
+      }
+
+      const booking = await agendaService.createAdminBooking({
+        idCliente: form.idCliente,
+        idServicio: form.idServicio,
+        idStaff: form.idStaff,
+        fechaHoraInicio: getSlotStart(selectedSlot),
+        observacionCliente: form.observacionCliente?.trim() || 'Reserva creada desde panel administrativo',
+      });
+
+      onCreated({ booking, fecha: form.fecha, availabilityBody: payload });
+    } catch (error) {
+      setFormError(error?.message || 'No pudimos crear la reserva. Revisa los datos e intenta nuevamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const closeDisabled = availabilityLoading || saving;
+
+  return (
+    <Modal open={open} title="Nueva reserva" onClose={onClose} closeDisabled={closeDisabled} className="admin-reservation-modal">
+      <form className="admin-reservation-form" onSubmit={handleSave}>
+        {formError && (
+          <div className="admin-alert compact" role="alert">
+            <AlertCircle size={16} />
+            {formError}
+          </div>
+        )}
+
+        <div className="admin-reservation-grid">
+          <AdminAutocomplete
+            id="new-booking-client"
+            label="Cliente"
+            options={clients}
+            selectedValue={form.idCliente}
+            placeholder="Buscar cliente"
+            emptyMessage="No hay clientes disponibles"
+            getOptionValue={getPersonId}
+            getOptionLabel={(client) => fullName(client) || client.emailContacto || client.email || 'Cliente'}
+            getOptionMeta={(client) => client.emailContacto || client.email || client.telefono || 'Sin contacto'}
+            getOptionSearchText={(client) => [fullName(client), client.emailContacto, client.email, client.rut, client.telefono].filter(Boolean).join(' ')}
+            onSelect={updateField('idCliente')}
+            onClear={() => updateField('idCliente')('')}
+          />
+
+          <AdminAutocomplete
+            id="new-booking-service"
+            label="Servicio"
+            options={services}
+            selectedValue={form.idServicio}
+            placeholder="Buscar servicio"
+            emptyMessage="No hay servicios disponibles"
+            getOptionValue={getServiceId}
+            getOptionLabel={(service) => service.nombre || 'Servicio'}
+            getOptionMeta={(service) => {
+              const duration = service.duracion_minutos || service.duracionMinutos;
+              return [service.categoria, duration ? `${duration} min` : null].filter(Boolean).join(' · ');
+            }}
+            getOptionSearchText={(service) => [service.nombre, service.categoria].filter(Boolean).join(' ')}
+            onSelect={(value) => {
+              setForm((current) => ({ ...current, idServicio: value, idStaff: '' }));
+              setFormError('');
+              resetAvailability();
+            }}
+            onClear={() => {
+              setForm((current) => ({ ...current, idServicio: '', idStaff: '' }));
+              resetAvailability();
+            }}
+          />
+
+          <AdminAutocomplete
+            id="new-booking-staff"
+            label="Profesional"
+            options={staffOptions}
+            selectedValue={form.idStaff}
+            placeholder={form.idServicio ? 'Buscar profesional' : 'Selecciona servicio primero'}
+            emptyMessage={serviceStaffQuery.isPending ? 'Cargando profesionales...' : serviceStaffQuery.isError ? 'No pudimos cargar profesionales del servicio' : 'No hay profesionales asociados'}
+            getOptionValue={getPersonId}
+            getOptionLabel={(member) => fullName(member) || 'Profesional'}
+            getOptionMeta={(member) => member.especialidad?.nombre || member.nombreEspecialidad || member.emailContacto || 'Sin especialidad'}
+            getOptionSearchText={(member) => [fullName(member), member.emailContacto, member.especialidad?.nombre, member.nombreEspecialidad].filter(Boolean).join(' ')}
+            onSelect={updateField('idStaff')}
+            onClear={() => updateField('idStaff')('')}
+          />
+
+          <Input
+            label="Fecha"
+            id="new-booking-date"
+            type="date"
+            min={todayValue()}
+            value={form.fecha}
+            onChange={(event) => updateField('fecha')(event.target.value)}
+          />
+        </div>
+
+        <Input
+          label="Nota interna"
+          id="new-booking-note"
+          as="textarea"
+          rows={3}
+          value={form.observacionCliente}
+          onChange={(event) => setForm((current) => ({ ...current, observacionCliente: event.target.value }))}
+          placeholder="Opcional"
+        />
+
+        <section className="admin-reservation-availability">
+          <div className="admin-reservation-availability-header">
+            <div>
+              <h3>Horarios disponibles</h3>
+              <p>{availabilityBody ? `Body: ${JSON.stringify(availabilityBody)}` : 'Selecciona cliente, servicio, profesional y fecha.'}</p>
+            </div>
+            <button
+              type="button"
+              className="admin-secondary-action"
+              onClick={handleConsultAvailability}
+              disabled={availabilityLoading || saving}
+            >
+              {availabilityLoading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+              Consultar horarios
+            </button>
+          </div>
+
+          {availabilityLoading && <p className="admin-reservation-empty">Consultando disponibilidad real...</p>}
+          {!availabilityLoading && availabilityChecked && slots.length === 0 && (
+            <p className="admin-reservation-empty">No hay horarios disponibles para esta selección.</p>
+          )}
+          {!availabilityLoading && slots.length > 0 && (
+            <div className="admin-slot-grid" role="listbox" aria-label="Horarios disponibles">
+              {slots.map((slot) => {
+                const start = getSlotStart(slot);
+                return (
+                  <button
+                    key={start}
+                    type="button"
+                    className={selectedSlotStart === start ? 'active' : ''}
+                    role="option"
+                    aria-selected={selectedSlotStart === start}
+                    onClick={() => {
+                      setSelectedSlotStart(start);
+                      setFormError('');
+                    }}
+                  >
+                    <Clock size={14} />
+                    {formatSlotRange(slot)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        <div className="admin-reservation-actions">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={closeDisabled}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={saving || availabilityLoading}>
+            {saving ? <Loader2 size={16} className="spin" /> : <CalendarPlus size={16} />}
+            {saving ? 'Guardando...' : 'Guardar reserva'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export function AgendaAdminPage() {
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('TODOS');
   const [staffFilter, setStaffFilter] = useState('TODOS');
@@ -131,6 +445,9 @@ export function AgendaAdminPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('Lista');
   const [statusDrafts, setStatusDrafts] = useState({});
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [lastAvailabilityBody, setLastAvailabilityBody] = useState(null);
 
   const bookingsQuery = useQuery({ queryKey: ['agenda-admin'], queryFn: agendaService.listBookings });
   const servicesQuery = useQuery({ queryKey: ['services-admin'], queryFn: catalogService.listServices });
@@ -140,6 +457,12 @@ export function AgendaAdminPage() {
   const services = useMemo(() => (Array.isArray(servicesQuery.data) ? servicesQuery.data : []), [servicesQuery.data]);
   const clients = useMemo(() => (Array.isArray(clientsQuery.data) ? clientsQuery.data : []), [clientsQuery.data]);
   const staff = useMemo(() => (Array.isArray(staffQuery.data) ? staffQuery.data : []), [staffQuery.data]);
+
+  useEffect(() => {
+    if (!location.state?.openNewReservation) return;
+    setBookingModalOpen(true);
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.pathname, location.state, navigate]);
 
   const servicesById = useMemo(() => services.reduce((acc, service) => {
     acc[getServiceId(service)] = service;
@@ -230,6 +553,20 @@ export function AgendaAdminPage() {
     staffQuery.refetch();
   };
 
+  const handleBookingCreated = ({ fecha, availabilityBody }) => {
+    setBookingModalOpen(false);
+    setSelectedDate(fecha || '');
+    setStatusFilter('TODOS');
+    setServiceFilter('TODOS');
+    setStaffFilter('TODOS');
+    setSearchTerm('');
+    setLastAvailabilityBody(availabilityBody || null);
+    setSuccessMsg('Reserva creada correctamente');
+    queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
+    window.setTimeout(() => setSuccessMsg(''), 5000);
+  };
+
   if (isLoading) {
     return (
       <div className="admin-dashboard admin-agenda-page">
@@ -256,6 +593,10 @@ export function AgendaAdminPage() {
         )}
         actions={(
           <>
+            <button type="button" className="admin-primary-action" onClick={() => setBookingModalOpen(true)}>
+              <Plus size={16} />
+              Nueva reserva
+            </button>
             <button type="button" className="admin-secondary-action" onClick={() => setSelectedDate(todayValue())}>
               <CalendarDays size={16} />
               Ver hoy
@@ -271,6 +612,13 @@ export function AgendaAdminPage() {
           </>
         )}
       />
+
+      {successMsg && (
+        <div className="admin-success-alert" role="status">
+          {successMsg}
+          {lastAvailabilityBody && <small>Disponibilidad consultada con body {JSON.stringify(lastAvailabilityBody)}</small>}
+        </div>
+      )}
 
       <AdminKpiGrid variant="three">
         <button type="button" className="admin-kpi-button" onClick={() => setStatusFilter('TODOS')}>
@@ -445,6 +793,15 @@ export function AgendaAdminPage() {
           </aside>
         </div>
       )}
+
+      <AdminReservationModal
+        open={bookingModalOpen}
+        onClose={() => setBookingModalOpen(false)}
+        clients={clients}
+        services={services}
+        staff={staff}
+        onCreated={handleBookingCreated}
+      />
     </div>
   );
 }

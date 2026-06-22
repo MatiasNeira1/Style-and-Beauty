@@ -6,7 +6,6 @@ import { Camera, LogOut, Save, ShieldCheck, UserRound } from 'lucide-react';
 import { AdminErrorState, AdminPageHeader, AdminSkeleton } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
-import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { profileService } from '../../services/profileService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
@@ -47,29 +46,6 @@ function validatePhone(value) {
   return /^\+?[0-9\s-]{8,18}$/.test(value.trim());
 }
 
-function compressProfileImage(file, size = 96, quality = 0.55) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const image = new Image();
-      image.onload = () => {
-        const canvas = document.createElement('canvas');
-        const minSize = Math.min(image.width, image.height);
-        const sx = (image.width - minSize) / 2;
-        const sy = (image.height - minSize) / 2;
-        canvas.width = size;
-        canvas.height = size;
-        canvas.getContext('2d').drawImage(image, sx, sy, minSize, minSize, 0, 0, size, size);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      image.onerror = reject;
-      image.src = event.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 function ReadOnlyItem({ label, value }) {
   return (
     <div className="admin-readonly-item">
@@ -80,12 +56,12 @@ function ReadOnlyItem({ label, value }) {
 }
 
 export function AdminProfilePage() {
-  const { user, logout, setSession } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [photoPreview, setPhotoPreview] = useState(user?.photoURL || '');
+  const [photoPreview, setPhotoPreview] = useState('');
 
   const profileQuery = useQuery({
     queryKey: ['my-profile'],
@@ -124,8 +100,8 @@ export function AdminProfilePage() {
   const { register, handleSubmit, reset, setValue } = useForm({ defaultValues });
 
   useEffect(() => {
-    setPhotoPreview(user?.photoURL || '');
-  }, [user?.photoURL]);
+    setPhotoPreview(profile?.fotoUrl || '');
+  }, [profile?.fotoUrl]);
 
   useEffect(() => {
     reset(defaultValues);
@@ -176,24 +152,28 @@ export function AdminProfilePage() {
 
   const photoMutation = useMutation({
     mutationFn: async (file) => {
+      if (!canEditProfile) {
+        throw new Error('La foto solo puede guardarse cuando el perfil existe en el backend.');
+      }
       if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
         throw new Error('Solo se permiten imagenes JPG, PNG o WEBP.');
       }
       if (file.size > 5 * 1024 * 1024) {
         throw new Error('La imagen no puede superar 5 MB.');
       }
-      const compressed = await compressProfileImage(file);
-      return firebaseAuthService.updatePhoto(compressed);
+      return profileService.uploadMyPhoto(file);
     },
-    onSuccess: (session) => {
-      setSession(session);
-      setPhotoPreview(session?.user?.photoURL || '');
+    onSuccess: (updatedProfile) => {
+      const mergedProfile = { ...profile, ...updatedProfile };
+      queryClient.setQueryData(['my-profile'], mergedProfile);
+      queryClient.setQueryData(['auth-session', user?.uid], mergedProfile);
+      setPhotoPreview(updatedProfile?.fotoUrl || '');
       setErrorMsg('');
-      setSuccessMsg('Foto de perfil actualizada.');
+      setSuccessMsg('Perfil actualizado correctamente');
     },
     onError: (err) => {
       setSuccessMsg('');
-      setErrorMsg(err?.message || 'No se pudo actualizar la foto.');
+      setErrorMsg(err?.message || 'La imagen no pudo guardarse. Sube una imagen válida.');
     },
   });
 
@@ -265,6 +245,7 @@ export function AdminProfilePage() {
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              disabled={!canEditProfile || photoMutation.isPending}
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 event.target.value = '';

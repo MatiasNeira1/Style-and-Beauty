@@ -15,6 +15,19 @@ public class FirebaseTokenVerifier {
         return authenticatedToken(authHeader).getUid();
     }
 
+    public String authenticatedAdminUid(String authHeader) {
+        FirebaseToken token = authenticatedToken(authHeader);
+        Object roleClaim = token.getClaims().getOrDefault("rol", token.getClaims().get("role"));
+
+        if (roleClaim == null || !"ADMIN".equalsIgnoreCase(String.valueOf(roleClaim))) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Solo administradores autenticados pueden crear reservas desde el panel.");
+        }
+
+        return token.getUid();
+    }
+
     public String authenticatedClientUid(String authHeader) {
         FirebaseToken token = authenticatedToken(authHeader);
         Object roleClaim = token.getClaims().getOrDefault("rol", token.getClaims().get("role"));

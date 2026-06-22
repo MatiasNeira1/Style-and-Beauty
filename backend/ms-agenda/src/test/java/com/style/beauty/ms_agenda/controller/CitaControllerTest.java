@@ -2,11 +2,14 @@ package com.style.beauty.ms_agenda.controller;
 
 import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
+import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.enums.EstadoCita;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.service.CitaService;
 import com.style.beauty.ms_agenda.service.FirebaseTokenVerifier;
+import org.mockito.ArgumentCaptor;
+import org.springframework.http.MediaType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -24,6 +27,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -118,5 +122,37 @@ class CitaControllerTest {
                 .andExpect(status().isOk());
 
         verify(citaService).finalizarCitaStaff(idCita, ID_STAFF);
+    }
+
+    @Test
+    void postCrearDesdeAdminUsaClienteDelPayloadYExigeAdmin() throws Exception {
+        UUID idCita = UUID.fromString("30000000-0000-4000-8000-000000000001");
+        UUID idServicio = UUID.fromString("40000000-0000-4000-8000-000000000001");
+        Cita creada = Cita.builder()
+                .idCita(idCita)
+                .idCliente(ID_CLIENTE)
+                .idStaff(ID_STAFF)
+                .idServicio(idServicio)
+                .estadoCita(EstadoCita.CONFIRMADA)
+                .build();
+        when(citaService.crearDesdeAdmin(any(CrearCitaRequest.class))).thenReturn(creada);
+
+        mockMvc.perform(post("/api/agenda/citas/admin")
+                        .header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "idCliente": "10000000-0000-4000-8000-000000000001",
+                                  "idStaff": "20000000-0000-4000-8000-000000000001",
+                                  "idServicio": "40000000-0000-4000-8000-000000000001",
+                                  "fechaHoraInicio": "2030-01-07T09:30:00-03:00"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        verify(firebaseTokenVerifier).authenticatedAdminUid("Bearer admin-token");
+        ArgumentCaptor<CrearCitaRequest> captor = ArgumentCaptor.forClass(CrearCitaRequest.class);
+        verify(citaService).crearDesdeAdmin(captor.capture());
+        assertThat(captor.getValue().idCliente()).isEqualTo(ID_CLIENTE);
     }
 }
