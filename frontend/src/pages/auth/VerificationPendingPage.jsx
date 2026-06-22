@@ -202,13 +202,22 @@ export function VerificationPendingPage() {
               <p style={{ color: 'var(--color-muted)', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
                 Una vez que hayas verificado tu correo, inicia sesión para completar tu perfil.
               </p>
-              <Button
-                onClick={handleGoToLogin}
-                style={{ width: '100%', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-              >
-                <LogIn size={16} />
-                Ir a Iniciar Sesión
-              </Button>
+              <div style={{ display: 'flex', gap: '1rem', width: '100%', flexDirection: 'column' }}>
+                <Button
+                  onClick={handleGoToLogin}
+                  style={{ width: '100%', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                >
+                  <LogIn size={16} />
+                  Ir a Iniciar Sesión
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate('/registro', { replace: true })}
+                  style={{ width: '100%', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: 'var(--color-primary-strong)' }}
+                >
+                  ¿Te equivocaste de correo? Volver al registro
+                </Button>
+              </div>
             </>
           )}
         </motion.div>

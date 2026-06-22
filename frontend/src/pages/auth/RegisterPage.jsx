@@ -30,9 +30,10 @@ const initialForm = {
   apellidos: '',
   fechaNacimiento: '',
   genero: '',
-  telefono: '',
+  telefono: '+56 ',
   emailContacto: '',
   password: '',
+  confirmPassword: '',
 };
 
 const genderOptions = [
@@ -261,7 +262,7 @@ function PremiumField({ icon: Icon, label, id, className = '', trailing, ...prop
   );
 }
 
-function BirthDateSelects({ value, onChange, maxDate }) {
+function BirthDateSelects({ value, onChange, maxDate, style }) {
   const selectedDate = parseIsoDate(value);
   const maxDateObject = parseIsoDate(maxDate);
   const maxYear = maxDateObject.getFullYear();
@@ -315,7 +316,7 @@ function BirthDateSelects({ value, onChange, maxDate }) {
   };
 
   return (
-    <motion.div className="register-field birthdate-field" variants={itemVariants}>
+    <motion.div className="register-field birthdate-field" variants={itemVariants} style={style}>
       <span>Fecha nacimiento</span>
       <div className="birthdate-select-grid">
         <select aria-label="Año de nacimiento" value={year} onChange={handleYearChange} required>
@@ -400,10 +401,32 @@ function PremiumGenderSelect({ value, onChange }) {
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(() => {
+    try {
+      const stored = window.sessionStorage.getItem('style_beauty_pending_profile');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          rut: parsed.rut || '',
+          nombre: parsed.nombre || '',
+          apellidos: parsed.apellidos || '',
+          fechaNacimiento: parsed.fechaNacimiento || '',
+          genero: parsed.genero || '',
+          telefono: parsed.telefono || '+56 ',
+          emailContacto: parsed.emailContacto || '',
+          password: '',
+          confirmPassword: '',
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return initialForm;
+  });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const maxBirthDate = getMaxBirthDateIso();
 
 
@@ -415,7 +438,12 @@ export function RegisterPage() {
   };
 
   const handlePhoneChange = (event) => {
-    const { value } = event.target;
+    let { value } = event.target;
+    
+    if (!value.startsWith('+56')) {
+      value = '+56 ' + value.replace(/^\+?(56)?/, '').trimStart();
+    }
+    
     let cleanValue = value.replace(/[^0-9+\s]/g, '');
     const digitsOnly = cleanValue.replace(/[^\d]/g, '');
     if (digitsOnly.length > 11) {
@@ -450,12 +478,14 @@ export function RegisterPage() {
       !form.nombre ||
       !form.emailContacto ||
       !form.password ||
+      !form.confirmPassword ||
       !form.fechaNacimiento ||
       !form.genero ||
       !form.telefono ||
       !validateRut(form.rut) ||
       !CHILE_PHONE_REGEX.test(form.telefono) ||
-      !PASSWORD_REGEX.test(form.password)
+      !PASSWORD_REGEX.test(form.password) ||
+      form.password !== form.confirmPassword
     );
   }, [form]);
 
@@ -489,7 +519,12 @@ export function RegisterPage() {
     }
 
     if (!PASSWORD_REGEX.test(form.password)) {
-      setError('La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, un número y un símbolo especial.');
+      setError('La contraseña debe tener entre 8 y 15 caracteres, incluir una mayúscula, un número y un símbolo especial.');
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      setError('Las contraseñas no coinciden.');
       return;
     }
 
@@ -511,7 +546,7 @@ export function RegisterPage() {
     setIsSubmitting(true);
 
     try {
-      const { password, ...profile } = {
+      const { password, confirmPassword, ...profile } = {
         ...form,
         rut: normalizeRut(form.rut),
         genero: form.genero.trim().toLowerCase(),
@@ -631,6 +666,7 @@ export function RegisterPage() {
                     value={form.nombre}
                     onChange={handleChange}
                     placeholder="Tu nombre"
+                    maxLength={20}
                     required
                   />
                   <PremiumField
@@ -641,6 +677,7 @@ export function RegisterPage() {
                     value={form.apellidos}
                     onChange={handleChange}
                     placeholder="Tus apellidos"
+                    maxLength={20}
                   />
                   <PremiumField
                     icon={Mail}
@@ -651,7 +688,27 @@ export function RegisterPage() {
                     value={form.emailContacto}
                     onChange={handleChange}
                     placeholder="tuemail@correo.com"
+                    maxLength={25}
                     required
+                  />
+                  <PremiumField
+                    icon={Phone}
+                    label="Teléfono"
+                    id="register-telefono"
+                    name="telefono"
+                    value={form.telefono}
+                    onChange={handlePhoneChange}
+                    placeholder="+56 9 1234 5678"
+                  />
+                  <PremiumGenderSelect
+                    value={form.genero}
+                    onChange={(value) => updateFormValue('genero', value)}
+                  />
+                  <BirthDateSelects
+                    value={form.fechaNacimiento}
+                    maxDate={maxBirthDate}
+                    onChange={(value) => updateFormValue('fechaNacimiento', value)}
+                    style={{ gridColumn: '1 / -1' }}
                   />
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <PremiumField
@@ -661,6 +718,7 @@ export function RegisterPage() {
                       name="password"
                       type={showPassword ? 'text' : 'password'}
                       minLength="8"
+                      maxLength="15"
                       value={form.password}
                       onChange={handleChange}
                       placeholder="Crea una contraseña segura"
@@ -677,8 +735,8 @@ export function RegisterPage() {
                       }
                     />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.75rem', marginTop: '0.5rem', paddingLeft: '0.25rem' }}>
-                      <span style={{ color: form.password.length >= 8 ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <CheckCircle2 size={12} /> Mínimo 8 caracteres
+                      <span style={{ color: form.password.length >= 8 && form.password.length <= 15 ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Entre 8 y 15 caracteres
                       </span>
                       <span style={{ color: /[A-Z]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <CheckCircle2 size={12} /> Al menos 1 letra mayúscula
@@ -692,22 +750,27 @@ export function RegisterPage() {
                     </div>
                   </div>
                   <PremiumField
-                    icon={Phone}
-                    label="Teléfono"
-                    id="register-telefono"
-                    name="telefono"
-                    value={form.telefono}
-                    onChange={handlePhoneChange}
-                    placeholder="+56 9 1234 5678"
-                  />
-                  <BirthDateSelects
-                    value={form.fechaNacimiento}
-                    maxDate={maxBirthDate}
-                    onChange={(value) => updateFormValue('fechaNacimiento', value)}
-                  />
-                  <PremiumGenderSelect
-                    value={form.genero}
-                    onChange={(value) => updateFormValue('genero', value)}
+                    icon={Lock}
+                    label="Confirmar contraseña"
+                    id="register-confirm-password"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    minLength="8"
+                    maxLength="15"
+                    value={form.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Repite tu contraseña"
+                    required
+                    trailing={
+                      <button
+                        className="password-toggle"
+                        type="button"
+                        onClick={() => setShowConfirmPassword((current) => !current)}
+                        aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    }
                   />
                 </motion.div>
  
