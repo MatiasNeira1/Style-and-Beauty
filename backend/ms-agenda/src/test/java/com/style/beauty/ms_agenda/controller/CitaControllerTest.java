@@ -149,7 +149,8 @@ class CitaControllerTest {
                                   "idCliente": "10000000-0000-4000-8000-000000000001",
                                   "idStaff": "20000000-0000-4000-8000-000000000001",
                                   "idServicio": "40000000-0000-4000-8000-000000000001",
-                                  "fechaHoraInicio": "2030-01-07T09:30:00-03:00"
+                                  "fechaHoraInicio": "2030-01-07T09:30:00-03:00",
+                                  "abono": 10000
                                 }
                                 """))
                 .andExpect(status().isOk());
@@ -158,6 +159,7 @@ class CitaControllerTest {
         ArgumentCaptor<CrearCitaRequest> captor = ArgumentCaptor.forClass(CrearCitaRequest.class);
         verify(citaService).crearDesdeAdmin(captor.capture());
         assertThat(captor.getValue().idCliente()).isEqualTo(ID_CLIENTE);
+        assertThat(captor.getValue().abono()).isEqualByComparingTo("10000");
     }
 
     @Test
@@ -172,6 +174,7 @@ class CitaControllerTest {
                                 {
                                   "idCliente": "10000000-0000-4000-8000-000000000001",
                                   "fecha": "2030-01-07",
+                                  "abono": 20000,
                                   "reservas": [
                                     {
                                       "idServicio": "40000000-0000-4000-8000-000000000001",
@@ -195,6 +198,7 @@ class CitaControllerTest {
         verify(citaService).crearLoteDesdeAdmin(captor.capture());
         assertThat(captor.getValue().idCliente()).isEqualTo(ID_CLIENTE);
         assertThat(captor.getValue().fecha()).isEqualTo(LocalDate.of(2030, 1, 7));
+        assertThat(captor.getValue().abono()).isEqualByComparingTo("20000");
         assertThat(captor.getValue().reservas()).hasSize(2);
         assertThat(captor.getValue().reservas().get(0).horaInicio()).isEqualTo(LocalTime.of(8, 0));
     }

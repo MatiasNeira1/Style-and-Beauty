@@ -14,6 +14,19 @@ function requireValue(value, message) {
   return value;
 }
 
+function requireDeposit(value, totalAmount) {
+  if (value === '' || value === null || value === undefined) {
+    throw new Error('Ingresa el abono realizado para continuar.');
+  }
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new Error('Ingresa el abono realizado para continuar.');
+  }
+  if (Number(totalAmount) > 0 && amount > Number(totalAmount)) {
+    throw new Error('El abono no puede ser mayor al total de la reserva.');
+  }
+}
+
 function availabilityPayload(payload) {
   const data = {
     idServicio: payload?.idServicio,
@@ -73,6 +86,7 @@ export const agendaService = {
     if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para reservar.');
     requireValue(payload?.fechaHoraInicio, 'Selecciona un horario disponible para reservar.');
     assertBookingDateAllowed(String(payload.fechaHoraInicio).slice(0, 10));
+    requireDeposit(payload?.abono, payload?.totalEstimado);
 
     return request({
       baseURL: AGENDA_API_BASE_URL,
@@ -89,6 +103,7 @@ export const agendaService = {
     if (!Array.isArray(payload?.reservas) || payload.reservas.length < 2) {
       throw new Error('Agrega al menos dos servicios para crear una agenda múltiple.');
     }
+    requireDeposit(payload?.abono, payload?.totalEstimado);
 
     const selectedServices = new Set();
     payload.reservas.forEach((booking, index) => {

@@ -102,6 +102,42 @@ function getServiceBuffer(service) {
   return Number(service?.holgura_minutos || service?.holguraMinutos || service?.holguraMin || 0);
 }
 
+function getServicePrice(service) {
+  const value = service?.precio_total ?? service?.precioTotal ?? service?.precio ?? service?.valor ?? service?.monto ?? service?.price;
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
+}
+
+function getServiceAttentionType(service) {
+  return service?.tipoAtencion || service?.tipo_atencion || service?.modalidad || service?.categoria || '';
+}
+
+function formatMinutesDuration(minutes) {
+  const total = Number(minutes);
+  if (!Number.isFinite(total) || total <= 0) return '0 min';
+  const rounded = Math.round(total);
+  const hours = Math.floor(rounded / 60);
+  const remainingMinutes = rounded % 60;
+  const parts = [];
+  if (hours > 0) parts.push(`${hours} h`);
+  if (remainingMinutes > 0) parts.push(`${remainingMinutes} min`);
+  return parts.join(' ') || '0 min';
+}
+
+function parseDeposit(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function validateDeposit(value, totalAmount = 0) {
+  const amount = parseDeposit(value);
+  if (amount === null) return 'Ingresa el abono realizado para continuar.';
+  if (amount < 0) return 'Ingresa el abono realizado para continuar.';
+  if (Number(totalAmount) > 0 && amount > Number(totalAmount)) return 'El abono no puede ser mayor al total de la reserva.';
+  return '';
+}
+
 function formatBookingDate(value) {
   const parsed = parseLocalDate(value);
   return parsed ? formatDate(parsed, { dateStyle: 'medium' }) : formatDate(value, { dateStyle: 'medium' });
@@ -154,6 +190,7 @@ function initialBookingForm() {
     idStaff: '',
     fecha: '',
     observacionCliente: '',
+    abono: '',
   };
 }
 
@@ -219,6 +256,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
   const [multiItems, setMultiItems] = useState(() => initialMultiServiceItems());
   const [multiSummary, setMultiSummary] = useState(null);
   const [formError, setFormError] = useState('');
+  const [summaryError, setSummaryError] = useState('');
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [chainLoading, setChainLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -261,6 +299,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     setMultiItems(initialMultiServiceItems());
     setMultiSummary(null);
     setFormError('');
+    setSummaryError('');
     setAvailabilityLoading(false);
     setChainLoading(false);
     setSaving(false);
@@ -284,6 +323,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
   const updateField = (field) => (value) => {
     setForm((current) => ({ ...current, [field]: value }));
     setFormError('');
+    setSummaryError('');
     setMultiSummary(null);
     resetAvailability();
     if (field === 'fecha' || field === 'idCliente') {
@@ -294,6 +334,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
   const switchMode = (nextMode) => {
     setBookingMode(nextMode);
     setFormError('');
+    setSummaryError('');
     setMultiSummary(null);
     resetAvailability();
   };
@@ -311,6 +352,8 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     if (commonMessage) return commonMessage;
     if (!agendaService.isValidUuid(form.idServicio)) return 'Selecciona un servicio para consultar disponibilidad.';
     if (!agendaService.isValidUuid(form.idStaff)) return 'Selecciona un profesional para consultar disponibilidad.';
+    const depositMessage = validateDeposit(form.abono, getServicePrice(servicesById[form.idServicio]));
+    if (depositMessage) return depositMessage;
     return '';
   };
 
@@ -400,6 +443,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
         idStaff: form.idStaff,
         fechaHoraInicio: getSlotStart(selectedSlot),
         observacionCliente: form.observacionCliente?.trim() || 'Reserva creada desde panel administrativo',
+        abono: parseDeposit(form.abono),
       };
 
       console.debug('Admin reservation create payload', createBody);
@@ -414,6 +458,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
         horaInicio: getSlotStart(selectedSlot),
         clientName: fullName(client) || 'el cliente seleccionado',
         staffName: fullName(staffMember) || 'el profesional seleccionado',
+        abono: parseDeposit(form.abono),
         availabilityBody: payload,
         createBody,
       });
@@ -434,6 +479,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
   };
 
   const multiAvailabilityPayload = (item) => ({
+    idCliente: form.idCliente,
     idServicio: item.idServicio,
     idStaff: item.idStaff,
     fecha: form.fecha,
@@ -447,6 +493,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
 
   const handleMultiServiceSelect = async (itemId, value) => {
     setFormError('');
+    setSummaryError('');
     setMultiSummary(null);
     setMultiItems((current) => current.map((item) => (
       item.id === itemId
@@ -481,6 +528,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
 
   const handleMultiStaffSelect = (itemId, value) => {
     setFormError('');
+    setSummaryError('');
     setMultiSummary(null);
     updateMultiItem(itemId, (item) => ({ ...resetItemAvailability(item), idStaff: value }));
   };
@@ -528,6 +576,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
 
   const addMultiItem = () => {
     setFormError('');
+    setSummaryError('');
     setMultiSummary(null);
     setMultiItems((current) => [...current, createMultiServiceItem()]);
   };
@@ -544,13 +593,18 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     if (multiItems.length < 2) return 'Agrega al menos dos servicios para una reserva múltiple.';
 
     const selectedServices = new Set();
+    let totalAmount = 0;
     for (let index = 0; index < multiItems.length; index += 1) {
       const item = multiItems[index];
       if (!agendaService.isValidUuid(item.idServicio)) return `Selecciona el servicio ${index + 1}.`;
       if (!agendaService.isValidUuid(item.idStaff)) return `Selecciona el profesional del servicio ${index + 1}.`;
       if (selectedServices.has(item.idServicio)) return 'La reserva múltiple requiere servicios distintos.';
       selectedServices.add(item.idServicio);
+      totalAmount += getServicePrice(servicesById[item.idServicio]);
     }
+
+    const depositMessage = validateDeposit(form.abono, totalAmount);
+    if (depositMessage) return depositMessage;
 
     if (!multiItems[0]?.selectedSlotStart) {
       return 'Selecciona la primera hora disponible para iniciar la cadena.';
@@ -569,6 +623,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
 
     setChainLoading(true);
     setFormError('');
+    setSummaryError('');
     setMultiSummary(null);
 
     const refreshedSlots = new Map();
@@ -617,6 +672,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
           : Math.max(0, Math.round((startMs - previousBlockEndMs) / 60000));
         const duration = Number(slot.duracionServicioMin || getServiceDuration(service) || 0);
         const buffer = Number(slot.holguraMin || getServiceBuffer(service) || 0);
+        const price = getServicePrice(service);
 
         planned.push({
           key: item.id,
@@ -625,6 +681,8 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
           idStaff: item.idStaff,
           serviceName: service?.nombre || `Servicio ${index + 1}`,
           staffName: fullName(staffMember) || 'Profesional seleccionado',
+          attentionType: getServiceAttentionType(service),
+          price,
           slot,
           startMs,
           attentionEndMs,
@@ -653,6 +711,9 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
 
       const totalDuration = planned.reduce((sum, item) => sum + item.duration, 0);
       const totalBuffer = planned.reduce((sum, item) => sum + item.buffer, 0);
+      const totalAmount = planned.reduce((sum, item) => sum + item.price, 0);
+      const abonoAmount = parseDeposit(form.abono) || 0;
+      const saldoAmount = Math.max(totalAmount - abonoAmount, 0);
       const totalBlockMinutes = planned.length
         ? Math.max(0, Math.round((planned[planned.length - 1].blockEndMs - planned[0].startMs) / 60000))
         : 0;
@@ -664,6 +725,10 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
         totalDuration,
         totalBuffer,
         totalBlockMinutes,
+        totalAmount,
+        hasPricing: totalAmount > 0,
+        abonoAmount,
+        saldoAmount,
         availabilityBodies,
       });
     } catch (error) {
@@ -688,6 +753,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     const createBody = {
       idCliente: form.idCliente,
       fecha: form.fecha,
+      abono: multiSummary.abonoAmount,
       reservas: multiSummary.items.map((item) => ({
         idServicio: item.idServicio,
         idStaff: item.idStaff,
@@ -698,20 +764,23 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
 
     setSaving(true);
     setFormError('');
+    setSummaryError('');
     try {
       console.debug('Admin reservation batch create payload', createBody);
       const booking = await agendaService.createAdminBookingBatch(createBody);
+      setMultiSummary(null);
       onCreated({
         booking,
         mode: 'multiple',
         fecha: form.fecha,
         count: multiSummary.items.length,
         clientName: multiSummary.clientName,
+        abono: multiSummary.abonoAmount,
         availabilityBodies: multiSummary.availabilityBodies,
         createBody,
       });
     } catch (error) {
-      setFormError(normalizeBookingError(error, 'No pudimos crear la agenda múltiple. Revisa los datos e intenta nuevamente.'));
+      setSummaryError(normalizeBookingError(error, 'No pudimos crear la agenda múltiple. Revisa los datos e intenta nuevamente.'));
     } finally {
       setSaving(false);
     }
@@ -720,8 +789,9 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
   const closeDisabled = availabilityLoading || saving || chainLoading || anyItemLoading;
 
   return (
-    <Modal open={open} title="Nueva reserva" onClose={onClose} closeDisabled={closeDisabled} className="admin-reservation-modal">
-      <form className="admin-reservation-form" onSubmit={bookingMode === 'single' ? handleSave : handleBuildMultipleSummary}>
+    <>
+      <Modal open={open} title="Nueva reserva" onClose={onClose} closeDisabled={closeDisabled || Boolean(multiSummary)} className="admin-reservation-modal">
+        <form className="admin-reservation-form" onSubmit={bookingMode === 'single' ? handleSave : handleBuildMultipleSummary}>
         {formError && (
           <div className="admin-alert compact" role="alert">
             <AlertCircle size={16} />
@@ -766,7 +836,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
               getOptionLabel={(service) => service.nombre || 'Servicio'}
               getOptionMeta={(service) => {
                 const duration = getServiceDuration(service);
-                return [service.categoria, duration ? `${duration} min` : null].filter(Boolean).join(' · ');
+                return [service.categoria, duration ? formatMinutesDuration(duration) : null].filter(Boolean).join(' · ');
               }}
               getOptionSearchText={(service) => [service.nombre, service.categoria].filter(Boolean).join(' ')}
               onSelect={(value) => {
@@ -837,8 +907,32 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
           as="textarea"
           rows={3}
           value={form.observacionCliente}
-          onChange={(event) => setForm((current) => ({ ...current, observacionCliente: event.target.value }))}
+          onChange={(event) => {
+            setForm((current) => ({ ...current, observacionCliente: event.target.value }));
+            setMultiSummary(null);
+          }}
           placeholder="Opcional"
+        />
+
+        <Input
+          label="Abono realizado"
+          id="new-booking-deposit"
+          type="number"
+          inputMode="numeric"
+          min="0"
+          step="1"
+          value={form.abono}
+          onKeyDown={(event) => {
+            if (['e', 'E', '+', '-'].includes(event.key)) event.preventDefault();
+          }}
+          onChange={(event) => {
+            setForm((current) => ({ ...current, abono: event.target.value }));
+            setFormError('');
+            setSummaryError('');
+            setMultiSummary(null);
+          }}
+          placeholder="Ej: 20000"
+          hint="Obligatorio. Ingresa 0 si no hubo abono."
         />
 
         {bookingMode === 'single' ? (
@@ -936,7 +1030,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
                         getOptionLabel={(option) => option.nombre || 'Servicio'}
                         getOptionMeta={(option) => {
                           const optionDuration = getServiceDuration(option);
-                          return [option.categoria, optionDuration ? `${optionDuration} min` : null].filter(Boolean).join(' · ');
+                          return [option.categoria, optionDuration ? formatMinutesDuration(optionDuration) : null].filter(Boolean).join(' · ');
                         }}
                         getOptionSearchText={(option) => [option.nombre, option.categoria].filter(Boolean).join(' ')}
                         onSelect={(value) => handleMultiServiceSelect(item.id, value)}
@@ -960,22 +1054,30 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
                     </div>
 
                     <div className="admin-multi-service-meta">
-                      <span>{duration ? `${duration} min` : 'Duración por backend'}</span>
-                      <span>{buffer ? `Holgura ${buffer} min` : 'Holgura validada por backend'}</span>
+                      <span>{duration ? formatMinutesDuration(duration) : 'Duración por backend'}</span>
+                      <span>{buffer ? `Holgura ${formatMinutesDuration(buffer)}` : 'Holgura validada por backend'}</span>
+                      {getServicePrice(service) > 0 && <span>{formatCurrencyCLP(getServicePrice(service))}</span>}
                       {item.availabilityChecked && <span>{item.slots.length} horarios base</span>}
                     </div>
 
-                    <div className="admin-multi-service-actions">
-                      <button
-                        type="button"
-                        className="admin-secondary-action"
-                        onClick={() => handleConsultItemAvailability(item.id)}
-                        disabled={item.availabilityLoading || chainLoading || saving}
-                      >
-                        {item.availabilityLoading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
-                        Consultar disponibilidad
-                      </button>
-                    </div>
+                    {index === 0 ? (
+                      <div className="admin-multi-service-actions">
+                        <button
+                          type="button"
+                          className="admin-secondary-action"
+                          onClick={() => handleConsultItemAvailability(item.id)}
+                          disabled={item.availabilityLoading || chainLoading || saving}
+                        >
+                          {item.availabilityLoading ? <Loader2 size={16} className="spin" /> : <RefreshCw size={16} />}
+                          Consultar disponibilidad
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="admin-multi-service-auto-note">
+                        <Clock size={15} />
+                        Se calculará automáticamente usando la hora disponible más cercana posterior al servicio anterior.
+                      </p>
+                    )}
 
                     {index === 0 && item.slots.length > 0 && (
                       <div className="admin-slot-grid" role="listbox" aria-label="Primera hora disponible">
@@ -1002,49 +1104,10 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
                       </div>
                     )}
 
-                    {index > 0 && item.availabilityChecked && (
-                      <p className="admin-reservation-empty">
-                        {item.slots.length
-                          ? 'Disponibilidad base consultada. La hora exacta se asigna en el resumen.'
-                          : 'No hay horarios disponibles para el servicio seleccionado.'}
-                      </p>
-                    )}
                   </article>
                 );
               })}
             </div>
-
-            {multiSummary && (
-              <section className="admin-multi-summary">
-                <header>
-                  <div>
-                    <h3>Resumen de agenda para {multiSummary.clientName}</h3>
-                    <p>{formatBookingDate(multiSummary.fecha)}</p>
-                  </div>
-                  <span>{multiSummary.items.length} servicios · {multiSummary.totalBlockMinutes} min estimados</span>
-                </header>
-
-                <div className="admin-multi-summary-list">
-                  {multiSummary.items.map((item, index) => (
-                    <article key={item.key}>
-                      <strong>{index + 1}. {item.serviceName}</strong>
-                      <span>Profesional: {item.staffName}</span>
-                      <span>{formatTime(getSlotStart(item.slot))} - {formatTime(getSlotAttentionEnd(item.slot))}</span>
-                      <small>
-                        Duración {item.duration || 'validada'} min · Holgura {item.buffer || 0} min
-                      </small>
-                      {item.warning && <em>{item.warning}</em>}
-                    </article>
-                  ))}
-                </div>
-
-                <footer>
-                  <span>Total de servicios: {multiSummary.items.length}</span>
-                  <span>Tiempo de atención: {multiSummary.totalDuration} min</span>
-                  <span>Holgura total: {multiSummary.totalBuffer} min</span>
-                </footer>
-              </section>
-            )}
           </section>
         )}
 
@@ -1058,19 +1121,6 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
               {saving ? 'Guardando...' : 'Guardar reserva'}
             </Button>
           </div>
-        ) : multiSummary ? (
-          <div className="admin-reservation-actions">
-            <Button type="button" variant="ghost" onClick={onClose} disabled={closeDisabled}>
-              Cancelar
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => setMultiSummary(null)} disabled={closeDisabled}>
-              Volver a editar
-            </Button>
-            <Button type="button" onClick={handleConfirmMultiple} disabled={saving || chainLoading || anyItemLoading}>
-              {saving ? <Loader2 size={16} className="spin" /> : <CalendarPlus size={16} />}
-              {saving ? 'Creando agenda...' : 'Confirmar agenda'}
-            </Button>
-          </div>
         ) : (
           <div className="admin-reservation-actions">
             <Button type="button" variant="ghost" onClick={onClose} disabled={closeDisabled}>
@@ -1082,8 +1132,85 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
             </Button>
           </div>
         )}
-      </form>
-    </Modal>
+        </form>
+      </Modal>
+      <Modal
+        open={open && Boolean(multiSummary)}
+        title="Resumen de agenda"
+        onClose={() => {
+          if (!saving) setMultiSummary(null);
+        }}
+        closeDisabled={saving}
+        className="admin-multi-summary-modal"
+      >
+      {multiSummary && (
+        <section className="admin-multi-summary">
+          {summaryError && (
+            <div className="admin-alert compact" role="alert">
+              <AlertCircle size={16} />
+              {summaryError}
+            </div>
+          )}
+
+          <header className="admin-multi-summary-hero">
+            <div>
+              <p>Agenda para</p>
+              <h3>{multiSummary.clientName}</h3>
+              <span>{formatBookingDate(multiSummary.fecha)}</span>
+            </div>
+            <div className="admin-multi-summary-money">
+              <span>Total estimado</span>
+              <strong>{multiSummary.hasPricing ? formatCurrencyCLP(multiSummary.totalAmount) : 'No disponible'}</strong>
+              <small>Abono registrado: {formatCurrencyCLP(multiSummary.abonoAmount)}</small>
+              <small>Saldo pendiente: {multiSummary.hasPricing ? formatCurrencyCLP(multiSummary.saldoAmount) : 'No disponible'}</small>
+            </div>
+          </header>
+
+          <div className="admin-multi-summary-kpis">
+            <span>{multiSummary.items.length} servicios</span>
+            <span>{formatMinutesDuration(multiSummary.totalBlockMinutes)} estimados</span>
+            <span>Atención {formatMinutesDuration(multiSummary.totalDuration)}</span>
+            <span>Holgura {formatMinutesDuration(multiSummary.totalBuffer)}</span>
+          </div>
+
+          <div className="admin-multi-summary-list">
+            {multiSummary.items.map((item, index) => (
+              <article key={item.key}>
+                <div className="admin-multi-summary-order">{index + 1}</div>
+                <div className="admin-multi-summary-card-main">
+                  <div className="admin-multi-summary-card-head">
+                    <strong>{item.serviceName}</strong>
+                    {item.price > 0 && <span>{formatCurrencyCLP(item.price)}</span>}
+                  </div>
+                  <div className="admin-multi-summary-detail-grid">
+                    <span>Profesional: {item.staffName}</span>
+                    <span>{formatTime(getSlotStart(item.slot))} - {formatTime(getSlotAttentionEnd(item.slot))}</span>
+                    <span>Duración: {formatMinutesDuration(item.duration)}</span>
+                    <span>Holgura: {formatMinutesDuration(item.buffer)}</span>
+                    {item.attentionType && <span>Tipo de atención: {item.attentionType}</span>}
+                  </div>
+                  {item.warning && <em>{item.warning}</em>}
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <footer className="admin-multi-summary-actions">
+            <Button type="button" variant="ghost" onClick={() => setMultiSummary(null)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => setMultiSummary(null)} disabled={saving}>
+              Volver atrás
+            </Button>
+            <Button type="button" onClick={handleConfirmMultiple} disabled={saving}>
+              {saving ? <Loader2 size={16} className="spin" /> : <CalendarPlus size={16} />}
+              {saving ? 'Creando agenda...' : 'Confirmar agenda'}
+            </Button>
+          </footer>
+        </section>
+      )}
+      </Modal>
+    </>
   );
 }
 
@@ -1205,16 +1332,17 @@ export function AgendaAdminPage() {
     staffQuery.refetch();
   };
 
-  const handleBookingCreated = ({ fecha, mode, count, clientName, staffName, horaInicio }) => {
+  const handleBookingCreated = ({ fecha, mode, count, clientName, horaInicio, abono }) => {
     setBookingModalOpen(false);
     setSelectedDate(fecha || '');
     setStatusFilter('TODOS');
     setServiceFilter('TODOS');
     setStaffFilter('TODOS');
     setSearchTerm('');
+    const formattedDeposit = formatCurrencyCLP(Number(abono || 0));
     setSuccessMsg(mode === 'multiple'
-      ? `Agenda creada correctamente: ${count || 0} servicios reservados para ${clientName || 'el cliente seleccionado'}.`
-      : `Reserva creada correctamente para ${clientName || 'el cliente seleccionado'} el ${formatBookingDate(fecha)} a las ${formatTime(horaInicio)} con ${staffName || 'el profesional seleccionado'}.`);
+      ? `Agenda creada correctamente: ${count || 0} servicios reservados para ${clientName || 'el cliente seleccionado'}. Abono registrado: ${formattedDeposit}.`
+      : `Reserva creada correctamente para ${clientName || 'el cliente seleccionado'} el ${formatBookingDate(fecha)} a las ${formatTime(horaInicio)}. Abono registrado: ${formattedDeposit}.`);
     queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
     queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
     window.setTimeout(() => setSuccessMsg(''), 5000);
