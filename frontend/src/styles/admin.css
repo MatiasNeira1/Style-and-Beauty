@@ -1794,6 +1794,11 @@
   font-weight: 950;
 }
 
+.admin-table-muted {
+  color: var(--color-muted);
+  font-weight: 850;
+}
+
 .compact-panel {
   padding: 1rem;
 }
@@ -1802,6 +1807,23 @@
 .admin-detail-modal {
   display: grid;
   gap: 1rem;
+}
+
+.admin-initial-stock-section {
+  align-items: end;
+  grid-template-columns: minmax(0, 1.1fr) minmax(11rem, 0.65fr);
+}
+
+.admin-initial-stock-section h4 {
+  color: var(--color-ink);
+  font-size: 0.96rem;
+  margin: 0 0 0.18rem;
+}
+
+.admin-initial-stock-section p {
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  margin: 0;
 }
 
 .admin-category-cover-grid {
@@ -2228,7 +2250,8 @@
 
   .admin-shell .modal .form-grid,
   .admin-shell .modal .staff-form-grid,
-  .admin-shell .modal .admin-category-inline {
+  .admin-shell .modal .admin-category-inline,
+  .admin-shell .modal .admin-initial-stock-section {
     grid-template-columns: minmax(0, 1fr);
   }
 

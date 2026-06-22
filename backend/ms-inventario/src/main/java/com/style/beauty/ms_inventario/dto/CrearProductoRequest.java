@@ -11,5 +11,8 @@ public record CrearProductoRequest(
         @NotBlank String categoria,
         String descripcion,
         String imagenUrl,
-        @NotNull @PositiveOrZero BigDecimal precio) {
+        @NotNull @PositiveOrZero BigDecimal precio,
+        @PositiveOrZero Integer stockInicial,
+        String unidadMedida,
+        @PositiveOrZero Integer stockMinimo) {
 }
