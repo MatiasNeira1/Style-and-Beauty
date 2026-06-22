@@ -743,7 +743,7 @@
 }
 
 .admin-reservation-modal {
-  max-width: min(760px, calc(100vw - 2rem));
+  max-width: min(880px, calc(100vw - 2rem));
 }
 
 .admin-reservation-form {
@@ -764,13 +764,47 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.admin-reservation-common-grid {
+  align-items: end;
+}
+
 .admin-reservation-form .field,
 .admin-reservation-form .admin-autocomplete {
   min-width: 0;
 }
 
 .admin-reservation-form textarea {
-  resize: vertical;
+  max-height: 8rem;
+  min-height: 5.2rem;
+  overflow-y: auto;
+  resize: none;
+}
+
+.admin-reservation-mode-toggle {
+  background: rgba(255, 248, 244, 0.72);
+  border: 1px solid rgba(25, 20, 23, 0.08);
+  border-radius: 999px;
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0.35rem;
+}
+
+.admin-reservation-mode-toggle button {
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  font-weight: 900;
+  min-height: 2.35rem;
+  transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.admin-reservation-mode-toggle button.active {
+  background: white;
+  box-shadow: 0 12px 28px rgba(84, 50, 62, 0.1);
+  color: var(--color-ink);
 }
 
 .admin-reservation-availability {
@@ -831,6 +865,159 @@
   border-color: var(--color-ink);
   color: white;
   transform: translateY(-1px);
+}
+
+.admin-multi-reservation,
+.admin-multi-service-list,
+.admin-multi-summary,
+.admin-multi-summary-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.admin-multi-reservation {
+  background: rgba(255, 248, 244, 0.48);
+  border: 1px solid rgba(25, 20, 23, 0.08);
+  border-radius: 18px;
+  padding: 0.95rem;
+}
+
+.admin-multi-reservation-header,
+.admin-multi-service-card header,
+.admin-multi-summary header,
+.admin-multi-summary footer {
+  align-items: flex-start;
+  display: flex;
+  gap: 0.85rem;
+  justify-content: space-between;
+}
+
+.admin-multi-reservation-header h3,
+.admin-multi-summary h3 {
+  color: var(--color-ink);
+  font-size: 1rem;
+  margin: 0 0 0.18rem;
+}
+
+.admin-multi-reservation-header p,
+.admin-multi-summary header p,
+.admin-multi-service-card small,
+.admin-multi-summary small,
+.admin-multi-summary footer,
+.admin-multi-summary header > span {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.admin-multi-service-card {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(25, 20, 23, 0.08);
+  border-radius: 16px;
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.85rem;
+}
+
+.admin-multi-service-card header strong {
+  color: var(--color-ink);
+  display: block;
+  font-size: 0.96rem;
+}
+
+.admin-icon-danger {
+  align-items: center;
+  background: rgba(190, 18, 60, 0.08);
+  border: 1px solid rgba(190, 18, 60, 0.16);
+  border-radius: 999px;
+  color: #be123c;
+  display: inline-flex;
+  height: 2.2rem;
+  justify-content: center;
+  width: 2.2rem;
+}
+
+.admin-icon-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.admin-multi-service-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.admin-multi-service-meta span,
+.admin-multi-summary footer span {
+  background: rgba(25, 20, 23, 0.06);
+  border: 1px solid rgba(25, 20, 23, 0.06);
+  border-radius: 999px;
+  color: var(--color-ink-soft);
+  font-size: 0.78rem;
+  font-weight: 850;
+  padding: 0.34rem 0.58rem;
+}
+
+.admin-multi-service-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.admin-multi-summary {
+  background: linear-gradient(135deg, rgba(25, 20, 23, 0.94), rgba(74, 48, 59, 0.94));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  color: white;
+  padding: 1rem;
+}
+
+.admin-multi-summary h3,
+.admin-multi-summary header p,
+.admin-multi-summary header > span,
+.admin-multi-summary footer {
+  color: white;
+}
+
+.admin-multi-summary-list {
+  gap: 0.65rem;
+}
+
+.admin-multi-summary-list article {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.78rem;
+}
+
+.admin-multi-summary-list strong {
+  color: white;
+  font-size: 0.94rem;
+}
+
+.admin-multi-summary-list span,
+.admin-multi-summary-list small {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.admin-multi-summary-list em {
+  color: #fbd38d;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.admin-multi-summary footer {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.admin-multi-summary footer span {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: white;
 }
 
 .admin-reservation-actions {
@@ -2398,12 +2585,13 @@
   .admin-shell .modal {
     border-radius: 24px;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
     margin: auto;
     max-height: calc(100dvh - 32px);
     max-width: 100%;
     overscroll-behavior: contain;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden;
     scrollbar-width: none;
     width: min(100%, 420px);
   }
@@ -2461,7 +2649,10 @@
   .admin-shell .modal .modal-detail-panel,
   .admin-shell .modal .admin-check-list {
     max-height: none;
-    overflow: visible;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding-right: 0;
   }
 
@@ -3124,11 +3315,17 @@
     grid-template-columns: 1fr;
   }
 
-  .admin-reservation-availability-header {
+  .admin-reservation-availability-header,
+  .admin-multi-reservation-header,
+  .admin-multi-service-card header,
+  .admin-multi-summary header,
+  .admin-multi-summary footer {
     display: grid;
   }
 
   .admin-reservation-availability-header .admin-secondary-action,
+  .admin-multi-reservation-header .admin-secondary-action,
+  .admin-multi-service-actions .admin-secondary-action,
   .admin-reservation-actions,
   .admin-reservation-actions .button {
     justify-content: center;

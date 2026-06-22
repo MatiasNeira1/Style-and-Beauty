@@ -6,6 +6,8 @@ import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.dto.CitaAgendaResponse;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
@@ -43,6 +45,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -53,6 +56,7 @@ class CitaServiceTest {
     private static final UUID ID_STAFF = UUID.fromString("20000000-0000-0000-0000-000000000001");
     private static final UUID ID_STAFF_ANTERIOR = UUID.fromString("20000000-0000-0000-0000-000000000002");
     private static final UUID ID_SERVICIO = UUID.fromString("30000000-0000-0000-0000-000000000001");
+    private static final UUID ID_SERVICIO_2 = UUID.fromString("30000000-0000-0000-0000-000000000002");
     private static final LocalDate FECHA = LocalDate.of(2030, 1, 7);
     private static final ZoneId ZONE = ZoneId.of("America/Santiago");
 
@@ -88,7 +92,9 @@ class CitaServiceTest {
         when(perfilClient.obtenerCliente(ID_CLIENTE)).thenReturn(perfil(ID_CLIENTE, "Cliente", "Demo", "cliente@example.com"));
         when(perfilClient.obtenerStaff(ID_STAFF)).thenReturn(perfil(ID_STAFF, "Staff", "Demo", "staff@example.com"));
         when(servicioClient.obtenerServicio(ID_SERVICIO)).thenReturn(new ServicioResumen(ID_SERVICIO, "Corte", "Cabello", 60, 30));
+        when(servicioClient.obtenerServicio(ID_SERVICIO_2)).thenReturn(new ServicioResumen(ID_SERVICIO_2, "Peinado", "Cabello", 45, 15));
         when(servicioClient.staffRealizaServicio(ID_SERVICIO, ID_STAFF)).thenReturn(true);
+        when(servicioClient.staffRealizaServicio(ID_SERVICIO_2, ID_STAFF)).thenReturn(true);
         when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(ID_STAFF, FECHA.getDayOfWeek().getValue()))
                 .thenReturn(List.of(jornada(LocalTime.of(8, 0), LocalTime.of(13, 0))));
         when(bloqueoAgendaRepository.buscarBloqueosEnRango(any(), any(), any())).thenReturn(List.of());
@@ -350,6 +356,51 @@ class CitaServiceTest {
         assertThat(creada.getExpiracionReserva()).isNull();
         assertThat(creada.getObservacionCliente()).isEqualTo("Admin");
         verify(citaRepository, never()).actualizarExpiracionReservasPendientesCliente(any(), any(), any());
+    }
+
+    @Test
+    void crearLoteDesdeAdminCreaReservasConfirmadasConServiciosDistintos() {
+        CrearCitasLoteRequest request = new CrearCitasLoteRequest(
+                ID_CLIENTE,
+                FECHA,
+                List.of(
+                        new CrearCitasLoteRequest.ReservaLoteRequest(ID_SERVICIO, ID_STAFF, LocalTime.of(8, 0), "Primera", null),
+                        new CrearCitasLoteRequest.ReservaLoteRequest(ID_SERVICIO_2, ID_STAFF, LocalTime.of(10, 0), "Segunda", null)
+                )
+        );
+
+        CrearCitasLoteResponse response = citaService.crearLoteDesdeAdmin(request);
+
+        assertThat(response.totalServicios()).isEqualTo(2);
+        assertThat(response.tiempoTotalMin()).isEqualTo(180);
+        assertThat(response.reservas()).extracting(CrearCitasLoteResponse.ReservaLoteCreadaResponse::fechaHoraInicio)
+                .containsExactly(at(8, 0), at(10, 0));
+
+        ArgumentCaptor<Cita> captor = ArgumentCaptor.forClass(Cita.class);
+        verify(citaRepository, times(2)).saveAndFlush(captor.capture());
+        assertThat(captor.getAllValues()).allSatisfy(cita -> {
+            assertThat(cita.getEstadoCita()).isEqualTo(EstadoCita.CONFIRMADA);
+            assertThat(cita.getIdCliente()).isEqualTo(ID_CLIENTE);
+            assertThat(cita.getExpiracionReserva()).isNull();
+        });
+    }
+
+    @Test
+    void crearLoteDesdeAdminRechazaServiciosDuplicadosAntesDeGuardar() {
+        CrearCitasLoteRequest request = new CrearCitasLoteRequest(
+                ID_CLIENTE,
+                FECHA,
+                List.of(
+                        new CrearCitasLoteRequest.ReservaLoteRequest(ID_SERVICIO, ID_STAFF, LocalTime.of(8, 0), null, null),
+                        new CrearCitasLoteRequest.ReservaLoteRequest(ID_SERVICIO, ID_STAFF, LocalTime.of(9, 30), null, null)
+                )
+        );
+
+        assertThatThrownBy(() -> citaService.crearLoteDesdeAdmin(request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("servicios distintos");
+
+        verify(citaRepository, never()).saveAndFlush(any(Cita.class));
     }
 
     @Test
