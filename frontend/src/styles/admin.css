@@ -433,20 +433,52 @@
 .admin-quick-create,
 .admin-primary-action {
   align-items: center;
-  background: linear-gradient(135deg, var(--color-primary-strong), var(--color-primary));
+  background: linear-gradient(135deg, #a93f70 0%, var(--color-primary-strong) 48%, var(--color-primary) 100%);
   box-shadow: 0 14px 34px rgba(191, 91, 132, 0.26);
-  color: white;
+  color: #fff;
   display: inline-flex;
   font-weight: 850;
   gap: 0.5rem;
+  isolation: isolate;
+  overflow: hidden;
   padding: 0 1rem;
+  position: relative;
+  text-shadow: 0 1px 1px rgba(74, 22, 44, 0.18);
+  -webkit-text-fill-color: currentColor;
+}
+
+.admin-quick-create > svg,
+.admin-primary-action > svg {
+  color: inherit;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  -webkit-text-fill-color: currentColor;
 }
 
 .admin-icon-button:hover,
 .admin-quick-create:hover,
 .admin-primary-action:hover {
+  color: #fff;
   box-shadow: 0 18px 40px rgba(191, 91, 132, 0.28);
   transform: translateY(-2px);
+}
+
+.admin-quick-create:active,
+.admin-primary-action:active:not(:disabled) {
+  box-shadow: 0 9px 24px rgba(191, 91, 132, 0.22);
+  transform: translateY(0);
+}
+
+.admin-primary-action:disabled,
+.admin-primary-action.is-disabled {
+  background: linear-gradient(135deg, #b9829a 0%, #c994aa 100%);
+  box-shadow: none;
+  color: #fff;
+  cursor: not-allowed;
+  opacity: 1;
+  text-shadow: none;
+  transform: none;
 }
 
 .admin-content {
@@ -1762,6 +1794,11 @@
   font-weight: 950;
 }
 
+.admin-table-muted {
+  color: var(--color-muted);
+  font-weight: 850;
+}
+
 .compact-panel {
   padding: 1rem;
 }
@@ -1770,6 +1807,23 @@
 .admin-detail-modal {
   display: grid;
   gap: 1rem;
+}
+
+.admin-initial-stock-section {
+  align-items: end;
+  grid-template-columns: minmax(0, 1.1fr) minmax(11rem, 0.65fr);
+}
+
+.admin-initial-stock-section h4 {
+  color: var(--color-ink);
+  font-size: 0.96rem;
+  margin: 0 0 0.18rem;
+}
+
+.admin-initial-stock-section p {
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  margin: 0;
 }
 
 .admin-category-cover-grid {
@@ -2037,7 +2091,8 @@
 
 .staff-file-button.is-disabled {
   cursor: not-allowed;
-  opacity: 0.58;
+  opacity: 1;
+  color: #6a5f65;
 }
 
 .admin-service-category-covers .admin-category-cover-grid {
@@ -2195,7 +2250,8 @@
 
   .admin-shell .modal .form-grid,
   .admin-shell .modal .staff-form-grid,
-  .admin-shell .modal .admin-category-inline {
+  .admin-shell .modal .admin-category-inline,
+  .admin-shell .modal .admin-initial-stock-section {
     grid-template-columns: minmax(0, 1fr);
   }
 

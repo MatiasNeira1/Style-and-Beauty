@@ -773,6 +773,68 @@ export function RegisterPage() {
                 </p>
               </motion.form>
             </>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="register-form-card"
+              style={{ textAlign: 'center', padding: '3rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+            >
+              <MailCheck size={64} color="var(--color-primary-strong)" style={{ margin: '0 auto 1.5rem' }} />
+              <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--color-ink)' }}>Revisa tu correo electrónico</h2>
+              <p style={{ color: 'var(--color-muted)', marginBottom: '2rem', lineHeight: '1.5' }}>
+                Hemos enviado un enlace de confirmación a <strong>{form.emailContacto}</strong>.<br />
+                Haz clic en el enlace para validar tu cuenta y poder ingresar.
+              </p>
+
+              {error && (
+                <p className="admin-alert register-error" style={{ marginBottom: '1.5rem', width: '100%', textAlign: 'left' }}>
+                  {error}
+                </p>
+              )}
+
+              <Button
+                onClick={handleVerifyEmail}
+                disabled={isVerifying}
+                style={{ width: '100%', marginBottom: '1rem', padding: '1rem' }}
+              >
+                {isVerifying ? 'Verificando estado...' : 'Ya verifiqué mi correo'}
+              </Button>
+
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  try {
+                    await authService.registerUserWithVerification({
+                      ...form,
+                      genero: form.genero.trim().toLowerCase(),
+                      emailContacto: form.emailContacto
+                    }, form.password);
+                    setError('Correo reenviado. Por favor revisa tu bandeja de entrada o spam.');
+                  } catch (e) {
+                    if (e.code === 'auth/email-already-in-use') {
+                      // Si ya existe en auth, solo reenviamos el correo sin intentar crear en firestore de nuevo
+                      try {
+                        const { getAuth, sendEmailVerification } = await import('firebase/auth');
+                        const auth = getAuth();
+                        if (auth.currentUser) {
+                          await sendEmailVerification(auth.currentUser);
+                          setError('Correo reenviado exitosamente.');
+                        }
+                      } catch {
+                        setError('No se pudo reenviar el correo. Inicia sesion nuevamente e intentalo otra vez.');
+                      }
+                    } else {
+                      setError('No se pudo reenviar el correo. ' + getRegisterErrorMessage(e));
+                    }
+                  }
+                }}
+                style={{ width: '100%' }}
+              >
+                Reenviar correo
+              </Button>
+            </motion.div>
+          )}
         </motion.section>
       </section>
     </main>

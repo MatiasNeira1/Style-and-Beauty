@@ -39,17 +39,25 @@ export const reservationService = {
       authRequired: true,
     }),
 
-  evaluateReservation: (reservationId, rating, comment) =>
-    request({
+  evaluateReservation: (reservationId, ratingOrPayload, comment) => {
+    const data = typeof ratingOrPayload === 'object' && ratingOrPayload !== null
+      ? {
+          calificacion: ratingOrPayload.calificacion,
+          comentarioCalificacion: ratingOrPayload.comentarioCalificacion ?? ratingOrPayload.comentario,
+        }
+      : {
+          calificacion: ratingOrPayload,
+          comentarioCalificacion: comment,
+        };
+
+    return request({
       baseURL: AGENDA_API_BASE_URL,
       url: `/api/agenda/citas/${reservationId}/evaluar`,
       method: 'POST',
       authRequired: true,
-      data: {
-        calificacion: rating,
-        comentarioCalificacion: comment,
-      },
-    }),
+      data,
+    });
+  },
 
   getAvailability: ({ idServicio, idStaff, fecha, idCliente }) =>
     request({
@@ -89,15 +97,6 @@ export const reservationService = {
       url: `/api/agenda/citas/${reservationId}`,
       method: 'DELETE',
       authRequired: true,
-    }),
-
-  evaluateReservation: (reservationId, { calificacion, comentario }) =>
-    request({
-      baseURL: AGENDA_API_BASE_URL,
-      url: `/api/agenda/citas/${reservationId}/evaluar`,
-      method: 'POST',
-      authRequired: true,
-      data: { calificacion, comentario },
     }),
 
   listFinalized: () =>

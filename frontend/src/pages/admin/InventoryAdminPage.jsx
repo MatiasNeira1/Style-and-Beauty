@@ -9,6 +9,12 @@ import { Modal } from '../../components/ui/Modal.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { inventoryService } from '../../services/inventoryService.js';
 import { formatCurrencyCLP } from '../../utils/adminFormatters.js';
+import {
+  STOCK_STATUS,
+  calculateInventoryMetrics,
+  getInventoryProductId as getProductId,
+  getStockStatus,
+} from '../../utils/inventoryStockRules.js';
 
 const initialProductForm = {
   nombre: '',
@@ -16,6 +22,7 @@ const initialProductForm = {
   descripcion: '',
   imagenUrl: '',
   precio: '',
+  stockInicial: '0',
 };
 
 const PRODUCT_NAME_MAX_LENGTH = 70;
@@ -36,10 +43,6 @@ const initialStockForm = {
   stockMinimo: '',
 };
 
-function getProductId(product) {
-  return product.idProducto || product.id || product.uuid;
-}
-
 function productImage(product) {
   return product?.imagenUrl || product?.imageUrl || product?.imagen_url || product?.imagen || product?.image || '';
 }
@@ -51,6 +54,7 @@ function productFormFrom(product) {
     descripcion: String(product.descripcion || '').slice(0, PRODUCT_DESCRIPTION_MAX_LENGTH),
     imagenUrl: productImage(product) || '',
     precio: product.precio ?? '',
+    stockInicial: '0',
   };
 }
 
@@ -61,6 +65,7 @@ function ProductFormModal({
   imagePreview,
   imageError,
   categoryError,
+  stockError,
   isEditing,
   isSaving,
   error,
@@ -102,6 +107,28 @@ function ProductFormModal({
             rows={3}
           />
         </div>
+        {!isEditing && (
+          <div className="admin-modal-section admin-initial-stock-section">
+            <div>
+              <h4>Agregar stock inicial</h4>
+              <p>Define la existencia inicial del producto. 0 se considera Sin stock; de 1 a 5 se considera Bajo stock.</p>
+            </div>
+            <Input
+              label="Stock inicial"
+              id="inventory-initial-stock"
+              name="stockInicial"
+              type="number"
+              min="0"
+              step="1"
+              inputMode="numeric"
+              value={form.stockInicial}
+              onChange={onChange}
+              placeholder="0"
+              error={stockError}
+              hint="Si lo dejas vacio se guardara como 0."
+            />
+          </div>
+        )}
         <div className="admin-image-field compact">
           {imagePreview && <SafeImage src={imagePreview} alt="Imagen del producto" />}
           <label className="button button-ghost button-sm staff-file-button">
@@ -182,7 +209,7 @@ function StockFormModal({
   onSubmit,
 }) {
   return (
-    <Modal open={open} title="Registrar stock inicial" onClose={onClose}>
+    <Modal open={open} title="Agregar stock" onClose={onClose}>
       <form className="admin-modal-form" onSubmit={onSubmit}>
         <div className="admin-modal-section form-grid">
           <Input as="select" label="Producto" id="stock-product" name="idProducto" value={form.idProducto} onChange={onChange} required>
@@ -193,11 +220,11 @@ function StockFormModal({
           <Input label="Unidad" id="stock-unit" name="unidadMedida" value={form.unidadMedida} onChange={onChange} placeholder="unidad, ml, gr" required />
           <Input label="Stock minimo" id="stock-min" name="stockMinimo" type="number" min="0" value={form.stockMinimo} onChange={onChange} placeholder="Ej. 5" />
         </div>
-        <p className="admin-modal-hint">Usa este modal solo para cargar la existencia inicial del producto. Los movimientos avanzados se habilitaran cuando existan sucursales.</p>
+        <p className="admin-modal-hint">Usa este modal para agregar stock a productos existentes que aun no tengan existencia registrada. Los movimientos avanzados se habilitaran cuando existan sucursales.</p>
         {error && <p className="admin-alert">{error.message}</p>}
         <div className="admin-modal-actions">
           <Button type="button" variant="ghost" onClick={onClose}><X size={16} /> Cancelar</Button>
-          <Button type="submit" disabled={isSaving}><PackagePlus size={16} /> {isSaving ? 'Registrando...' : 'Registrar stock'}</Button>
+          <Button type="submit" disabled={isSaving}><PackagePlus size={16} /> {isSaving ? 'Guardando...' : 'Guardar stock'}</Button>
         </div>
       </form>
     </Modal>
@@ -214,6 +241,12 @@ function ProductDetailModal({
   onUploadImage,
   isMutating,
 }) {
+  const stockStatus = getStockStatus(stock);
+  const stockQuantity = stockStatus === STOCK_STATUS.NO_RECORD ? null : Number(stock?.cantidadActual);
+  const stockLabel = stockStatus === STOCK_STATUS.NO_RECORD
+    ? 'Sin registro'
+    : `${stockStatus === STOCK_STATUS.INCONSISTENT ? `Inconsistente: ${stockQuantity}` : stockQuantity} ${stock?.unidadMedida || 'unidades'}`;
+
   return (
     <Modal open={Boolean(product)} title="Detalle del producto" onClose={onClose}>
       {product && (
@@ -229,8 +262,8 @@ function ProductDetailModal({
           </div>
           <div className="admin-detail-grid">
             <div><span>Precio</span><strong>{formatCurrencyCLP(product.precio || 0)}</strong></div>
-            <div><span>Stock</span><strong>{stock?.cantidadActual ?? 0} {stock?.unidadMedida || 'unidades'}</strong></div>
-            <div><span>Minimo</span><strong>{stock?.stockMinimo ?? 0}</strong></div>
+            <div><span>Stock</span><strong>{stockLabel}</strong></div>
+            <div><span>Minimo</span><strong>{stockStatus === STOCK_STATUS.NO_RECORD ? 'Sin registro' : stock?.stockMinimo ?? 0}</strong></div>
             <div><span>ID</span><strong>{getProductId(product)}</strong></div>
           </div>
           <div className="admin-modal-actions">
@@ -264,6 +297,7 @@ export function InventoryAdminPage() {
   const [productImagePreview, setProductImagePreview] = useState('');
   const [productImageError, setProductImageError] = useState('');
   const [productCategoryError, setProductCategoryError] = useState('');
+  const [productStockError, setProductStockError] = useState('');
   const [stockForm, setStockForm] = useState(initialStockForm);
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
@@ -279,20 +313,22 @@ export function InventoryAdminPage() {
   const categoryCoversQuery = useQuery({ queryKey: ['category-covers'], queryFn: inventoryService.getCategoryCovers });
 
   const products = useMemo(() => (Array.isArray(productsQuery.data) ? productsQuery.data : []), [productsQuery.data]);
-  const stockByProduct = useMemo(() => {
-    const stockRows = Array.isArray(stockQuery.data) ? stockQuery.data : [];
-    return stockRows.reduce((acc, stock) => {
-      acc[stock.idProducto] = stock;
-      return acc;
-    }, {});
-  }, [stockQuery.data]);
+  const stockRows = useMemo(() => (Array.isArray(stockQuery.data) ? stockQuery.data : []), [stockQuery.data]);
+  const inventoryMetrics = useMemo(() => calculateInventoryMetrics(products, stockRows), [products, stockRows]);
+  const {
+    stockByProduct,
+    totalActiveProducts,
+    lowStock,
+    outStock,
+    inconsistentStock,
+    estimatedValue,
+  } = inventoryMetrics;
   const filteredProducts = useMemo(() => {
     const needle = inventorySearch.trim().toLowerCase();
     return products.filter((product) => {
       const productId = getProductId(product);
       const stock = stockByProduct[productId];
-      const qty = Number(stock?.cantidadActual ?? 0);
-      const min = Number(stock?.stockMinimo ?? 0);
+      const stockStatus = getStockStatus(stock);
       const haystack = [
         product.nombre,
         product.categoria,
@@ -305,11 +341,13 @@ export function InventoryAdminPage() {
         ? true
         : statusFilter === 'ACTIVO'
           ? product.activo !== false
-          : statusFilter === 'INACTIVO'
-            ? product.activo === false
-            : statusFilter === 'BAJO_STOCK'
-              ? qty <= min
-              : qty === 0;
+            : statusFilter === 'INACTIVO'
+              ? product.activo === false
+              : statusFilter === 'BAJO_STOCK'
+                ? stockStatus === STOCK_STATUS.LOW_STOCK
+                : statusFilter === 'SIN_STOCK'
+                  ? stockStatus === STOCK_STATUS.OUT_OF_STOCK
+                  : stockStatus === STOCK_STATUS.INCONSISTENT;
       return matchesSearch && matchesCategory && matchesStatus;
     });
   }, [categoryFilter, inventorySearch, products, statusFilter, stockByProduct]);
@@ -404,6 +442,7 @@ export function InventoryAdminPage() {
     setProductImagePreview('');
     setProductImageError('');
     setProductCategoryError('');
+    setProductStockError('');
   };
 
   const resetStockModal = () => {
@@ -420,6 +459,7 @@ export function InventoryAdminPage() {
     setProductImageFile(null);
     setProductImageError('');
     setProductCategoryError('');
+    setProductStockError('');
     setProductModalOpen(true);
   };
 
@@ -433,6 +473,7 @@ export function InventoryAdminPage() {
     setProductImageFile(null);
     setProductImageError('');
     setProductCategoryError('');
+    setProductStockError('');
     setProductModalOpen(true);
   };
 
@@ -478,7 +519,7 @@ export function InventoryAdminPage() {
     mutationFn: (payload) => inventoryService.createStock({
       ...payload,
       cantidadActual: Number(payload.cantidadActual),
-      stockMinimo: payload.stockMinimo === '' ? 0 : Number(payload.stockMinimo),
+      stockMinimo: payload.stockMinimo === '' ? 5 : Number(payload.stockMinimo),
     }),
     onSuccess: () => {
       setStockForm(initialStockForm);
@@ -539,9 +580,14 @@ export function InventoryAdminPage() {
     const hasExistingImage = Boolean(existingImageUrl || productImagePreview);
     const hasNewImage = Boolean(productImageFile);
     const normalizedPrice = Number(productForm.precio);
+    const initialStockValue = productForm.stockInicial === '' ? 0 : Number(productForm.stockInicial);
 
     if (!PRODUCT_CATEGORIES.includes(productForm.categoria)) {
       setProductCategoryError('Selecciona una categoría válida.');
+      return;
+    }
+    if (!isEditing && (!Number.isInteger(initialStockValue) || initialStockValue < 0)) {
+      setProductStockError('Ingresa un numero entero mayor o igual a 0.');
       return;
     }
     if ((!isEditing && !hasNewImage) || (isEditing && !hasExistingImage && !hasNewImage)) {
@@ -549,12 +595,14 @@ export function InventoryAdminPage() {
       return;
     }
     setProductCategoryError('');
+    setProductStockError('');
     const payload = {
       nombre: productForm.nombre.trim(),
       categoria: productForm.categoria,
       descripcion: productForm.descripcion.trim(),
       precio: normalizedPrice,
       ...(isEditing && existingImageUrl ? { imagenUrl: existingImageUrl } : {}),
+      ...(!isEditing ? { stockInicial: initialStockValue } : {}),
     };
     saveProductMutation.mutate(payload);
   };
@@ -578,13 +626,6 @@ export function InventoryAdminPage() {
   const isLoading = productsQuery.isLoading || stockQuery.isLoading;
   const isError = productsQuery.isError || stockQuery.isError;
   const error = productsQuery.error || stockQuery.error;
-  const stockRows = Array.isArray(stockQuery.data) ? stockQuery.data : [];
-  const lowStock = stockRows.filter((stock) => Number(stock.cantidadActual || 0) <= Number(stock.stockMinimo || 0));
-  const outStock = stockRows.filter((stock) => Number(stock.cantidadActual || 0) === 0);
-  const estimatedValue = products.reduce((sum, product) => {
-    const qty = stockByProduct[getProductId(product)]?.cantidadActual || 0;
-    return sum + Number(product.precio || 0) * Number(qty);
-  }, 0);
   const isMutating = productStatusMutation.isPending || deleteMutation.isPending || productImageMutation.isPending;
 
   return (
@@ -597,20 +638,26 @@ export function InventoryAdminPage() {
       />
 
       <AdminKpiGrid>
-        <AdminKpiCard icon={Package} title="Total productos" value={products.length} trend={0} microcopy="Productos registrados" tone="rose" />
+        <AdminKpiCard icon={Package} title="Total productos" value={totalActiveProducts} trend={0} microcopy="Productos activos registrados" tone="rose" />
         <AdminKpiCard icon={AlertCircle} title="Bajo stock" value={lowStock.length} trend={lowStock.length ? -8 : 0} microcopy="Reponer con prioridad" tone="gold" />
         <AdminKpiCard icon={PowerOff} title="Sin stock" value={outStock.length} trend={outStock.length ? -12 : 0} microcopy="Stock en cero" tone="ink" />
         <AdminKpiCard icon={PackagePlus} title="Valor estimado" value={formatCurrencyCLP(estimatedValue)} trend={0} microcopy="Precio x cantidad actual" tone="sage" />
       </AdminKpiGrid>
 
+      {inconsistentStock.length > 0 && (
+        <p className="admin-alert">
+          Se detectaron {inconsistentStock.length} registros con stock negativo. No se cuentan como Bajo stock ni Sin stock; revisa la tabla/API antes de operar inventario.
+        </p>
+      )}
+
       <section className="admin-panel compact-panel admin-inventory-actions">
         <header>
           <div>
             <h3>Acciones de inventario</h3>
-            <p>Registra stock inicial desde un modal. Los movimientos se habilitaran cuando existan sucursales.</p>
+            <p>Agrega stock a productos existentes. El stock inicial tambien se puede definir al crear un producto.</p>
           </div>
           <div className="admin-action-row">
-            <Button type="button" size="sm" onClick={() => setStockModalOpen(true)}><PackagePlus size={16} /> Registrar stock inicial</Button>
+            <Button type="button" size="sm" onClick={() => setStockModalOpen(true)}><PackagePlus size={16} /> Agregar stock</Button>
             <Button type="button" size="sm" variant="secondary" disabled><Save size={16} /> Movimiento de stock - Proximamente</Button>
           </div>
         </header>
@@ -689,6 +736,7 @@ export function InventoryAdminPage() {
             <option value="INACTIVO">Inactivos</option>
             <option value="BAJO_STOCK">Bajo stock</option>
             <option value="SIN_STOCK">Sin stock</option>
+            <option value="INCONSISTENTE">Stock inconsistente</option>
           </Input>
         </div>
       </section>
@@ -724,9 +772,14 @@ export function InventoryAdminPage() {
               label: 'Stock',
               render: (row) => {
                 const stock = stockByProduct[getProductId(row)];
-                const qty = stock?.cantidadActual ?? 0;
-                const min = stock?.stockMinimo ?? 0;
-                return <span className={qty <= min ? 'admin-table-danger' : ''}>{qty} {stock?.unidadMedida || 'unidades'}</span>;
+                const status = getStockStatus(stock);
+                if (status === STOCK_STATUS.NO_RECORD) {
+                  return <span className="admin-table-muted">Sin registro</span>;
+                }
+                const qty = Number(stock.cantidadActual);
+                const isAlert = status === STOCK_STATUS.OUT_OF_STOCK || status === STOCK_STATUS.LOW_STOCK || status === STOCK_STATUS.INCONSISTENT;
+                const label = status === STOCK_STATUS.INCONSISTENT ? `Inconsistente: ${qty}` : qty;
+                return <span className={isAlert ? 'admin-table-danger' : ''}>{label} {stock?.unidadMedida || 'unidades'}</span>;
               },
             },
             { key: 'activo', label: 'Estado', render: (row) => <AdminStatusBadge status={row.activo ? 'ACTIVO' : 'INACTIVO'} /> },
@@ -743,6 +796,7 @@ export function InventoryAdminPage() {
         imagePreview={productImagePreview}
         imageError={productImageError}
         categoryError={productCategoryError}
+        stockError={productStockError}
         isEditing={Boolean(editingProductId)}
         isSaving={saveProductMutation.isPending}
         error={saveProductMutation.error}
@@ -750,6 +804,7 @@ export function InventoryAdminPage() {
           const { name, value } = event.target;
           setProductForm((current) => ({ ...current, [name]: value }));
           if (name === 'categoria') setProductCategoryError('');
+          if (name === 'stockInicial') setProductStockError('');
         }}
         onImageChange={validateAndSetProductImage}
         onClose={resetProductModal}
