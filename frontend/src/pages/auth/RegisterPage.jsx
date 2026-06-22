@@ -20,62 +20,74 @@ import { Button } from '../../components/ui/Button.jsx';
 import { authService } from '../../services/authService.js';
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const RUT_REGEX = /^(\d{1,2}\.\d{3}\.\d{3}-[\dkK]|\d{7,8}-[\dkK])$/;
+const RUT_REGEX = /^(\d{1,3}\.\d{3}\.\d{3}-[\dkK]|\d{7,9}-[\dkK])$/;
 const CHILE_PHONE_REGEX = /^\+56\s?9\s?\d{4}\s?\d{4}$/;
-const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~\-]).{8,}$/;
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~\-]).{8,15}$/;
 
 function validateRut(rut) {
   if (!rut || typeof rut !== 'string') return false;
-  if (!RUT_REGEX.test(rut)) return false;
-  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (cleanRut.length < 2) return false;
-
-  const body = cleanRut.slice(0, -1);
-  const dv = cleanRut.slice(-1);
-
-  let sum = 0;
-  let multiplier = 2;
-  for (let i = body.length - 1; i >= 0; i--) {
-    sum += parseInt(body[i], 10) * multiplier;
-    multiplier = multiplier === 7 ? 2 : multiplier + 1;
+  
+  if (RUT_REGEX.test(rut)) {
+    const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
+    if (cleanRut.length < 2) return false;
+  
+    const body = cleanRut.slice(0, -1);
+    const dv = cleanRut.slice(-1);
+  
+    let sum = 0;
+    let multiplier = 2;
+    for (let i = body.length - 1; i >= 0; i--) {
+      sum += parseInt(body[i], 10) * multiplier;
+      multiplier = multiplier === 7 ? 2 : multiplier + 1;
+    }
+  
+    const expectedDv = 11 - (sum % 11);
+    let calculatedDv = '';
+    if (expectedDv === 11) {
+      calculatedDv = '0';
+    } else if (expectedDv === 10) {
+      calculatedDv = 'K';
+    } else {
+      calculatedDv = String(expectedDv);
+    }
+  
+    return calculatedDv === dv;
   }
 
-  const expectedDv = 11 - (sum % 11);
-  let calculatedDv = '';
-  if (expectedDv === 11) {
-    calculatedDv = '0';
-  } else if (expectedDv === 10) {
-    calculatedDv = 'K';
-  } else {
-    calculatedDv = String(expectedDv);
-  }
-
-  return calculatedDv === dv;
+  // If it doesn't match Chilean RUT, allow 6 to 15 alphanumeric characters for foreign IDs
+  const cleanForeignId = rut.replace(/[^a-zA-Z0-9]/g, '');
+  return cleanForeignId.length >= 6 && cleanForeignId.length <= 15;
 }
 
 function formatRut(value) {
   if (!value) return '';
-  let clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (clean.length === 0) return '';
-  clean = clean.slice(0, 9);
+  const isRutLike = /^[0-9kK.\-]+$/.test(value);
 
-  if (clean.length <= 1) {
-    return clean;
+  if (isRutLike) {
+    let clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
+    if (clean.length === 0) return '';
+    clean = clean.slice(0, 10);
+  
+    if (clean.length <= 1) {
+      return clean;
+    }
+  
+    const dv = clean.slice(-1);
+    const body = clean.slice(0, -1);
+  
+    let formattedBody = '';
+    if (body.length <= 3) {
+      formattedBody = body;
+    } else if (body.length <= 6) {
+      formattedBody = body.slice(0, body.length - 3) + '.' + body.slice(body.length - 3);
+    } else {
+      formattedBody = body.slice(0, body.length - 6) + '.' + body.slice(body.length - 6, body.length - 3) + '.' + body.slice(body.length - 3);
+    }
+  
+    return formattedBody + '-' + dv;
   }
 
-  const dv = clean.slice(-1);
-  const body = clean.slice(0, -1);
-
-  let formattedBody = '';
-  if (body.length <= 3) {
-    formattedBody = body;
-  } else if (body.length <= 6) {
-    formattedBody = body.slice(0, body.length - 3) + '.' + body.slice(body.length - 3);
-  } else {
-    formattedBody = body.slice(0, body.length - 6) + '.' + body.slice(body.length - 6, body.length - 3) + '.' + body.slice(body.length - 3);
-  }
-
-  return formattedBody + '-' + dv;
+  return value.toUpperCase().slice(0, 15);
 }
 
 const initialForm = {
@@ -84,9 +96,10 @@ const initialForm = {
   apellidos: '',
   fechaNacimiento: '',
   genero: '',
-  telefono: '',
+  telefono: '+56 ',
   emailContacto: '',
   password: '',
+  confirmPassword: '',
 };
 
 const genderOptions = [
@@ -315,7 +328,7 @@ function PremiumField({ icon: Icon, label, id, className = '', trailing, ...prop
   );
 }
 
-function BirthDateSelects({ value, onChange, maxDate }) {
+function BirthDateSelects({ value, onChange, maxDate, style }) {
   const selectedDate = parseIsoDate(value);
   const maxDateObject = parseIsoDate(maxDate);
   const maxYear = maxDateObject.getFullYear();
@@ -369,7 +382,7 @@ function BirthDateSelects({ value, onChange, maxDate }) {
   };
 
   return (
-    <motion.div className="register-field birthdate-field" variants={itemVariants}>
+    <motion.div className="register-field birthdate-field" variants={itemVariants} style={style}>
       <span>Fecha nacimiento</span>
       <div className="birthdate-select-grid">
         <select aria-label="Año de nacimiento" value={year} onChange={handleYearChange} required>
@@ -454,10 +467,32 @@ function PremiumGenderSelect({ value, onChange }) {
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(() => {
+    try {
+      const stored = window.sessionStorage.getItem('style_beauty_pending_profile');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          rut: parsed.rut || '',
+          nombre: parsed.nombre || '',
+          apellidos: parsed.apellidos || '',
+          fechaNacimiento: parsed.fechaNacimiento || '',
+          genero: parsed.genero || '',
+          telefono: parsed.telefono || '+56 ',
+          emailContacto: parsed.emailContacto || '',
+          password: '',
+          confirmPassword: '',
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return initialForm;
+  });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const maxBirthDate = getMaxBirthDateIso();
 
 
@@ -469,7 +504,12 @@ export function RegisterPage() {
   };
 
   const handlePhoneChange = (event) => {
-    const { value } = event.target;
+    let { value } = event.target;
+    
+    if (!value.startsWith('+56')) {
+      value = '+56 ' + value.replace(/^\+?(56)?/, '').trimStart();
+    }
+    
     let cleanValue = value.replace(/[^0-9+\s]/g, '');
     const digitsOnly = cleanValue.replace(/[^\d]/g, '');
     if (digitsOnly.length > 11) {
@@ -504,12 +544,14 @@ export function RegisterPage() {
       !form.nombre ||
       !form.emailContacto ||
       !form.password ||
+      !form.confirmPassword ||
       !form.fechaNacimiento ||
       !form.genero ||
       !form.telefono ||
       !validateRut(form.rut) ||
       !CHILE_PHONE_REGEX.test(form.telefono) ||
-      !PASSWORD_REGEX.test(form.password)
+      !PASSWORD_REGEX.test(form.password) ||
+      form.password !== form.confirmPassword
     );
   }, [form]);
 
@@ -517,7 +559,7 @@ export function RegisterPage() {
     event.preventDefault();
     setError('');
 
-    if (!form.rut || !form.nombre || !form.emailContacto || !form.password || !form.fechaNacimiento || !form.genero || !form.telefono) {
+    if (!form.rut || !form.nombre || !form.emailContacto || !form.password || !form.confirmPassword || !form.fechaNacimiento || !form.genero || !form.telefono) {
       setError('Completa todos los campos obligatorios.');
       return;
     }
@@ -528,7 +570,7 @@ export function RegisterPage() {
     }
 
     if (!validateRut(form.rut)) {
-      setError('El RUT no es válido (ej: 12.345.678-9).');
+      setError('El RUT/ID ingresado no es válido.');
       return;
     }
 
@@ -538,7 +580,12 @@ export function RegisterPage() {
     }
 
     if (!PASSWORD_REGEX.test(form.password)) {
-      setError('La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, un número y un símbolo especial.');
+      setError('La contraseña debe tener entre 8 y 15 caracteres, incluir una mayúscula, un número y un símbolo especial.');
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      setError('Las contraseñas no coinciden.');
       return;
     }
 
@@ -560,7 +607,7 @@ export function RegisterPage() {
     setIsSubmitting(true);
 
     try {
-      const { password, ...profile } = {
+      const { password, confirmPassword, ...profile } = {
         ...form,
         genero: form.genero.trim().toLowerCase(),
       };
@@ -678,6 +725,7 @@ export function RegisterPage() {
                     value={form.nombre}
                     onChange={handleChange}
                     placeholder="Tu nombre"
+                    maxLength={20}
                     required
                   />
                   <PremiumField
@@ -688,6 +736,7 @@ export function RegisterPage() {
                     value={form.apellidos}
                     onChange={handleChange}
                     placeholder="Tus apellidos"
+                    maxLength={20}
                   />
                   <PremiumField
                     icon={Mail}
@@ -698,7 +747,27 @@ export function RegisterPage() {
                     value={form.emailContacto}
                     onChange={handleChange}
                     placeholder="tuemail@correo.com"
+                    maxLength={25}
                     required
+                  />
+                  <PremiumField
+                    icon={Phone}
+                    label="Teléfono"
+                    id="register-telefono"
+                    name="telefono"
+                    value={form.telefono}
+                    onChange={handlePhoneChange}
+                    placeholder="+56 9 1234 5678"
+                  />
+                  <PremiumGenderSelect
+                    value={form.genero}
+                    onChange={(value) => updateFormValue('genero', value)}
+                  />
+                  <BirthDateSelects
+                    value={form.fechaNacimiento}
+                    maxDate={maxBirthDate}
+                    onChange={(value) => updateFormValue('fechaNacimiento', value)}
+                    style={{ gridColumn: '1 / -1' }}
                   />
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <PremiumField
@@ -708,6 +777,7 @@ export function RegisterPage() {
                       name="password"
                       type={showPassword ? 'text' : 'password'}
                       minLength="8"
+                      maxLength="15"
                       value={form.password}
                       onChange={handleChange}
                       placeholder="Crea una contraseña segura"
@@ -724,8 +794,8 @@ export function RegisterPage() {
                       }
                     />
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.75rem', marginTop: '0.5rem', paddingLeft: '0.25rem' }}>
-                      <span style={{ color: form.password.length >= 8 ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <CheckCircle2 size={12} /> Mínimo 8 caracteres
+                      <span style={{ color: form.password.length >= 8 && form.password.length <= 15 ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Entre 8 y 15 caracteres
                       </span>
                       <span style={{ color: /[A-Z]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <CheckCircle2 size={12} /> Al menos 1 letra mayúscula
@@ -739,22 +809,27 @@ export function RegisterPage() {
                     </div>
                   </div>
                   <PremiumField
-                    icon={Phone}
-                    label="Teléfono"
-                    id="register-telefono"
-                    name="telefono"
-                    value={form.telefono}
-                    onChange={handlePhoneChange}
-                    placeholder="+56 9 1234 5678"
-                  />
-                  <BirthDateSelects
-                    value={form.fechaNacimiento}
-                    maxDate={maxBirthDate}
-                    onChange={(value) => updateFormValue('fechaNacimiento', value)}
-                  />
-                  <PremiumGenderSelect
-                    value={form.genero}
-                    onChange={(value) => updateFormValue('genero', value)}
+                    icon={Lock}
+                    label="Confirmar contraseña"
+                    id="register-confirm-password"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    minLength="8"
+                    maxLength="15"
+                    value={form.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Repite tu contraseña"
+                    required
+                    trailing={
+                      <button
+                        className="password-toggle"
+                        type="button"
+                        onClick={() => setShowConfirmPassword((current) => !current)}
+                        aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    }
                   />
                 </motion.div>
  

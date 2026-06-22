@@ -97,14 +97,15 @@ export function LoginPage() {
     try {
       const session = await login(form.email, form.password);
 
+      const isAdminOrStaff = session.user?.rol === 'ADMIN' || session.user?.rol === 'STAFF';
+
       // Block unverified users – redirect to verification pending page
-      if (!session.user?.emailVerified) {
+      if (!session.user?.emailVerified && !isAdminOrStaff) {
         navigate('/verificacion-pendiente', { replace: true, state: { from: location } });
         return;
       }
 
       const requestedAdminRoute = redirectTo.startsWith('/admin');
-      const isAdminOrStaff = session.user?.rol === 'ADMIN' || session.user?.rol === 'STAFF';
       const destination = isAdminOrStaff
         ? (requestedAdminRoute ? redirectTo : '/admin')
         : (requestedAdminRoute ? '/perfil' : redirectTo);
