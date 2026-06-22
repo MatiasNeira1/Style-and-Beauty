@@ -6,6 +6,7 @@ import { authService } from '../services/authService.js';
 import { firebaseAuth } from '../services/firebaseClient.js';
 import { firebaseAuthService } from '../services/firebaseAuthService.js';
 import { profileService } from '../services/profileService.js';
+import { normalizeRut, validateRut } from '../utils/rutUtils.js';
 
 const AuthContext = createContext(null);
 const ROLE_CLAIM_RETRIES = 10;
@@ -112,8 +113,16 @@ export function AuthProvider({ children }) {
     isRegisteringRef.current = true;
     try {
       const normalizedEmail = email.trim().toLowerCase();
+      const normalizedRut = normalizeRut(profile.rut);
+      if (!normalizedRut) {
+        throw new Error('El RUT es obligatorio.');
+      }
+      if (!validateRut(normalizedRut)) {
+        throw new Error('Ingresa un RUT válido.');
+      }
       const normalizedProfile = {
         ...profile,
+        rut: normalizedRut,
         emailContacto: (profile.emailContacto || normalizedEmail).trim().toLowerCase(),
         genero: profile.genero?.trim().toLowerCase(),
         tipoPerfil: 'CLIENTE',

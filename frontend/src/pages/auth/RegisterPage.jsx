@@ -18,65 +18,11 @@ import {
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button.jsx';
 import { authService } from '../../services/authService.js';
+import { formatRut, normalizeRut, validateRut } from '../../utils/rutUtils.js';
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const RUT_REGEX = /^(\d{1,2}\.\d{3}\.\d{3}-[\dkK]|\d{7,8}-[\dkK])$/;
 const CHILE_PHONE_REGEX = /^\+56\s?9\s?\d{4}\s?\d{4}$/;
-const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~\-]).{8,}$/;
-
-function validateRut(rut) {
-  if (!rut || typeof rut !== 'string') return false;
-  if (!RUT_REGEX.test(rut)) return false;
-  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (cleanRut.length < 2) return false;
-
-  const body = cleanRut.slice(0, -1);
-  const dv = cleanRut.slice(-1);
-
-  let sum = 0;
-  let multiplier = 2;
-  for (let i = body.length - 1; i >= 0; i--) {
-    sum += parseInt(body[i], 10) * multiplier;
-    multiplier = multiplier === 7 ? 2 : multiplier + 1;
-  }
-
-  const expectedDv = 11 - (sum % 11);
-  let calculatedDv = '';
-  if (expectedDv === 11) {
-    calculatedDv = '0';
-  } else if (expectedDv === 10) {
-    calculatedDv = 'K';
-  } else {
-    calculatedDv = String(expectedDv);
-  }
-
-  return calculatedDv === dv;
-}
-
-function formatRut(value) {
-  if (!value) return '';
-  let clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (clean.length === 0) return '';
-  clean = clean.slice(0, 9);
-
-  if (clean.length <= 1) {
-    return clean;
-  }
-
-  const dv = clean.slice(-1);
-  const body = clean.slice(0, -1);
-
-  let formattedBody = '';
-  if (body.length <= 3) {
-    formattedBody = body;
-  } else if (body.length <= 6) {
-    formattedBody = body.slice(0, body.length - 3) + '.' + body.slice(body.length - 3);
-  } else {
-    formattedBody = body.slice(0, body.length - 6) + '.' + body.slice(body.length - 6, body.length - 3) + '.' + body.slice(body.length - 3);
-  }
-
-  return formattedBody + '-' + dv;
-}
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~-]).{8,}$/;
 
 const initialForm = {
   rut: '',
@@ -517,18 +463,23 @@ export function RegisterPage() {
     event.preventDefault();
     setError('');
 
-    if (!form.rut || !form.nombre || !form.emailContacto || !form.password || !form.fechaNacimiento || !form.genero || !form.telefono) {
+    if (!form.rut) {
+      setError('El RUT es obligatorio.');
+      return;
+    }
+
+    if (!validateRut(form.rut)) {
+      setError('Ingresa un RUT válido.');
+      return;
+    }
+
+    if (!form.nombre || !form.emailContacto || !form.password || !form.fechaNacimiento || !form.genero || !form.telefono) {
       setError('Completa todos los campos obligatorios.');
       return;
     }
 
     if (!EMAIL_REGEX.test(form.emailContacto)) {
       setError('El formato del email no es válido.');
-      return;
-    }
-
-    if (!validateRut(form.rut)) {
-      setError('El RUT no es válido (ej: 12.345.678-9).');
       return;
     }
 
@@ -562,6 +513,7 @@ export function RegisterPage() {
     try {
       const { password, ...profile } = {
         ...form,
+        rut: normalizeRut(form.rut),
         genero: form.genero.trim().toLowerCase(),
       };
 
@@ -667,6 +619,7 @@ export function RegisterPage() {
                     name="rut"
                     value={form.rut}
                     onChange={handleChange}
+                    onBlur={() => updateFormValue('rut', formatRut(form.rut))}
                     placeholder="12.345.678-9"
                     required
                   />
@@ -733,7 +686,7 @@ export function RegisterPage() {
                       <span style={{ color: /\d/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <CheckCircle2 size={12} /> Al menos 1 número
                       </span>
-                      <span style={{ color: /[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~\-]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <span style={{ color: /[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~-]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <CheckCircle2 size={12} /> Al menos 1 símbolo especial
                       </span>
                     </div>
@@ -773,68 +726,6 @@ export function RegisterPage() {
                 </p>
               </motion.form>
             </>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="register-form-card"
-              style={{ textAlign: 'center', padding: '3rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
-            >
-              <MailCheck size={64} color="var(--color-primary-strong)" style={{ margin: '0 auto 1.5rem' }} />
-              <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: 'var(--color-ink)' }}>Revisa tu correo electrónico</h2>
-              <p style={{ color: 'var(--color-muted)', marginBottom: '2rem', lineHeight: '1.5' }}>
-                Hemos enviado un enlace de confirmación a <strong>{form.emailContacto}</strong>.<br />
-                Haz clic en el enlace para validar tu cuenta y poder ingresar.
-              </p>
-
-              {error && (
-                <p className="admin-alert register-error" style={{ marginBottom: '1.5rem', width: '100%', textAlign: 'left' }}>
-                  {error}
-                </p>
-              )}
-
-              <Button
-                onClick={handleVerifyEmail}
-                disabled={isVerifying}
-                style={{ width: '100%', marginBottom: '1rem', padding: '1rem' }}
-              >
-                {isVerifying ? 'Verificando estado...' : 'Ya verifiqué mi correo'}
-              </Button>
-
-              <Button
-                variant="ghost"
-                onClick={async () => {
-                  try {
-                    await authService.registerUserWithVerification({
-                      ...form,
-                      genero: form.genero.trim().toLowerCase(),
-                      emailContacto: form.emailContacto
-                    }, form.password);
-                    setError('Correo reenviado. Por favor revisa tu bandeja de entrada o spam.');
-                  } catch (e) {
-                    if (e.code === 'auth/email-already-in-use') {
-                      // Si ya existe en auth, solo reenviamos el correo sin intentar crear en firestore de nuevo
-                      try {
-                        const { getAuth, sendEmailVerification } = await import('firebase/auth');
-                        const auth = getAuth();
-                        if (auth.currentUser) {
-                          await sendEmailVerification(auth.currentUser);
-                          setError('Correo reenviado exitosamente.');
-                        }
-                      } catch {
-                        setError('No se pudo reenviar el correo. Inicia sesion nuevamente e intentalo otra vez.');
-                      }
-                    } else {
-                      setError('No se pudo reenviar el correo. ' + getRegisterErrorMessage(e));
-                    }
-                  }
-                }}
-                style={{ width: '100%' }}
-              >
-                Reenviar correo
-              </Button>
-            </motion.div>
-          )}
         </motion.section>
       </section>
     </main>
