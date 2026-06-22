@@ -66,9 +66,9 @@ function ProductFormModal({
   imageError,
   categoryError,
   stockError,
+  errorMessage,
   isEditing,
   isSaving,
-  error,
   onChange,
   onImageChange,
   onClose,
@@ -141,7 +141,7 @@ function ProductFormModal({
           </span>
         </div>
         {imageError && <p className="admin-alert compact">{imageError}</p>}
-        {error && <p className="admin-alert">{error.message}</p>}
+        {errorMessage && <p className="admin-alert">{errorMessage}</p>}
         <div className="admin-modal-actions">
           <Button type="button" variant="ghost" onClick={onClose}><X size={16} /> Cancelar</Button>
           <Button type="submit" disabled={isSaving}>
@@ -239,6 +239,8 @@ function ProductDetailModal({
   onDelete,
   onToggleStatus,
   onUploadImage,
+  imageError,
+  isUploadingImage,
   isMutating,
 }) {
   const stockStatus = getStockStatus(stock);
@@ -269,9 +271,17 @@ function ProductDetailModal({
           <div className="admin-modal-actions">
             <Button type="button" variant="ghost" onClick={onClose}>Cerrar</Button>
             <Button type="button" variant="ghost" onClick={() => onEdit(product)}><Edit3 size={16} /> Editar</Button>
-            <label className="button button-ghost staff-file-button">
-              <span className="button-content"><Camera size={16} /> Cambiar imagen</span>
-              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onUploadImage(product, event)} />
+            <label
+              className={`button button-ghost staff-file-button${isUploadingImage ? ' is-disabled' : ''}`}
+              aria-disabled={isUploadingImage}
+            >
+              <span className="button-content"><Camera size={16} /> {isUploadingImage ? 'Subiendo imagen...' : 'Cambiar imagen'}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => onUploadImage(product, event)}
+                disabled={isUploadingImage}
+              />
             </label>
             {product.activo === true ? (
               <Button type="button" variant="ghost" onClick={() => onToggleStatus(product)} disabled={isMutating}><PowerOff size={16} /> Desactivar</Button>
@@ -280,6 +290,7 @@ function ProductDetailModal({
             )}
             <Button type="button" variant="ghost" onClick={() => onDelete(getProductId(product))} disabled={isMutating}><Trash2 size={16} /> Eliminar</Button>
           </div>
+          {imageError && <p className="admin-alert compact">{imageError}</p>}
         </div>
       )}
     </Modal>
@@ -298,6 +309,9 @@ export function InventoryAdminPage() {
   const [productImageError, setProductImageError] = useState('');
   const [productCategoryError, setProductCategoryError] = useState('');
   const [productStockError, setProductStockError] = useState('');
+  const [productFormError, setProductFormError] = useState('');
+  const [productDetailImageError, setProductDetailImageError] = useState('');
+  const [productImageFeedback, setProductImageFeedback] = useState('');
   const [stockForm, setStockForm] = useState(initialStockForm);
   const [stockModalOpen, setStockModalOpen] = useState(false);
   const [inventorySearch, setInventorySearch] = useState('');
@@ -373,6 +387,16 @@ export function InventoryAdminPage() {
     ));
   };
 
+  const openProductDetail = (product) => {
+    setProductDetailImageError('');
+    setSelectedProduct(product);
+  };
+
+  const closeProductDetail = () => {
+    setProductDetailImageError('');
+    setSelectedProduct(null);
+  };
+
   useEffect(() => {
     if (!productImageFile) return undefined;
     const objectUrl = URL.createObjectURL(productImageFile);
@@ -443,6 +467,7 @@ export function InventoryAdminPage() {
     setProductImageError('');
     setProductCategoryError('');
     setProductStockError('');
+    setProductFormError('');
   };
 
   const resetStockModal = () => {
@@ -460,6 +485,8 @@ export function InventoryAdminPage() {
     setProductImageError('');
     setProductCategoryError('');
     setProductStockError('');
+    setProductFormError('');
+    setProductImageFeedback('');
     setProductModalOpen(true);
   };
 
@@ -474,6 +501,8 @@ export function InventoryAdminPage() {
     setProductImageError('');
     setProductCategoryError('');
     setProductStockError('');
+    setProductFormError('');
+    setProductImageFeedback('');
     setProductModalOpen(true);
   };
 
@@ -497,6 +526,11 @@ export function InventoryAdminPage() {
   };
 
   const saveProductMutation = useMutation({
+    onMutate: () => {
+      setProductFormError('');
+      setProductImageFeedback('');
+      return { wasImageUpdate: Boolean(editingProductId && productImageFile) };
+    },
     mutationFn: async (payload) => {
       let savedProduct;
       if (editingProductId) {
@@ -510,8 +544,16 @@ export function InventoryAdminPage() {
     },
     onSuccess: (updatedProduct) => {
       applyUpdatedProduct(updatedProduct);
+      if (editingProductId && productImageFile) {
+        setProductImageFeedback('Imagen editada correctamente');
+      }
       resetProductModal();
       invalidateInventory();
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.wasImageUpdate) {
+        setProductFormError('No fue posible editar la imagen del producto');
+      }
     },
   });
 
@@ -547,10 +589,19 @@ export function InventoryAdminPage() {
     },
   });
   const productImageMutation = useMutation({
+    onMutate: () => {
+      setProductDetailImageError('');
+      setProductImageFeedback('');
+    },
     mutationFn: ({ productId, file }) => inventoryService.uploadProductImage(productId, file),
     onSuccess: (updatedProduct) => {
       applyUpdatedProduct(updatedProduct);
+      closeProductDetail();
+      setProductImageFeedback('Imagen editada correctamente');
       invalidateInventory();
+    },
+    onError: () => {
+      setProductDetailImageError('No fue posible editar la imagen del producto');
     },
   });
   const categoryCoverMutation = useMutation({
@@ -610,6 +661,7 @@ export function InventoryAdminPage() {
   const handleTableProductImageChange = (product, event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
+    if (productImageMutation.isPending) return;
     if (!file) return;
     productImageMutation.mutate({ productId: getProductId(product), file });
   };
@@ -648,6 +700,10 @@ export function InventoryAdminPage() {
         <p className="admin-alert">
           Se detectaron {inconsistentStock.length} registros con stock negativo. No se cuentan como Bajo stock ni Sin stock; revisa la tabla/API antes de operar inventario.
         </p>
+      )}
+
+      {productImageFeedback && (
+        <p className="admin-success-alert" role="status" aria-live="polite">{productImageFeedback}</p>
       )}
 
       <section className="admin-panel compact-panel admin-inventory-actions">
@@ -748,7 +804,7 @@ export function InventoryAdminPage() {
       ) : (
         <DataTable
           compact
-          onRowClick={(product) => setSelectedProduct(product)}
+          onRowClick={openProductDetail}
           getRowKey={(product) => getProductId(product)}
           getRowLabel={(product) => `Ver detalle de ${product.nombre || 'producto'}`}
           columns={[
@@ -799,7 +855,7 @@ export function InventoryAdminPage() {
         stockError={productStockError}
         isEditing={Boolean(editingProductId)}
         isSaving={saveProductMutation.isPending}
-        error={saveProductMutation.error}
+        errorMessage={productFormError || saveProductMutation.error?.message}
         onChange={(event) => {
           const { name, value } = event.target;
           setProductForm((current) => ({ ...current, [name]: value }));
@@ -842,16 +898,18 @@ export function InventoryAdminPage() {
       <ProductDetailModal
         product={selectedProduct}
         stock={selectedProduct ? stockByProduct[getProductId(selectedProduct)] : null}
-        onClose={() => setSelectedProduct(null)}
+        onClose={closeProductDetail}
         onEdit={openEditProduct}
         onDelete={(id) => deleteMutation.mutate(id)}
         onToggleStatus={(product) => productStatusMutation.mutate(product)}
         onUploadImage={handleTableProductImageChange}
+        imageError={productDetailImageError}
+        isUploadingImage={productImageMutation.isPending}
         isMutating={isMutating}
       />
 
-      {(productImageMutation.isError || productStatusMutation.isError || deleteMutation.isError) && (
-        <p className="admin-alert">{productImageMutation.error?.message || productStatusMutation.error?.message || deleteMutation.error?.message}</p>
+      {(productStatusMutation.isError || deleteMutation.isError) && (
+        <p className="admin-alert">{productStatusMutation.error?.message || deleteMutation.error?.message}</p>
       )}
     </div>
   );

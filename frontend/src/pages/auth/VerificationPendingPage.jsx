@@ -4,7 +4,7 @@ import { MailCheck, RefreshCw, LogOut, Mail, LogIn } from 'lucide-react';
 import { Button } from '../../components/ui/Button.jsx';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { firebaseAuth } from '../../services/firebaseClient.js';
-import { sendEmailVerification, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { sendEmailVerification } from 'firebase/auth';
 import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { motion } from 'framer-motion';
 

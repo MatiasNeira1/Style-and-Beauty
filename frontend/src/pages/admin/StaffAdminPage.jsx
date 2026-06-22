@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Camera, Eye, Image, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton } from '../../components/admin/AdminPrimitives.jsx';
@@ -38,6 +38,25 @@ function normalizeText(value = '') {
   return String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+function hasActiveSchedule(schedules) {
+  return Array.isArray(schedules) && schedules.some((schedule) => (
+    schedule?.activo !== false && schedule?.horaInicio && schedule?.horaFin
+  ));
+}
+
+function getPortfolioImages(staff) {
+  if (Array.isArray(staff?.portfolioImages)) return staff.portfolioImages;
+  if (Array.isArray(staff?.portfolio)) return staff.portfolio;
+  if (Array.isArray(staff?.trabajos)) return staff.trabajos;
+  return null;
+}
+
+function summaryValue(isLoading, isError, value) {
+  if (isLoading) return '...';
+  if (isError || value == null) return 'N/D';
+  return value;
+}
+
 export function StaffAdminPage() {
   const queryClient = useQueryClient();
   const [showFormModal, setShowFormModal] = useState(false);
@@ -59,6 +78,16 @@ export function StaffAdminPage() {
     queryKey: ['staff-portfolio', getStaffId(selectedStaff)],
     queryFn: () => staffService.listPortfolio(getStaffId(selectedStaff)),
     enabled: Boolean(getStaffId(selectedStaff)),
+  });
+  const staff = useMemo(() => (Array.isArray(staffQuery.data) ? staffQuery.data : []), [staffQuery.data]);
+  const staffIds = useMemo(() => staff.map(getStaffId).filter(staffService.isValidUuid), [staff]);
+  const scheduleSummaryQueries = useQueries({
+    queries: staffIds.map((staffId) => ({
+      queryKey: ['staff-schedules-summary', staffId],
+      queryFn: () => staffService.listSchedules(staffId),
+      enabled: staffQuery.isSuccess,
+      staleTime: 5 * 60 * 1000,
+    })),
   });
 
   const invalidateStaff = () => {
@@ -145,17 +174,26 @@ export function StaffAdminPage() {
 
   const scheduleMutation = useMutation({
     mutationFn: (jornadas) => staffService.saveSchedules(getStaffId(selectedStaff), jornadas),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-schedules', getStaffId(selectedStaff)] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-schedules', getStaffId(selectedStaff)] });
+      queryClient.invalidateQueries({ queryKey: ['staff-schedules-summary'] });
+    },
   });
 
   const uploadImageMutation = useMutation({
     mutationFn: (file) => staffService.uploadPortfolioImage(getStaffId(selectedStaff), file),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-portfolio', getStaffId(selectedStaff)] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-portfolio', getStaffId(selectedStaff)] });
+      invalidateStaff();
+    },
   });
 
   const deleteImageMutation = useMutation({
     mutationFn: (imageId) => staffService.deletePortfolioImage(getStaffId(selectedStaff), imageId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff-portfolio', getStaffId(selectedStaff)] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-portfolio', getStaffId(selectedStaff)] });
+      invalidateStaff();
+    },
   });
 
   const handleFormSubmit = (data, isEdit) => {
@@ -176,10 +214,16 @@ export function StaffAdminPage() {
   const handleUpload = useCallback((file) => uploadImageMutation.mutateAsync(file), [uploadImageMutation]);
   const handleDeleteImage = useCallback((imageId) => deleteImageMutation.mutate(imageId), [deleteImageMutation]);
 
-  const staff = useMemo(() => (Array.isArray(staffQuery.data) ? staffQuery.data : []), [staffQuery.data]);
   const specialties = useMemo(() => (Array.isArray(specialtiesQuery.data) ? specialtiesQuery.data : []), [specialtiesQuery.data]);
   const schedules = useMemo(() => (Array.isArray(scheduleQuery.data) ? scheduleQuery.data : []), [scheduleQuery.data]);
   const portfolio = useMemo(() => (Array.isArray(portfolioQuery.data) ? portfolioQuery.data : []), [portfolioQuery.data]);
+  const scheduleSummaryLoading = staffQuery.isLoading || scheduleSummaryQueries.some((query) => query.isPending && !query.data);
+  const scheduleSummaryError = staffQuery.isError || scheduleSummaryQueries.some((query) => query.isError);
+  const portfolioSummaryAvailable = staff.every((member) => getPortfolioImages(member) !== null);
+  const professionalsWithSchedule = scheduleSummaryError ? null : scheduleSummaryQueries.filter((query) => hasActiveSchedule(query.data)).length;
+  const professionalsWithPortfolio = !portfolioSummaryAvailable || staffQuery.isError
+    ? null
+    : staff.filter((member) => getPortfolioImages(member)?.length > 0).length;
   const filteredStaff = useMemo(() => {
     const needle = normalizeText(staffSearch.trim());
     return staff.filter((member) => {
@@ -255,9 +299,9 @@ export function StaffAdminPage() {
       />
 
       <AdminKpiGrid>
-        <AdminKpiCard icon={Users} title="Profesionales" value={staff.length} trend={5} microcopy="Perfiles registrados" tone="rose" />
-        <AdminKpiCard icon={CalendarClock} title="Jornadas" value={schedules.length} trend={4} microcopy={selectedStaff ? 'Panel seleccionado' : 'Selecciona un profesional'} tone="sage" />
-        <AdminKpiCard icon={Image} title="Portfolio" value={portfolio.length} trend={3} microcopy="Trabajos visibles" tone="gold" />
+        <AdminKpiCard icon={Users} title="Profesionales" value={summaryValue(staffQuery.isLoading, staffQuery.isError, staff.length)} trend={0} microcopy="Perfiles registrados" tone="rose" />
+        <AdminKpiCard icon={CalendarClock} title="Jornadas" value={summaryValue(scheduleSummaryLoading, scheduleSummaryError, professionalsWithSchedule)} trend={0} microcopy={scheduleSummaryError ? 'Jornadas no disponibles' : 'Profesionales con jornada'} tone="sage" />
+        <AdminKpiCard icon={Image} title="Portfolio" value={summaryValue(staffQuery.isLoading, staffQuery.isError || !portfolioSummaryAvailable, professionalsWithPortfolio)} trend={0} microcopy={portfolioSummaryAvailable ? 'Profesionales con trabajos visibles' : 'Portfolio no disponible'} tone="gold" />
       </AdminKpiGrid>
 
       {(createMutation.isError || updateMutation.isError || deleteMutation.isError || staffPhotoMutation.isError || deleteStaffPhotoMutation.isError) && (

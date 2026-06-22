@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,6 +60,7 @@ class PerfilServiceTest {
 
         assertThat(creado).isSameAs(cliente);
         assertThat(dto.getTipoPerfil()).isEqualTo("CLIENTE");
+        assertThat(dto.getRut()).isEqualTo("12345678-5");
         assertThat(dto.getEmailContacto()).isEqualTo("cliente@test.cl");
     }
 
@@ -82,6 +84,47 @@ class PerfilServiceTest {
     }
 
     @Test
+    void validarDisponibilidadParaCreacionRechazaRutInvalido() {
+        PerfilRequestDTO dto = clienteDto();
+        dto.setRut("12345678-9");
+
+        assertThatThrownBy(() -> service.validarDisponibilidadParaCreacion(dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("RUT");
+    }
+
+    @Test
+    void validarDisponibilidadParaCreacionRechazaRutDuplicadoNormalizado() {
+        PerfilRequestDTO dto = clienteDto();
+        PersonaModel existente = new ClienteModel();
+        existente.setIdPersona(UUID.randomUUID());
+        existente.setRut("12.345.678-5");
+        when(personaRepository.findAllByRutCompact("123456785")).thenReturn(List.of(existente));
+
+        assertThatThrownBy(() -> service.validarDisponibilidadParaCreacion(dto))
+                .hasMessageContaining("RUT ingresado ya se encuentra registrado");
+    }
+
+    @Test
+    void actualizarPerfilComoAdminPermiteMantenerMismoRutNormalizado() {
+        UUID idPersona = UUID.randomUUID();
+        ClienteModel cliente = new ClienteModel();
+        cliente.setIdPersona(idPersona);
+        cliente.setRut("12.345.678-5");
+        PerfilRequestDTO dto = new PerfilRequestDTO();
+        dto.setRut("12345678-5");
+
+        when(personaRepository.findByIdAuth("auth-1")).thenReturn(Optional.of(cliente));
+        when(personaRepository.findAllByRutCompact("123456785")).thenReturn(List.of(cliente));
+        when(personaRepository.save(cliente)).thenReturn(cliente);
+
+        PersonaModel actualizado = service.actualizarPerfilComoAdmin("auth-1", dto);
+
+        assertThat(actualizado.getRut()).isEqualTo("12345678-5");
+        verify(personaRepository).save(cliente);
+    }
+
+    @Test
     void actualizarFotoPropiaPersisteUrlAzureEnCliente() {
         ClienteModel cliente = new ClienteModel();
         MultipartFile file = mock(MultipartFile.class);
@@ -101,7 +144,7 @@ class PerfilServiceTest {
         PerfilRequestDTO dto = new PerfilRequestDTO();
         dto.setIdAuth("auth-1");
         dto.setTipoPerfil("cliente");
-        dto.setRut("11.111.111-1");
+        dto.setRut("12.345.678-5");
         dto.setNombre("Cliente");
         dto.setEmailContacto("CLIENTE@TEST.CL");
         dto.setFechaNacimiento(LocalDate.now().minusYears(20));

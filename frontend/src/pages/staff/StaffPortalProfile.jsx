@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { staffService } from '../../services/staffService.js';
+import { formatRut } from '../../utils/rutUtils.js';
 import {
   Award,
   BookOpen,
@@ -86,7 +87,7 @@ export function StaffPortalProfile({ currentStaff, fullName, initials, specialty
           <div className="staff-profile-facts">
             <ProfileFact icon={Mail} label="Email" value={currentStaff.emailContacto} />
             <ProfileFact icon={Phone} label="Telefono" value={currentStaff.telefono} />
-            <ProfileFact icon={FileText} label="RUT" value={currentStaff.rut} />
+            <ProfileFact icon={FileText} label="RUT" value={currentStaff.rut ? formatRut(currentStaff.rut) : ''} />
             <ProfileFact icon={Calendar} label="Nacimiento" value={currentStaff.fechaNacimiento} />
             <ProfileFact icon={Briefcase} label="Experiencia" value={currentStaff.experienciaAnios ? `${currentStaff.experienciaAnios} anos` : ''} />
             <ProfileFact icon={User} label="Genero" value={currentStaff.genero} />

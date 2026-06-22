@@ -33,6 +33,7 @@ import { profileService } from '../../services/profileService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
 import { staffService } from '../../services/staffService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
+import { normalizeRut } from '../../utils/rutUtils.js';
 import { StaffDashboard } from './StaffDashboard.jsx';
 import { StaffPortalProfile } from './StaffPortalProfile.jsx';
 import '../../styles/staff.css';
@@ -285,7 +286,7 @@ function normalizeDate(value) {
 
 function buildProfilePayload(data) {
   return {
-    rut: data.rut,
+    rut: normalizeRut(data.rut),
     nombre: data.nombre,
     apellidos: optionalValue(data.apellidos),
     fechaNacimiento: normalizeDate(data.fechaNacimiento),

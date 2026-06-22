@@ -1,6 +1,7 @@
 package com.style.beauty.ms_cliente.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,12 +18,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.google.firebase.auth.FirebaseToken;
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
+import com.style.beauty.ms_cliente.exception.DuplicateRutException;
 import com.style.beauty.ms_cliente.model.PersonaModel;
 import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 import com.style.beauty.ms_cliente.service.FirebaseTokenVerifier;
 import com.style.beauty.ms_cliente.service.PerfilService;
 
 import java.util.UUID;
+import java.util.Map;
 
 
 
@@ -74,8 +77,12 @@ public class AdminController {
             }
 
             return ResponseEntity.ok(perfilService.registrarNuevoPerfil(requestDTO));
+        } catch (DuplicateRutException e) {
+            return mensaje(HttpStatus.CONFLICT, e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return mensaje(HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error al crear perfil: " + e.getMessage());
+            return mensaje(HttpStatus.BAD_REQUEST, "Error al crear perfil: " + e.getMessage());
         }
     }
 
@@ -91,8 +98,12 @@ public class AdminController {
             // Usamos el idAuth que viene en la URL, no el del Admin
             PersonaModel perfilActualizado = perfilService.actualizarPerfilComoAdmin(idAuthTarget, requestDTO);
             return ResponseEntity.ok(perfilActualizado);
+        } catch (DuplicateRutException e) {
+            return mensaje(HttpStatus.CONFLICT, e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return mensaje(HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error al actualizar: " + e.getMessage());
+            return mensaje(HttpStatus.BAD_REQUEST, "Error al actualizar: " + e.getMessage());
         }
     }
 
@@ -157,5 +168,9 @@ public class AdminController {
         Object rolObj = decodedToken.getClaims().getOrDefault("rol", decodedToken.getClaims().get("role"));
         String rol = rolObj == null ? null : String.valueOf(rolObj);
         return "ADMIN".equalsIgnoreCase(rol);
+    }
+
+    private ResponseEntity<Map<String, String>> mensaje(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(Map.of("message", message));
     }
 }
