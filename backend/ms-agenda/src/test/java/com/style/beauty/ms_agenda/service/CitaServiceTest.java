@@ -343,6 +343,16 @@ class CitaServiceTest {
     }
 
     @Test
+    void crearDesdeAdminGeneraReservaConfirmadaSinExpiracion() {
+        Cita creada = citaService.crearDesdeAdmin(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 30), null, null, "Admin"));
+
+        assertThat(creada.getEstadoCita()).isEqualTo(EstadoCita.CONFIRMADA);
+        assertThat(creada.getExpiracionReserva()).isNull();
+        assertThat(creada.getObservacionCliente()).isEqualTo("Admin");
+        verify(citaRepository, never()).actualizarExpiracionReservasPendientesCliente(any(), any(), any());
+    }
+
+    @Test
     void rechazaDisponibilidadEnFechaPasada() {
         LocalDate ayer = LocalDate.now(ZONE).minusDays(1);
 

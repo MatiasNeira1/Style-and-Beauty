@@ -22,6 +22,7 @@ import com.style.beauty.ms_cliente.repository.ClienteRepository;
 import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 import com.style.beauty.ms_cliente.repository.StaffPortfolioImageRepository;
 import com.style.beauty.ms_cliente.repository.StaffRepository;
+import com.style.beauty.ms_cliente.util.ProfileImageUrlValidator;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
@@ -352,7 +353,9 @@ public class PerfilService {
 
         if (dto.getTelefono() != null) persona.setTelefono(dto.getTelefono());
         if (persona instanceof StaffModel staff) {
-            if (dto.getFotoUrl() != null && !dto.getFotoUrl().isBlank()) staff.setFotoUrl(dto.getFotoUrl());
+            if (dto.getFotoUrl() != null && !dto.getFotoUrl().isBlank()) {
+                staff.setFotoUrl(ProfileImageUrlValidator.validateStoredUrl(dto.getFotoUrl()));
+            }
             if (Boolean.TRUE.equals(dto.getSinImagenPorAhora()) && (staff.getFotoUrl() == null || staff.getFotoUrl().isBlank())) {
                 staff.setFotoUrl(companyLogoUrl);
             }

@@ -4,6 +4,7 @@ import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
 import com.style.beauty.ms_cliente.exception.ProfileNotFoundException;
 import com.style.beauty.ms_cliente.model.ClienteModel;
 import com.style.beauty.ms_cliente.model.PersonaModel;
+import com.style.beauty.ms_cliente.model.StaffModel;
 import com.style.beauty.ms_cliente.repository.ClienteRepository;
 import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 import com.style.beauty.ms_cliente.repository.PersonaRepository;
@@ -138,6 +139,18 @@ class PerfilServiceTest {
         assertThat(actualizado).isSameAs(cliente);
         assertThat(cliente.getFotoUrl()).isEqualTo(imageUrl);
         verify(personaRepository).save(cliente);
+    }
+
+    @Test
+    void actualizarPerfilComoAdminRechazaFotoBase64EnJson() {
+        StaffModel staff = new StaffModel();
+        PerfilRequestDTO dto = new PerfilRequestDTO();
+        dto.setFotoUrl("data:image/png;base64,AAA");
+        when(personaRepository.findByIdAuth("staff-auth")).thenReturn(Optional.of(staff));
+
+        assertThatThrownBy(() -> service.actualizarPerfilComoAdmin("staff-auth", dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("imagen");
     }
 
     private PerfilRequestDTO clienteDto() {
