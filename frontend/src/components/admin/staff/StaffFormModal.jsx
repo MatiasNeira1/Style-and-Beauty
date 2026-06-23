@@ -4,27 +4,7 @@ import { Modal } from '../../ui/Modal.jsx';
 import { Button } from '../../ui/Button.jsx';
 import { Input } from '../../ui/Input.jsx';
 import { SafeImage } from '../../ui/SafeImage.jsx';
-
-function validateRut(rut) {
-  if (!rut || typeof rut !== 'string') return false;
-  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (cleanRut.length < 2) return false;
-
-  const body = cleanRut.slice(0, -1);
-  const dv = cleanRut.slice(-1);
-
-  let sum = 0;
-  let multiplier = 2;
-  for (let i = body.length - 1; i >= 0; i -= 1) {
-    sum += parseInt(body[i], 10) * multiplier;
-    multiplier = multiplier === 7 ? 2 : multiplier + 1;
-  }
-
-  const expectedDv = 11 - (sum % 11);
-  const calculatedDv = expectedDv === 11 ? '0' : expectedDv === 10 ? 'K' : String(expectedDv);
-
-  return calculatedDv === dv;
-}
+import { formatRut, normalizeRut, validateRut } from '../../../utils/rutUtils.js';
 
 function hasChileanRutFormat(rut) {
   return /^\d{1,2}\.\d{3}\.\d{3}-[0-9K]$/.test(String(rut || '').toUpperCase());
@@ -32,24 +12,6 @@ function hasChileanRutFormat(rut) {
 
 function isBlank(value) {
   return String(value ?? '').trim() === '';
-}
-
-function formatRut(value) {
-  if (!value) return '';
-  const clean = value.replace(/[^0-9kK]/g, '').toUpperCase().slice(0, 9);
-  if (clean.length <= 1) return clean;
-
-  const dv = clean.slice(-1);
-  const body = clean.slice(0, -1);
-  let formattedBody = body;
-
-  if (body.length > 6) {
-    formattedBody = `${body.slice(0, body.length - 6)}.${body.slice(body.length - 6, body.length - 3)}.${body.slice(body.length - 3)}`;
-  } else if (body.length > 3) {
-    formattedBody = `${body.slice(0, body.length - 3)}.${body.slice(body.length - 3)}`;
-  }
-
-  return `${formattedBody}-${dv}`;
 }
 
 function onlyDigits(value) {
@@ -287,7 +249,12 @@ export function StaffFormModal({
       return;
     }
 
-    await onSubmit({ ...cleanValues, sinImagenPorAhora: Boolean(formValues.sinImagenPorAhora), fotoFile: selectedPhoto }, isEditMode);
+    await onSubmit({
+      ...cleanValues,
+      rut: normalizeRut(cleanValues.rut),
+      sinImagenPorAhora: Boolean(formValues.sinImagenPorAhora),
+      fotoFile: selectedPhoto,
+    }, isEditMode);
   };
 
   const handleClose = () => {
@@ -335,6 +302,7 @@ export function StaffFormModal({
               error={errors.rut}
               value={formValues.rut}
               onChange={updateField('rut', formatRut)}
+              onBlur={() => setFormValues((current) => ({ ...current, rut: formatRut(current.rut) }))}
             />
             <Input label="Nombre" id="staff-form-nombre" placeholder="Valentina" error={errors.nombre} value={formValues.nombre} onChange={updateField('nombre')} />
             <Input label="Apellidos" id="staff-form-apellidos" placeholder="Rojas Soto" error={errors.apellidos} value={formValues.apellidos} onChange={updateField('apellidos')} />

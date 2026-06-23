@@ -7,6 +7,9 @@ import com.style.beauty.ms_agenda.client.ServicioResumen;
 import com.style.beauty.ms_agenda.dto.ActualizarEstadoCitaRequest;
 import com.style.beauty.ms_agenda.dto.CitaAgendaResponse;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteResponse;
+import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
@@ -34,6 +37,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -42,10 +46,12 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -91,6 +97,19 @@ public class CitaService {
         return citaRepository.findByIdStaff(idStaff);
     }
 
+    public List<CitaAgendaResponse> listarCitasFinalizadasCliente(UUID idCliente) {
+        log.info("Listando citas finalizadas para cliente: idCliente={}", idCliente);
+
+        Map<UUID, String> nombresClientes = new HashMap<>();
+        Map<UUID, String> nombresServicios = new HashMap<>();
+
+        return citaRepository.findByIdClienteAndEstadoCita(idCliente, EstadoCita.FINALIZADA)
+                .stream()
+                .sorted(Comparator.comparing(Cita::getFechaHoraInicio).reversed())
+                .map(cita -> toAgendaResponse(cita, nombresClientes, nombresServicios))
+                .toList();
+    }
+
     public List<CitaAgendaResponse> listarAgendaStaff(UUID idStaff) {
         log.info("Listando agenda enriquecida para staff: idStaff={}", idStaff);
         liberarReservasVencidas();
@@ -105,11 +124,19 @@ public class CitaService {
                 .toList();
     }
 
-    public List<CitaAgendaResponse> listarPorCliente(UUID idCliente, LocalDate desde, LocalDate hasta, EstadoCita estado) {
+    public List<CitaAgendaResponse> listarPorCliente(
+            UUID idCliente,
+            LocalDate desde,
+            LocalDate hasta,
+            EstadoCita estado
+    ) {
+        log.info("Listando citas para cliente: idCliente={}, desde={}, hasta={}, estado={}",
+                idCliente, desde, hasta, estado);
         validarRangoFechas(desde, hasta);
-        OffsetDateTime inicio = atDateTime(desde, 0, 0);
-        OffsetDateTime fin = atDateTime(hasta.plusDays(1), 0, 0);
+        liberarReservasVencidas();
 
+        OffsetDateTime inicio = desde == null ? null : atDateTime(desde, 0, 0);
+        OffsetDateTime fin = hasta == null ? null : atDateTime(hasta.plusDays(1), 0, 0);
         Map<UUID, String> nombresClientes = new HashMap<>();
         Map<UUID, String> nombresServicios = new HashMap<>();
 
@@ -119,11 +146,19 @@ public class CitaService {
                 .toList();
     }
 
-    public List<CitaAgendaResponse> listarPorStaff(UUID idStaff, LocalDate desde, LocalDate hasta, EstadoCita estado) {
+    public List<CitaAgendaResponse> listarPorStaff(
+            UUID idStaff,
+            LocalDate desde,
+            LocalDate hasta,
+            EstadoCita estado
+    ) {
+        log.info("Listando citas para staff: idStaff={}, desde={}, hasta={}, estado={}",
+                idStaff, desde, hasta, estado);
         validarRangoFechas(desde, hasta);
-        OffsetDateTime inicio = atDateTime(desde, 0, 0);
-        OffsetDateTime fin = atDateTime(hasta.plusDays(1), 0, 0);
+        liberarReservasVencidas();
 
+        OffsetDateTime inicio = desde == null ? null : atDateTime(desde, 0, 0);
+        OffsetDateTime fin = hasta == null ? null : atDateTime(hasta.plusDays(1), 0, 0);
         Map<UUID, String> nombresClientes = new HashMap<>();
         Map<UUID, String> nombresServicios = new HashMap<>();
 
@@ -150,6 +185,18 @@ public class CitaService {
                         OffsetDateTime.now(zoneId()),
                         estadosIgnoradosParaDisponibilidad()
                 )
+                .stream()
+                .map(this::toProximaCitaClienteResponse)
+                .toList();
+    }
+
+    public List<ProximaCitaClienteResponse> listarHistorialCliente(UUID idCliente) {
+        if (idCliente == null) {
+            throw new BusinessException("No fue posible identificar al cliente autenticado");
+        }
+
+        liberarReservasVencidas();
+        return citaRepository.buscarHistorialCitasCliente(idCliente, EstadoCita.FINALIZADA)
                 .stream()
                 .map(this::toProximaCitaClienteResponse)
                 .toList();
@@ -382,6 +429,103 @@ public class CitaService {
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Cita crear(CrearCitaRequest request) {
+        return crearConReglas(request, EstadoCita.PENDIENTE_PAGO, true);
+    }
+
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public Cita crearDesdeAdmin(CrearCitaRequest request) {
+        return crearConReglas(request, EstadoCita.CONFIRMADA, false);
+    }
+
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public CrearCitasLoteResponse crearLoteDesdeAdmin(CrearCitasLoteRequest request) {
+        log.info("Creando lote de citas admin: idCliente={}, fecha={}, reservas={}",
+                request.idCliente(), request.fecha(), request.reservas() == null ? 0 : request.reservas().size());
+
+        liberarReservasVencidas();
+        validarLoteBase(request);
+        BigDecimal abono = validarAbonoAdmin(request.abono());
+        perfilClient.obtenerCliente(request.idCliente());
+
+        List<Cita> preparadas = new ArrayList<>();
+        Set<UUID> servicios = new HashSet<>();
+        OffsetDateTime finAnterior = null;
+        BigDecimal totalEstimado = BigDecimal.ZERO;
+
+        for (CrearCitasLoteRequest.ReservaLoteRequest reserva : request.reservas()) {
+            if (!servicios.add(reserva.idServicio())) {
+                throw new BusinessException("La agenda múltiple requiere servicios distintos.");
+            }
+
+            var staff = perfilClient.obtenerStaff(reserva.idStaff());
+            ServicioResumen servicio = servicioClient.obtenerServicio(reserva.idServicio());
+            validarStaffRealizaServicio(reserva.idServicio(), reserva.idStaff());
+            totalEstimado = totalEstimado.add(precioServicio(servicio));
+
+            int duracion = duracionServicio(servicio);
+            int holgura = holguraService.calcularHolguraMin(servicio, staff.holguraCitaMinutos());
+            validarDuracionYHolgura(duracion, holgura);
+
+            OffsetDateTime inicio = request.fecha()
+                    .atTime(reserva.horaInicio())
+                    .atZone(zoneId())
+                    .toOffsetDateTime();
+            OffsetDateTime finAtencion = inicio.plusMinutes(duracion);
+            OffsetDateTime finVisible = finAtencion.plusMinutes(holgura);
+
+            if (finAnterior != null && inicio.isBefore(finAnterior)) {
+                throw new BusinessException("No fue posible encadenar todos los servicios dentro del horario laboral del profesional.");
+            }
+
+            validarFechaHoraReservable(inicio, finVisible);
+            validarJornada(reserva.idStaff(), inicio, finVisible);
+            validarBloqueos(reserva.idStaff(), inicio, finVisible);
+            validarChoqueCitas(reserva.idStaff(), inicio, finVisible);
+            validarChoqueCliente(request.idCliente(), inicio, finVisible);
+            validarChoqueLote(preparadas, request.idCliente(), reserva.idStaff(), inicio, finVisible);
+            validarSlotLoteMasCercano(reserva.idStaff(), request.fecha(), inicio, finVisible, duracion, holgura, finAnterior);
+
+            Cita cita = Cita.builder()
+                    .idCliente(request.idCliente())
+                    .idStaff(reserva.idStaff())
+                    .idServicio(reserva.idServicio())
+                    .fechaHoraInicio(inicio)
+                    .fechaHoraFin(finVisible)
+                    .fechaHoraFinAtencion(finAtencion)
+                    .duracionServicioMin(duracion)
+                    .holguraMin(holgura)
+                    .estadoCita(EstadoCita.CONFIRMADA)
+                    .tipoCita(TipoCita.NORMAL)
+                    .observacionCliente(notaLote(reserva))
+                    .build();
+
+            preparadas.add(cita);
+            finAnterior = finVisible;
+        }
+
+        validarAbonoNoSupereTotal(abono, totalEstimado);
+        BigDecimal saldoPendiente = calcularSaldoPendiente(totalEstimado, abono);
+
+        List<Cita> guardadas = new ArrayList<>();
+        for (Cita cita : preparadas) {
+            cita.setMontoAbonado(abono);
+            cita.setTotalEstimado(totalEstimado);
+            cita.setSaldoPendiente(saldoPendiente);
+            Cita guardada = guardarSinSolape(cita);
+            registrarHistorial(
+                    guardada.getIdCita(),
+                    AccionHistorial.CREADA,
+                    null,
+                    guardada.getEstadoCita().name(),
+                    "Reserva creada en agenda multiple desde panel administrativo"
+            );
+            guardadas.add(guardada);
+        }
+
+        return toLoteResponse(request.idCliente(), request.fecha(), totalEstimado, abono, saldoPendiente, guardadas);
+    }
+
+    private Cita crearConReglas(CrearCitaRequest request, EstadoCita estadoInicial, boolean reservaTemporal) {
         log.info("Creando cita: idServicio={}, idStaff={}, idCliente={}, fechaHoraInicio={}",
                 request.idServicio(), request.idStaff(), request.idCliente(), request.fechaHoraInicio());
 
@@ -396,6 +540,10 @@ public class CitaService {
 
         ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
         validarStaffRealizaServicio(request.idServicio(), request.idStaff());
+        BigDecimal totalEstimado = precioServicio(servicio);
+        BigDecimal abono = reservaTemporal ? normalizarAbonoOpcional(request.abono()) : validarAbonoAdmin(request.abono());
+        validarAbonoNoSupereTotal(abono, totalEstimado);
+        BigDecimal saldoPendiente = calcularSaldoPendiente(totalEstimado, abono);
 
         int duracion = duracionServicio(servicio);
         int holgura = holguraService.calcularHolguraMin(servicio, staff.holguraCitaMinutos());
@@ -405,7 +553,9 @@ public class CitaService {
         OffsetDateTime inicio = normalizarAZoneAgenda(request.fechaHoraInicio());
         OffsetDateTime finAtencion = inicio.plusMinutes(duracion);
         OffsetDateTime finVisible = finAtencion.plusMinutes(holgura);
-        OffsetDateTime expiracionReserva = OffsetDateTime.now(zoneId()).plusMinutes(minutosReservaTemporal);
+        OffsetDateTime expiracionReserva = reservaTemporal
+                ? OffsetDateTime.now(zoneId()).plusMinutes(minutosReservaTemporal)
+                : null;
 
         validarFechaReservable(inicio.toLocalDate());
         validarFechaHoraReservable(inicio, finVisible);
@@ -425,24 +575,159 @@ public class CitaService {
                 .fechaHoraFinAtencion(finAtencion)
                 .duracionServicioMin(duracion)
                 .holguraMin(holgura)
-                .estadoCita(EstadoCita.PENDIENTE_PAGO)
+                .estadoCita(estadoInicial)
                 .tipoCita(TipoCita.NORMAL)
                 .expiracionReserva(expiracionReserva)
                 .observacionCliente(request.observacionCliente())
+                .montoAbonado(abono)
+                .totalEstimado(totalEstimado)
+                .saldoPendiente(saldoPendiente)
                 .build();
 
         Cita guardada = guardarSinSolape(cita);
-        refrescarExpiracionReservasPendientesCliente(guardada.getIdCliente(), expiracionReserva);
+        if (reservaTemporal) {
+            refrescarExpiracionReservasPendientesCliente(guardada.getIdCliente(), expiracionReserva);
+        }
 
         registrarHistorial(
                 guardada.getIdCita(),
                 AccionHistorial.CREADA,
                 null,
                 guardada.getEstadoCita().name(),
-                "Reserva temporal agregada al carrito. Expira en " + minutosReservaTemporal + " minutos"
+                reservaTemporal
+                        ? "Reserva temporal agregada al carrito. Expira en " + minutosReservaTemporal + " minutos"
+                        : "Reserva creada desde panel administrativo"
         );
 
         return guardada;
+    }
+
+    private void validarLoteBase(CrearCitasLoteRequest request) {
+        if (request.idCliente() == null) {
+            throw new BusinessException("Selecciona un cliente para crear la agenda.");
+        }
+
+        if (request.fecha() == null) {
+            throw new BusinessException("Selecciona una fecha para crear la agenda.");
+        }
+
+        validarFechaReservable(request.fecha());
+
+        if (request.reservas() == null || request.reservas().size() < 2) {
+            throw new BusinessException("Agrega al menos dos servicios para crear la agenda.");
+        }
+    }
+
+    private void validarSlotLoteMasCercano(
+            UUID idStaff,
+            LocalDate fecha,
+            OffsetDateTime inicio,
+            OffsetDateTime finVisible,
+            int duracion,
+            int holgura,
+            OffsetDateTime finAnterior
+    ) {
+        List<DisponibilidadSlot> slots = calcularDisponibilidadParaDia(
+                idStaff,
+                fecha,
+                duracion,
+                holgura,
+                null
+        ).stream()
+                .sorted(Comparator.comparing(DisponibilidadSlot::inicio))
+                .toList();
+
+        if (finAnterior == null) {
+            boolean existeSlot = slots.stream()
+                    .anyMatch(slot -> slot.inicio().isEqual(inicio)
+                            && slot.finVisible().isEqual(finVisible));
+
+            if (!existeSlot) {
+                throw new BusinessException("El horario seleccionado ya no esta disponible");
+            }
+            return;
+        }
+
+        DisponibilidadSlot slotEsperado = slots.stream()
+                .filter(slot -> !slot.inicio().isBefore(finAnterior))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("No fue posible encadenar todos los servicios dentro del horario laboral del profesional."));
+
+        if (!slotEsperado.inicio().isEqual(inicio) || !slotEsperado.finVisible().isEqual(finVisible)) {
+            throw new BusinessException("Los servicios posteriores deben usar el horario disponible mas cercano al termino del servicio anterior.");
+        }
+    }
+
+    private void validarChoqueLote(
+            List<Cita> preparadas,
+            UUID idCliente,
+            UUID idStaff,
+            OffsetDateTime inicio,
+            OffsetDateTime finVisible
+    ) {
+        for (Cita cita : preparadas) {
+            boolean mismoStaff = Objects.equals(cita.getIdStaff(), idStaff);
+            boolean mismoCliente = Objects.equals(cita.getIdCliente(), idCliente);
+            if ((mismoStaff || mismoCliente)
+                    && haySolape(cita.getFechaHoraInicio(), cita.getFechaHoraFin(), inicio, finVisible)) {
+                if (mismoStaff) {
+                    throw new BusinessException("El profesional ya tiene una reserva en ese horario.");
+                }
+                throw new BusinessException("El cliente ya tiene una reserva en ese horario.");
+            }
+        }
+    }
+
+    private String notaLote(CrearCitasLoteRequest.ReservaLoteRequest reserva) {
+        String nota = reserva.nota();
+        return nota == null || nota.isBlank()
+                ? "Reserva creada desde agenda multiple del panel administrativo"
+                : nota;
+    }
+
+    private CrearCitasLoteResponse toLoteResponse(
+            UUID idCliente,
+            LocalDate fecha,
+            BigDecimal totalEstimado,
+            BigDecimal abono,
+            BigDecimal saldoPendiente,
+            List<Cita> citas
+    ) {
+        List<Cita> ordenadas = citas.stream()
+                .sorted(Comparator.comparing(Cita::getFechaHoraInicio))
+                .toList();
+
+        int tiempoTotal = ordenadas.isEmpty()
+                ? 0
+                : (int) Duration.between(
+                        ordenadas.get(0).getFechaHoraInicio(),
+                        ordenadas.get(ordenadas.size() - 1).getFechaHoraFin()
+                ).toMinutes();
+
+        List<CrearCitasLoteResponse.ReservaLoteCreadaResponse> reservas = ordenadas.stream()
+                .map(cita -> new CrearCitasLoteResponse.ReservaLoteCreadaResponse(
+                        cita.getIdCita(),
+                        cita.getIdServicio(),
+                        cita.getIdStaff(),
+                        cita.getFechaHoraInicio(),
+                        cita.getFechaHoraFin(),
+                        cita.getFechaHoraFinAtencion(),
+                        cita.getDuracionServicioMin(),
+                        cita.getHolguraMin(),
+                        cita.getEstadoCita()
+                ))
+                .toList();
+
+        return new CrearCitasLoteResponse(
+                idCliente,
+                fecha,
+                reservas.size(),
+                tiempoTotal,
+                totalEstimado,
+                abono,
+                saldoPendiente,
+                reservas
+        );
     }
 
     @Transactional
@@ -509,6 +794,40 @@ public class CitaService {
     }
 
     @Transactional
+    public Cita evaluarCita(UUID idCita, UUID idCliente, EvaluarCitaRequest request) {
+        log.info("Evaluando cita: idCita={}, idCliente={}, calificacion={}", idCita, idCliente, request.calificacion());
+
+        Cita cita = buscarPorId(idCita);
+
+        if (!Objects.equals(cita.getIdCliente(), idCliente)) {
+            throw new BusinessException("Solo puedes evaluar tus propias citas.");
+        }
+
+        if (cita.getEstadoCita() != EstadoCita.FINALIZADA) {
+            throw new BusinessException("Solo puedes evaluar citas que ya fueron finalizadas.");
+        }
+
+        if (cita.getCalificacion() != null) {
+            throw new BusinessException("Esta cita ya fue evaluada anteriormente.");
+        }
+
+        cita.setCalificacion(request.calificacion());
+        cita.setComentarioCalificacion(request.comentarioCalificacion());
+
+        Cita evaluada = citaRepository.save(cita);
+
+        registrarHistorial(
+                idCita,
+                AccionHistorial.MODIFICADA,
+                EstadoCita.FINALIZADA.name(),
+                EstadoCita.FINALIZADA.name(),
+                "Cliente evaluó la cita con calificación " + request.calificacion()
+        );
+
+        return evaluada;
+    }
+
+    @Transactional
     public void cancelar(UUID id) {
         log.info("Cancelando cita: id={}", id);
 
@@ -572,6 +891,49 @@ public class CitaService {
         }
 
         return servicio.duracionMinutos();
+    }
+
+    private BigDecimal precioServicio(ServicioResumen servicio) {
+        if (servicio.precioTotal() == null || servicio.precioTotal().compareTo(BigDecimal.ZERO) < 0) {
+            return BigDecimal.ZERO;
+        }
+        return servicio.precioTotal();
+    }
+
+    private BigDecimal validarAbonoAdmin(BigDecimal abono) {
+        BigDecimal normalizado = normalizarAbonoOpcional(abono);
+        if (normalizado == null) {
+            throw new BusinessException("Ingresa el abono realizado para continuar.");
+        }
+        return normalizado;
+    }
+
+    private BigDecimal normalizarAbonoOpcional(BigDecimal abono) {
+        if (abono == null) {
+            return null;
+        }
+        if (abono.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("Ingresa el abono realizado para continuar.");
+        }
+        return abono;
+    }
+
+    private void validarAbonoNoSupereTotal(BigDecimal abono, BigDecimal totalEstimado) {
+        if (abono == null || totalEstimado == null || totalEstimado.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        if (abono.compareTo(totalEstimado) > 0) {
+            throw new BusinessException("El abono no puede ser mayor al total de la reserva.");
+        }
+    }
+
+    private BigDecimal calcularSaldoPendiente(BigDecimal totalEstimado, BigDecimal abono) {
+        if (totalEstimado == null || totalEstimado.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal abonado = abono == null ? BigDecimal.ZERO : abono;
+        BigDecimal saldo = totalEstimado.subtract(abonado);
+        return saldo.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : saldo;
     }
 
     private void validarDuracionYHolgura(int duracion, int holgura) {
@@ -895,11 +1257,7 @@ public class CitaService {
     }
 
     private void validarRangoFechas(LocalDate desde, LocalDate hasta) {
-        if (desde == null || hasta == null) {
-            throw new BusinessException("Debe indicar fecha desde y hasta");
-        }
-
-        if (hasta.isBefore(desde)) {
+        if (desde != null && hasta != null && hasta.isBefore(desde)) {
             throw new BusinessException("La fecha hasta no puede ser anterior a la fecha desde");
         }
     }
@@ -922,7 +1280,9 @@ public class CitaService {
                 cita.getEstadoCita(),
                 cita.getObservacionCliente(),
                 cita.getObservacionStaff(),
-                cita.getGoogleCalendarEventId()
+                cita.getGoogleCalendarEventId(),
+                cita.getCalificacion(),
+                cita.getComentarioCalificacion()
         );
     }
 
@@ -991,7 +1351,9 @@ public class CitaService {
                 cita.getHolguraMin(),
                 cita.getEstadoCita() == null ? null : cita.getEstadoCita().name(),
                 servicio.precioTotal(),
-                ABONO_RESERVA_CLP
+                ABONO_RESERVA_CLP,
+                cita.getCalificacion(),
+                cita.getComentarioCalificacion()
         );
     }
 

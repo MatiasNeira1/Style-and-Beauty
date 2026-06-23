@@ -20,6 +20,7 @@ import java.util.UUID;
 public class ServicioService {
 
     private static final int MINUTOS_ATENCION_MINIMA = 5;
+    private static final double FIANZA_FUERA_HORARIO = 15_000D;
     private static final Map<String, Integer> HOLGURA_POR_CATEGORIA = Map.of(
             "cabello", 30,
             "maquillaje", 15,
@@ -40,6 +41,11 @@ public class ServicioService {
     @Transactional(readOnly = true)
     public List<Servicio> listarTodos() {
         return repository.findByActivoTrue();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Servicio> listarTodosIncluyendoInactivos() {
+        return repository.findAll();
     }
 
     @Transactional(readOnly = true)
@@ -132,11 +138,25 @@ public class ServicioService {
         });
     }
 
+    @Transactional
+    public Optional<Servicio> cambiarEstado(UUID id, boolean activo) {
+        return repository.findById(id).map(servicio -> {
+            servicio.setActivo(activo);
+            return repository.save(servicio);
+        });
+    }
+
     public void eliminar(UUID id) {
         repository.deleteById(id);
     }
 
     private void prepararServicio(Servicio servicio) {
+
+        servicio.setMonto_fianza(FIANZA_FUERA_HORARIO);
+        if (servicio.getNombre() != null && !servicio.getNombre().isBlank()
+                && servicio.getCategoria() != null && !servicio.getCategoria().isBlank()) {
+            servicio.setManual_uso_url("/servicios/" + slug(servicio.getCategoria()) + "/" + slug(servicio.getNombre()));
+        }
 
         if (servicio.getActivo() == null) {
             servicio.setActivo(true);
@@ -321,6 +341,14 @@ public class ServicioService {
         String sinAcentos = Normalizer.normalize(categoria.trim(), Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "");
         return sinAcentos.toLowerCase(Locale.ROOT);
+    }
+
+    private String slug(String value) {
+        return Normalizer.normalize(value.trim(), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-|-$", "");
     }
 
     private int ajustarHolguraSegura(int duracion, int holgura) {

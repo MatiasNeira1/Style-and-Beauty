@@ -1,11 +1,13 @@
 import {
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
   getIdToken,
   getIdTokenResult,
+  reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signOut,
-  updateProfile,
   sendPasswordResetEmail,
+  updatePassword,
 } from 'firebase/auth';
 import { firebaseAuth } from './firebaseClient.js';
 
@@ -20,9 +22,9 @@ function toSession(firebaseUser, tokenResult) {
     user: {
       uid: firebaseUser.uid,
       email: firebaseUser.email,
+      emailVerified: firebaseUser.emailVerified,
       rol: normalizedRole,
       role: normalizedRole ? normalizedRole.toLowerCase() : null,
-      photoURL: firebaseUser.photoURL || null,
     },
     token: tokenResult.token,
     claims: tokenResult.claims || {},
@@ -43,9 +45,9 @@ export const firebaseAuthService = {
       user: {
         uid: credential.user.uid,
         email: credential.user.email,
+        emailVerified: credential.user.emailVerified,
         rol: 'CLIENTE',
         role: 'cliente',
-        photoURL: credential.user.photoURL || null,
       },
       token,
     };
@@ -57,14 +59,21 @@ export const firebaseAuthService = {
     return toSession(firebaseUser, tokenResult);
   },
 
-  async updatePhoto(photoURL) {
-    if (!firebaseAuth.currentUser) throw new Error('No user is logged in.');
-    await updateProfile(firebaseAuth.currentUser, { photoURL });
-    return this.refreshSession(firebaseAuth.currentUser);
-  },
-
   async resetPassword(email) {
     await sendPasswordResetEmail(firebaseAuth, email);
+  },
+
+  async changePassword(currentPassword, newPassword) {
+    const currentUser = firebaseAuth.currentUser;
+    if (!currentUser?.email) {
+      const error = new Error('La sesion expiro.');
+      error.code = 'auth/requires-recent-login';
+      throw error;
+    }
+
+    const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+    await reauthenticateWithCredential(currentUser, credential);
+    await updatePassword(currentUser, newPassword);
   },
 
   logout() {

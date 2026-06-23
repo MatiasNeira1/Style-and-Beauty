@@ -16,11 +16,13 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
 
     List<Cita> findByIdStaff(UUID idStaff);
 
+    List<Cita> findByIdClienteAndEstadoCita(UUID idCliente, EstadoCita estadoCita);
+
     @Query("""
         SELECT c FROM Cita c
         WHERE c.idStaff = :idStaff
-        AND c.fechaHoraInicio < :hasta
-        AND c.fechaHoraFin > :desde
+        AND (:hasta IS NULL OR c.fechaHoraInicio < :hasta)
+        AND (:desde IS NULL OR c.fechaHoraFin > :desde)
         AND (:estado IS NULL OR c.estadoCita = :estado)
         ORDER BY c.fechaHoraInicio ASC
     """)
@@ -34,8 +36,8 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
     @Query("""
         SELECT c FROM Cita c
         WHERE c.idCliente = :idCliente
-        AND c.fechaHoraInicio < :hasta
-        AND c.fechaHoraFin > :desde
+        AND (:hasta IS NULL OR c.fechaHoraInicio < :hasta)
+        AND (:desde IS NULL OR c.fechaHoraFin > :desde)
         AND (:estado IS NULL OR c.estadoCita = :estado)
         ORDER BY c.fechaHoraInicio ASC
     """)
@@ -114,6 +116,17 @@ public interface CitaRepository extends JpaRepository<Cita, UUID> {
             UUID idCliente,
             OffsetDateTime ahora,
             List<EstadoCita> estadosIgnorados
+    );
+
+    @Query("""
+        SELECT c FROM Cita c
+        WHERE c.idCliente = :idCliente
+        AND c.estadoCita = :estado
+        ORDER BY c.fechaHoraInicio DESC
+    """)
+    List<Cita> buscarHistorialCitasCliente(
+            UUID idCliente,
+            EstadoCita estado
     );
 
     @Transactional

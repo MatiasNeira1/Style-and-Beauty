@@ -25,6 +25,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class InventarioService {
 
+    private static final int STOCK_INICIAL_DEFAULT = 0;
+    private static final int STOCK_MINIMO_DEFAULT = 5;
+    private static final String UNIDAD_MEDIDA_DEFAULT = "unidad";
+
     private final ProductoRepository productoRepository;
     private final StockRepository stockRepository;
     private final MovimientoStockRepository movimientoStockRepository;
@@ -55,11 +59,22 @@ public class InventarioService {
                 .build();
 
         validarProducto(producto);
-        return productoRepository.save(producto);
+        validarStock(request.stockInicial(), request.stockMinimo());
+        Producto productoGuardado = productoRepository.save(producto);
+        crearStockInicial(productoGuardado.getIdProducto(), request.stockInicial(), request.unidadMedida(), request.stockMinimo());
+        return productoGuardado;
     }
 
     @Transactional
-    public Producto crearProductoConImagen(String nombre, String categoria, String descripcion, BigDecimal precio, MultipartFile file) {
+    public Producto crearProductoConImagen(
+            String nombre,
+            String categoria,
+            String descripcion,
+            BigDecimal precio,
+            Integer stockInicial,
+            String unidadMedida,
+            Integer stockMinimo,
+            MultipartFile file) {
         Producto producto = Producto.builder()
                 .nombre(nombre)
                 .categoria(categoria)
@@ -69,9 +84,12 @@ public class InventarioService {
                 .build();
 
         validarProductoBase(producto);
+        validarStock(stockInicial, stockMinimo);
         producto.setImagenUrl(azureBlobStorageService.upload(file, "productos"));
         validarProducto(producto);
-        return productoRepository.save(producto);
+        Producto productoGuardado = productoRepository.save(producto);
+        crearStockInicial(productoGuardado.getIdProducto(), stockInicial, unidadMedida, stockMinimo);
+        return productoGuardado;
     }
 
     @Transactional
@@ -112,6 +130,13 @@ public class InventarioService {
     }
 
     @Transactional
+    public Producto activarProducto(UUID id) {
+        Producto producto = buscarProducto(id);
+        producto.setActivo(true);
+        return productoRepository.save(producto);
+    }
+
+    @Transactional
     public void eliminarProducto(UUID id) {
         Producto producto = buscarProducto(id);
         movimientoStockRepository.deleteByIdProducto(id);
@@ -131,6 +156,7 @@ public class InventarioService {
     @Transactional
     public Stock crearStock(CrearStockRequest request) {
         buscarProducto(request.idProducto());
+        validarStock(request.cantidadActual(), request.stockMinimo());
 
         if (stockRepository.findByIdProducto(request.idProducto()).isPresent()) {
             throw new BusinessException("El producto ya tiene stock registrado");
@@ -139,8 +165,8 @@ public class InventarioService {
         Stock stock = Stock.builder()
                 .idProducto(request.idProducto())
                 .cantidadActual(request.cantidadActual())
-                .unidadMedida(request.unidadMedida())
-                .stockMinimo(request.stockMinimo())
+                .unidadMedida(normalizarUnidadMedida(request.unidadMedida()))
+                .stockMinimo(normalizarStockMinimo(request.stockMinimo()))
                 .build();
 
         return stockRepository.save(stock);
@@ -208,5 +234,37 @@ public class InventarioService {
         if (producto.getPrecio() == null || producto.getPrecio().compareTo(BigDecimal.ZERO) < 0) {
             throw new BusinessException("El precio del producto debe ser valido.");
         }
+    }
+
+    private Stock crearStockInicial(UUID idProducto, Integer stockInicial, String unidadMedida, Integer stockMinimo) {
+        validarStock(stockInicial, stockMinimo);
+        Stock stock = Stock.builder()
+                .idProducto(idProducto)
+                .cantidadActual(normalizarStockInicial(stockInicial))
+                .unidadMedida(normalizarUnidadMedida(unidadMedida))
+                .stockMinimo(normalizarStockMinimo(stockMinimo))
+                .build();
+        return stockRepository.save(stock);
+    }
+
+    private void validarStock(Integer cantidad, Integer stockMinimo) {
+        if (cantidad != null && cantidad < 0) {
+            throw new BusinessException("El stock no puede ser negativo.");
+        }
+        if (stockMinimo != null && stockMinimo < 0) {
+            throw new BusinessException("El stock minimo no puede ser negativo.");
+        }
+    }
+
+    private int normalizarStockInicial(Integer stockInicial) {
+        return stockInicial == null ? STOCK_INICIAL_DEFAULT : stockInicial;
+    }
+
+    private int normalizarStockMinimo(Integer stockMinimo) {
+        return stockMinimo == null ? STOCK_MINIMO_DEFAULT : stockMinimo;
+    }
+
+    private String normalizarUnidadMedida(String unidadMedida) {
+        return unidadMedida == null || unidadMedida.isBlank() ? UNIDAD_MEDIDA_DEFAULT : unidadMedida.trim();
     }
 }

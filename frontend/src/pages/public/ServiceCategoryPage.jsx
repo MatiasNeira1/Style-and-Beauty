@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Clock } from 'lucide-react';
 import { BalancedGrid } from '../../components/ui/BalancedGrid.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { catalogService } from '../../services/catalogService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
 import { formatCLP } from '../../utils/priceUtils.js';
@@ -14,20 +15,40 @@ function servicePrice(service) {
   return formatCLP(value);
 }
 
+function serviceImage(service) {
+  return service?.imagenUrl || service?.imageUrl || service?.imagen_url || service?.imagen || service?.fotoUrl || '';
+}
+
 export function ServiceCategoryPage() {
   const { categoria } = useParams();
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
+  const categoryCoversQuery = useQuery({ queryKey: ['service-category-covers'], queryFn: catalogService.getCategoryCovers });
 
   const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
   const grouped = groupByCategory(services);
   const categories = Object.keys(grouped);
   const category = findCategoryBySlug(categories, categoria) || categories[0] || 'General';
   const categoryServices = grouped[category] || [];
+  const categoryCovers = Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : [];
+  const categoryCoverUrl = categoryCovers.find((cover) => categorySlug(cover?.categoria) === categorySlug(category))?.imagenUrl || '';
 
   return (
     <>
-      <section className="page-hero page-hero-services page-hero-category">
-        <div className="page-hero-media" />
+      <section
+        className="page-hero page-hero-services page-hero-category"
+        style={{ '--page-hero-position': 'center' }}
+      >
+        <SafeImage
+          src={categoryCoverUrl || '/hero-salon.png'}
+          fallback="/hero-salon.png"
+          alt=""
+          aria-hidden="true"
+          className="page-hero-media page-hero-image"
+          loading="eager"
+          fetchPriority="high"
+          width={1024}
+          height={1024}
+        />
         <div className="page-hero-overlay" />
         <div className="page-hero-content">
           <span className="card-kicker">Categoria</span>
@@ -61,8 +82,25 @@ export function ServiceCategoryPage() {
                   className="category-service-card category-service-link"
                   to={`/servicios/${categorySlug(category)}/${categorySlug(service.nombre || service.name || service.id_servicio || service.idServicio || service.id)}`}
                 >
-                  <span className="card-kicker">{category}</span>
-                  <h3>{service.nombre || service.name}</h3>
+                  <div className="category-service-heading">
+                    <div className="category-service-thumbnail">
+                      {serviceImage(service) ? (
+                        <SafeImage
+                          src={serviceImage(service)}
+                          alt={service.nombre || service.name || 'Servicio'}
+                          loading="eager"
+                          width={160}
+                          height={160}
+                        />
+                      ) : (
+                        <span aria-hidden="true">{String(service.nombre || service.name || 'S').slice(0, 1).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="card-kicker">{category}</span>
+                      <h3>{service.nombre || service.name}</h3>
+                    </div>
+                  </div>
                   <p>{service.descripcion || service.description || 'Atencion personalizada con acabado profesional.'}</p>
                   <div className="category-service-meta">
                     <strong>{servicePrice(service)}</strong>

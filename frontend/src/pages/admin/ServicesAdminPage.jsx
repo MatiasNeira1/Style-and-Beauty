@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Camera, Clock, Edit3, Plus, Save, Scissors, Search, Tag, Trash2, Users, X } from 'lucide-react';
+import { Camera, Clock, Edit3, Plus, Power, PowerOff, Save, Scissors, Search, Tag, Trash2, Users, X } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminEmptyState, AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
@@ -16,13 +16,14 @@ const initialForm = {
   descripcion: '',
   detallerservicio: '',
   categoria: '',
-  manual_uso_url: '',
   duracion_minutos: '',
   holgura_minutos: '',
   precio_total: '',
-  monto_fianza: '',
   activo: 'true',
 };
+
+const FIXED_OUT_OF_HOURS_DEPOSIT = 15000;
+const DEFAULT_SERVICE_CATEGORIES = ['Cabello', 'Nails', 'Maquillaje', 'Cuidados de la piel', 'Spa'];
 
 function getServiceId(service) {
   return service.id_servicio || service.idServicio || service.id;
@@ -36,14 +37,25 @@ function serviceImage(service) {
   return service?.imagenUrl || service?.imageUrl || service?.imagen_url || service?.imagen || '';
 }
 
-function isValidHttpUrl(value) {
-  if (!value) return true;
-  try {
-    const url = new URL(value);
-    return ['http:', 'https:'].includes(url.protocol);
-  } catch {
-    return false;
-  }
+function ServiceThumbnail({ service, className = '' }) {
+  const imageUrl = serviceImage(service);
+  const initial = String(service?.nombre || 'S').slice(0, 1).toUpperCase();
+
+  return (
+    <div className={`admin-service-thumbnail ${className}`.trim()}>
+      {imageUrl ? <SafeImage src={imageUrl} alt={service?.nombre || 'Servicio'} /> : <span aria-hidden="true">{initial}</span>}
+    </div>
+  );
+}
+
+function serviceCategoryKey(value = '') {
+  const normalized = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (normalized.includes('cabello') || normalized.includes('peluquer')) return 'cabello';
+  if (normalized.includes('nail') || normalized.includes('manicur') || normalized.includes('unas')) return 'nails';
+  if (normalized.includes('maquill')) return 'maquillaje';
+  if (normalized.includes('piel') || normalized.includes('facial')) return 'piel';
+  if (normalized.includes('spa')) return 'spa';
+  return normalized.trim();
 }
 
 function toServicePayload(form) {
@@ -52,11 +64,10 @@ function toServicePayload(form) {
     descripcion: form.descripcion?.trim() || '',
     detallerservicio: form.detallerservicio?.trim() || '',
     categoria: form.categoria.trim(),
-    manual_uso_url: form.manual_uso_url?.trim() || '',
     duracion_minutos: Number(form.duracion_minutos),
     holgura_minutos: form.holgura_minutos === '' ? null : Number(form.holgura_minutos),
     precio_total: Number(form.precio_total),
-    monto_fianza: form.monto_fianza === '' ? 0 : Number(form.monto_fianza),
+    monto_fianza: FIXED_OUT_OF_HOURS_DEPOSIT,
     activo: form.activo === 'true',
   };
 }
@@ -67,8 +78,6 @@ function validateServiceForm(form, selectedStaffIds, imageFile, hasExistingImage
   if (Number(form.duracion_minutos) <= 0) return 'La duracion debe ser mayor a 0 minutos.';
   if (form.holgura_minutos !== '' && Number(form.holgura_minutos) < 0) return 'La holgura no puede ser negativa.';
   if (Number(form.precio_total) < 0 || form.precio_total === '') return 'El precio debe ser valido.';
-  if (form.monto_fianza !== '' && Number(form.monto_fianza) < 0) return 'La fianza debe ser valida.';
-  if (!isValidHttpUrl(form.manual_uso_url?.trim())) return 'La URL manual debe comenzar con https:// o http://.';
   if (!selectedStaffIds.length) return 'Selecciona al menos un profesional para este servicio.';
   if (mode === 'create' && !imageFile) return 'Selecciona una imagen para crear el servicio.';
   if (mode === 'edit' && !imageFile && !hasExistingImage) return 'Selecciona una imagen para guardar cambios en este servicio.';
@@ -81,11 +90,9 @@ function formFromService(service) {
     descripcion: service.descripcion || '',
     detallerservicio: service.detallerservicio || '',
     categoria: service.categoria || '',
-    manual_uso_url: service.manual_uso_url || '',
     duracion_minutos: service.duracion_minutos ?? '',
     holgura_minutos: service.holgura_minutos ?? '',
     precio_total: service.precio_total ?? '',
-    monto_fianza: service.monto_fianza ?? '',
     activo: String(service.activo ?? true),
   };
 }
@@ -179,7 +186,7 @@ function ServiceFormModal({
   };
 
   return (
-    <Modal open={open} title={title} onClose={onClose}>
+    <Modal open={open} title={title} className="admin-service-form-modal" onClose={onClose}>
       <form className="admin-modal-form" onSubmit={onSubmit}>
         <div className="admin-modal-steps" aria-label="Pasos del servicio">
           {['Categoria', 'Informacion', 'Profesionales', 'Imagen'].map((label, index) => (
@@ -242,13 +249,11 @@ function ServiceFormModal({
             <Input label="Nombre" id="service-name" name="nombre" value={form.nombre} onChange={onChange} placeholder="Masaje relajante" required />
             <Input label="Duracion" id="service-duration" name="duracion_minutos" type="number" min="1" value={form.duracion_minutos} onChange={onChange} placeholder="Duracion (min)" required />
             <Input label="Holgura" id="service-buffer" name="holgura_minutos" type="number" min="0" value={form.holgura_minutos} onChange={onChange} placeholder="Holgura (min)" />
-            <Input label="Precio" id="service-price" name="precio_total" type="number" min="0" step="100" value={form.precio_total} onChange={onChange} placeholder="Precio ($xx.xxx)" required />
-            <Input label="Fianza" id="service-deposit" name="monto_fianza" type="number" min="0" step="100" value={form.monto_fianza} onChange={onChange} placeholder="Fianza ($xx.xxx)" />
+            <Input label="Precio" id="service-price" name="precio_total" type="number" min="0" step="10" value={form.precio_total} onChange={onChange} placeholder="Precio ($xx.xxx)" required />
             <Input as="select" label="Estado" id="service-active" name="activo" value={form.activo} onChange={onChange}>
               <option value="true">Activo</option>
               <option value="false">Inactivo</option>
             </Input>
-            <Input label="Manual URL" id="service-manual" name="manual_uso_url" value={form.manual_uso_url} onChange={onChange} placeholder="https://..." />
             <Input label="Descripcion" id="service-description" name="descripcion" value={form.descripcion} onChange={onChange} placeholder="Breve descripcion visible para clientes" />
             <Input label="Detalles" id="service-details" name="detallerservicio" as="textarea" rows={3} value={form.detallerservicio} onChange={onChange} placeholder="Incluye preparacion, recomendaciones o condiciones" />
           </div>
@@ -296,7 +301,7 @@ function ServiceFormModal({
 
         {step === 4 && (
           <div className="admin-modal-section">
-            <p className="admin-modal-hint">Selecciona una imagen JPG, PNG o WEBP. La base actual requiere migracion para persistirla en GET /api/servicio.</p>
+            <p className="admin-modal-hint">Selecciona una imagen JPG, PNG o WEBP de hasta 5 MB.</p>
             <div className="admin-image-field admin-service-image-step">
               <SafeImage src={imagePreview} alt="Imagen del servicio" />
               <label className="button button-ghost button-sm staff-file-button">
@@ -304,9 +309,6 @@ function ServiceFormModal({
                 <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onImageChange(event.target.files?.[0])} />
               </label>
               <span className="admin-modal-hint">{mode === 'edit' ? 'Selecciona una imagen si el servicio no tiene una disponible.' : 'La imagen es obligatoria para crear el servicio.'}</span>
-            </div>
-            <div className="admin-warning-alert">
-              La imagen se enviara al endpoint multipart, pero para persistencia real falta agregar <code>public.servicio.imagen_url</code> y mapearla en backend.
             </div>
           </div>
         )}
@@ -334,16 +336,135 @@ function ServiceFormModal({
   );
 }
 
-function ServiceDetailModal({ service, staff, relations = [], onClose, onEdit, onDelete, isDeleting }) {
+function ServiceCategoryCoverModal({
+  category,
+  imagePreview,
+  imageError,
+  isSaving,
+  onImageChange,
+  onClose,
+  onSubmit,
+}) {
+  const previewAlt = `Vista previa de portada de ${category || 'categoría'}`;
+  const previewInitial = category?.slice(0, 1).toUpperCase() || '?';
+  const fileInputId = 'service-category-cover-file';
+  const renderPreviewImage = (alt) => (
+    imagePreview ? (
+      <SafeImage src={imagePreview} alt={alt} />
+    ) : (
+      <span aria-hidden="true">{previewInitial}</span>
+    )
+  );
+
+  return (
+    <Modal
+      open={Boolean(category)}
+      title={`Portada de ${category || 'categoría'}`}
+      className="admin-service-cover-modal"
+      onClose={onClose}
+      closeDisabled={isSaving}
+    >
+      <form className="admin-modal-form admin-cover-modal-form" onSubmit={onSubmit}>
+        <div className="admin-cover-preview-stage" role="group" aria-label="Previsualizaciones de portada">
+          <article className="admin-cover-preview-card admin-cover-preview-hero">
+            <p className="admin-cover-preview-label">Vista hero</p>
+            <div className="admin-cover-hero-frame">
+              {renderPreviewImage(`${previewAlt} en hero principal`)}
+              <div className="admin-cover-hero-overlay" aria-hidden="true" />
+              <div className="admin-cover-hero-copy" aria-hidden="true">
+                <span>Servicios</span>
+                <strong>{category || 'Categoría'}</strong>
+              </div>
+            </div>
+          </article>
+
+          <div className="admin-cover-preview-stack">
+            <article className="admin-cover-preview-card admin-cover-preview-category-card">
+              <p className="admin-cover-preview-label">Vista tarjeta</p>
+              <div className="admin-cover-card-frame">
+                <div className="admin-cover-card-media">
+                  {renderPreviewImage(`${previewAlt} en tarjeta de categoría`)}
+                </div>
+                <div className="admin-cover-card-content" aria-hidden="true">
+                  <span>{category || 'Categoría'}</span>
+                  <strong>{category || 'Categoría'}</strong>
+                  <p>Servicios especializados del área.</p>
+                </div>
+              </div>
+            </article>
+
+            <article className="admin-cover-preview-card admin-cover-preview-base">
+              <p className="admin-cover-preview-label">Imagen base</p>
+              <div className="admin-cover-modal-preview">
+                {renderPreviewImage(`${previewAlt} completa`)}
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div className="admin-cover-modal-controls">
+          <div className="admin-cover-file-control">
+            <input
+              id={fileInputId}
+              className="admin-cover-file-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => {
+                onImageChange(event.target.files?.[0]);
+                event.target.value = '';
+              }}
+              disabled={isSaving}
+            />
+            <label
+              className={`button button-ghost button-sm staff-file-button${isSaving ? ' is-disabled' : ''}`}
+              htmlFor={fileInputId}
+              aria-disabled={isSaving}
+            >
+              <span className="button-content"><Camera size={14} /> Seleccionar imagen</span>
+            </label>
+            <p className="admin-modal-hint">Resolución recomendable: 1200 x 1200 px</p>
+          </div>
+          {imageError && <p className="admin-alert compact">{imageError}</p>}
+        </div>
+
+        <div className="admin-modal-actions">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isSaving}><X size={16} /> Cerrar</Button>
+          <Button type="submit" disabled={isSaving}>
+            <Save size={16} /> {isSaving ? 'Subiendo...' : 'Guardar portada'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function ServiceDetailModal({
+  service,
+  staff,
+  relations = [],
+  onClose,
+  onEdit,
+  onDelete,
+  onUploadImage,
+  onToggleActive,
+  isMutating,
+  imageError,
+}) {
   const serviceId = service ? getServiceId(service) : null;
   const relatedIds = relations.map((relation) => relation.idStaff);
   const names = selectedStaffNames(staff, relatedIds);
 
   return (
-    <Modal open={Boolean(service)} title="Detalle del servicio" onClose={onClose}>
+    <Modal
+      open={Boolean(service)}
+      title="Detalle del servicio"
+      className="admin-service-detail-modal"
+      onClose={onClose}
+    >
       {service && (
         <div className="admin-detail-modal">
-          <div className="admin-detail-hero">
+          <div className="admin-detail-hero with-media">
+            <ServiceThumbnail service={service} className="detail" />
             <div>
               <span>{service.categoria || 'Sin categoria'}</span>
               <h3>{service.nombre || 'Servicio sin nombre'}</h3>
@@ -353,7 +474,7 @@ function ServiceDetailModal({ service, staff, relations = [], onClose, onEdit, o
           </div>
           <div className="admin-detail-grid">
             <div><span>Precio</span><strong>{formatCurrencyCLP(service.precio_total || 0)}</strong></div>
-            <div><span>Fianza</span><strong>{formatCurrencyCLP(service.monto_fianza || 0)}</strong></div>
+            <div><span>Fianza fuera de horario</span><strong>{formatCurrencyCLP(FIXED_OUT_OF_HOURS_DEPOSIT)}</strong></div>
             <div><span>Duracion</span><strong>{service.duracion_minutos || 0} min</strong></div>
             <div><span>Holgura</span><strong>{service.holgura_minutos ?? 0} min</strong></div>
           </div>
@@ -369,10 +490,18 @@ function ServiceDetailModal({ service, staff, relations = [], onClose, onEdit, o
               <p>No hay profesionales asociados a este servicio.</p>
             )}
           </section>
+          {imageError && <p className="admin-alert compact">{imageError}</p>}
           <div className="admin-modal-actions">
             <Button type="button" variant="ghost" onClick={onClose}>Cerrar</Button>
             <Button type="button" variant="ghost" onClick={() => onEdit(service)}><Edit3 size={16} /> Editar</Button>
-            <Button type="button" variant="ghost" onClick={() => onDelete(serviceId)} disabled={isDeleting}><Trash2 size={16} /> Eliminar</Button>
+            <label className="button button-ghost button-sm staff-file-button">
+              <span className="button-content"><Camera size={16} /> Cambiar imagen</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => onUploadImage(service, event)} disabled={isMutating} />
+            </label>
+            <Button type="button" variant="ghost" onClick={() => onToggleActive(service)} disabled={isMutating}>
+              {service.activo === false ? <><Power size={16} /> Activar</> : <><PowerOff size={16} /> Desactivar</>}
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => onDelete(serviceId)} disabled={isMutating}><Trash2 size={16} /> Eliminar</Button>
           </div>
         </div>
       )}
@@ -392,13 +521,20 @@ export function ServicesAdminPage() {
   const [serviceImageFile, setServiceImageFile] = useState(null);
   const [serviceImagePreview, setServiceImagePreview] = useState('');
   const [serviceImageError, setServiceImageError] = useState('');
+  const [detailImageError, setDetailImageError] = useState('');
   const [formError, setFormError] = useState('');
   const [serviceSearch, setServiceSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('TODAS');
   const [serviceStatusFilter, setServiceStatusFilter] = useState('TODOS');
+  const [coverCategory, setCoverCategory] = useState(null);
+  const [categoryCoverFile, setCategoryCoverFile] = useState(null);
+  const [categoryCoverPreview, setCategoryCoverPreview] = useState('');
+  const [categoryCoverError, setCategoryCoverError] = useState('');
+  const [categoryCoverFeedback, setCategoryCoverFeedback] = useState('');
 
-  const servicesQuery = useQuery({ queryKey: ['services-admin'], queryFn: catalogService.listServices });
+  const servicesQuery = useQuery({ queryKey: ['services-admin'], queryFn: catalogService.listAllServices });
   const staffQuery = useQuery({ queryKey: ['profiles-staff'], queryFn: profileService.listStaff });
+  const categoryCoversQuery = useQuery({ queryKey: ['service-category-covers'], queryFn: catalogService.getCategoryCovers });
   const detailRelationsQuery = useQuery({
     queryKey: ['service-staff-relations', getServiceId(selectedService || editingService || {})],
     queryFn: () => catalogService.listCatalogStaffByService(getServiceId(selectedService || editingService)),
@@ -410,6 +546,18 @@ export function ServicesAdminPage() {
   const relations = useMemo(() => (Array.isArray(detailRelationsQuery.data) ? detailRelationsQuery.data : []), [detailRelationsQuery.data]);
   const activeServices = services.filter((service) => service.activo !== false);
   const categories = useMemo(() => [...new Set(services.map((service) => service.categoria).filter(Boolean))].sort(), [services]);
+  const coverCategories = useMemo(() => {
+    const values = new Map(DEFAULT_SERVICE_CATEGORIES.map((category) => [serviceCategoryKey(category), category]));
+    categories.forEach((category) => values.set(serviceCategoryKey(category), category));
+    return [...values.values()];
+  }, [categories]);
+  const categoryCoversByKey = useMemo(() => {
+    const rows = Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : [];
+    return rows.reduce((acc, cover) => {
+      if (cover?.categoria) acc[serviceCategoryKey(cover.categoria)] = cover;
+      return acc;
+    }, {});
+  }, [categoryCoversQuery.data]);
   const filteredServices = useMemo(() => {
     const needle = serviceSearch.trim().toLowerCase();
     return services.filter((service) => {
@@ -444,6 +592,64 @@ export function ServicesAdminPage() {
     setServiceImagePreview(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [serviceImageFile]);
+
+  useEffect(() => {
+    if (!categoryCoverFile) return undefined;
+    const objectUrl = URL.createObjectURL(categoryCoverFile);
+    setCategoryCoverPreview(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [categoryCoverFile]);
+
+  const applyUpdatedService = (updatedService) => {
+    if (!updatedService) return;
+    const updatedId = getServiceId(updatedService);
+    queryClient.setQueryData(['services-admin'], (current) => {
+      const rows = Array.isArray(current) ? current : [];
+      return rows.map((service) => (getServiceId(service) === updatedId ? updatedService : service));
+    });
+    setSelectedService((current) => (
+      current && getServiceId(current) === updatedId ? updatedService : current
+    ));
+  };
+
+  const openCategoryCover = (category) => {
+    setCategoryCoverFeedback('');
+    setCoverCategory(category);
+    setCategoryCoverFile(null);
+    setCategoryCoverPreview(categoryCoversByKey[serviceCategoryKey(category)]?.imagenUrl || '');
+    setCategoryCoverError('');
+  };
+
+  const closeCategoryCover = () => {
+    setCoverCategory(null);
+    setCategoryCoverFile(null);
+    setCategoryCoverPreview('');
+    setCategoryCoverError('');
+  };
+
+  const validateAndSetCategoryCover = (file) => {
+    const currentUrl = categoryCoversByKey[serviceCategoryKey(coverCategory)]?.imagenUrl || '';
+    setCategoryCoverError('');
+    if (!file) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentUrl);
+      setCategoryCoverError('Selecciona una imagen para la portada.');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentUrl);
+      setCategoryCoverError('Solo se permiten imagenes JPG, PNG o WEBP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCategoryCoverFile(null);
+      setCategoryCoverPreview(currentUrl);
+      setCategoryCoverError('La imagen no puede superar 5 MB.');
+      return;
+    }
+    setCategoryCoverFile(file);
+  };
 
   const resetModal = () => {
     setModalOpen(false);
@@ -523,9 +729,11 @@ export function ServicesAdminPage() {
       await syncStaffAssignments(serviceId, selectedStaffIds);
       return savedService;
     },
-    onSuccess: () => {
+    onSuccess: (savedService) => {
+      applyUpdatedService(savedService);
       resetModal();
       queryClient.invalidateQueries({ queryKey: ['services-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['services'] });
       queryClient.invalidateQueries({ queryKey: ['service-staff-relations'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
     },
@@ -536,8 +744,49 @@ export function ServicesAdminPage() {
     onSuccess: () => {
       setSelectedService(null);
       queryClient.invalidateQueries({ queryKey: ['services-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['services'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
     },
+  });
+
+  const serviceImageMutation = useMutation({
+    mutationFn: ({ serviceId, file }) => catalogService.uploadServiceImage(serviceId, file),
+    onSuccess: (updatedService) => {
+      applyUpdatedService(updatedService);
+      setDetailImageError('');
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+    },
+    onError: (error) => setDetailImageError(error.message || 'No se pudo actualizar la imagen del servicio.'),
+  });
+
+  const serviceStatusMutation = useMutation({
+    mutationFn: (service) => (
+      service.activo === false
+        ? catalogService.activateService(getServiceId(service))
+        : catalogService.deactivateService(getServiceId(service))
+    ),
+    onSuccess: (updatedService) => {
+      applyUpdatedService(updatedService);
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
+    },
+  });
+
+  const categoryCoverMutation = useMutation({
+    mutationFn: ({ category, file }) => catalogService.uploadCategoryCover(category, file),
+    onSuccess: (updatedCover) => {
+      queryClient.setQueryData(['service-category-covers'], (current) => {
+        const rows = Array.isArray(current) ? current : [];
+        const updatedKey = serviceCategoryKey(updatedCover.categoria);
+        const exists = rows.some((cover) => serviceCategoryKey(cover.categoria) === updatedKey);
+        return exists
+          ? rows.map((cover) => (serviceCategoryKey(cover.categoria) === updatedKey ? updatedCover : cover))
+          : [...rows, updatedCover];
+      });
+      setCategoryCoverFeedback(`Portada de ${updatedCover.categoria} actualizada correctamente.`);
+      closeCategoryCover();
+    },
+    onError: (error) => setCategoryCoverError(error.message || 'No se pudo actualizar la portada.'),
   });
 
   const handleChange = (event) => {
@@ -563,6 +812,31 @@ export function ServicesAdminPage() {
       return;
     }
     setServiceImageFile(file);
+  };
+
+  const handleDetailImageChange = (service, event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    setDetailImageError('');
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setDetailImageError('Solo se permiten imagenes JPG, PNG o WEBP.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setDetailImageError('La imagen no puede superar 5 MB.');
+      return;
+    }
+    serviceImageMutation.mutate({ serviceId: getServiceId(service), file });
+  };
+
+  const handleCategoryCoverSubmit = (event) => {
+    event.preventDefault();
+    if (!categoryCoverFile) {
+      setCategoryCoverError('Selecciona una imagen para la portada.');
+      return;
+    }
+    categoryCoverMutation.mutate({ category: coverCategory, file: categoryCoverFile });
   };
 
   const toggleStaff = (idStaff) => {
@@ -609,6 +883,42 @@ export function ServicesAdminPage() {
         <AdminKpiCard icon={Clock} title="Duracion media" value={`${Math.round(services.reduce((sum, item) => sum + Number(item.duracion_minutos || 0), 0) / Math.max(services.length, 1))} min`} trend={0} microcopy="Base para agenda" tone="sage" />
         <AdminKpiCard icon={Users} title="Equipo disponible" value={staff.length} trend={0} microcopy="Profesionales reales" tone="ink" />
       </AdminKpiGrid>
+
+      <section className="admin-panel compact-panel admin-category-covers admin-service-category-covers">
+        <header>
+          <div>
+            <h3>Portadas de categorías de servicios</h3>
+            <p>Estas imágenes se usan en las tarjetas y heroes del catálogo público de servicios.</p>
+          </div>
+        </header>
+        {categoryCoversQuery.isError && <p className="admin-alert compact">{categoryCoversQuery.error.message}</p>}
+        {categoryCoverFeedback && <p className="success-alert compact">{categoryCoverFeedback}</p>}
+        <div className="admin-category-cover-grid">
+          {coverCategories.map((category) => {
+            const coverUrl = categoryCoversByKey[serviceCategoryKey(category)]?.imagenUrl || '';
+            return (
+              <article className="admin-category-cover-card" key={serviceCategoryKey(category)}>
+                <div className="admin-category-cover-media">
+                  {coverUrl ? (
+                    <SafeImage src={coverUrl} alt={`Portada de ${category}`} />
+                  ) : (
+                    <span aria-hidden="true">{category.slice(0, 1).toUpperCase()}</span>
+                  )}
+                </div>
+                <div>
+                  <strong>{category}</strong>
+                  <span className={coverUrl ? 'admin-cover-status configured' : 'admin-cover-status'}>
+                    {coverUrl ? 'Portada configurada' : 'Sin portada configurada'}
+                  </span>
+                </div>
+                <Button type="button" size="sm" variant="ghost" onClick={() => openCategoryCover(category)}>
+                  <Camera size={14} /> Cambiar portada
+                </Button>
+              </article>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="admin-panel compact-panel">
         <header>
@@ -657,7 +967,10 @@ export function ServicesAdminPage() {
       ) : (
         <DataTable
           compact
-          onRowClick={(service) => setSelectedService(service)}
+          onRowClick={(service) => {
+            setDetailImageError('');
+            setSelectedService(service);
+          }}
           getRowKey={(service) => getServiceId(service)}
           getRowLabel={(service) => `Ver detalle de ${service.nombre || 'servicio'}`}
           columns={[
@@ -665,9 +978,12 @@ export function ServicesAdminPage() {
               key: 'nombre',
               label: 'Servicio',
               render: (row) => (
-                <div className="admin-table-main-cell">
-                  <strong>{row.nombre || 'Servicio sin nombre'}</strong>
-                  <span>{row.descripcion || row.detallerservicio || 'Sin descripcion'}</span>
+                <div className="admin-media-cell compact">
+                  <ServiceThumbnail service={row} />
+                  <div className="admin-table-main-cell">
+                    <strong>{row.nombre || 'Servicio sin nombre'}</strong>
+                    <span>{row.descripcion || row.detallerservicio || 'Sin descripcion'}</span>
+                  </div>
                 </div>
               ),
             },
@@ -707,14 +1023,31 @@ export function ServicesAdminPage() {
         service={selectedService}
         staff={staff}
         relations={relations}
-        onClose={() => setSelectedService(null)}
+        onClose={() => {
+          setDetailImageError('');
+          setSelectedService(null);
+        }}
         onEdit={openEdit}
         onDelete={(serviceId) => deleteMutation.mutate(serviceId)}
-        isDeleting={deleteMutation.isPending}
+        onUploadImage={handleDetailImageChange}
+        onToggleActive={(service) => serviceStatusMutation.mutate(service)}
+        isMutating={deleteMutation.isPending || serviceImageMutation.isPending || serviceStatusMutation.isPending}
+        imageError={detailImageError}
+      />
+
+      <ServiceCategoryCoverModal
+        category={coverCategory}
+        imagePreview={categoryCoverPreview}
+        imageError={categoryCoverError}
+        isSaving={categoryCoverMutation.isPending}
+        onImageChange={validateAndSetCategoryCover}
+        onClose={closeCategoryCover}
+        onSubmit={handleCategoryCoverSubmit}
       />
 
       {saveMutation.isError && !modalOpen && <p className="admin-alert">{saveMutation.error.message}</p>}
       {deleteMutation.isError && <p className="admin-alert">{deleteMutation.error.message}</p>}
+      {serviceStatusMutation.isError && <p className="admin-alert">{serviceStatusMutation.error.message}</p>}
       {!servicesQuery.isLoading && !services.length && (
         <AdminEmptyState compact title="Catalogo vacio" description="Usa Agregar servicio para crear el primer tratamiento." />
       )}

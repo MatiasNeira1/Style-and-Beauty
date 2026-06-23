@@ -5,6 +5,7 @@ import com.style.beauty.ms_agenda.enums.TipoCita;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -66,9 +67,23 @@ public class Cita {
     @Column(columnDefinition = "TEXT")
     private String observacionStaff;
 
+    @Column(precision = 12, scale = 2)
+    private BigDecimal montoAbonado;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal totalEstimado;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal saldoPendiente;
+
     private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;
+
+    private Integer calificacion;
+
+    @Column(columnDefinition = "TEXT")
+    private String comentarioCalificacion;
 
     @PrePersist
     public void prePersist() {

@@ -15,62 +15,14 @@ import {
   User,
   UsersRound,
 } from 'lucide-react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button.jsx';
-import { useAuth } from '../../store/AuthContext.jsx';
+import { authService } from '../../services/authService.js';
+import { formatRut, normalizeRut, validateRut } from '../../utils/rutUtils.js';
 
-function validateRut(rut) {
-  if (!rut || typeof rut !== 'string') return false;
-  const cleanRut = rut.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (cleanRut.length < 2) return false;
-  
-  const body = cleanRut.slice(0, -1);
-  const dv = cleanRut.slice(-1);
-  
-  let sum = 0;
-  let multiplier = 2;
-  for (let i = body.length - 1; i >= 0; i--) {
-    sum += parseInt(body[i], 10) * multiplier;
-    multiplier = multiplier === 7 ? 2 : multiplier + 1;
-  }
-  
-  const expectedDv = 11 - (sum % 11);
-  let calculatedDv = '';
-  if (expectedDv === 11) {
-    calculatedDv = '0';
-  } else if (expectedDv === 10) {
-    calculatedDv = 'K';
-  } else {
-    calculatedDv = String(expectedDv);
-  }
-  
-  return calculatedDv === dv;
-}
-
-function formatRut(value) {
-  if (!value) return '';
-  let clean = value.replace(/[^0-9kK]/g, '').toUpperCase();
-  if (clean.length === 0) return '';
-  clean = clean.slice(0, 9);
-  
-  if (clean.length <= 1) {
-    return clean;
-  }
-  
-  const dv = clean.slice(-1);
-  const body = clean.slice(0, -1);
-  
-  let formattedBody = '';
-  if (body.length <= 3) {
-    formattedBody = body;
-  } else if (body.length <= 6) {
-    formattedBody = body.slice(0, body.length - 3) + '.' + body.slice(body.length - 3);
-  } else {
-    formattedBody = body.slice(0, body.length - 6) + '.' + body.slice(body.length - 6, body.length - 3) + '.' + body.slice(body.length - 3);
-  }
-  
-  return formattedBody + '-' + dv;
-}
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const CHILE_PHONE_REGEX = /^\+56\s?9\s?\d{4}\s?\d{4}$/;
+const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~-]).{8,}$/;
 
 const initialForm = {
   rut: '',
@@ -78,9 +30,10 @@ const initialForm = {
   apellidos: '',
   fechaNacimiento: '',
   genero: '',
-  telefono: '',
+  telefono: '+56 ',
   emailContacto: '',
   password: '',
+  confirmPassword: '',
 };
 
 const genderOptions = [
@@ -309,7 +262,7 @@ function PremiumField({ icon: Icon, label, id, className = '', trailing, ...prop
   );
 }
 
-function BirthDateSelects({ value, onChange, maxDate }) {
+function BirthDateSelects({ value, onChange, maxDate, style }) {
   const selectedDate = parseIsoDate(value);
   const maxDateObject = parseIsoDate(maxDate);
   const maxYear = maxDateObject.getFullYear();
@@ -363,7 +316,7 @@ function BirthDateSelects({ value, onChange, maxDate }) {
   };
 
   return (
-    <motion.div className="register-field birthdate-field" variants={itemVariants}>
+    <motion.div className="register-field birthdate-field" variants={itemVariants} style={style}>
       <span>Fecha nacimiento</span>
       <div className="birthdate-select-grid">
         <select aria-label="Año de nacimiento" value={year} onChange={handleYearChange} required>
@@ -448,13 +401,35 @@ function PremiumGenderSelect({ value, onChange }) {
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { registerClient } = useAuth();
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(() => {
+    try {
+      const stored = window.sessionStorage.getItem('style_beauty_pending_profile');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          rut: parsed.rut || '',
+          nombre: parsed.nombre || '',
+          apellidos: parsed.apellidos || '',
+          fechaNacimiento: parsed.fechaNacimiento || '',
+          genero: parsed.genero || '',
+          telefono: parsed.telefono || '+56 ',
+          emailContacto: parsed.emailContacto || '',
+          password: '',
+          confirmPassword: '',
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return initialForm;
+  });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const maxBirthDate = getMaxBirthDateIso();
+
+
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -462,21 +437,94 @@ export function RegisterPage() {
     setForm((current) => ({ ...current, [name]: finalValue }));
   };
 
+  const handlePhoneChange = (event) => {
+    let { value } = event.target;
+    
+    if (!value.startsWith('+56')) {
+      value = '+56 ' + value.replace(/^\+?(56)?/, '').trimStart();
+    }
+    
+    let cleanValue = value.replace(/[^0-9+\s]/g, '');
+    const digitsOnly = cleanValue.replace(/[^\d]/g, '');
+    if (digitsOnly.length > 11) {
+      let digitCount = 0;
+      let truncated = '';
+      for (let i = 0; i < cleanValue.length; i++) {
+        const char = cleanValue[i];
+        if (/\d/.test(char)) {
+          if (digitCount < 11) {
+            truncated += char;
+            digitCount++;
+          }
+        } else {
+          truncated += char;
+        }
+      }
+      cleanValue = truncated;
+    }
+    if (cleanValue.length > 15) {
+      cleanValue = cleanValue.slice(0, 15);
+    }
+    updateFormValue('telefono', cleanValue);
+  };
+
   const updateFormValue = (name, value) => {
     setForm((current) => ({ ...current, [name]: value }));
   };
+
+  const isFormInvalid = useMemo(() => {
+    return (
+      !form.rut ||
+      !form.nombre ||
+      !form.emailContacto ||
+      !form.password ||
+      !form.confirmPassword ||
+      !form.fechaNacimiento ||
+      !form.genero ||
+      !form.telefono ||
+      !validateRut(form.rut) ||
+      !CHILE_PHONE_REGEX.test(form.telefono) ||
+      !PASSWORD_REGEX.test(form.password) ||
+      form.password !== form.confirmPassword
+    );
+  }, [form]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
 
-    if (!form.rut || !form.nombre || !form.emailContacto || !form.password || !form.fechaNacimiento || !form.genero) {
-      setError('Completa todos los campos obligatorios.');
+    if (!form.rut) {
+      setError('El RUT es obligatorio.');
       return;
     }
 
     if (!validateRut(form.rut)) {
-      setError('El RUT no es válido (ej: 12.345.678-9).');
+      setError('Ingresa un RUT válido.');
+      return;
+    }
+
+    if (!form.nombre || !form.emailContacto || !form.password || !form.fechaNacimiento || !form.genero || !form.telefono) {
+      setError('Completa todos los campos obligatorios.');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(form.emailContacto)) {
+      setError('El formato del email no es válido.');
+      return;
+    }
+
+    if (!CHILE_PHONE_REGEX.test(form.telefono)) {
+      setError('El formato del teléfono no es válido (ej: +56 9 1234 5678).');
+      return;
+    }
+
+    if (!PASSWORD_REGEX.test(form.password)) {
+      setError('La contraseña debe tener entre 8 y 15 caracteres, incluir una mayúscula, un número y un símbolo especial.');
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      setError('Las contraseñas no coinciden.');
       return;
     }
 
@@ -498,30 +546,24 @@ export function RegisterPage() {
     setIsSubmitting(true);
 
     try {
-      const { password, ...profile } = {
+      const profile = {
         ...form,
+        rut: normalizeRut(form.rut),
         genero: form.genero.trim().toLowerCase(),
       };
+      const { password } = profile;
+      delete profile.password;
+      delete profile.confirmPassword;
 
-      try {
-        const pendingData = {
-          ...profile,
-          emailContacto: profile.emailContacto || form.emailContacto,
-        };
-        window.localStorage.setItem('style_beauty_pending_profile', JSON.stringify(pendingData));
-        window.sessionStorage.setItem('style_beauty_pending_profile', JSON.stringify(pendingData));
-      } catch (storageErr) {
-        console.warn('Failed to save pending profile data in RegisterPage:', storageErr);
-      }
+      // 1. Create account in Firebase Auth, send verification, sign out
+      await authService.registerUserWithVerification(profile, password);
 
-      await registerClient({
-        email: form.emailContacto,
-        password,
-        profile,
-      });
-      const redirectTo = location.state?.from?.pathname || '/perfil';
-      const redirectState = location.state?.from?.state;
-      navigate(redirectTo, { replace: true, state: redirectState });
+      // 2. Store profile data temporarily in sessionStorage (NO Firestore write)
+      window.sessionStorage.setItem('style_beauty_pending_profile', JSON.stringify(profile));
+
+      // 3. Navigate to verification pending page
+      navigate('/verificacion-pendiente', { replace: true });
+
     } catch (registerError) {
       setError(getRegisterErrorMessage(registerError));
     } finally {
@@ -594,115 +636,162 @@ export function RegisterPage() {
           animate="visible"
           aria-labelledby="register-title"
         >
-          <motion.div className="register-heading" variants={itemVariants}>
-            <span className="register-eyebrow">Nueva cuenta</span>
-            <h1 id="register-title">
-              Comienza tu experiencia <span>Style & Beauty</span>
-            </h1>
-            <div className="register-shine" aria-hidden="true" />
-            <p>
-              Accede a tus reservas, promociones y tratamientos favoritos desde un perfil creado para tu bienestar.
-            </p>
-          </motion.div>
+          <>
+              <motion.div className="register-heading" variants={itemVariants}>
+                <span className="register-eyebrow">Nueva cuenta</span>
+                <h1 id="register-title">
+                  Comienza tu experiencia <span>Style & Beauty</span>
+                </h1>
+                <div className="register-shine" aria-hidden="true" />
+                <p>
+                  Accede a tus reservas, promociones y tratamientos favoritos desde un perfil creado para tu bienestar.
+                </p>
+              </motion.div>
 
-          <motion.form className="register-form-card" onSubmit={handleSubmit} variants={itemVariants}>
-            <motion.div className="register-form-grid" variants={containerVariants}>
-              <PremiumField
-                icon={User}
-                label="RUT"
-                id="register-rut"
-                name="rut"
-                value={form.rut}
-                onChange={handleChange}
-                placeholder="12.345.678-9"
-                required
-              />
-              <PremiumField
-                icon={User}
-                label="Nombre"
-                id="register-nombre"
-                name="nombre"
-                value={form.nombre}
-                onChange={handleChange}
-                placeholder="Tu nombre"
-                required
-              />
-              <PremiumField
-                icon={User}
-                label="Apellidos"
-                id="register-apellidos"
-                name="apellidos"
-                value={form.apellidos}
-                onChange={handleChange}
-                placeholder="Tus apellidos"
-              />
-              <PremiumField
-                icon={Mail}
-                label="Email"
-                id="register-email"
-                name="emailContacto"
-                type="email"
-                value={form.emailContacto}
-                onChange={handleChange}
-                placeholder="tuemail@correo.com"
-                required
-              />
-              <PremiumField
-                icon={Lock}
-                label="Contraseña"
-                id="register-password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                minLength="6"
-                value={form.password}
-                onChange={handleChange}
-                placeholder="Mínimo 6 caracteres"
-                required
-                trailing={
-                  <button
-                    className="password-toggle"
-                    type="button"
-                    onClick={() => setShowPassword((current) => !current)}
-                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                }
-              />
-              <PremiumField
-                icon={Phone}
-                label="Teléfono"
-                id="register-telefono"
-                name="telefono"
-                value={form.telefono}
-                onChange={handleChange}
-                placeholder="+56 9 1234 5678"
-              />
-              <BirthDateSelects
-                value={form.fechaNacimiento}
-                maxDate={maxBirthDate}
-                onChange={(value) => updateFormValue('fechaNacimiento', value)}
-              />
-              <PremiumGenderSelect
-                value={form.genero}
-                onChange={(value) => updateFormValue('genero', value)}
-              />
-            </motion.div>
+              <motion.form className="register-form-card" onSubmit={handleSubmit} variants={itemVariants}>
+                <motion.div className="register-form-grid" variants={containerVariants}>
+                  <PremiumField
+                    icon={User}
+                    label="RUT"
+                    id="register-rut"
+                    name="rut"
+                    value={form.rut}
+                    onChange={handleChange}
+                    onBlur={() => updateFormValue('rut', formatRut(form.rut))}
+                    placeholder="12.345.678-9"
+                    required
+                  />
+                  <PremiumField
+                    icon={User}
+                    label="Nombre"
+                    id="register-nombre"
+                    name="nombre"
+                    value={form.nombre}
+                    onChange={handleChange}
+                    placeholder="Tu nombre"
+                    maxLength={20}
+                    required
+                  />
+                  <PremiumField
+                    icon={User}
+                    label="Apellidos"
+                    id="register-apellidos"
+                    name="apellidos"
+                    value={form.apellidos}
+                    onChange={handleChange}
+                    placeholder="Tus apellidos"
+                    maxLength={20}
+                  />
+                  <PremiumField
+                    icon={Mail}
+                    label="Email"
+                    id="register-email"
+                    name="emailContacto"
+                    type="email"
+                    value={form.emailContacto}
+                    onChange={handleChange}
+                    placeholder="tuemail@correo.com"
+                    maxLength={25}
+                    required
+                  />
+                  <PremiumField
+                    icon={Phone}
+                    label="Teléfono"
+                    id="register-telefono"
+                    name="telefono"
+                    value={form.telefono}
+                    onChange={handlePhoneChange}
+                    placeholder="+56 9 1234 5678"
+                  />
+                  <PremiumGenderSelect
+                    value={form.genero}
+                    onChange={(value) => updateFormValue('genero', value)}
+                  />
+                  <BirthDateSelects
+                    value={form.fechaNacimiento}
+                    maxDate={maxBirthDate}
+                    onChange={(value) => updateFormValue('fechaNacimiento', value)}
+                    style={{ gridColumn: '1 / -1' }}
+                  />
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <PremiumField
+                      icon={Lock}
+                      label="Contraseña"
+                      id="register-password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      minLength="8"
+                      maxLength="15"
+                      value={form.password}
+                      onChange={handleChange}
+                      placeholder="Crea una contraseña segura"
+                      required
+                      trailing={
+                        <button
+                          className="password-toggle"
+                          type="button"
+                          onClick={() => setShowPassword((current) => !current)}
+                          aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                        >
+                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      }
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.75rem', marginTop: '0.5rem', paddingLeft: '0.25rem' }}>
+                      <span style={{ color: form.password.length >= 8 && form.password.length <= 15 ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Entre 8 y 15 caracteres
+                      </span>
+                      <span style={{ color: /[A-Z]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Al menos 1 letra mayúscula
+                      </span>
+                      <span style={{ color: /\d/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Al menos 1 número
+                      </span>
+                      <span style={{ color: /[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~-]/.test(form.password) ? 'var(--color-primary-strong)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <CheckCircle2 size={12} /> Al menos 1 símbolo especial
+                      </span>
+                    </div>
+                  </div>
+                  <PremiumField
+                    icon={Lock}
+                    label="Confirmar contraseña"
+                    id="register-confirm-password"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    minLength="8"
+                    maxLength="15"
+                    value={form.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Repite tu contraseña"
+                    required
+                    trailing={
+                      <button
+                        className="password-toggle"
+                        type="button"
+                        onClick={() => setShowConfirmPassword((current) => !current)}
+                        aria-label={showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    }
+                  />
+                </motion.div>
+ 
+                {error && (
+                  <motion.p className="admin-alert register-error" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+                    {error}
+                  </motion.p>
+                )}
+ 
+                <Button className="register-submit" type="submit" disabled={isSubmitting || isFormInvalid}>
+                  {isSubmitting ? 'Creando cuenta...' : 'Crear mi espacio beauty'}
+                </Button>
 
-            {error && (
-              <motion.p className="admin-alert register-error" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
-                {error}
-              </motion.p>
-            )}
-
-            <Button className="register-submit" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Creando cuenta...' : 'Crear mi espacio beauty'}
-            </Button>
-
-            <p className="register-login-note">
-              ¿Ya tienes cuenta? <NavLink className="text-link" to="/login">Inicia sesión</NavLink>
-            </p>
-          </motion.form>
+                <p className="register-login-note">
+                  ¿Ya tienes cuenta? <NavLink className="text-link" to="/login">Inicia sesión</NavLink>
+                </p>
+              </motion.form>
+            </>
         </motion.section>
       </section>
     </main>

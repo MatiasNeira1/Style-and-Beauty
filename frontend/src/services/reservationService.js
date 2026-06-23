@@ -32,6 +32,33 @@ export const reservationService = {
       authRequired: true,
     }),
 
+  listMyHistoryReservations: () =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/historial',
+      authRequired: true,
+    }),
+
+  evaluateReservation: (reservationId, ratingOrPayload, comment) => {
+    const data = typeof ratingOrPayload === 'object' && ratingOrPayload !== null
+      ? {
+          calificacion: ratingOrPayload.calificacion,
+          comentarioCalificacion: ratingOrPayload.comentarioCalificacion ?? ratingOrPayload.comentario,
+        }
+      : {
+          calificacion: ratingOrPayload,
+          comentarioCalificacion: comment,
+        };
+
+    return request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: `/api/agenda/citas/${reservationId}/evaluar`,
+      method: 'POST',
+      authRequired: true,
+      data,
+    });
+  },
+
   getAvailability: ({ idServicio, idStaff, fecha, idCliente }) =>
     request({
       baseURL: AGENDA_API_BASE_URL,
@@ -71,5 +98,13 @@ export const reservationService = {
       method: 'DELETE',
       authRequired: true,
     }),
+
+  listFinalized: () =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/mis-citas-finalizadas',
+      authRequired: true,
+    }),
+
   isValidUuid,
 };

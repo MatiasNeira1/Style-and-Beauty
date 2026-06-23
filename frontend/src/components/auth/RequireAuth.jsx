@@ -41,6 +41,11 @@ export function RequireAuth({ children, roles }) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
+  const isStaffOrAdmin = userRole === 'STAFF' || userRole === 'ADMIN' || userRole === 'EMPLOYEE';
+  if (user && !user.emailVerified && !isStaffOrAdmin) {
+    return <Navigate to="/verificacion-pendiente" replace state={{ from: location }} />;
+  }
+
   if (sessionQuery.error?.status === 401) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }

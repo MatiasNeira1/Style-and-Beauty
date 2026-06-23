@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CalendarDays, Clock, Image as ImageIcon, MapPin, Signal, Sparkles, X } from 'lucide-react';
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { professionalTheme, statusTone } from '../../utils/professionalTheme.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
 function normalize(value = '') {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -88,20 +89,10 @@ export function ProfessionalProfileModal({ professional, onClose }) {
     ? publicHours
     : (professional?.proximasHoras?.length ? professional.proximasHoras : ['Consultar disponibilidad']);
   const hasPortfolio = portfolio.length > 0;
+  useBodyScrollLock(Boolean(professional));
 
   useEffect(() => {
     if (!professional) return undefined;
-
-    const originalHtmlOverflow = document.documentElement.style.overflow;
-    const originalBodyOverflow = document.body.style.overflow;
-    const originalBodyPaddingRight = document.body.style.paddingRight;
-    const scrollbarGap = window.innerWidth - document.documentElement.clientWidth;
-
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overflow = 'hidden';
-    if (scrollbarGap > 0) {
-      document.body.style.paddingRight = `${scrollbarGap}px`;
-    }
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') onClose?.();
@@ -110,9 +101,6 @@ export function ProfessionalProfileModal({ professional, onClose }) {
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      document.documentElement.style.overflow = originalHtmlOverflow;
-      document.body.style.overflow = originalBodyOverflow;
-      document.body.style.paddingRight = originalBodyPaddingRight;
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [professional, onClose]);

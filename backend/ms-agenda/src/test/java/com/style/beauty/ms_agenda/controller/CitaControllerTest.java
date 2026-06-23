@@ -2,11 +2,18 @@ package com.style.beauty.ms_agenda.controller;
 
 import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
+import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteRequest;
+import com.style.beauty.ms_agenda.dto.CrearCitasLoteResponse;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.enums.EstadoCita;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
+import com.style.beauty.ms_agenda.exception.BusinessException;
+import com.style.beauty.ms_agenda.exception.ResourceNotFoundException;
 import com.style.beauty.ms_agenda.service.CitaService;
 import com.style.beauty.ms_agenda.service.FirebaseTokenVerifier;
+import org.mockito.ArgumentCaptor;
+import org.springframework.http.MediaType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -14,16 +21,20 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -71,7 +82,8 @@ class CitaControllerTest {
 
     @Test
     void getMisProximasUsaClienteAutenticado() throws Exception {
-        when(firebaseTokenVerifier.authenticatedClientUid("Bearer token")).thenReturn("firebase-uid");
+        when(firebaseTokenVerifier.authenticatedUser("Bearer token"))
+                .thenReturn(new FirebaseTokenVerifier.AuthenticatedUser("firebase-uid", "CLIENTE"));
         when(perfilClient.obtenerClientePorAuthId("firebase-uid"))
                 .thenReturn(new PerfilResumen(ID_CLIENTE, "firebase-uid", "1-9", "Cliente", "Demo", "cliente@example.com", null, true, null));
         when(citaService.listarProximasCliente(ID_CLIENTE)).thenReturn(List.of());
@@ -82,6 +94,47 @@ class CitaControllerTest {
                 .andExpect(content().json("[]"));
 
         verify(citaService).listarProximasCliente(ID_CLIENTE);
+    }
+
+    @Test
+    void getMisProximasDevuelveForbiddenParaRolNoCliente() throws Exception {
+        when(firebaseTokenVerifier.authenticatedUser("Bearer admin-token"))
+                .thenReturn(new FirebaseTokenVerifier.AuthenticatedUser("firebase-admin-uid", "ADMIN"));
+
+        mockMvc.perform(get("/api/agenda/citas/mis-proximas")
+                        .header("Authorization", "Bearer admin-token"))
+                .andExpect(status().isForbidden());
+
+        verify(perfilClient, never()).obtenerClientePorAuthId(any());
+        verify(citaService, never()).listarProximasCliente(any());
+    }
+
+    @Test
+    void getMisProximasDevuelveNotFoundSiNoExistePerfilCliente() throws Exception {
+        when(firebaseTokenVerifier.authenticatedUser("Bearer token"))
+                .thenReturn(new FirebaseTokenVerifier.AuthenticatedUser("firebase-uid", "CLIENTE"));
+        when(perfilClient.obtenerClientePorAuthId("firebase-uid"))
+                .thenThrow(new ResourceNotFoundException("Cliente autenticado no encontrado en ms-perfiles"));
+
+        mockMvc.perform(get("/api/agenda/citas/mis-proximas")
+                        .header("Authorization", "Bearer token"))
+                .andExpect(status().isNotFound());
+
+        verify(citaService, never()).listarProximasCliente(any());
+    }
+
+    @Test
+    void getMisProximasDevuelveServiceUnavailableSiNoPuedeValidarPerfil() throws Exception {
+        when(firebaseTokenVerifier.authenticatedUser("Bearer token"))
+                .thenReturn(new FirebaseTokenVerifier.AuthenticatedUser("firebase-uid", "CLIENTE"));
+        when(perfilClient.obtenerClientePorAuthId("firebase-uid"))
+                .thenThrow(new BusinessException("No fue posible validar cliente autenticado"));
+
+        mockMvc.perform(get("/api/agenda/citas/mis-proximas")
+                        .header("Authorization", "Bearer token"))
+                .andExpect(status().isServiceUnavailable());
+
+        verify(citaService, never()).listarProximasCliente(any());
     }
 
     @Test
@@ -118,5 +171,80 @@ class CitaControllerTest {
                 .andExpect(status().isOk());
 
         verify(citaService).finalizarCitaStaff(idCita, ID_STAFF);
+    }
+
+    @Test
+    void postCrearDesdeAdminUsaClienteDelPayloadYExigeAdmin() throws Exception {
+        UUID idCita = UUID.fromString("30000000-0000-4000-8000-000000000001");
+        UUID idServicio = UUID.fromString("40000000-0000-4000-8000-000000000001");
+        Cita creada = Cita.builder()
+                .idCita(idCita)
+                .idCliente(ID_CLIENTE)
+                .idStaff(ID_STAFF)
+                .idServicio(idServicio)
+                .estadoCita(EstadoCita.CONFIRMADA)
+                .build();
+        when(citaService.crearDesdeAdmin(any(CrearCitaRequest.class))).thenReturn(creada);
+
+        mockMvc.perform(post("/api/agenda/citas/admin")
+                        .header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "idCliente": "10000000-0000-4000-8000-000000000001",
+                                  "idStaff": "20000000-0000-4000-8000-000000000001",
+                                  "idServicio": "40000000-0000-4000-8000-000000000001",
+                                  "fechaHoraInicio": "2030-01-07T09:30:00-03:00",
+                                  "abono": 10000
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        verify(firebaseTokenVerifier).authenticatedAdminUid("Bearer admin-token");
+        ArgumentCaptor<CrearCitaRequest> captor = ArgumentCaptor.forClass(CrearCitaRequest.class);
+        verify(citaService).crearDesdeAdmin(captor.capture());
+        assertThat(captor.getValue().idCliente()).isEqualTo(ID_CLIENTE);
+        assertThat(captor.getValue().abono()).isEqualByComparingTo("10000");
+    }
+
+    @Test
+    void postCrearLoteDesdeAdminExigeAdminYPropagaPayload() throws Exception {
+        when(citaService.crearLoteDesdeAdmin(any(CrearCitasLoteRequest.class)))
+                .thenReturn(new CrearCitasLoteResponse(ID_CLIENTE, LocalDate.of(2030, 1, 7), 2, 180, List.of()));
+
+        mockMvc.perform(post("/api/agenda/citas/lote")
+                        .header("Authorization", "Bearer admin-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "idCliente": "10000000-0000-4000-8000-000000000001",
+                                  "fecha": "2030-01-07",
+                                  "abono": 20000,
+                                  "reservas": [
+                                    {
+                                      "idServicio": "40000000-0000-4000-8000-000000000001",
+                                      "idStaff": "20000000-0000-4000-8000-000000000001",
+                                      "horaInicio": "08:00",
+                                      "notaInterna": "Primera"
+                                    },
+                                    {
+                                      "idServicio": "40000000-0000-4000-8000-000000000002",
+                                      "idStaff": "20000000-0000-4000-8000-000000000001",
+                                      "horaInicio": "10:00",
+                                      "notaInterna": "Segunda"
+                                    }
+                                  ]
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        verify(firebaseTokenVerifier).authenticatedAdminUid("Bearer admin-token");
+        ArgumentCaptor<CrearCitasLoteRequest> captor = ArgumentCaptor.forClass(CrearCitasLoteRequest.class);
+        verify(citaService).crearLoteDesdeAdmin(captor.capture());
+        assertThat(captor.getValue().idCliente()).isEqualTo(ID_CLIENTE);
+        assertThat(captor.getValue().fecha()).isEqualTo(LocalDate.of(2030, 1, 7));
+        assertThat(captor.getValue().abono()).isEqualByComparingTo("20000");
+        assertThat(captor.getValue().reservas()).hasSize(2);
+        assertThat(captor.getValue().reservas().get(0).horaInicio()).isEqualTo(LocalTime.of(8, 0));
     }
 }

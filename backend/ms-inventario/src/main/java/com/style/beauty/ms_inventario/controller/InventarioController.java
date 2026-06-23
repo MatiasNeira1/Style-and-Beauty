@@ -50,8 +50,11 @@ public class InventarioController {
             @RequestParam String categoria,
             @RequestParam(required = false) String descripcion,
             @RequestParam BigDecimal precio,
+            @RequestParam(required = false) Integer stockInicial,
+            @RequestParam(required = false) String unidadMedida,
+            @RequestParam(required = false) Integer stockMinimo,
             @RequestParam("file") MultipartFile file) {
-        return inventarioService.crearProductoConImagen(nombre, categoria, descripcion, precio, file);
+        return inventarioService.crearProductoConImagen(nombre, categoria, descripcion, precio, stockInicial, unidadMedida, stockMinimo, file);
     }
 
     @PutMapping("/productos/{id}")
@@ -74,6 +77,11 @@ public class InventarioController {
     @PatchMapping("/productos/{id}/desactivar")
     public Producto desactivarProducto(@PathVariable UUID id) {
         return inventarioService.desactivarProducto(id);
+    }
+
+    @PatchMapping("/productos/{id}/activar")
+    public Producto activarProducto(@PathVariable UUID id) {
+        return inventarioService.activarProducto(id);
     }
 
     @DeleteMapping("/productos/{id}")

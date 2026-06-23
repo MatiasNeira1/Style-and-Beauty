@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CalendarCheck, CreditCard, Package, Scissors, TrendingUp, Users } from 'lucide-react';
 import { adminDashboardService } from '../../services/adminDashboardService.js';
 import { formatCurrencyCLP, fullName } from '../../utils/adminFormatters.js';
+import { calculateInventoryMetrics } from '../../utils/inventoryStockRules.js';
 
 const MOCKS_ENABLED = import.meta.env.DEV && String(import.meta.env.VITE_USE_MOCKS || '').toLowerCase() === 'true';
 
@@ -147,7 +148,8 @@ export function useAdminDashboardMetrics() {
       };
     }).sort((a, b) => b.ingresos - a.ingresos);
 
-    const lowStock = stock.filter((item) => Number(item.cantidadActual || 0) <= Number(item.stockMinimo || 0));
+    const inventoryMetrics = calculateInventoryMetrics(products, stock);
+    const lowStock = inventoryMetrics.lowStock;
     const statusTotal = Math.max(bookings.length, 1);
 
     return {
@@ -157,7 +159,7 @@ export function useAdminDashboardMetrics() {
         { icon: Users, title: 'Profesionales activos', value: staff.length, trend: 4, microcopy: `${staffPerformance.filter((item) => item.status !== 'Disponible hoy').length} con agenda en movimiento`, tone: 'sage' },
         { icon: CreditCard, title: 'Ticket promedio', value: formatCurrencyCLP(averageTicket), trend: 6, microcopy: `${formatCurrencyCLP(pendingRevenue)} pendiente por cobrar`, tone: 'ink' },
         { icon: Scissors, title: 'Servicios vendidos', value: bookings.length, trend: 9, microcopy: `${services.length} servicios administrables`, tone: 'rose' },
-        { icon: Package, title: 'Bajo stock', value: lowStock.length, trend: lowStock.length ? -8 : 0, microcopy: `${products.length} productos en catalogo`, tone: 'gold' },
+        { icon: Package, title: 'Bajo stock', value: lowStock.length, trend: lowStock.length ? -8 : 0, microcopy: `${inventoryMetrics.totalActiveProducts} productos activos`, tone: 'gold' },
       ],
       revenueSeries: MOCKS_ENABLED && dashboardMock ? dashboardMock.revenueSeries : buildRevenueSeries(payments),
       weeklyOccupancy: MOCKS_ENABLED && dashboardMock ? dashboardMock.weeklyOccupancy : buildWeeklyOccupancy(bookings),
@@ -177,7 +179,7 @@ export function useAdminDashboardMetrics() {
       alerts: [
         pendingBookings.length ? `${pendingBookings.length} reservas requieren confirmacion` : 'Reservas pendientes bajo control',
         pendingRevenue ? `${formatCurrencyCLP(pendingRevenue)} pendiente por cobrar` : 'Pagos pendientes sin alerta',
-        lowStock.length ? `${lowStock.length} productos bajo stock minimo` : 'Inventario sin quiebres criticos',
+        lowStock.length ? `${lowStock.length} productos con stock entre 1 y 5` : 'Inventario sin quiebres criticos',
         occupancy >= 80 ? `Ocupacion alta: ${occupancy}%` : `Ocupacion agenda: ${occupancy}%`,
       ],
       raw: { bookings, services, payments, products, stock, clients, staff, partialErrors: snapshot.partialErrors || [] },

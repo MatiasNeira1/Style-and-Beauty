@@ -7,10 +7,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
+import com.style.beauty.ms_cliente.exception.DuplicateRutException;
 import com.style.beauty.ms_cliente.exception.ProfileNotFoundException;
 import com.style.beauty.ms_cliente.model.PersonaModel;
 import com.style.beauty.ms_cliente.repository.PersonaRepository;
 import com.style.beauty.ms_cliente.strategy.PerfilStrategy;
+import com.style.beauty.ms_cliente.util.RutUtils;
 import com.style.beauty.ms_cliente.model.ClienteModel;
 import com.style.beauty.ms_cliente.model.EspecialidadModel;
 import com.style.beauty.ms_cliente.model.StaffModel;
@@ -20,16 +22,20 @@ import com.style.beauty.ms_cliente.repository.ClienteRepository;
 import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 import com.style.beauty.ms_cliente.repository.StaffPortfolioImageRepository;
 import com.style.beauty.ms_cliente.repository.StaffRepository;
+import com.style.beauty.ms_cliente.util.ProfileImageUrlValidator;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class PerfilService {
     private static final int EDAD_MINIMA_CLIENTE = 15;
     private static final Set<String> GENEROS_VALIDOS = Set.of("femenino", "masculino", "otro", "no_especifica");
+    private static final String RUT_INVALIDO = "El RUT ingresado no es válido.";
+    private static final String RUT_DUPLICADO = "El RUT ingresado ya se encuentra registrado.";
 
     private final PersonaRepository personaRepository;
     private final ClienteRepository clienteRepository;
@@ -97,6 +103,7 @@ public class PerfilService {
         if (estaVacio(dto.getRut())) {
             throw new IllegalArgumentException("El RUT es obligatorio.");
         }
+        validarYNormalizarRut(dto);
         if (estaVacio(dto.getNombre())) {
             throw new IllegalArgumentException("El nombre es obligatorio.");
         }
@@ -111,10 +118,16 @@ public class PerfilService {
             validarGeneroCliente(dto);
         }
 
-        dto.setRut(dto.getRut().trim());
         dto.setNombre(dto.getNombre().trim());
         dto.setEmailContacto(dto.getEmailContacto().trim().toLowerCase());
         if (dto.getIdAuth() != null) dto.setIdAuth(dto.getIdAuth().trim());
+    }
+
+    private void validarYNormalizarRut(PerfilRequestDTO dto) {
+        if (!RutUtils.isValidRut(dto.getRut())) {
+            throw new IllegalArgumentException(RUT_INVALIDO);
+        }
+        dto.setRut(RutUtils.normalizeRut(dto.getRut()));
     }
 
     private void validarFechaNacimientoCliente(LocalDate fechaNacimiento) {
@@ -146,11 +159,19 @@ public class PerfilService {
         if (validarIdAuth && personaRepository.existsByIdAuth(dto.getIdAuth())) {
             throw new RuntimeException("Ya existe un perfil asociado a este usuario.");
         }
-        if (personaRepository.existsByRutIgnoreCase(dto.getRut())) {
-            throw new RuntimeException("Ya existe un usuario con ese RUT.");
-        }
+        validarRutDisponible(dto.getRut(), null);
         if (personaRepository.existsByEmailContactoIgnoreCase(dto.getEmailContacto())) {
             throw new RuntimeException("Ya existe un usuario con ese correo.");
+        }
+    }
+
+    private void validarRutDisponible(String rut, UUID idPersonaPermitida) {
+        String rutCompacto = RutUtils.compactRut(rut);
+        boolean duplicado = personaRepository.findAllByRutCompact(rutCompacto).stream()
+                .anyMatch(persona -> idPersonaPermitida == null || !idPersonaPermitida.equals(persona.getIdPersona()));
+
+        if (duplicado) {
+            throw new DuplicateRutException(RUT_DUPLICADO);
         }
     }
 
@@ -280,6 +301,29 @@ public class PerfilService {
         return actualizarPerfil(idAuth, dto, false);
     }
 
+    @Transactional
+    public PersonaModel actualizarFotoPropia(String idAuth, MultipartFile file) {
+        PersonaModel persona = obtenerMiPerfil(idAuth);
+        String fotoActual;
+        String carpeta;
+
+        if (persona instanceof ClienteModel cliente) {
+            fotoActual = cliente.getFotoUrl();
+            carpeta = "perfiles/clientes";
+            String imageUrl = azureBlobStorageService.replace(fotoActual, file, carpeta);
+            cliente.setFotoUrl(imageUrl);
+        } else if (persona instanceof StaffModel staff) {
+            fotoActual = esLogoCorporativo(staff.getFotoUrl()) ? null : staff.getFotoUrl();
+            carpeta = "profesionales";
+            String imageUrl = azureBlobStorageService.replace(fotoActual, file, carpeta);
+            staff.setFotoUrl(imageUrl);
+        } else {
+            throw new IllegalArgumentException("El perfil actual no admite una foto de perfil.");
+        }
+
+        return personaRepository.save(persona);
+    }
+
     public PersonaModel actualizarPerfilComoAdmin(String idAuth, PerfilRequestDTO dto) {
         return actualizarPerfil(idAuth, dto, true);
     }
@@ -289,7 +333,17 @@ public class PerfilService {
         boolean puedeEditarIdentidad = permitirEditarIdentidad || persona instanceof StaffModel;
 
         if (puedeEditarIdentidad) {
-            if (dto.getRut() != null) persona.setRut(dto.getRut());
+            if (dto.getRut() != null) {
+                if (estaVacio(dto.getRut())) {
+                    throw new IllegalArgumentException("El RUT es obligatorio.");
+                }
+                if (!RutUtils.isValidRut(dto.getRut())) {
+                    throw new IllegalArgumentException(RUT_INVALIDO);
+                }
+                String rutNormalizado = RutUtils.normalizeRut(dto.getRut());
+                validarRutDisponible(rutNormalizado, persona.getIdPersona());
+                persona.setRut(rutNormalizado);
+            }
             if (dto.getNombre() != null) persona.setNombre(dto.getNombre());
             if (dto.getApellidos() != null) persona.setApellidos(dto.getApellidos());
             if (dto.getFechaNacimiento() != null) persona.setFechaNacimiento(dto.getFechaNacimiento());
@@ -299,7 +353,9 @@ public class PerfilService {
 
         if (dto.getTelefono() != null) persona.setTelefono(dto.getTelefono());
         if (persona instanceof StaffModel staff) {
-            if (dto.getFotoUrl() != null && !dto.getFotoUrl().isBlank()) staff.setFotoUrl(dto.getFotoUrl());
+            if (dto.getFotoUrl() != null && !dto.getFotoUrl().isBlank()) {
+                staff.setFotoUrl(ProfileImageUrlValidator.validateStoredUrl(dto.getFotoUrl()));
+            }
             if (Boolean.TRUE.equals(dto.getSinImagenPorAhora()) && (staff.getFotoUrl() == null || staff.getFotoUrl().isBlank())) {
                 staff.setFotoUrl(companyLogoUrl);
             }

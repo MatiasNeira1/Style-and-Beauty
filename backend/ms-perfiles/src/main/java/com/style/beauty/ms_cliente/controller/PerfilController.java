@@ -2,6 +2,7 @@ package com.style.beauty.ms_cliente.controller;
 
 import com.google.firebase.auth.FirebaseToken;
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
+import com.style.beauty.ms_cliente.exception.DuplicateRutException;
 import com.style.beauty.ms_cliente.exception.ProfileNotFoundException;
 import com.style.beauty.ms_cliente.model.PersonaModel;
 import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
@@ -40,10 +41,14 @@ public class PerfilController {
         try {
             perfilService.validarDisponibilidadParaCreacion(requestDTO);
             return ResponseEntity.ok("Usuario disponible.");
+        } catch (DuplicateRutException e) {
+            return mensaje(HttpStatus.CONFLICT, e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return mensaje(HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return mensaje(HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Error crítico: " + e.getMessage());
+            return mensaje(HttpStatus.INTERNAL_SERVER_ERROR, "Error crítico: " + e.getMessage());
         }
     }
 
@@ -76,10 +81,14 @@ public class PerfilController {
 
         } catch (ResponseStatusException e) {
             return responseStatus(e);
+        } catch (DuplicateRutException e) {
+            return mensaje(HttpStatus.CONFLICT, e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return mensaje(HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return mensaje(HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Error crítico: " + e.getMessage());
+            return mensaje(HttpStatus.INTERNAL_SERVER_ERROR, "Error crítico: " + e.getMessage());
         }
     }
     //obtener mi perfil
@@ -92,6 +101,22 @@ public class PerfilController {
             PersonaModel miPerfil = perfilService.obtenerMiPerfil(uidVerdadero);
             return ResponseEntity.ok(miPerfil);
 
+        } catch (ResponseStatusException e) {
+            return responseStatus(e);
+        } catch (ProfileNotFoundException e) {
+            return profileNotFound(e);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping(value = "/me/foto", consumes = "multipart/form-data")
+    public ResponseEntity<?> actualizarMiFoto(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            FirebaseToken decodedToken = firebaseTokenVerifier.verify(authHeader);
+            return ResponseEntity.ok(perfilService.actualizarFotoPropia(decodedToken.getUid(), file));
         } catch (ResponseStatusException e) {
             return responseStatus(e);
         } catch (ProfileNotFoundException e) {
@@ -197,8 +222,12 @@ public class PerfilController {
             return responseStatus(e);
         } catch (ProfileNotFoundException e) {
             return profileNotFound(e);
+        } catch (DuplicateRutException e) {
+            return mensaje(HttpStatus.CONFLICT, e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return mensaje(HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return mensaje(HttpStatus.BAD_REQUEST, e.getMessage());
         }
     }
 
@@ -223,6 +252,10 @@ public class PerfilController {
 
     private ResponseEntity<String> responseStatus(ResponseStatusException e) {
         return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+    }
+
+    private ResponseEntity<Map<String, String>> mensaje(HttpStatus status, String message) {
+        return ResponseEntity.status(status).body(Map.of("message", message));
     }
 
     private ResponseEntity<Map<String, String>> profileNotFound(ProfileNotFoundException e) {

@@ -10,6 +10,7 @@ import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 import com.style.beauty.ms_cliente.repository.StaffRepository;
 import com.style.beauty.ms_cliente.model.StaffModel;
 import com.style.beauty.ms_cliente.model.EspecialidadModel;
+import com.style.beauty.ms_cliente.util.ProfileImageUrlValidator;
 @Component
 public class StaffStrategy implements PerfilStrategy{
 
@@ -59,7 +60,7 @@ public class StaffStrategy implements PerfilStrategy{
 
     private String resolverFotoUrl(PerfilRequestDTO dto) {
         if (dto.getFotoUrl() != null && !dto.getFotoUrl().isBlank()) {
-            return dto.getFotoUrl();
+            return ProfileImageUrlValidator.validateStoredUrl(dto.getFotoUrl());
         }
         if (Boolean.TRUE.equals(dto.getSinImagenPorAhora())) {
             return companyLogoUrl;
