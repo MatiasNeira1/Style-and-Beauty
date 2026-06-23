@@ -22,6 +22,7 @@ import com.style.beauty.ms_cliente.repository.ClienteRepository;
 import com.style.beauty.ms_cliente.repository.EspecialidadRepository;
 import com.style.beauty.ms_cliente.repository.StaffPortfolioImageRepository;
 import com.style.beauty.ms_cliente.repository.StaffRepository;
+import com.style.beauty.ms_cliente.util.PhoneUtils;
 import com.style.beauty.ms_cliente.util.ProfileImageUrlValidator;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -110,6 +111,7 @@ public class PerfilService {
         if (estaVacio(dto.getEmailContacto())) {
             throw new IllegalArgumentException("El correo es obligatorio.");
         }
+        validarYNormalizarTelefono(dto);
         if ("STAFF".equalsIgnoreCase(dto.getTipoPerfil()) && dto.getIdEspecialidad() == null) {
             throw new IllegalArgumentException("La especialidad es obligatoria para el Staff.");
         }
@@ -128,6 +130,17 @@ public class PerfilService {
             throw new IllegalArgumentException(RUT_INVALIDO);
         }
         dto.setRut(RutUtils.normalizeRut(dto.getRut()));
+    }
+
+    private void validarYNormalizarTelefono(PerfilRequestDTO dto) {
+        if (dto.getTelefono() == null) {
+            return;
+        }
+        if (estaVacio(dto.getTelefono())) {
+            dto.setTelefono("");
+            return;
+        }
+        dto.setTelefono(PhoneUtils.normalizeChilePhone(dto.getTelefono()));
     }
 
     private void validarFechaNacimientoCliente(LocalDate fechaNacimiento) {
@@ -351,7 +364,7 @@ public class PerfilService {
             if (dto.getEmailContacto() != null) persona.setEmailContacto(dto.getEmailContacto());
         }
 
-        if (dto.getTelefono() != null) persona.setTelefono(dto.getTelefono());
+        if (dto.getTelefono() != null) persona.setTelefono(PhoneUtils.normalizeChilePhone(dto.getTelefono()));
         if (persona instanceof StaffModel staff) {
             if (dto.getFotoUrl() != null && !dto.getFotoUrl().isBlank()) {
                 staff.setFotoUrl(ProfileImageUrlValidator.validateStoredUrl(dto.getFotoUrl()));

@@ -18,10 +18,10 @@ import {
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui/Button.jsx';
 import { authService } from '../../services/authService.js';
+import { isValidChilePhone, normalizeChilePhone } from '../../utils/phoneUtils.js';
 import { formatRut, normalizeRut, validateRut } from '../../utils/rutUtils.js';
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const CHILE_PHONE_REGEX = /^\+56\s?9\s?\d{4}\s?\d{4}$/;
 const PASSWORD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+{}:"<>?|[\]\\;',./`~-]).{8,}$/;
 
 const initialForm = {
@@ -483,7 +483,7 @@ export function RegisterPage() {
       !form.genero ||
       !form.telefono ||
       !validateRut(form.rut) ||
-      !CHILE_PHONE_REGEX.test(form.telefono) ||
+      !isValidChilePhone(form.telefono) ||
       !PASSWORD_REGEX.test(form.password) ||
       form.password !== form.confirmPassword
     );
@@ -513,7 +513,7 @@ export function RegisterPage() {
       return;
     }
 
-    if (!CHILE_PHONE_REGEX.test(form.telefono)) {
+    if (!isValidChilePhone(form.telefono)) {
       setError('El formato del teléfono no es válido (ej: +56 9 1234 5678).');
       return;
     }
@@ -550,6 +550,7 @@ export function RegisterPage() {
         ...form,
         rut: normalizeRut(form.rut),
         genero: form.genero.trim().toLowerCase(),
+        telefono: normalizeChilePhone(form.telefono),
       };
       const { password } = profile;
       delete profile.password;

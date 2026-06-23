@@ -14,14 +14,10 @@ import { reservationService } from '../../services/reservationService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { RESERVATION_DEPOSIT_CLP, formatCLP } from '../../utils/priceUtils.js';
+import { isValidChilePhone, normalizeChilePhone } from '../../utils/phoneUtils.js';
 import { formatRut, normalizeRut, validateRut } from '../../utils/rutUtils.js';
 
 const MIN_CLIENT_AGE = 15;
-
-function validatePhone(value) {
-  if (!value) return true;
-  return /^\+?[0-9\s-]{8,18}$/.test(value.trim());
-}
 
 const monthOptions = [
   ['01', 'Enero'],
@@ -913,7 +909,7 @@ export function ProfilePage() {
         nombre: values.nombre,
         apellidos: values.apellidos || '',
         rut: normalizeRut(values.rut),
-        telefono: values.telefono || '',
+        telefono: normalizeChilePhone(values.telefono),
         fechaNacimiento: values.fechaNacimiento || '',
         genero: values.genero || '',
         estado: 'activo',
@@ -1103,7 +1099,7 @@ export function ProfilePage() {
                     label="Telefono"
                     readOnly={hasPendingProfileData}
                     {...register('telefono', {
-                      validate: (value) => validatePhone(value) || 'Formato esperado: +56 9 1234 5678.',
+                      validate: (value) => isValidChilePhone(value) || 'Formato esperado: +56 9 1234 5678.',
                       onChange: handlePhoneChange,
                     })}
                     placeholder="+56 9 1234 5678"
@@ -1166,7 +1162,7 @@ export function ProfilePage() {
   const onSubmit = async (data) => {
     try {
       await updateMutation.mutateAsync({
-        telefono: data.telefono,
+        telefono: normalizeChilePhone(data.telefono),
         alergias: data.alergias,
         medicamentos: data.medicamentos,
         afeccionesPiel: data.afeccionesPiel,
@@ -1240,7 +1236,7 @@ export function ProfilePage() {
                 <label>Teléfono</label>
                 <Input
                   {...register('telefono', {
-                    validate: (value) => validatePhone(value) || 'Formato esperado: +56 9 1234 5678.',
+                    validate: (value) => isValidChilePhone(value) || 'Formato esperado: +56 9 1234 5678.',
                     onChange: handlePhoneChange,
                   })}
                   placeholder="+56 9 1234 5678"
