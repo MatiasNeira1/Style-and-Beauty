@@ -8,6 +8,8 @@ import com.style.beauty.ms_agenda.dto.CrearCitasLoteResponse;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.enums.EstadoCita;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
+import com.style.beauty.ms_agenda.exception.BusinessException;
+import com.style.beauty.ms_agenda.exception.ResourceNotFoundException;
 import com.style.beauty.ms_agenda.service.CitaService;
 import com.style.beauty.ms_agenda.service.FirebaseTokenVerifier;
 import org.mockito.ArgumentCaptor;
@@ -26,6 +28,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -79,7 +82,8 @@ class CitaControllerTest {
 
     @Test
     void getMisProximasUsaClienteAutenticado() throws Exception {
-        when(firebaseTokenVerifier.authenticatedClientUid("Bearer token")).thenReturn("firebase-uid");
+        when(firebaseTokenVerifier.authenticatedUser("Bearer token"))
+                .thenReturn(new FirebaseTokenVerifier.AuthenticatedUser("firebase-uid", "CLIENTE"));
         when(perfilClient.obtenerClientePorAuthId("firebase-uid"))
                 .thenReturn(new PerfilResumen(ID_CLIENTE, "firebase-uid", "1-9", "Cliente", "Demo", "cliente@example.com", null, true, null));
         when(citaService.listarProximasCliente(ID_CLIENTE)).thenReturn(List.of());
@@ -90,6 +94,47 @@ class CitaControllerTest {
                 .andExpect(content().json("[]"));
 
         verify(citaService).listarProximasCliente(ID_CLIENTE);
+    }
+
+    @Test
+    void getMisProximasDevuelveForbiddenParaRolNoCliente() throws Exception {
+        when(firebaseTokenVerifier.authenticatedUser("Bearer admin-token"))
+                .thenReturn(new FirebaseTokenVerifier.AuthenticatedUser("firebase-admin-uid", "ADMIN"));
+
+        mockMvc.perform(get("/api/agenda/citas/mis-proximas")
+                        .header("Authorization", "Bearer admin-token"))
+                .andExpect(status().isForbidden());
+
+        verify(perfilClient, never()).obtenerClientePorAuthId(any());
+        verify(citaService, never()).listarProximasCliente(any());
+    }
+
+    @Test
+    void getMisProximasDevuelveNotFoundSiNoExistePerfilCliente() throws Exception {
+        when(firebaseTokenVerifier.authenticatedUser("Bearer token"))
+                .thenReturn(new FirebaseTokenVerifier.AuthenticatedUser("firebase-uid", "CLIENTE"));
+        when(perfilClient.obtenerClientePorAuthId("firebase-uid"))
+                .thenThrow(new ResourceNotFoundException("Cliente autenticado no encontrado en ms-perfiles"));
+
+        mockMvc.perform(get("/api/agenda/citas/mis-proximas")
+                        .header("Authorization", "Bearer token"))
+                .andExpect(status().isNotFound());
+
+        verify(citaService, never()).listarProximasCliente(any());
+    }
+
+    @Test
+    void getMisProximasDevuelveServiceUnavailableSiNoPuedeValidarPerfil() throws Exception {
+        when(firebaseTokenVerifier.authenticatedUser("Bearer token"))
+                .thenReturn(new FirebaseTokenVerifier.AuthenticatedUser("firebase-uid", "CLIENTE"));
+        when(perfilClient.obtenerClientePorAuthId("firebase-uid"))
+                .thenThrow(new BusinessException("No fue posible validar cliente autenticado"));
+
+        mockMvc.perform(get("/api/agenda/citas/mis-proximas")
+                        .header("Authorization", "Bearer token"))
+                .andExpect(status().isServiceUnavailable());
+
+        verify(citaService, never()).listarProximasCliente(any());
     }
 
     @Test
