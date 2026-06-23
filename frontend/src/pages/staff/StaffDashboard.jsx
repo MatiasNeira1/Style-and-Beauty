@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
@@ -11,13 +11,14 @@ import {
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
+import { Modal } from '../../components/ui/Modal.jsx';
 import { agendaService } from '../../services/agendaService.js';
 import { catalogService } from '../../services/catalogService.js';
 import { paymentService } from '../../services/paymentService.js';
 import { profileService } from '../../services/profileService.js';
 
 const completedStatuses = new Set(['FINALIZADA', 'FINALIZADO']);
-const finalizableStatuses = new Set(['CONFIRMADA', 'EN_ATENCION']);
+const finalizableStatuses = new Set(['CONFIRMADA']);
 const paidStatuses = new Set(['APROBADA', 'PAGADO', 'PAGADA', 'COMPLETADO', 'COMPLETADA', 'EXITOSO', 'EXITOSA']);
 const dayLabels = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
 const statusDefinitions = [
@@ -293,11 +294,11 @@ function ReadOnlyTable({
             type="button"
             size="sm"
             variant="ghost"
-            onClick={() => onFinalize(row.id)}
+            onClick={() => onFinalize(row)}
             disabled={finalizingId === row.id}
           >
             <CheckCircle2 size={14} />
-            {finalizingId === row.id ? 'Finalizando' : 'Finalizar'}
+            {finalizingId === row.id ? 'Finalizando...' : 'Finalizar cita'}
           </Button>
         ) : (
           <span className="staff-table-muted-action">Sin accion</span>
@@ -325,6 +326,7 @@ function ReadOnlyTable({
 
 export function StaffDashboard({ currentStaff, fullName: professionalName, view = 'dashboard' }) {
   const queryClient = useQueryClient();
+  const [bookingToFinalize, setBookingToFinalize] = useState(null);
   const currentStaffIds = useMemo(() => staffIds(currentStaff), [currentStaff]);
   const currentStaffId = primaryStaffId(currentStaff);
 
@@ -352,6 +354,7 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
   const finalizeBookingMutation = useMutation({
     mutationFn: agendaService.finalizeMyBooking,
     onSuccess: () => {
+      setBookingToFinalize(null);
       queryClient.invalidateQueries({ queryKey: ['staff-dashboard-bookings', currentStaffId] });
       queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
@@ -576,7 +579,58 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
   );
 
   const finalizingId = finalizeBookingMutation.isPending ? finalizeBookingMutation.variables : null;
-  const handleFinalizeBooking = (idCita) => finalizeBookingMutation.mutate(idCita);
+  const handleOpenFinalizeModal = (booking) => setBookingToFinalize(booking);
+  const handleConfirmFinalizeBooking = () => {
+    if (!bookingToFinalize?.id) return;
+    finalizeBookingMutation.mutate(bookingToFinalize.id);
+  };
+  const finalizeConfirmationModal = (
+    <Modal
+      open={Boolean(bookingToFinalize)}
+      title="Finalizar cita"
+      onClose={() => {
+        if (!finalizeBookingMutation.isPending) {
+          setBookingToFinalize(null);
+        }
+      }}
+    >
+      {bookingToFinalize && (
+        <div className="staff-finalize-dialog">
+          <CheckCircle2 size={28} />
+          <div>
+            <h3>Confirmar finalizacion</h3>
+            <p>
+              Esta accion marcara como finalizada la cita de <strong>{bookingToFinalize.cliente}</strong> para el servicio <strong>{bookingToFinalize.servicio}</strong>.
+            </p>
+            <span>{formatDateTime(bookingToFinalize.fecha)}</span>
+          </div>
+          {finalizeBookingMutation.isError && (
+            <p className="admin-alert">
+              {finalizeBookingMutation.error?.message || 'No se pudo finalizar la cita. Intenta nuevamente.'}
+            </p>
+          )}
+          <div className="staff-finalize-actions">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setBookingToFinalize(null)}
+              disabled={finalizeBookingMutation.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmFinalizeBooking}
+              disabled={finalizeBookingMutation.isPending}
+            >
+              <CheckCircle2 size={14} />
+              {finalizeBookingMutation.isPending ? 'Finalizando...' : 'Confirmar finalizacion'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
 
   if (view === 'agenda') {
     return (
@@ -593,7 +647,7 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
             title="Citas para hoy"
             rows={todayRows}
             emptyMessage="No tienes citas asignadas para hoy."
-            onFinalize={handleFinalizeBooking}
+            onFinalize={handleOpenFinalizeModal}
             finalizingId={finalizingId}
           />
           <ReadOnlyTable
@@ -601,7 +655,7 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
             title="Citas de la semana"
             rows={weekRows}
             emptyMessage="No tienes citas asignadas esta semana."
-            onFinalize={handleFinalizeBooking}
+            onFinalize={handleOpenFinalizeModal}
             finalizingId={finalizingId}
           />
           <ReadOnlyTable
@@ -609,10 +663,11 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
             title="Citas para la proxima semana"
             rows={nextWeekRows}
             emptyMessage="No tienes citas asignadas para la proxima semana."
-            onFinalize={handleFinalizeBooking}
+            onFinalize={handleOpenFinalizeModal}
             finalizingId={finalizingId}
           />
         </div>
+        {finalizeConfirmationModal}
       </div>
     );
   }
@@ -626,9 +681,10 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
           title="Servicios y citas asignadas"
           rows={historyRows}
           emptyMessage="Aun no hay servicios asociados a tu agenda."
-          onFinalize={handleFinalizeBooking}
+          onFinalize={handleOpenFinalizeModal}
           finalizingId={finalizingId}
         />
+        {finalizeConfirmationModal}
       </div>
     );
   }
@@ -660,7 +716,7 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
         title="Citas para la proxima semana"
         rows={nextWeekRows}
         emptyMessage="No tienes citas asignadas para la proxima semana."
-        onFinalize={handleFinalizeBooking}
+        onFinalize={handleOpenFinalizeModal}
         finalizingId={finalizingId}
       />
 
@@ -669,9 +725,10 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
         title="Servicios y citas asignadas"
         rows={historyRows}
         emptyMessage="Aun no hay servicios asociados a tu agenda."
-        onFinalize={handleFinalizeBooking}
+        onFinalize={handleOpenFinalizeModal}
         finalizingId={finalizingId}
       />
+      {finalizeConfirmationModal}
     </div>
   );
 }
