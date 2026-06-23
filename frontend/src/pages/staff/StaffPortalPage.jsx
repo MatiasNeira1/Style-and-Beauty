@@ -940,6 +940,7 @@ export function StaffPortalPage() {
           errorMessage={updateMutation.error?.message}
           showPhotoField={false}
           showBioField={false}
+          strictStaffProfileValidation
         />
       )}
       {showPublicPreview && (

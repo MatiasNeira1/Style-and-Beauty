@@ -361,11 +361,13 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
   const {
     todayBookings,
     weekBookings,
+    nextWeekBookings,
     monthClients,
     servicesDone,
     historyRows,
     todayRows,
     weekRows,
+    nextWeekRows,
     statusSummary,
     dailyRevenue,
     weeklyRevenue,
@@ -376,6 +378,7 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
     const tomorrowStart = addDays(todayStart, 1);
     const weekStart = startOfWeek(now);
     const nextWeekStart = addDays(weekStart, 7);
+    const nextWeekEnd = addDays(nextWeekStart, 7);
     const monthStart = startOfMonth(now);
     const nextMonthStart = addMonths(monthStart, 1);
 
@@ -414,6 +417,7 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
 
     const today = staffBookings.filter((booking) => inRange(bookingDate(booking), todayStart, tomorrowStart));
     const week = staffBookings.filter((booking) => inRange(bookingDate(booking), weekStart, nextWeekStart));
+    const nextWeek = staffBookings.filter((booking) => inRange(bookingDate(booking), nextWeekStart, nextWeekEnd));
     const completedMonth = staffBookings.filter((booking) => (
       completedStatuses.has(bookingStatus(booking))
       && inRange(bookingDate(booking), monthStart, nextMonthStart)
@@ -510,11 +514,13 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
     return {
       todayBookings: today,
       weekBookings: week,
+      nextWeekBookings: nextWeek,
       monthClients: attendedClients.size,
       servicesDone: completedMonth.length,
       historyRows: rows,
       todayRows: rowsAscending.filter((row) => inRange(row.fecha, todayStart, tomorrowStart)),
       weekRows: rowsAscending.filter((row) => inRange(row.fecha, weekStart, nextWeekStart)),
+      nextWeekRows: rowsAscending.filter((row) => inRange(row.fecha, nextWeekStart, nextWeekEnd)),
       statusSummary: statusDefinitions.map((definition) => ({
         ...definition,
         value: statusCounts[definition.key] || 0,
@@ -578,6 +584,7 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
         <div className="staff-dashboard-grid staff-dashboard-grid-compact">
           <MetricCard icon={CalendarCheck} label="Citas para hoy" value={todayBookings.length} hint="Asignadas a tu agenda" />
           <MetricCard icon={CalendarDays} label="Citas de la semana" value={weekBookings.length} hint="Lunes a domingo" />
+          <MetricCard icon={CalendarDays} label="Citas proxima semana" value={nextWeekBookings.length} hint="Lunes a domingo siguiente" />
         </div>
         {alerts}
         <div className="staff-agenda-grid">
@@ -594,6 +601,14 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
             title="Citas de la semana"
             rows={weekRows}
             emptyMessage="No tienes citas asignadas esta semana."
+            onFinalize={handleFinalizeBooking}
+            finalizingId={finalizingId}
+          />
+          <ReadOnlyTable
+            eyebrow="Proxima semana"
+            title="Citas para la proxima semana"
+            rows={nextWeekRows}
+            emptyMessage="No tienes citas asignadas para la proxima semana."
             onFinalize={handleFinalizeBooking}
             finalizingId={finalizingId}
           />
@@ -623,6 +638,7 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
       <div className="staff-dashboard-grid">
         <MetricCard icon={CalendarCheck} label="Citas para hoy" value={todayBookings.length} hint="Asignadas a tu agenda" />
         <MetricCard icon={CalendarDays} label="Citas de la semana" value={weekBookings.length} hint="Lunes a domingo" />
+        <MetricCard icon={CalendarDays} label="Citas proxima semana" value={nextWeekBookings.length} hint="Lunes a domingo siguiente" />
         <MetricCard icon={Users} label="Clientes atendidos" value={monthClients} hint="Mes actual" />
         <MetricCard icon={Scissors} label="Servicios realizados" value={servicesDone} hint="Citas finalizadas" />
       </div>
@@ -638,6 +654,15 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
         <ChartBars title="Ganancias semanales" subtitle="Comparativo de las ultimas cuatro semanas." data={weeklyRevenue} />
         <ChartBars title="Ganancias mensuales" subtitle="Comparativo de los ultimos seis meses." data={monthlyRevenue} />
       </div>
+
+      <ReadOnlyTable
+        eyebrow="Proxima semana"
+        title="Citas para la proxima semana"
+        rows={nextWeekRows}
+        emptyMessage="No tienes citas asignadas para la proxima semana."
+        onFinalize={handleFinalizeBooking}
+        finalizingId={finalizingId}
+      />
 
       <ReadOnlyTable
         eyebrow="Historial"

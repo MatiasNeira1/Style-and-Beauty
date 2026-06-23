@@ -26,9 +26,12 @@ function validateRut(rut) {
   return calculatedDv === dv;
 }
 
-function isRutAcceptable(rut) {
-  const cleanRut = String(rut || '').replace(/[^0-9kK]/g, '').toUpperCase();
-  return validateRut(rut) || (cleanRut.length >= 7 && cleanRut.length <= 9);
+function hasChileanRutFormat(rut) {
+  return /^\d{1,2}\.\d{3}\.\d{3}-[0-9K]$/.test(String(rut || '').toUpperCase());
+}
+
+function isBlank(value) {
+  return String(value ?? '').trim() === '';
 }
 
 function formatRut(value) {
@@ -47,6 +50,18 @@ function formatRut(value) {
   }
 
   return `${formattedBody}-${dv}`;
+}
+
+function onlyDigits(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function chileanPhoneDigits(value) {
+  return onlyDigits(value).slice(0, 11);
+}
+
+function hasChileanPhoneFormat(value) {
+  return /^56[2-9]\d{8}$/.test(chileanPhoneDigits(value));
 }
 
 const defaultValues = {
@@ -74,7 +89,9 @@ function dateInputValue(value) {
   return asString;
 }
 
-function valuesFromStaff(initialData) {
+function valuesFromStaff(initialData, options = {}) {
+  const strictStaffProfile = Boolean(options.strictStaffProfile);
+
   return initialData
     ? {
         ...defaultValues,
@@ -84,52 +101,92 @@ function valuesFromStaff(initialData) {
         genero: initialData.genero ? String(initialData.genero).toUpperCase() : '',
         idEspecialidad: String(initialData.idEspecialidad || initialData.especialidad?.idEspecialidad || ''),
         descripcionPerfil: initialData.descripcionPerfil || initialData.biografia || '',
+        telefono: strictStaffProfile ? chileanPhoneDigits(initialData.telefono) : initialData.telefono || '',
         experienciaAnios: initialData.experienciaAnios != null ? String(initialData.experienciaAnios) : '',
       }
     : defaultValues;
 }
 
-function validateForm(values, isEditMode) {
+function validateForm(values, isEditMode, options = {}) {
   const nextErrors = {};
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const strictStaffProfile = Boolean(options.strictStaffProfile);
 
-  if (!values.rut) {
+  if (isBlank(values.rut)) {
     nextErrors.rut = 'El RUT es obligatorio';
-  } else if (!isRutAcceptable(values.rut)) {
+  } else if (strictStaffProfile && !hasChileanRutFormat(values.rut)) {
+    nextErrors.rut = 'Usa formato chileno: 12.345.678-9';
+  } else if (!validateRut(values.rut)) {
     nextErrors.rut = 'Ingresa un RUT valido';
   }
 
-  if (!values.nombre) {
+  if (isBlank(values.nombre)) {
     nextErrors.nombre = 'El nombre es obligatorio';
   }
 
-  if (!values.emailContacto) {
+  if (strictStaffProfile && isBlank(values.apellidos)) {
+    nextErrors.apellidos = 'Los apellidos son obligatorios';
+  }
+
+  if (isBlank(values.emailContacto)) {
     nextErrors.emailContacto = 'El email es obligatorio';
   } else if (!emailPattern.test(values.emailContacto)) {
     nextErrors.emailContacto = 'Email invalido';
   }
 
-  if (!isEditMode && (!values.password || values.password.length < 6)) {
+  if (!isEditMode && (isBlank(values.password) || values.password.length < 6)) {
     nextErrors.password = 'La contrasena es obligatoria (min. 6 caracteres)';
   }
 
-  if (values.telefono && !/^\+?[0-9\s-]{8,18}$/.test(values.telefono)) {
+  const phoneValue = strictStaffProfile ? chileanPhoneDigits(values.telefono) : values.telefono;
+
+  if (strictStaffProfile && isBlank(phoneValue)) {
+    nextErrors.telefono = 'El telefono es obligatorio';
+  } else if (strictStaffProfile && !hasChileanPhoneFormat(phoneValue)) {
+    nextErrors.telefono = 'Ingresa un telefono chileno valido, por ejemplo 56912345678';
+  } else if (values.telefono && !/^\+?[0-9\s-]{8,18}$/.test(values.telefono)) {
     nextErrors.telefono = 'Formato esperado: +56 9 1234 5678';
   }
 
-  if (values.fechaNacimiento && !/^\d{4}-\d{2}-\d{2}$/.test(values.fechaNacimiento)) {
+  if (strictStaffProfile && isBlank(values.fechaNacimiento)) {
+    nextErrors.fechaNacimiento = 'La fecha de nacimiento es obligatoria';
+  } else if (values.fechaNacimiento && !/^\d{4}-\d{2}-\d{2}$/.test(values.fechaNacimiento)) {
     nextErrors.fechaNacimiento = 'Formato esperado: AAAA-MM-DD';
   }
 
-  if (!values.idEspecialidad) {
+  if (strictStaffProfile && isBlank(values.genero)) {
+    nextErrors.genero = 'Selecciona un genero';
+  }
+
+  if (isBlank(values.idEspecialidad)) {
     nextErrors.idEspecialidad = 'Selecciona una especialidad';
   }
 
-  if (values.experienciaAnios && Number(values.experienciaAnios) < 0) {
+  if (strictStaffProfile && isBlank(values.experienciaAnios)) {
+    nextErrors.experienciaAnios = 'Los anos de experiencia son obligatorios';
+  } else if (values.experienciaAnios && Number(values.experienciaAnios) < 0) {
     nextErrors.experienciaAnios = 'La experiencia no puede ser negativa';
+  } else if (values.experienciaAnios && Number.isNaN(Number(values.experienciaAnios))) {
+    nextErrors.experienciaAnios = 'Ingresa un numero valido';
   }
 
   return nextErrors;
+}
+
+function normalizedValues(values) {
+  return {
+    ...values,
+    rut: String(values.rut || '').trim(),
+    nombre: String(values.nombre || '').trim(),
+    apellidos: String(values.apellidos || '').trim(),
+    emailContacto: String(values.emailContacto || '').trim(),
+    telefono: String(values.telefono || '').trim(),
+    fechaNacimiento: String(values.fechaNacimiento || '').trim(),
+    genero: String(values.genero || '').trim(),
+    idEspecialidad: String(values.idEspecialidad || '').trim(),
+    descripcionPerfil: String(values.descripcionPerfil || '').trim(),
+    experienciaAnios: String(values.experienciaAnios || '').trim(),
+  };
 }
 
 export function StaffFormModal({
@@ -142,20 +199,25 @@ export function StaffFormModal({
   errorMessage,
   showPhotoField = true,
   showBioField = true,
+  strictStaffProfileValidation = false,
 }) {
   const isEditMode = Boolean(initialData);
-  const [formValues, setFormValues] = useState(() => valuesFromStaff(initialData));
+  const [formValues, setFormValues] = useState(() => valuesFromStaff(initialData, {
+    strictStaffProfile: strictStaffProfileValidation,
+  }));
   const [errors, setErrors] = useState({});
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
   const [photoError, setPhotoError] = useState('');
 
   useEffect(() => {
-    setFormValues(valuesFromStaff(initialData));
+    setFormValues(valuesFromStaff(initialData, {
+      strictStaffProfile: strictStaffProfileValidation,
+    }));
     setErrors({});
     setSelectedPhoto(null);
     setPhotoError('');
-  }, [initialData, open]);
+  }, [initialData, open, strictStaffProfileValidation]);
 
   useEffect(() => {
     if (!selectedPhoto) {
@@ -207,7 +269,13 @@ export function StaffFormModal({
     event.preventDefault();
     if (photoError) return;
 
-    const nextErrors = validateForm(formValues, isEditMode);
+    const cleanValues = normalizedValues(formValues);
+    if (strictStaffProfileValidation) {
+      cleanValues.telefono = chileanPhoneDigits(cleanValues.telefono);
+    }
+    const nextErrors = validateForm(cleanValues, isEditMode, {
+      strictStaffProfile: strictStaffProfileValidation,
+    });
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       return;
@@ -219,7 +287,7 @@ export function StaffFormModal({
       return;
     }
 
-    await onSubmit({ ...formValues, sinImagenPorAhora: Boolean(formValues.sinImagenPorAhora), fotoFile: selectedPhoto }, isEditMode);
+    await onSubmit({ ...cleanValues, sinImagenPorAhora: Boolean(formValues.sinImagenPorAhora), fotoFile: selectedPhoto }, isEditMode);
   };
 
   const handleClose = () => {
@@ -271,7 +339,7 @@ export function StaffFormModal({
             <Input label="Nombre" id="staff-form-nombre" placeholder="Valentina" error={errors.nombre} value={formValues.nombre} onChange={updateField('nombre')} />
             <Input label="Apellidos" id="staff-form-apellidos" placeholder="Rojas Soto" error={errors.apellidos} value={formValues.apellidos} onChange={updateField('apellidos')} />
             <Input label="Fecha de nacimiento" id="staff-form-fecha" type="date" hint="Formato AAAA-MM-DD" error={errors.fechaNacimiento} value={formValues.fechaNacimiento} onChange={updateField('fechaNacimiento')} />
-            <Input label="Genero" id="staff-form-genero" as="select" value={formValues.genero} onChange={updateField('genero')}>
+            <Input label="Genero" id="staff-form-genero" as="select" error={errors.genero} value={formValues.genero} onChange={updateField('genero')}>
               <option value="">Seleccionar</option>
               <option value="FEMENINO">Femenino</option>
               <option value="MASCULINO">Masculino</option>
@@ -287,7 +355,19 @@ export function StaffFormModal({
           </div>
           <div className="staff-form-grid">
             <Input label="Email" id="staff-form-email" type="email" placeholder="correo@dominio.cl" error={errors.emailContacto} value={formValues.emailContacto} onChange={updateField('emailContacto')} />
-            <Input label="Telefono" id="staff-form-telefono" placeholder="+56 9 1234 5678" error={errors.telefono} value={formValues.telefono} onChange={updateField('telefono')} />
+            <Input
+              label="Telefono"
+              id="staff-form-telefono"
+              placeholder={strictStaffProfileValidation ? '56912345678' : '+56 9 1234 5678'}
+              error={errors.telefono}
+              value={formValues.telefono}
+              onChange={updateField('telefono', strictStaffProfileValidation ? chileanPhoneDigits : undefined)}
+              type="tel"
+              inputMode={strictStaffProfileValidation ? 'numeric' : 'tel'}
+              pattern={strictStaffProfileValidation ? '56[2-9][0-9]{8}' : undefined}
+              maxLength={strictStaffProfileValidation ? 11 : undefined}
+              autoComplete="tel"
+            />
             {!isEditMode && (
               <Input label="Contrasena temporal" id="staff-form-password" type="password" placeholder="Minimo 6 caracteres" error={errors.password} value={formValues.password} onChange={updateField('password')} />
             )}
