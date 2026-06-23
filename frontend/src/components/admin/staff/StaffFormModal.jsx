@@ -4,6 +4,7 @@ import { Modal } from '../../ui/Modal.jsx';
 import { Button } from '../../ui/Button.jsx';
 import { Input } from '../../ui/Input.jsx';
 import { SafeImage } from '../../ui/SafeImage.jsx';
+import { chilePhoneDigits, isValidChilePhone, normalizeChilePhone } from '../../../utils/phoneUtils.js';
 import { formatRut, normalizeRut, validateRut } from '../../../utils/rutUtils.js';
 
 function hasChileanRutFormat(rut) {
@@ -12,18 +13,6 @@ function hasChileanRutFormat(rut) {
 
 function isBlank(value) {
   return String(value ?? '').trim() === '';
-}
-
-function onlyDigits(value) {
-  return String(value || '').replace(/\D/g, '');
-}
-
-function chileanPhoneDigits(value) {
-  return onlyDigits(value).slice(0, 11);
-}
-
-function hasChileanPhoneFormat(value) {
-  return /^56[2-9]\d{8}$/.test(chileanPhoneDigits(value));
 }
 
 const defaultValues = {
@@ -63,7 +52,7 @@ function valuesFromStaff(initialData, options = {}) {
         genero: initialData.genero ? String(initialData.genero).toUpperCase() : '',
         idEspecialidad: String(initialData.idEspecialidad || initialData.especialidad?.idEspecialidad || ''),
         descripcionPerfil: initialData.descripcionPerfil || initialData.biografia || '',
-        telefono: strictStaffProfile ? chileanPhoneDigits(initialData.telefono) : initialData.telefono || '',
+        telefono: strictStaffProfile ? chilePhoneDigits(initialData.telefono) : initialData.telefono || '',
         experienciaAnios: initialData.experienciaAnios != null ? String(initialData.experienciaAnios) : '',
       }
     : defaultValues;
@@ -100,13 +89,13 @@ function validateForm(values, isEditMode, options = {}) {
     nextErrors.password = 'La contrasena es obligatoria (min. 6 caracteres)';
   }
 
-  const phoneValue = strictStaffProfile ? chileanPhoneDigits(values.telefono) : values.telefono;
+  const phoneValue = strictStaffProfile ? chilePhoneDigits(values.telefono) : values.telefono;
 
   if (strictStaffProfile && isBlank(phoneValue)) {
     nextErrors.telefono = 'El telefono es obligatorio';
-  } else if (strictStaffProfile && !hasChileanPhoneFormat(phoneValue)) {
+  } else if (strictStaffProfile && !isValidChilePhone(phoneValue)) {
     nextErrors.telefono = 'Ingresa un telefono chileno valido, por ejemplo 56912345678';
-  } else if (values.telefono && !/^\+?[0-9\s-]{8,18}$/.test(values.telefono)) {
+  } else if (values.telefono && !isValidChilePhone(values.telefono)) {
     nextErrors.telefono = 'Formato esperado: +56 9 1234 5678';
   }
 
@@ -161,7 +150,7 @@ export function StaffFormModal({
   errorMessage,
   showPhotoField = true,
   showBioField = true,
-  strictStaffProfileValidation = false,
+  strictStaffProfileValidation = true,
 }) {
   const isEditMode = Boolean(initialData);
   const [formValues, setFormValues] = useState(() => valuesFromStaff(initialData, {
@@ -233,7 +222,7 @@ export function StaffFormModal({
 
     const cleanValues = normalizedValues(formValues);
     if (strictStaffProfileValidation) {
-      cleanValues.telefono = chileanPhoneDigits(cleanValues.telefono);
+      cleanValues.telefono = normalizeChilePhone(cleanValues.telefono);
     }
     const nextErrors = validateForm(cleanValues, isEditMode, {
       strictStaffProfile: strictStaffProfileValidation,
@@ -329,7 +318,7 @@ export function StaffFormModal({
               placeholder={strictStaffProfileValidation ? '56912345678' : '+56 9 1234 5678'}
               error={errors.telefono}
               value={formValues.telefono}
-              onChange={updateField('telefono', strictStaffProfileValidation ? chileanPhoneDigits : undefined)}
+              onChange={updateField('telefono', strictStaffProfileValidation ? chilePhoneDigits : undefined)}
               type="tel"
               inputMode={strictStaffProfileValidation ? 'numeric' : 'tel'}
               pattern={strictStaffProfileValidation ? '56[2-9][0-9]{8}' : undefined}

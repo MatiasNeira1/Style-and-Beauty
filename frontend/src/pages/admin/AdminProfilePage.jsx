@@ -11,6 +11,7 @@ import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { profileService } from '../../services/profileService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
+import { isValidChilePhone, normalizeChilePhone } from '../../utils/phoneUtils.js';
 import { formatRut, normalizeRut, validateRut } from '../../utils/rutUtils.js';
 
 const MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -50,11 +51,6 @@ function getProfileEmail(profile, user) {
 
 function getProfileRole(profile, user) {
   return profile?.rol || profile?.tipoPerfil || user?.rol || user?.role || 'No disponible';
-}
-
-function validatePhone(value) {
-  if (!value) return true;
-  return /^\+?[0-9\s-]{8,18}$/.test(value.trim());
 }
 
 function validateProfileImage(file) {
@@ -305,7 +301,7 @@ export function AdminProfilePage() {
 
   const updateMutation = useMutation({
     mutationFn: async (values) => {
-      if (!validatePhone(values.telefono)) {
+      if (!isValidChilePhone(values.telefono)) {
         throw new Error('Ingresa un telefono valido, por ejemplo +56 9 1234 5678.');
       }
 
@@ -325,12 +321,12 @@ export function AdminProfilePage() {
           apellidos: values.apellidos.trim(),
           rut: normalizeRut(values.rut),
           emailContacto: values.emailContacto || user?.email,
-          telefono: values.telefono?.trim() || '',
+          telefono: normalizeChilePhone(values.telefono),
         });
       }
 
       return profileService.updateMyProfile({
-        telefono: values.telefono?.trim() || '',
+        telefono: normalizeChilePhone(values.telefono),
       });
     },
     onSuccess: (updatedProfile) => {

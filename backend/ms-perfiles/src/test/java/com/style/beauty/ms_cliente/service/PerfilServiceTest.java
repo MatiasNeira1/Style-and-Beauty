@@ -62,6 +62,7 @@ class PerfilServiceTest {
         assertThat(creado).isSameAs(cliente);
         assertThat(dto.getTipoPerfil()).isEqualTo("CLIENTE");
         assertThat(dto.getRut()).isEqualTo("12345678-5");
+        assertThat(dto.getTelefono()).isEqualTo("56912345678");
         assertThat(dto.getEmailContacto()).isEqualTo("cliente@test.cl");
     }
 
@@ -95,6 +96,16 @@ class PerfilServiceTest {
     }
 
     @Test
+    void validarDisponibilidadParaCreacionRechazaTelefonoNoChileno() {
+        PerfilRequestDTO dto = clienteDto();
+        dto.setTelefono("telefono-no-valido");
+
+        assertThatThrownBy(() -> service.validarDisponibilidadParaCreacion(dto))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("telefono chileno");
+    }
+
+    @Test
     void validarDisponibilidadParaCreacionRechazaRutDuplicadoNormalizado() {
         PerfilRequestDTO dto = clienteDto();
         PersonaModel existente = new ClienteModel();
@@ -122,6 +133,21 @@ class PerfilServiceTest {
         PersonaModel actualizado = service.actualizarPerfilComoAdmin("auth-1", dto);
 
         assertThat(actualizado.getRut()).isEqualTo("12345678-5");
+        verify(personaRepository).save(cliente);
+    }
+
+    @Test
+    void actualizarPerfilNormalizaTelefonoChileno() {
+        ClienteModel cliente = new ClienteModel();
+        PerfilRequestDTO dto = new PerfilRequestDTO();
+        dto.setTelefono("+56 9 8765 4321");
+
+        when(personaRepository.findByIdAuth("auth-1")).thenReturn(Optional.of(cliente));
+        when(personaRepository.save(cliente)).thenReturn(cliente);
+
+        PersonaModel actualizado = service.actualizarMiPerfil("auth-1", dto);
+
+        assertThat(actualizado.getTelefono()).isEqualTo("56987654321");
         verify(personaRepository).save(cliente);
     }
 
@@ -160,6 +186,7 @@ class PerfilServiceTest {
         dto.setRut("12.345.678-5");
         dto.setNombre("Cliente");
         dto.setEmailContacto("CLIENTE@TEST.CL");
+        dto.setTelefono("+56 9 1234 5678");
         dto.setFechaNacimiento(LocalDate.now().minusYears(20));
         dto.setGenero("femenino");
         return dto;

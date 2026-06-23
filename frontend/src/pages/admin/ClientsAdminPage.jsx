@@ -10,6 +10,7 @@ import { TOKEN_KEY } from '../../services/apiClient.js';
 import { profileService } from '../../services/profileService.js';
 import { Search, ShieldCheck, UserPlus, Users, X } from 'lucide-react';
 import { fullName } from '../../utils/adminFormatters.js';
+import { chilePhoneDigits, isValidChilePhone, normalizeChilePhone } from '../../utils/phoneUtils.js';
 import { formatRut, normalizeRut, validateRut } from '../../utils/rutUtils.js';
 
 const initialForm = {
@@ -45,7 +46,7 @@ function normalizeBirthDate(value) {
 
 function validatePhone(value) {
   if (!value) return true;
-  return /^\+?[0-9\s-]{8,18}$/.test(value.trim());
+  return isValidChilePhone(value);
 }
 
 function validateClientForm(form) {
@@ -155,6 +156,7 @@ export function ClientsAdminPage() {
       const payloadWithNormalizedDate = {
         ...payload,
         rut: normalizeRut(payload.rut),
+        telefono: payload.telefono ? normalizeChilePhone(payload.telefono) : '',
         fechaNacimiento: normalizeBirthDate(payload.fechaNacimiento),
       };
       await profileService.validateAvailability({ ...payloadWithNormalizedDate, tipoPerfil: 'CLIENTE' });
@@ -188,7 +190,7 @@ export function ClientsAdminPage() {
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
-    const nextValue = name === 'rut' ? formatRut(value) : value;
+    const nextValue = name === 'rut' ? formatRut(value) : name === 'telefono' ? chilePhoneDigits(value) : value;
     setForm((current) => ({ ...current, [name]: type === 'checkbox' ? checked : nextValue }));
     setFormError('');
   };
