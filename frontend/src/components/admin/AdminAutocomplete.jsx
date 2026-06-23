@@ -14,6 +14,7 @@ export function AdminAutocomplete({
   getOptionSearchText,
   onSelect,
   onClear,
+  disabled = false,
 }) {
   const wrapperRef = useRef(null);
   const [query, setQuery] = useState('');
@@ -45,6 +46,7 @@ export function AdminAutocomplete({
   const normalizedQuery = query.trim().toLowerCase();
   const shouldFilter = normalizedQuery && normalizedQuery !== selectedLabel.trim().toLowerCase();
   const visibleOptions = useMemo(() => {
+    if (disabled) return [];
     if (!shouldFilter) return options;
     return options.filter((option) => {
       const searchText = getOptionSearchText
@@ -52,9 +54,10 @@ export function AdminAutocomplete({
         : [getOptionLabel(option), getOptionMeta?.(option)].filter(Boolean).join(' ');
       return searchText.toLowerCase().includes(normalizedQuery);
     });
-  }, [getOptionLabel, getOptionMeta, getOptionSearchText, normalizedQuery, options, shouldFilter]);
+  }, [disabled, getOptionLabel, getOptionMeta, getOptionSearchText, normalizedQuery, options, shouldFilter]);
 
   const clearSelection = () => {
+    if (disabled) return;
     setQuery('');
     setIsOpen(false);
     onClear();
@@ -63,7 +66,7 @@ export function AdminAutocomplete({
   return (
     <div className="field admin-autocomplete" ref={wrapperRef}>
       <span>{label}</span>
-      <div className="admin-autocomplete-control">
+      <div className={`admin-autocomplete-control ${disabled ? 'is-disabled' : ''}`}>
         <Search size={15} aria-hidden="true" />
         <input
           id={id}
@@ -71,15 +74,19 @@ export function AdminAutocomplete({
           value={query}
           placeholder={placeholder}
           autoComplete="off"
-          onFocus={() => setIsOpen(true)}
+          disabled={disabled}
+          onFocus={() => {
+            if (!disabled) setIsOpen(true);
+          }}
           onChange={(event) => {
+            if (disabled) return;
             setQuery(event.target.value);
             setIsOpen(true);
             if (selectedValue) onClear();
           }}
         />
         {selectedValue && (
-          <button type="button" aria-label={`Limpiar ${label.toLowerCase()}`} onClick={clearSelection}>
+          <button type="button" aria-label={`Limpiar ${label.toLowerCase()}`} onClick={clearSelection} disabled={disabled}>
             <X size={14} />
           </button>
         )}

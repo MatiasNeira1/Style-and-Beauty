@@ -14,12 +14,16 @@ import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
 import com.style.beauty.ms_agenda.entity.Cita;
+import com.style.beauty.ms_agenda.exception.BusinessException;
+import com.style.beauty.ms_agenda.exception.ResourceNotFoundException;
 import com.style.beauty.ms_agenda.service.CitaService;
 import com.style.beauty.ms_agenda.service.FirebaseTokenVerifier;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -104,9 +108,11 @@ public class CitaController {
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         log.info("Entrando a endpoint GET /api/agenda/citas/mis-proximas");
 
-        String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
-        PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
-        return citaService.listarProximasCliente(cliente.idPersona());
+        PerfilResumen cliente = resolverClienteAutenticado(authHeader, "mis-proximas");
+        List<ProximaCitaClienteResponse> proximas = citaService.listarProximasCliente(cliente.idPersona());
+        log.info("Reservas proximas retornadas: uidFirebase={}, idCliente={}, cantidad={}",
+                cliente.idAuth(), cliente.idPersona(), proximas.size());
+        return proximas;
     }
 
     @GetMapping("/historial")
@@ -114,8 +120,7 @@ public class CitaController {
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         log.info("Entrando a endpoint GET /api/agenda/citas/historial");
 
-        String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
-        PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
+        PerfilResumen cliente = resolverClienteAutenticado(authHeader, "historial");
         return citaService.listarHistorialCliente(cliente.idPersona());
     }
 
@@ -216,8 +221,42 @@ public class CitaController {
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         log.info("Entrando a endpoint GET /api/agenda/citas/mis-citas-finalizadas");
 
-        String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
-        PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
+        PerfilResumen cliente = resolverClienteAutenticado(authHeader, "mis-citas-finalizadas");
         return citaService.listarCitasFinalizadasCliente(cliente.idPersona());
+    }
+
+    private PerfilResumen resolverClienteAutenticado(String authHeader, String endpoint) {
+        FirebaseTokenVerifier.AuthenticatedUser authenticatedUser = firebaseTokenVerifier.authenticatedUser(authHeader);
+        String uid = authenticatedUser.uid();
+        String role = authenticatedUser.role();
+        log.info("Sesion Firebase validada para agenda cliente: endpoint={}, uidFirebase={}, rol={}",
+                endpoint, uid, role == null ? "SIN_ROL" : role);
+
+        if (role != null && !"CLIENTE".equalsIgnoreCase(role)) {
+            log.info("Endpoint cliente bloqueado por rol no cliente: endpoint={}, uidFirebase={}, rol={}",
+                    endpoint, uid, role);
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Este endpoint está disponible solo para clientes");
+        }
+
+        try {
+            PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
+            if (cliente.idPersona() == null) {
+                log.warn("Perfil cliente sin idPersona: endpoint={}, uidFirebase={}", endpoint, uid);
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil cliente no encontrado");
+            }
+            log.info("Perfil cliente asociado encontrado: endpoint={}, uidFirebase={}, idCliente={}",
+                    endpoint, uid, cliente.idPersona());
+            return cliente;
+        } catch (ResourceNotFoundException ex) {
+            log.info("Perfil cliente no encontrado para usuario autenticado: endpoint={}, uidFirebase={}, motivo={}",
+                    endpoint, uid, ex.getMessage());
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Perfil cliente no encontrado", ex);
+        } catch (BusinessException ex) {
+            log.warn("No fue posible validar perfil cliente: endpoint={}, uidFirebase={}, motivo={}",
+                    endpoint, uid, ex.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "No fue posible validar la sesión", ex);
+        }
     }
 }

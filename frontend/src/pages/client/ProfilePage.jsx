@@ -238,10 +238,42 @@ function ProfilePhotoModal({ open, currentPhoto, previewPhoto, file, error, isSa
 }
 
 function profileRoleLabel(user, profile) {
-  const role = String(user?.rol || user?.role || profile?.tipoPerfil || '').toUpperCase();
-  if (role === 'ADMIN') return 'Administrador';
-  if (role === 'STAFF') return 'Staff';
+  const role = resolveProfileRole(user, profile);
+  if (isAdminRole(role)) return 'Administrador';
+  if (isStaffRole(role)) return 'Staff';
   return 'Cliente Registrado';
+}
+
+function normalizeRole(value = '') {
+  const role = String(value || '').trim().toUpperCase();
+  if (['ADMINISTRADOR', 'ADMINISTRATOR'].includes(role)) return 'ADMIN';
+  if (['PROFESIONAL', 'PROFESSIONAL', 'EMPLEADO', 'EMPLOYEE'].includes(role)) return 'STAFF';
+  if (role === 'CLIENT') return 'CLIENTE';
+  return role;
+}
+
+function isAdminRole(role) {
+  return normalizeRole(role) === 'ADMIN';
+}
+
+function isStaffRole(role) {
+  return normalizeRole(role) === 'STAFF';
+}
+
+function isClientRoleValue(role) {
+  return normalizeRole(role) === 'CLIENTE';
+}
+
+function inferRoleFromProfile(profile) {
+  if (!profile) return '';
+  if (profile.tipoPerfil) return profile.tipoPerfil;
+  if (profile.especialidad || profile.holguraCitaMinutos !== undefined || profile.cvUrl || profile.descripcionPerfil) return 'STAFF';
+  if (profile.puntosFidelidad !== undefined || profile.fichaTecnica !== undefined || profile.fotoUrl !== undefined) return 'CLIENTE';
+  return '';
+}
+
+function resolveProfileRole(user, profile) {
+  return normalizeRole(user?.rol || user?.role || inferRoleFromProfile(profile));
 }
 
 function formatAppointmentDate(value) {
@@ -269,8 +301,39 @@ function isDepositPaid(status = '') {
   return ['CONFIRMADA', 'PAGADA', 'PAGADO', 'AUTORIZADA', 'PAID', 'AUTHORIZED'].includes(String(status).toUpperCase());
 }
 
-function UpcomingAppointmentsCard({ query }) {
+function reservationQueryMessage(error) {
+  if (error?.status === 404) {
+    return {
+      tone: 'neutral',
+      message: 'Completa tu perfil para visualizar tus próximas reservas.',
+    };
+  }
+  if (error?.status === 403) {
+    return {
+      tone: 'neutral',
+      message: 'Esta sección está disponible para perfiles cliente.',
+    };
+  }
+  if (error?.status >= 500) {
+    return {
+      tone: 'error',
+      message: 'No pudimos cargar tus próximas reservas. Intenta nuevamente más tarde.',
+    };
+  }
+  return {
+    tone: 'error',
+    message: 'No pudimos cargar tus próximas reservas. Intenta nuevamente más tarde.',
+  };
+}
+
+function UpcomingAppointmentsCard({ query, accessState = 'client' }) {
   const appointments = Array.isArray(query.data) ? query.data : [];
+  const controlledMessage = accessState === 'incomplete'
+    ? 'Completa tu perfil para visualizar tus próximas reservas.'
+    : accessState === 'not-client'
+      ? 'Esta sección está disponible para perfiles cliente.'
+      : '';
+  const errorState = query.isError ? reservationQueryMessage(query.error) : null;
 
   return (
     <Card className="upcoming-appointments-card">
@@ -279,13 +342,16 @@ function UpcomingAppointmentsCard({ query }) {
         Próximas horas agendadas
       </h4>
 
-      {query.isLoading && <p className="profile-empty-state">Cargando próximas horas...</p>}
-      {query.isError && <p className="admin-alert">No pudimos cargar tus próximas horas agendadas.</p>}
-      {!query.isLoading && !query.isError && appointments.length === 0 && (
+      {controlledMessage && <p className="profile-empty-state">{controlledMessage}</p>}
+      {!controlledMessage && query.isLoading && <p className="profile-empty-state">Cargando próximas horas...</p>}
+      {!controlledMessage && errorState && (
+        <p className={errorState.tone === 'error' ? 'admin-alert' : 'profile-empty-state'}>{errorState.message}</p>
+      )}
+      {!controlledMessage && !query.isLoading && !query.isError && appointments.length === 0 && (
         <p className="profile-empty-state">No tienes próximas horas agendadas.</p>
       )}
 
-      {!query.isLoading && !query.isError && appointments.length > 0 && (
+      {!controlledMessage && !query.isLoading && !query.isError && appointments.length > 0 && (
         <div className="upcoming-appointments-list">
           {appointments.map((appointment) => {
             const status = appointment.estadoCita || appointment.estado || 'PENDIENTE_PAGO';
@@ -555,8 +621,13 @@ function PastAppointmentItem({ appointment, onEvaluate }) {
   );
 }
 
-function PastAppointmentsCard({ query, onEvaluate }) {
+function PastAppointmentsCard({ query, onEvaluate, accessState = 'client' }) {
   const appointments = Array.isArray(query.data) ? query.data : [];
+  const controlledMessage = accessState === 'incomplete'
+    ? 'Completa tu perfil para visualizar tu historial de citas.'
+    : accessState === 'not-client'
+      ? 'Esta sección está disponible para perfiles cliente.'
+      : '';
 
   return (
     <Card className="upcoming-appointments-card past-appointments-card">
@@ -565,13 +636,14 @@ function PastAppointmentsCard({ query, onEvaluate }) {
         Historial de citas atendidas
       </h4>
 
-      {query.isLoading && <p className="profile-empty-state">Cargando historial...</p>}
-      {query.isError && <p className="admin-alert">No pudimos cargar tu historial de citas.</p>}
-      {!query.isLoading && !query.isError && appointments.length === 0 && (
+      {controlledMessage && <p className="profile-empty-state">{controlledMessage}</p>}
+      {!controlledMessage && query.isLoading && <p className="profile-empty-state">Cargando historial...</p>}
+      {!controlledMessage && query.isError && <p className="admin-alert">No pudimos cargar tu historial de citas. Intenta nuevamente más tarde.</p>}
+      {!controlledMessage && !query.isLoading && !query.isError && appointments.length === 0 && (
         <p className="profile-empty-state">No tienes citas finalizadas en tu historial.</p>
       )}
 
-      {!query.isLoading && !query.isError && appointments.length > 0 && (
+      {!controlledMessage && !query.isLoading && !query.isError && appointments.length > 0 && (
         <div className="upcoming-appointments-list past-appointments-list">
           {appointments.map((appointment) => (
             <PastAppointmentItem
@@ -597,9 +669,9 @@ export function ProfilePage() {
   const [photoUploadPending, setPhotoUploadPending] = useState(false);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
   const [hasPendingProfileData, setHasPendingProfileData] = useState(false);
-  const authRole = String(user?.rol || user?.role || '').toUpperCase();
-  const isAdminAccount = authRole === 'ADMIN';
-  const isStaffAccount = authRole === 'STAFF';
+  const authRole = normalizeRole(user?.rol || user?.role || '');
+  const isAdminAccount = isAdminRole(authRole);
+  const isStaffAccount = isStaffRole(authRole);
 
   // Fetch real profile data from backend
   const { data: profile, isLoading, error: profileError } = useQuery({
@@ -608,6 +680,28 @@ export function ProfilePage() {
     enabled: Boolean(user && !isAdminAccount),
     retry: false,
   });
+  const resolvedRole = resolveProfileRole(user, profile);
+  const isResolvedClient = isClientRoleValue(resolvedRole);
+  const profileContactEmail = profile?.emailContacto || user?.email || '';
+  const reservationProfileIncomplete = Boolean(profile) && (
+    !profile?.rut
+    || !profile?.nombre
+    || !profile?.apellidos
+    || !profileContactEmail
+    || !profile?.fechaNacimiento
+  );
+  const reservationsAccessState = reservationProfileIncomplete
+    ? 'incomplete'
+    : isResolvedClient
+      ? 'client'
+      : 'not-client';
+  const canQueryClientReservations = Boolean(
+    user
+    && profile?.idPersona
+    && isResolvedClient
+    && !reservationProfileIncomplete
+    && !profileError
+  );
 
   useEffect(() => {
     if (!photoFile) setPhotoPreview(profile?.fotoUrl || '');
@@ -623,14 +717,14 @@ export function ProfilePage() {
   const upcomingAppointmentsQuery = useQuery({
     queryKey: ['my-upcoming-reservations', profile?.idPersona],
     queryFn: reservationService.listMyUpcomingReservations,
-    enabled: Boolean(profile?.idPersona && !profileError),
+    enabled: canQueryClientReservations,
     retry: false,
   });
 
   const historyAppointmentsQuery = useQuery({
     queryKey: ['my-history-reservations', profile?.idPersona],
     queryFn: reservationService.listMyHistoryReservations,
-    enabled: Boolean(profile?.idPersona && !profileError),
+    enabled: canQueryClientReservations,
     retry: false,
   });
 
@@ -1082,7 +1176,7 @@ export function ProfilePage() {
     }
   };
   const loyaltyPoints = Number(profile?.puntosFidelidad ?? 0);
-  const existingProfileEmail = profile?.emailContacto || user?.email || '';
+  const existingProfileEmail = profileContactEmail;
   const missingIdentityFields = [
     !profile?.nombre && 'nombre',
     !profile?.apellidos && 'apellido',
@@ -1219,8 +1313,8 @@ export function ProfilePage() {
           </p>
         </Card>
 
-        <UpcomingAppointmentsCard query={upcomingAppointmentsQuery} />
-        <PastAppointmentsCard query={historyAppointmentsQuery} onEvaluate={handleEvaluate} />
+        <UpcomingAppointmentsCard query={upcomingAppointmentsQuery} accessState={reservationsAccessState} />
+        <PastAppointmentsCard query={historyAppointmentsQuery} accessState={reservationsAccessState} onEvaluate={handleEvaluate} />
         </div>
       </section>
 

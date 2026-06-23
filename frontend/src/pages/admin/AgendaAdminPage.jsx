@@ -29,6 +29,10 @@ import {
   AdminStatusBadge,
 } from '../../components/admin/AdminPrimitives.jsx';
 import { AdminAutocomplete } from '../../components/admin/AdminAutocomplete.jsx';
+import { AdminDatePicker } from '../../components/admin/agenda/AdminDatePicker.jsx';
+import { ReservationDateLabel } from '../../components/admin/agenda/ReservationDateLabel.jsx';
+import { ReservationTimeBlock } from '../../components/admin/agenda/ReservationTimeBlock.jsx';
+import { ServiceCategoryPickerModal } from '../../components/admin/agenda/ServiceCategoryPickerModal.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
@@ -197,15 +201,14 @@ function initialBookingForm() {
 function BookingCard({ booking, service, client, staffMember, statusDraft, onStatusDraftChange, onSaveStatus, onCancel, isMutating }) {
   const bookingId = getBookingId(booking);
   const amount = service?.precio_total || service?.precioTotal || booking.monto || 0;
+  const durationMinutes = booking.duracionServicioMin || getServiceDuration(service);
   return (
     <article className="admin-booking-card">
-      <div className="admin-booking-time">
-        <strong>{formatTime(booking.fechaHoraInicio)}</strong>
-        <span>{formatTime(booking.fechaHoraFin)}</span>
-      </div>
+      <ReservationTimeBlock start={booking.fechaHoraInicio} end={booking.fechaHoraFin} durationMinutes={durationMinutes} />
       <div className="admin-booking-main">
         <header>
           <div>
+            <ReservationDateLabel value={booking.fechaHoraInicio} />
             <h3>{fullName(client) || `Cliente #${booking.idCliente || 'sin dato'}`}</h3>
             <p>{service?.nombre || `Servicio #${booking.idServicio || 'sin dato'}`}</p>
           </div>
@@ -213,7 +216,7 @@ function BookingCard({ booking, service, client, staffMember, statusDraft, onSta
         </header>
         <div className="admin-booking-meta">
           <span><UserRound size={14} /> {fullName(staffMember) || `Profesional #${booking.idStaff || 'sin dato'}`}</span>
-          <span><Clock size={14} /> {booking.duracionServicioMin || service?.duracion_minutos || 0} min</span>
+          <span><Clock size={14} /> {durationMinutes || 0} min</span>
           <span>{formatCurrencyCLP(amount)}</span>
         </div>
         <div className="admin-booking-actions">
@@ -249,6 +252,7 @@ function BookingCard({ booking, service, client, staffMember, statusDraft, onSta
 function AdminReservationModal({ open, onClose, clients, services, staff, onCreated }) {
   const [form, setForm] = useState(initialBookingForm);
   const [bookingMode, setBookingMode] = useState('single');
+  const [servicePickerTarget, setServicePickerTarget] = useState(null);
   const [slots, setSlots] = useState([]);
   const [selectedSlotStart, setSelectedSlotStart] = useState('');
   const [availabilityChecked, setAvailabilityChecked] = useState(false);
@@ -285,13 +289,14 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
   });
 
   const serviceStaff = Array.isArray(serviceStaffQuery.data) ? serviceStaffQuery.data : [];
-  const staffOptions = form.idServicio ? serviceStaff : staff;
+  const staffOptions = form.idServicio ? serviceStaff : [];
   const anyItemLoading = multiItems.some((item) => item.staffLoading || item.availabilityLoading);
 
   useEffect(() => {
     if (!open) return;
     setForm(initialBookingForm());
     setBookingMode('single');
+    setServicePickerTarget(null);
     setSlots([]);
     setSelectedSlotStart('');
     setAvailabilityChecked(false);
@@ -333,6 +338,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
 
   const switchMode = (nextMode) => {
     setBookingMode(nextMode);
+    setServicePickerTarget(null);
     setFormError('');
     setSummaryError('');
     setMultiSummary(null);
@@ -495,18 +501,24 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     setFormError('');
     setSummaryError('');
     setMultiSummary(null);
-    setMultiItems((current) => current.map((item) => (
-      item.id === itemId
-        ? {
+    setMultiItems((current) => {
+      const changedIndex = current.findIndex((item) => item.id === itemId);
+      if (changedIndex < 0) return current;
+      return current.map((item, index) => {
+        if (index < changedIndex) return item;
+        if (item.id === itemId) {
+          return {
             ...resetItemAvailability(item),
             idServicio: value,
             idStaff: '',
             staffOptions: [],
             staffLoading: agendaService.isValidUuid(value),
             staffError: '',
-          }
-        : item
-    )));
+          };
+        }
+        return resetItemAvailability(item);
+      });
+    });
 
     if (!agendaService.isValidUuid(value)) return;
 
@@ -530,7 +542,15 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     setFormError('');
     setSummaryError('');
     setMultiSummary(null);
-    updateMultiItem(itemId, (item) => ({ ...resetItemAvailability(item), idStaff: value }));
+    setMultiItems((current) => {
+      const changedIndex = current.findIndex((item) => item.id === itemId);
+      if (changedIndex < 0) return current;
+      return current.map((item, index) => {
+        if (index < changedIndex) return item;
+        if (item.id === itemId) return { ...resetItemAvailability(item), idStaff: value };
+        return resetItemAvailability(item);
+      });
+    });
   };
 
   const handleConsultItemAvailability = async (itemId) => {
@@ -786,6 +806,77 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     }
   };
 
+  const handleSingleServiceSelect = (value) => {
+    setForm((current) => ({ ...current, idServicio: value, idStaff: '' }));
+    setFormError('');
+    setSummaryError('');
+    setMultiSummary(null);
+    resetAvailability();
+  };
+
+  const handleServicePickerSelect = (value) => {
+    if (servicePickerTarget?.type === 'multi') {
+      handleMultiServiceSelect(servicePickerTarget.itemId, value);
+      return;
+    }
+
+    handleSingleServiceSelect(value);
+  };
+
+  const clearSingleService = () => {
+    handleSingleServiceSelect('');
+  };
+
+  const servicePickerIndex = servicePickerTarget?.type === 'multi'
+    ? multiItems.findIndex((item) => item.id === servicePickerTarget.itemId)
+    : -1;
+  const servicePickerSelectedValue = servicePickerTarget?.type === 'multi'
+    ? multiItems.find((item) => item.id === servicePickerTarget.itemId)?.idServicio || ''
+    : form.idServicio;
+  const servicePickerTitle = servicePickerTarget?.type === 'multi'
+    ? `Seleccionar servicio ${servicePickerIndex + 1}`
+    : 'Seleccionar servicio';
+
+  const renderServicePickerButton = ({ id, selectedId, onOpen, onClear }) => {
+    const selectedService = servicesById[selectedId];
+    const duration = getServiceDuration(selectedService);
+    const price = getServicePrice(selectedService);
+    const meta = selectedService
+      ? [selectedService.categoria, duration ? formatMinutesDuration(duration) : null, price > 0 ? formatCurrencyCLP(price) : null].filter(Boolean).join(' · ')
+      : 'Primero elige categoria y luego servicio';
+
+    return (
+      <div className="field admin-service-picker-field">
+        <span>Servicio</span>
+        <div className="admin-service-picker-control">
+          <button
+            id={id}
+            type="button"
+            className={`admin-service-picker-trigger ${selectedService ? 'has-value' : ''}`}
+            onClick={onOpen}
+            aria-haspopup="dialog"
+          >
+            <span className="admin-service-picker-copy">
+              <strong>{selectedService?.nombre || 'Seleccionar servicio'}</strong>
+              <small>{meta}</small>
+            </span>
+            <Search size={16} />
+          </button>
+          {selectedService && (
+            <button
+              type="button"
+              className="admin-service-picker-clear"
+              onClick={onClear}
+              aria-label="Limpiar servicio"
+            >
+              <XCircle size={15} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const closeDisabled = availabilityLoading || saving || chainLoading || anyItemLoading;
 
   return (
@@ -825,30 +916,12 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
               onClear={() => updateField('idCliente')('')}
             />
 
-            <AdminAutocomplete
-              id="new-booking-service"
-              label="Servicio"
-              options={services}
-              selectedValue={form.idServicio}
-              placeholder="Buscar servicio"
-              emptyMessage="No hay servicios disponibles"
-              getOptionValue={getServiceId}
-              getOptionLabel={(service) => service.nombre || 'Servicio'}
-              getOptionMeta={(service) => {
-                const duration = getServiceDuration(service);
-                return [service.categoria, duration ? formatMinutesDuration(duration) : null].filter(Boolean).join(' · ');
-              }}
-              getOptionSearchText={(service) => [service.nombre, service.categoria].filter(Boolean).join(' ')}
-              onSelect={(value) => {
-                setForm((current) => ({ ...current, idServicio: value, idStaff: '' }));
-                setFormError('');
-                resetAvailability();
-              }}
-              onClear={() => {
-                setForm((current) => ({ ...current, idServicio: '', idStaff: '' }));
-                resetAvailability();
-              }}
-            />
+            {renderServicePickerButton({
+              id: 'new-booking-service',
+              selectedId: form.idServicio,
+              onOpen: () => setServicePickerTarget({ type: 'single' }),
+              onClear: clearSingleService,
+            })}
 
             <AdminAutocomplete
               id="new-booking-staff"
@@ -857,6 +930,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
               selectedValue={form.idStaff}
               placeholder={form.idServicio ? 'Buscar profesional' : 'Selecciona servicio primero'}
               emptyMessage={serviceStaffQuery.isPending ? 'Cargando profesionales...' : serviceStaffQuery.isError ? 'No pudimos cargar profesionales del servicio' : 'No hay profesionales asociados'}
+              disabled={!form.idServicio || serviceStaffQuery.isPending}
               getOptionValue={getPersonId}
               getOptionLabel={(member) => fullName(member) || 'Profesional'}
               getOptionMeta={(member) => member.especialidad?.nombre || member.nombreEspecialidad || member.emailContacto || 'Sin especialidad'}
@@ -865,13 +939,12 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
               onClear={() => updateField('idStaff')('')}
             />
 
-            <Input
+            <AdminDatePicker
               label="Fecha"
               id="new-booking-date"
-              type="date"
-              min={todayValue()}
               value={form.fecha}
-              onChange={(event) => updateField('fecha')(event.target.value)}
+              onChange={updateField('fecha')}
+              hint="Formato dd/mm/aaaa."
             />
           </div>
         ) : (
@@ -890,13 +963,12 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
               onSelect={updateField('idCliente')}
               onClear={() => updateField('idCliente')('')}
             />
-            <Input
+            <AdminDatePicker
               label="Fecha"
               id="multi-booking-date"
-              type="date"
-              min={todayValue()}
               value={form.fecha}
-              onChange={(event) => updateField('fecha')(event.target.value)}
+              onChange={updateField('fecha')}
+              hint="Formato dd/mm/aaaa."
             />
           </div>
         )}
@@ -997,7 +1069,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
             <div className="admin-multi-service-list">
               {multiItems.map((item, index) => {
                 const service = servicesById[item.idServicio];
-                const itemStaffOptions = item.idServicio ? item.staffOptions : staff;
+                const itemStaffOptions = item.idServicio ? item.staffOptions : [];
                 const duration = getServiceDuration(service);
                 const buffer = getServiceBuffer(service);
                 return (
@@ -1019,23 +1091,12 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
                     </header>
 
                     <div className="admin-reservation-grid">
-                      <AdminAutocomplete
-                        id={`multi-service-${item.id}`}
-                        label="Servicio"
-                        options={services}
-                        selectedValue={item.idServicio}
-                        placeholder="Buscar servicio"
-                        emptyMessage="No hay servicios disponibles"
-                        getOptionValue={getServiceId}
-                        getOptionLabel={(option) => option.nombre || 'Servicio'}
-                        getOptionMeta={(option) => {
-                          const optionDuration = getServiceDuration(option);
-                          return [option.categoria, optionDuration ? formatMinutesDuration(optionDuration) : null].filter(Boolean).join(' · ');
-                        }}
-                        getOptionSearchText={(option) => [option.nombre, option.categoria].filter(Boolean).join(' ')}
-                        onSelect={(value) => handleMultiServiceSelect(item.id, value)}
-                        onClear={() => handleMultiServiceSelect(item.id, '')}
-                      />
+                      {renderServicePickerButton({
+                        id: `multi-service-${item.id}`,
+                        selectedId: item.idServicio,
+                        onOpen: () => setServicePickerTarget({ type: 'multi', itemId: item.id }),
+                        onClear: () => handleMultiServiceSelect(item.id, ''),
+                      })}
 
                       <AdminAutocomplete
                         id={`multi-staff-${item.id}`}
@@ -1044,6 +1105,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
                         selectedValue={item.idStaff}
                         placeholder={item.idServicio ? 'Buscar profesional' : 'Selecciona servicio primero'}
                         emptyMessage={item.staffLoading ? 'Cargando profesionales...' : item.staffError || 'No hay profesionales asociados'}
+                        disabled={!item.idServicio || item.staffLoading}
                         getOptionValue={getPersonId}
                         getOptionLabel={(member) => fullName(member) || 'Profesional'}
                         getOptionMeta={(member) => member.especialidad?.nombre || member.nombreEspecialidad || member.emailContacto || 'Sin especialidad'}
@@ -1075,7 +1137,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
                     ) : (
                       <p className="admin-multi-service-auto-note">
                         <Clock size={15} />
-                        Se calculará automáticamente usando la hora disponible más cercana posterior al servicio anterior.
+                        Las horas se ajustarán automáticamente según el término del servicio anterior.
                       </p>
                     )}
 
@@ -1210,6 +1272,14 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
         </section>
       )}
       </Modal>
+      <ServiceCategoryPickerModal
+        open={open && Boolean(servicePickerTarget)}
+        title={servicePickerTitle}
+        services={services}
+        selectedValue={servicePickerSelectedValue}
+        onSelect={handleServicePickerSelect}
+        onClose={() => setServicePickerTarget(null)}
+      />
     </>
   );
 }
@@ -1428,7 +1498,15 @@ export function AgendaAdminPage() {
           {hasActiveFilters && <button type="button" className="admin-text-button" onClick={clearFilters}>Limpiar filtros</button>}
         </header>
         <div className="admin-agenda-filter-grid">
-          <Input label="Fecha" id="agenda-date" type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} hint="Vacío muestra el mes actual." />
+          <AdminDatePicker
+            label="Fecha"
+            id="agenda-date"
+            value={selectedDate}
+            onChange={setSelectedDate}
+            hint="Vacio muestra el mes actual."
+            allowClear
+            enforceBookingRules={false}
+          />
           <Input as="select" label="Estado" id="agenda-status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="TODOS">Todos los estados</option>
             {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
