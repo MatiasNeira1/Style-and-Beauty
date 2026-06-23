@@ -2476,6 +2476,12 @@
   grid-template-columns: minmax(260px, 0.42fr) minmax(0, 1fr);
 }
 
+.admin-profile-main-column {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
 .admin-profile-card {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.76)),
@@ -2491,6 +2497,16 @@
 
 .admin-profile-summary {
   align-content: start;
+  justify-items: center;
+  text-align: center;
+}
+
+.admin-profile-avatar-control {
+  align-items: center;
+  display: grid;
+  gap: 0.75rem;
+  justify-items: center;
+  width: 100%;
 }
 
 .admin-profile-avatar-large {
@@ -2502,11 +2518,46 @@
   border-radius: 999px;
   color: var(--color-primary-strong);
   display: grid;
-  font-size: 1.4rem;
+  font-size: clamp(2rem, 4vw, 2.8rem);
   font-weight: 950;
-  height: 5rem;
+  height: clamp(7.25rem, 15vw, 9rem);
+  line-height: 1;
+  overflow: hidden;
   place-items: center;
-  width: 5rem;
+  width: clamp(7.25rem, 15vw, 9rem);
+}
+
+.admin-profile-avatar-large img {
+  border-radius: inherit;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.admin-profile-avatar-large span {
+  align-items: center;
+  display: grid;
+  height: 100%;
+  place-items: center;
+  width: 100%;
+}
+
+.admin-profile-photo-input {
+  display: none;
+}
+
+.admin-profile-image-button {
+  justify-content: center;
+  min-width: min(100%, 11rem);
+}
+
+.admin-profile-photo-hint {
+  color: var(--color-muted);
+  display: block;
+  font-size: 0.76rem;
+  font-weight: 760;
+  line-height: 1.35;
+  max-width: 16rem;
 }
 
 .admin-profile-summary h3 {
@@ -2534,7 +2585,7 @@
   font-size: 0.78rem;
   font-weight: 950;
   gap: 0.4rem;
-  justify-self: start;
+  justify-self: center;
   padding: 0.45rem 0.65rem;
   text-transform: uppercase;
 }
@@ -2625,6 +2676,39 @@
   color: var(--color-muted);
   font-size: 0.84rem;
   font-weight: 800;
+}
+
+.admin-profile-security-card {
+  align-content: start;
+}
+
+.admin-profile-security-actions {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(25, 20, 23, 0.06);
+  border-radius: 18px;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.admin-profile-security-actions > div {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.admin-profile-security-actions strong {
+  color: var(--color-ink);
+  font-size: 0.98rem;
+}
+
+.admin-profile-security-actions span {
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
 }
 
 .admin-profile-logout {
@@ -3370,6 +3454,29 @@
   justify-content: flex-end;
 }
 
+.admin-password-modal {
+  max-width: min(34rem, calc(100vw - 2rem));
+}
+
+.admin-password-modal-form {
+  gap: 1rem;
+}
+
+.admin-password-field-grid {
+  grid-template-columns: 1fr;
+}
+
+.admin-password-modal .field input {
+  min-height: 2.9rem;
+}
+
+.admin-success-alert.compact,
+.admin-alert.compact {
+  font-size: 0.86rem;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+}
+
 .admin-modal-steps {
   background: rgba(25, 20, 23, 0.035);
   border: 1px solid rgba(25, 20, 23, 0.06);
@@ -3805,7 +3912,13 @@
     flex-direction: column;
   }
 
+  .admin-profile-security-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .admin-profile-actions .button,
+  .admin-profile-security-actions .button,
   .admin-profile-logout {
     justify-content: center;
     width: 100%;

@@ -1,10 +1,13 @@
 import {
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
   getIdToken,
   getIdTokenResult,
+  reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
+  updatePassword,
 } from 'firebase/auth';
 import { firebaseAuth } from './firebaseClient.js';
 
@@ -58,6 +61,19 @@ export const firebaseAuthService = {
 
   async resetPassword(email) {
     await sendPasswordResetEmail(firebaseAuth, email);
+  },
+
+  async changePassword(currentPassword, newPassword) {
+    const currentUser = firebaseAuth.currentUser;
+    if (!currentUser?.email) {
+      const error = new Error('La sesion expiro.');
+      error.code = 'auth/requires-recent-login';
+      throw error;
+    }
+
+    const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
+    await reauthenticateWithCredential(currentUser, credential);
+    await updatePassword(currentUser, newPassword);
   },
 
   logout() {
