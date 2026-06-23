@@ -26,12 +26,21 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port: 5173,
-      proxy: devProxyTarget ? {
-        '/api': {
-          target: devProxyTarget,
-          changeOrigin: true,
-        },
-      } : undefined,
+      proxy: {
+        ...(devProxyTarget ? {
+          '/api': {
+            target: devProxyTarget,
+            changeOrigin: true,
+          },
+        } : {}),
+        ...(env.DEV_N8N_PROXY_TARGET ? {
+          '/n8n': {
+            target: env.DEV_N8N_PROXY_TARGET,
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/n8n/, ''),
+          },
+        } : {}),
+      },
     },
   };
 });
