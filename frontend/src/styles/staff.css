@@ -1292,6 +1292,52 @@
   white-space: nowrap;
 }
 
+.staff-finalize-dialog {
+  display: grid;
+  gap: 1rem;
+  justify-items: center;
+  padding: 0.75rem 0 0.25rem;
+  text-align: center;
+}
+
+.staff-finalize-dialog > svg {
+  background: rgba(34, 150, 96, 0.1);
+  border-radius: 50%;
+  color: #1f7a52;
+  height: 3rem;
+  padding: 0.65rem;
+  width: 3rem;
+}
+
+.staff-finalize-dialog h3 {
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  margin: 0;
+}
+
+.staff-finalize-dialog p {
+  color: var(--color-muted);
+  line-height: 1.5;
+  margin: 0.4rem auto 0;
+  max-width: 30rem;
+}
+
+.staff-finalize-dialog span {
+  color: var(--color-primary);
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 900;
+  margin-top: 0.45rem;
+}
+
+.staff-finalize-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
 .staff-dashboard-panel,
 .staff-status-panel {
   background: rgba(255, 255, 255, 0.9);
