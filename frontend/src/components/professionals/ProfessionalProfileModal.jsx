@@ -75,7 +75,7 @@ function isBookableHour(value) {
   return /^\d{1,2}:\d{2}$/.test(String(value || '').trim());
 }
 
-export function ProfessionalProfileModal({ professional, onClose }) {
+export function ProfessionalProfileModal({ professional, onClose, showBookingAction = true }) {
   const theme = professionalTheme(professional?.especialidad);
   const tone = statusTone(professional?.estado);
   const portfolio = useMemo(() => portfolioFor(professional), [professional]);
@@ -215,9 +215,11 @@ export function ProfessionalProfileModal({ professional, onClose }) {
                   })}
                 </div>
               </div>
-              <Link to="/reservar" state={{ professional }} className="professional-modal-booking" onClick={onClose}>
-                <CalendarDays size={17} /> Reservar hora
-              </Link>
+              {showBookingAction && (
+                <Link to="/reservar" state={{ professional }} className="professional-modal-booking" onClick={onClose}>
+                  <CalendarDays size={17} /> Reservar hora
+                </Link>
+              )}
             </div>
           </motion.article>
         </motion.div>
