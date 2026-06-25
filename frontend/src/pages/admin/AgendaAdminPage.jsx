@@ -87,11 +87,7 @@ function getSlotStart(slot) {
 }
 
 function getSlotAttentionEnd(slot) {
-  return slot?.finAtencion || slot?.finVisible || slot?.endsAt || slot?.horaFin;
-}
-
-function getSlotBlockingEnd(slot) {
-  return slot?.finVisible || slot?.finAtencion || slot?.endsAt || slot?.horaFin;
+  return slot?.finAtencion || slot?.horaFinAtencion || slot?.finVisible || slot?.endsAt || slot?.horaFin;
 }
 
 function formatSlotRange(slot) {
@@ -102,8 +98,22 @@ function getServiceDuration(service) {
   return Number(service?.duracion_minutos || service?.duracionMinutos || service?.duracionServicioMin || 0);
 }
 
-function getServiceBuffer(service) {
-  return Number(service?.holgura_minutos || service?.holguraMinutos || service?.holguraMin || 0);
+function getServiceDurationMin(service) {
+  return Number(service?.duracion_minutos_min || service?.duracionMinutosMin || getServiceDuration(service) || 0);
+}
+
+function getServiceDurationMax(service) {
+  return Number(service?.duracion_minutos_max || service?.duracionMinutosMax || getServiceDuration(service) || 0);
+}
+
+function hasServiceDurationRange(service) {
+  const min = getServiceDurationMin(service);
+  const max = getServiceDurationMax(service);
+  return min > 0 && max > min;
+}
+
+function defaultServiceDuration(service) {
+  return getServiceDurationMax(service) || getServiceDuration(service) || '';
 }
 
 function getServicePrice(service) {
@@ -128,6 +138,14 @@ function formatMinutesDuration(minutes) {
   return parts.join(' ') || '0 min';
 }
 
+function formatServiceDuration(service) {
+  const min = getServiceDurationMin(service);
+  const max = getServiceDurationMax(service);
+  if (min > 0 && max > min) return `${formatMinutesDuration(min)} - ${formatMinutesDuration(max)}`;
+  const duration = getServiceDuration(service);
+  return duration ? formatMinutesDuration(duration) : '';
+}
+
 function parseDeposit(value) {
   if (value === '' || value === null || value === undefined) return null;
   const amount = Number(value);
@@ -139,6 +157,16 @@ function validateDeposit(value, totalAmount = 0) {
   if (amount === null) return 'Ingresa el abono realizado para continuar.';
   if (amount < 0) return 'Ingresa el abono realizado para continuar.';
   if (Number(totalAmount) > 0 && amount > Number(totalAmount)) return 'El abono no puede ser mayor al total de la reserva.';
+  return '';
+}
+
+function validateDurationSelection(service, value) {
+  if (!service || !hasServiceDurationRange(service)) return '';
+  const duration = Number(value);
+  const min = getServiceDurationMin(service);
+  const max = getServiceDurationMax(service);
+  if (!Number.isFinite(duration)) return 'Selecciona la duración final del servicio.';
+  if (duration < min || duration > max) return `La duración debe estar entre ${formatMinutesDuration(min)} y ${formatMinutesDuration(max)}.`;
   return '';
 }
 
@@ -178,6 +206,7 @@ function createMultiServiceItem() {
     staffError: '',
     slots: [],
     selectedSlotStart: '',
+    duracionServicioMin: '',
     availabilityChecked: false,
     availabilityLoading: false,
   };
@@ -193,6 +222,7 @@ function initialBookingForm() {
     idServicio: '',
     idStaff: '',
     fecha: '',
+    duracionServicioMin: '',
     observacionCliente: '',
     abono: '',
   };
@@ -358,6 +388,8 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     if (commonMessage) return commonMessage;
     if (!agendaService.isValidUuid(form.idServicio)) return 'Selecciona un servicio para consultar disponibilidad.';
     if (!agendaService.isValidUuid(form.idStaff)) return 'Selecciona un profesional para consultar disponibilidad.';
+    const durationMessage = validateDurationSelection(servicesById[form.idServicio], form.duracionServicioMin);
+    if (durationMessage) return durationMessage;
     const depositMessage = validateDeposit(form.abono, getServicePrice(servicesById[form.idServicio]));
     if (depositMessage) return depositMessage;
     return '';
@@ -368,6 +400,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     idServicio: form.idServicio,
     idStaff: form.idStaff,
     fecha: form.fecha,
+    duracionServicioMin: form.duracionServicioMin || undefined,
   });
 
   const normalizeBookingError = (error, fallback) => {
@@ -448,6 +481,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
         idServicio: form.idServicio,
         idStaff: form.idStaff,
         fechaHoraInicio: getSlotStart(selectedSlot),
+        duracionServicioMin: form.duracionServicioMin || undefined,
         observacionCliente: form.observacionCliente?.trim() || 'Reserva creada desde panel administrativo',
         abono: parseDeposit(form.abono),
       };
@@ -501,6 +535,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     setFormError('');
     setSummaryError('');
     setMultiSummary(null);
+    const selectedService = servicesById[value];
     setMultiItems((current) => {
       const changedIndex = current.findIndex((item) => item.id === itemId);
       if (changedIndex < 0) return current;
@@ -511,6 +546,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
             ...resetItemAvailability(item),
             idServicio: value,
             idStaff: '',
+            duracionServicioMin: selectedService ? defaultServiceDuration(selectedService) : '',
             staffOptions: [],
             staffLoading: agendaService.isValidUuid(value),
             staffError: '',
@@ -617,7 +653,9 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     for (let index = 0; index < multiItems.length; index += 1) {
       const item = multiItems[index];
       if (!agendaService.isValidUuid(item.idServicio)) return `Selecciona el servicio ${index + 1}.`;
-      if (!agendaService.isValidUuid(item.idStaff)) return `Selecciona el profesional del servicio ${index + 1}.`;
+      if (item.idStaff && !agendaService.isValidUuid(item.idStaff)) return `Selecciona un profesional valido para el servicio ${index + 1}.`;
+      const durationMessage = validateDurationSelection(servicesById[item.idServicio], item.duracionServicioMin);
+      if (durationMessage) return durationMessage;
       if (selectedServices.has(item.idServicio)) return 'La reserva múltiple requiere servicios distintos.';
       selectedServices.add(item.idServicio);
       totalAmount += getServicePrice(servicesById[item.idServicio]);
@@ -625,10 +663,6 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
 
     const depositMessage = validateDeposit(form.abono, totalAmount);
     if (depositMessage) return depositMessage;
-
-    if (!multiItems[0]?.selectedSlotStart) {
-      return 'Selecciona la primera hora disponible para iniciar la cadena.';
-    }
 
     return '';
   };
@@ -646,116 +680,95 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
     setSummaryError('');
     setMultiSummary(null);
 
-    const refreshedSlots = new Map();
-    const availabilityBodies = [];
-    const planned = [];
-    let previousBlockEndMs = null;
-
     try {
-      for (let index = 0; index < multiItems.length; index += 1) {
-        const item = multiItems[index];
-        const payload = multiAvailabilityPayload(item);
-        availabilityBodies.push(payload);
-        console.debug('Admin reservation availability payload', payload);
-        const response = await agendaService.consultarDisponibilidad(payload);
-        const bookableSlots = filterBookableSlots(response)
-          .slice()
-          .sort((a, b) => dateTimeMillis(getSlotStart(a)) - dateTimeMillis(getSlotStart(b)));
-        refreshedSlots.set(item.id, bookableSlots);
-
-        if (!bookableSlots.length) {
-          throw new Error(index === 0
-            ? 'No hay horarios disponibles para el servicio seleccionado.'
-            : 'No fue posible encadenar todos los servicios en esta fecha. Selecciona otra hora, staff o fecha.');
-        }
-
-        const slot = index === 0
-          ? bookableSlots.find((candidate) => sameDateTime(getSlotStart(candidate), item.selectedSlotStart))
-          : bookableSlots.find((candidate) => {
-              const startMs = dateTimeMillis(getSlotStart(candidate));
-              return startMs !== null && previousBlockEndMs !== null && startMs >= previousBlockEndMs;
-            });
-
-        if (!slot) {
-          throw new Error(index === 0
-            ? 'La primera hora seleccionada ya no está disponible. Consulta disponibilidad nuevamente.'
-            : 'No fue posible encadenar todos los servicios en esta fecha. Selecciona otra hora, staff o fecha.');
-        }
-
-        const service = servicesById[item.idServicio];
-        const staffMember = staffById[item.idStaff] || item.staffOptions.find((member) => String(getPersonId(member)) === String(item.idStaff));
-        const startMs = dateTimeMillis(getSlotStart(slot));
-        const blockEndMs = dateTimeMillis(getSlotBlockingEnd(slot));
-        const attentionEndMs = dateTimeMillis(getSlotAttentionEnd(slot));
-        const gapAfterPrevious = previousBlockEndMs === null || startMs === null
-          ? null
-          : Math.max(0, Math.round((startMs - previousBlockEndMs) / 60000));
-        const duration = Number(slot.duracionServicioMin || getServiceDuration(service) || 0);
-        const buffer = Number(slot.holguraMin || getServiceBuffer(service) || 0);
-        const price = getServicePrice(service);
-
-        planned.push({
-          key: item.id,
-          index,
+      const firstStart = multiItems[0]?.selectedSlotStart ? toTimePayload(multiItems[0].selectedSlotStart) : undefined;
+      const payload = {
+        idCliente: form.idCliente,
+        fecha: form.fecha,
+        horaInicial: firstStart,
+        maxPlanes: 1,
+        servicios: multiItems.map((item) => ({
           idServicio: item.idServicio,
-          idStaff: item.idStaff,
-          serviceName: service?.nombre || `Servicio ${index + 1}`,
-          staffName: fullName(staffMember) || 'Profesional seleccionado',
-          attentionType: getServiceAttentionType(service),
-          price,
-          slot,
-          startMs,
-          attentionEndMs,
-          blockEndMs,
-          duration,
-          buffer,
-          warning: gapAfterPrevious !== null && gapAfterPrevious <= 15
-            ? 'Bloque ajustado: comienza apenas termina la holgura anterior.'
-            : '',
-        });
-
-        previousBlockEndMs = blockEndMs;
+          idStaff: item.idStaff || undefined,
+          duracionServicioMin: item.duracionServicioMin || undefined,
+        })),
+      };
+      console.debug('Admin dynamic reservation plan payload', payload);
+      const response = await agendaService.planificarDisponibilidadMultiple(payload);
+      const plan = response?.planes?.[0];
+      if (!plan) {
+        throw new Error(response?.advertencias?.[0] || 'No fue posible encadenar todos los servicios en esta fecha. Selecciona otra hora, staff o fecha.');
       }
 
+      const planned = plan.servicios.map((servicePlan, index) => {
+        const item = multiItems[index];
+        const service = servicesById[servicePlan.idServicio] || servicesById[item.idServicio];
+        const staffMember = staffById[servicePlan.idStaff] || item.staffOptions.find((member) => String(getPersonId(member)) === String(servicePlan.idStaff));
+        const slot = {
+          horaInicio: servicePlan.horaInicio,
+          horaFinAtencion: servicePlan.horaFinAtencion,
+          bloqueadoHasta: servicePlan.bloqueadoHasta,
+          duracionServicioMin: servicePlan.duracionServicioMin,
+          holguraMin: servicePlan.holguraMin,
+        };
+        const wait = Number(servicePlan.esperaDesdeAnteriorMin || 0);
+        return {
+          key: item.id,
+          index,
+          idServicio: servicePlan.idServicio,
+          idStaff: servicePlan.idStaff,
+          serviceName: servicePlan.servicioNombre || service?.nombre || `Servicio ${index + 1}`,
+          staffName: servicePlan.profesionalNombre || fullName(staffMember) || 'Profesional asignado',
+          attentionType: getServiceAttentionType(service),
+          price: getServicePrice(service),
+          slot,
+          startMs: dateTimeMillis(servicePlan.horaInicio),
+          attentionEndMs: dateTimeMillis(servicePlan.horaFinAtencion),
+          blockEndMs: dateTimeMillis(servicePlan.bloqueadoHasta),
+          duration: Number(servicePlan.duracionServicioMin || 0),
+          buffer: Number(servicePlan.holguraMin || 0),
+          warning: wait > 0 ? `Espera real: ${formatMinutesDuration(wait)}` : '',
+        };
+      });
+
       setMultiItems((current) => current.map((item, index) => {
-        const itemSlots = refreshedSlots.get(item.id) || item.slots;
         const plannedItem = planned[index];
         return {
           ...item,
-          slots: itemSlots,
-          selectedSlotStart: index === 0 ? item.selectedSlotStart : getSlotStart(plannedItem.slot),
+          idStaff: plannedItem.idStaff,
+          duracionServicioMin: plannedItem.duration,
+          selectedSlotStart: getSlotStart(plannedItem.slot),
           availabilityChecked: true,
           availabilityLoading: false,
         };
       }));
 
-      const totalDuration = planned.reduce((sum, item) => sum + item.duration, 0);
-      const totalBuffer = planned.reduce((sum, item) => sum + item.buffer, 0);
+      const totalDuration = Number(plan.atencionTotalMin || planned.reduce((sum, item) => sum + item.duration, 0));
+      const externalBuffer = Number(plan.holguraExternaMin || 0);
       const totalAmount = planned.reduce((sum, item) => sum + item.price, 0);
       const abonoAmount = parseDeposit(form.abono) || 0;
       const saldoAmount = Math.max(totalAmount - abonoAmount, 0);
-      const totalBlockMinutes = planned.length
-        ? Math.max(0, Math.round((planned[planned.length - 1].blockEndMs - planned[0].startMs) / 60000))
-        : 0;
+      const totalBlockMinutes = Number(plan.tiempoBloqueadoTotalMin || 0);
 
       setMultiSummary({
         clientName: fullName(clientsById[form.idCliente]) || 'Cliente seleccionado',
         fecha: form.fecha,
         items: planned,
         totalDuration,
-        totalBuffer,
+        totalBuffer: externalBuffer,
         totalBlockMinutes,
         totalAmount,
         hasPricing: totalAmount > 0,
         abonoAmount,
         saldoAmount,
-        availabilityBodies,
+        startsAt: plan.horaInicio,
+        attentionEndsAt: plan.horaFinAtencion,
+        blockedUntil: plan.bloqueadoHasta,
+        availabilityBodies: [payload],
       });
     } catch (error) {
       setMultiItems((current) => current.map((item) => ({
         ...item,
-        slots: refreshedSlots.get(item.id) || item.slots,
-        availabilityChecked: refreshedSlots.has(item.id) || item.availabilityChecked,
         availabilityLoading: false,
       })));
       setFormError(normalizeBookingError(error, 'No fue posible encadenar todos los servicios en esta fecha. Selecciona otra hora, staff o fecha.'));
@@ -778,6 +791,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
         idServicio: item.idServicio,
         idStaff: item.idStaff,
         horaInicio: toTimePayload(getSlotStart(item.slot)),
+        duracionServicioMin: item.duration,
         notaInterna: form.observacionCliente?.trim() || 'Reserva creada desde agenda múltiple del panel administrativo',
       })),
     };
@@ -807,7 +821,13 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
   };
 
   const handleSingleServiceSelect = (value) => {
-    setForm((current) => ({ ...current, idServicio: value, idStaff: '' }));
+    const selectedService = servicesById[value];
+    setForm((current) => ({
+      ...current,
+      idServicio: value,
+      idStaff: '',
+      duracionServicioMin: selectedService ? defaultServiceDuration(selectedService) : '',
+    }));
     setFormError('');
     setSummaryError('');
     setMultiSummary(null);
@@ -836,13 +856,14 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
   const servicePickerTitle = servicePickerTarget?.type === 'multi'
     ? `Seleccionar servicio ${servicePickerIndex + 1}`
     : 'Seleccionar servicio';
+  const selectedSingleService = servicesById[form.idServicio];
 
   const renderServicePickerButton = ({ id, selectedId, onOpen, onClear }) => {
     const selectedService = servicesById[selectedId];
-    const duration = getServiceDuration(selectedService);
+    const durationLabel = formatServiceDuration(selectedService);
     const price = getServicePrice(selectedService);
     const meta = selectedService
-      ? [selectedService.categoria, duration ? formatMinutesDuration(duration) : null, price > 0 ? formatCurrencyCLP(price) : null].filter(Boolean).join(' · ')
+      ? [selectedService.categoria, durationLabel || null, price > 0 ? formatCurrencyCLP(price) : null].filter(Boolean).join(' · ')
       : 'Primero elige categoria y luego servicio';
 
     return (
@@ -922,6 +943,20 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
               onOpen: () => setServicePickerTarget({ type: 'single' }),
               onClear: clearSingleService,
             })}
+
+            {hasServiceDurationRange(selectedSingleService) && (
+              <Input
+                label="Duración"
+                id="new-booking-duration"
+                type="number"
+                min={getServiceDurationMin(selectedSingleService)}
+                max={getServiceDurationMax(selectedSingleService)}
+                step="5"
+                value={form.duracionServicioMin}
+                onChange={(event) => updateField('duracionServicioMin')(event.target.value)}
+                hint={`${formatMinutesDuration(getServiceDurationMin(selectedSingleService))} a ${formatMinutesDuration(getServiceDurationMax(selectedSingleService))}.`}
+              />
+            )}
 
             <AdminAutocomplete
               id="new-booking-staff"
@@ -1070,8 +1105,9 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
               {multiItems.map((item, index) => {
                 const service = servicesById[item.idServicio];
                 const itemStaffOptions = item.idServicio ? item.staffOptions : [];
-                const duration = getServiceDuration(service);
-                const buffer = getServiceBuffer(service);
+                const durationLabel = item.duracionServicioMin
+                  ? formatMinutesDuration(item.duracionServicioMin)
+                  : formatServiceDuration(service);
                 return (
                   <article key={item.id} className="admin-multi-service-card">
                     <header>
@@ -1098,12 +1134,34 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
                         onClear: () => handleMultiServiceSelect(item.id, ''),
                       })}
 
+                      {hasServiceDurationRange(service) && (
+                        <Input
+                          label="Duración"
+                          id={`multi-duration-${item.id}`}
+                          type="number"
+                          min={getServiceDurationMin(service)}
+                          max={getServiceDurationMax(service)}
+                          step="5"
+                          value={item.duracionServicioMin}
+                          onChange={(event) => {
+                            setFormError('');
+                            setSummaryError('');
+                            setMultiSummary(null);
+                            updateMultiItem(item.id, (current) => ({
+                              ...resetItemAvailability(current),
+                              duracionServicioMin: event.target.value,
+                            }));
+                          }}
+                          hint={`${formatMinutesDuration(getServiceDurationMin(service))} a ${formatMinutesDuration(getServiceDurationMax(service))}.`}
+                        />
+                      )}
+
                       <AdminAutocomplete
                         id={`multi-staff-${item.id}`}
                         label="Profesional"
                         options={itemStaffOptions}
                         selectedValue={item.idStaff}
-                        placeholder={item.idServicio ? 'Buscar profesional' : 'Selecciona servicio primero'}
+                        placeholder={item.idServicio ? 'Automático o buscar profesional' : 'Selecciona servicio primero'}
                         emptyMessage={item.staffLoading ? 'Cargando profesionales...' : item.staffError || 'No hay profesionales asociados'}
                         disabled={!item.idServicio || item.staffLoading}
                         getOptionValue={getPersonId}
@@ -1116,10 +1174,10 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
                     </div>
 
                     <div className="admin-multi-service-meta">
-                      <span>{duration ? formatMinutesDuration(duration) : 'Duración por backend'}</span>
-                      <span>{buffer ? `Holgura ${formatMinutesDuration(buffer)}` : 'Holgura validada por backend'}</span>
+                      <span>{durationLabel || 'Duración por backend'}</span>
+                      <span>Sin holgura interna</span>
                       {getServicePrice(service) > 0 && <span>{formatCurrencyCLP(getServicePrice(service))}</span>}
-                      {item.availabilityChecked && <span>{item.slots.length} horarios base</span>}
+                      {item.availabilityChecked && <span>Plan validado</span>}
                     </div>
 
                     {index === 0 ? (
@@ -1229,10 +1287,13 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
           </header>
 
           <div className="admin-multi-summary-kpis">
-            <span>{multiSummary.items.length} servicios</span>
-            <span>{formatMinutesDuration(multiSummary.totalBlockMinutes)} estimados</span>
-            <span>Atención {formatMinutesDuration(multiSummary.totalDuration)}</span>
-            <span>Holgura {formatMinutesDuration(multiSummary.totalBuffer)}</span>
+            <span>Servicios: {multiSummary.items.length}</span>
+            <span>Atención total: {formatMinutesDuration(multiSummary.totalDuration)}</span>
+            <span>Holgura externa: {formatMinutesDuration(multiSummary.totalBuffer)}</span>
+            <span>Tiempo bloqueado: {formatMinutesDuration(multiSummary.totalBlockMinutes)}</span>
+            <span>Inicio: {formatTime(multiSummary.startsAt)}</span>
+            <span>Fin atención: {formatTime(multiSummary.attentionEndsAt)}</span>
+            <span>Bloqueado hasta: {formatTime(multiSummary.blockedUntil)}</span>
           </div>
 
           <div className="admin-multi-summary-list">
@@ -1248,7 +1309,7 @@ function AdminReservationModal({ open, onClose, clients, services, staff, onCrea
                     <span>Profesional: {item.staffName}</span>
                     <span>{formatTime(getSlotStart(item.slot))} - {formatTime(getSlotAttentionEnd(item.slot))}</span>
                     <span>Duración: {formatMinutesDuration(item.duration)}</span>
-                    <span>Holgura: {formatMinutesDuration(item.buffer)}</span>
+                    <span>{item.buffer > 0 ? `Holgura externa: ${formatMinutesDuration(item.buffer)}` : 'Sin holgura interna'}</span>
                     {item.attentionType && <span>Tipo de atención: {item.attentionType}</span>}
                   </div>
                   {item.warning && <em>{item.warning}</em>}

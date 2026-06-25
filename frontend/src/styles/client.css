@@ -350,6 +350,30 @@
   display: block;
 }
 
+.booking-multi-summary-card {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.booking-multi-summary-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.booking-multi-summary-list div {
+  border-top: 1px solid rgba(25, 20, 23, 0.08);
+  display: grid;
+  gap: 0.16rem;
+  padding-top: 0.5rem;
+}
+
+.booking-multi-summary-list span,
+.booking-multi-summary-list small {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
 .choice-meta {
   color: var(--color-muted);
   font-size: 0.85rem;
@@ -378,6 +402,306 @@
 .active-staff-card {
   border-color: var(--color-primary-strong);
   box-shadow: var(--shadow-glow-primary);
+}
+
+.booking-wizard-card {
+  border-radius: 8px;
+  display: grid;
+  gap: clamp(1rem, 2vw, 1.35rem);
+  min-width: 0;
+  padding: clamp(1rem, 2.4vw, 1.5rem);
+}
+
+.booking-progress {
+  align-items: center;
+  border-bottom: 1px solid rgba(25, 20, 23, 0.08);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  justify-content: space-between;
+  min-width: 0;
+  padding-bottom: 0.9rem;
+}
+
+.booking-progress > span {
+  color: var(--color-ink);
+  font-size: 0.88rem;
+  font-weight: 820;
+}
+
+.booking-progress > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.booking-step-block {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.booking-step-heading {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.booking-step-heading h2 {
+  color: var(--color-ink);
+  font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+  line-height: 1.12;
+  margin: 0;
+}
+
+.booking-followup-note,
+.booking-earliest-card,
+.booking-previous-card,
+.booking-time-staff-panel {
+  border: 1px solid rgba(25, 20, 23, 0.1);
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.booking-followup-note {
+  background: rgba(245, 239, 232, 0.72);
+  color: var(--color-ink);
+  padding: 0.85rem 1rem;
+}
+
+.booking-choice-grid,
+.booking-category-grid,
+.booking-compact-grid,
+.booking-professional-grid {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.booking-choice-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.booking-category-grid,
+.booking-compact-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.booking-professional-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.booking-professional-grid--compact {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.booking-choice-card,
+.booking-category-card,
+.booking-service-card,
+.booking-professional-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(25, 20, 23, 0.11);
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.9rem;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.booking-choice-card:hover,
+.booking-category-card:hover,
+.booking-service-card:hover,
+.booking-professional-card:hover,
+.booking-choice-card:focus-visible,
+.booking-category-card:focus-visible,
+.booking-service-card:focus-visible,
+.booking-professional-card:focus-visible,
+.booking-choice-card.is-selected,
+.booking-category-card.is-selected,
+.booking-service-card.is-selected,
+.booking-professional-card.is-selected {
+  border-color: rgba(175, 105, 118, 0.58);
+  box-shadow: 0 12px 28px rgba(44, 35, 39, 0.09);
+  outline: none;
+}
+
+.booking-choice-card:hover,
+.booking-category-card:hover,
+.booking-service-card:hover,
+.booking-professional-card:hover {
+  transform: translateY(-1px);
+}
+
+.booking-choice-card svg {
+  color: var(--color-primary-strong);
+}
+
+.booking-choice-card strong,
+.booking-category-card strong,
+.booking-service-card strong,
+.booking-professional-card strong,
+.booking-earliest-card strong,
+.booking-previous-card strong {
+  color: var(--color-ink);
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.booking-choice-card span,
+.booking-category-card p,
+.booking-service-card p,
+.booking-professional-card p,
+.booking-earliest-card span,
+.booking-earliest-card small,
+.booking-previous-card p {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.booking-category-image,
+.booking-service-image {
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.booking-service-card dl,
+.booking-previous-card dl,
+.booking-success-summary dl {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.booking-service-card dt,
+.booking-previous-card dt,
+.booking-success-summary dt {
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.booking-service-card dd,
+.booking-previous-card dd,
+.booking-success-summary dd {
+  color: var(--color-ink);
+  font-size: 0.88rem;
+  font-weight: 780;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.booking-professional-card {
+  grid-template-columns: 4.8rem minmax(0, 1fr);
+}
+
+.booking-professional-photo {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  height: 4.8rem;
+  object-fit: cover;
+  width: 4.8rem;
+}
+
+.booking-professional-body {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.booking-meta-row,
+.booking-service-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.booking-meta-row span,
+.booking-service-tags span,
+.booking-professional-body small {
+  background: rgba(245, 239, 232, 0.7);
+  border-radius: 999px;
+  color: var(--color-ink-soft);
+  font-size: 0.76rem;
+  font-weight: 760;
+  padding: 0.18rem 0.48rem;
+}
+
+.booking-time-staff-panel {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.booking-confirmation-stack {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.booking-earliest-card {
+  align-items: start;
+  background: rgba(255, 255, 255, 0.92);
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 1rem;
+}
+
+.booking-earliest-card svg {
+  color: var(--color-primary-strong);
+  margin-top: 0.15rem;
+}
+
+.booking-earliest-card > div {
+  display: grid;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.booking-earliest-card.is-loading {
+  background:
+    linear-gradient(100deg, rgba(245, 239, 232, 0.58), rgba(255, 255, 255, 0.9), rgba(245, 239, 232, 0.58));
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.booking-previous-card {
+  background: rgba(245, 239, 232, 0.54);
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.9rem;
+}
+
+.booking-total-summary {
+  margin-top: 0.85rem;
+}
+
+.booking-success-summary {
+  border: 1px solid rgba(25, 20, 23, 0.1);
+  border-radius: 8px;
+  padding: 0.9rem;
+}
+
+.admin-success {
+  background: rgba(214, 236, 221, 0.72);
+  border: 1px solid rgba(85, 130, 96, 0.22);
+  border-radius: 8px;
+  color: #2f6040;
+  font-weight: 780;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
 }
 
 .client-empty-state {
@@ -3524,6 +3848,23 @@ img[data-fallback="true"] {
     position: static;
   }
 
+  .booking-choice-grid--two,
+  .booking-category-grid,
+  .booking-compact-grid,
+  .booking-professional-grid,
+  .booking-professional-grid--compact {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .booking-progress {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .booking-progress > div {
+    justify-content: flex-start;
+  }
+
   .profile-form-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3734,6 +4075,29 @@ img[data-fallback="true"] {
 
   .slot-button {
     padding-inline: 0.5rem;
+  }
+
+  .booking-wizard-card,
+  .booking-time-staff-panel,
+  .booking-earliest-card,
+  .booking-previous-card,
+  .booking-success-summary {
+    padding: 0.85rem;
+  }
+
+  .booking-professional-card {
+    grid-template-columns: 4rem minmax(0, 1fr);
+  }
+
+  .booking-professional-photo {
+    height: 4rem;
+    width: 4rem;
+  }
+
+  .booking-service-card dl,
+  .booking-previous-card dl,
+  .booking-success-summary dl {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .staff-card .button {

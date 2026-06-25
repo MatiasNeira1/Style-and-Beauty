@@ -24,13 +24,28 @@ public record CrearCitasLoteRequest(
         this(idCliente, fecha, null, reservas);
     }
 
+    public CrearCitasLoteRequest withCliente(UUID idCliente) {
+        return new CrearCitasLoteRequest(idCliente, fecha, abono, reservas);
+    }
+
     public record ReservaLoteRequest(
             @NotNull UUID idServicio,
             @NotNull UUID idStaff,
             @NotNull LocalTime horaInicio,
+            Integer duracionServicioMin,
             String notaInterna,
             String observacionCliente
     ) {
+        public ReservaLoteRequest(
+                UUID idServicio,
+                UUID idStaff,
+                LocalTime horaInicio,
+                String notaInterna,
+                String observacionCliente
+        ) {
+            this(idServicio, idStaff, horaInicio, null, notaInterna, observacionCliente);
+        }
+
         public String nota() {
             if (notaInterna != null && !notaInterna.isBlank()) {
                 return notaInterna.trim();

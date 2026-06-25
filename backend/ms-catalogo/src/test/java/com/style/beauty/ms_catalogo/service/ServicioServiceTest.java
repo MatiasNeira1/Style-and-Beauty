@@ -43,7 +43,7 @@ class ServicioServiceTest {
     }
 
     @Test
-    void guardarCompletaActivoYHolguraPorCategoria() {
+    void guardarCompletaActivoYHolguraExternaGeneral() {
         Servicio servicio = servicioValido();
         servicio.setActivo(null);
         servicio.setHolgura_minutos(null);
@@ -51,7 +51,21 @@ class ServicioServiceTest {
         Servicio guardado = service.guardar(servicio);
 
         assertThat(guardado.getActivo()).isTrue();
-        assertThat(guardado.getHolgura_minutos()).isEqualTo(30);
+        assertThat(guardado.getHolgura_minutos()).isEqualTo(15);
+    }
+
+    @Test
+    void guardarNormalizaRangoDeDuracion() {
+        Servicio servicio = servicioValido();
+        servicio.setDuracion_minutos(150);
+        servicio.setDuracion_minutos_min(90);
+        servicio.setDuracion_minutos_max(120);
+
+        Servicio guardado = service.guardar(servicio);
+
+        assertThat(guardado.getDuracion_minutos()).isEqualTo(120);
+        assertThat(guardado.getDuracion_minutos_min()).isEqualTo(90);
+        assertThat(guardado.getDuracion_minutos_max()).isEqualTo(120);
     }
 
     @Test

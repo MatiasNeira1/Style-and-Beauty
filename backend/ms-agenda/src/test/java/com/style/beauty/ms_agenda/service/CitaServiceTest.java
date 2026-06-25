@@ -4,12 +4,15 @@ import com.style.beauty.ms_agenda.client.PerfilClient;
 import com.style.beauty.ms_agenda.client.PerfilResumen;
 import com.style.beauty.ms_agenda.client.ServicioClient;
 import com.style.beauty.ms_agenda.client.ServicioResumen;
+import com.style.beauty.ms_agenda.client.ServicioStaffResumen;
 import com.style.beauty.ms_agenda.dto.CitaAgendaResponse;
 import com.style.beauty.ms_agenda.dto.CrearCitaRequest;
 import com.style.beauty.ms_agenda.dto.CrearCitasLoteRequest;
 import com.style.beauty.ms_agenda.dto.CrearCitasLoteResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
+import com.style.beauty.ms_agenda.dto.PlanificarAgendaRequest;
+import com.style.beauty.ms_agenda.dto.PlanificarAgendaResponse;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.Cita;
@@ -36,6 +39,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -91,10 +95,12 @@ class CitaServiceTest {
 
         when(perfilClient.obtenerCliente(ID_CLIENTE)).thenReturn(perfil(ID_CLIENTE, "Cliente", "Demo", "cliente@example.com"));
         when(perfilClient.obtenerStaff(ID_STAFF)).thenReturn(perfil(ID_STAFF, "Staff", "Demo", "staff@example.com"));
+        when(perfilClient.obtenerStaff(ID_STAFF_ANTERIOR)).thenReturn(perfil(ID_STAFF_ANTERIOR, "Staff", "Alternativo", "staff2@example.com"));
         when(servicioClient.obtenerServicio(ID_SERVICIO)).thenReturn(new ServicioResumen(ID_SERVICIO, "Corte", "Cabello", 60, 30, BigDecimal.valueOf(30_000)));
         when(servicioClient.obtenerServicio(ID_SERVICIO_2)).thenReturn(new ServicioResumen(ID_SERVICIO_2, "Peinado", "Cabello", 45, 15, BigDecimal.valueOf(25_000)));
         when(servicioClient.staffRealizaServicio(ID_SERVICIO, ID_STAFF)).thenReturn(true);
         when(servicioClient.staffRealizaServicio(ID_SERVICIO_2, ID_STAFF)).thenReturn(true);
+        when(servicioClient.staffRealizaServicio(ID_SERVICIO_2, ID_STAFF_ANTERIOR)).thenReturn(true);
         when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(ID_STAFF, FECHA.getDayOfWeek().getValue()))
                 .thenReturn(List.of(jornada(LocalTime.of(8, 0), LocalTime.of(13, 0))));
         when(bloqueoAgendaRepository.buscarBloqueosEnRango(any(), any(), any())).thenReturn(List.of());
@@ -118,7 +124,7 @@ class CitaServiceTest {
         List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null));
 
         assertThat(slots).extracting(DisponibilidadSlot::inicio)
-                .containsExactly(at(8, 0), at(9, 30), at(11, 0));
+                .containsExactly(at(8, 0), at(9, 15), at(10, 30), at(11, 45));
         assertThat(slots).extracting(DisponibilidadSlot::inicio)
                 .doesNotContain(at(8, 15), at(8, 30), at(8, 45));
         assertThat(slots).extracting(DisponibilidadSlot::finVisible)
@@ -171,11 +177,11 @@ class CitaServiceTest {
         when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
 
         List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(
-                new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, 999, 0));
+                new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, 0));
 
         assertThat(slots).isNotEmpty();
         assertThat(slots.get(0).finAtencion()).isEqualTo(slots.get(0).inicio().plusMinutes(50));
-        assertThat(slots.get(0).finVisible()).isEqualTo(slots.get(0).inicio().plusMinutes(80));
+        assertThat(slots.get(0).finVisible()).isEqualTo(slots.get(0).inicio().plusMinutes(65));
     }
 
     @Test
@@ -242,20 +248,20 @@ class CitaServiceTest {
     }
 
     @Test
-    void permiteCrearCitaExactamenteDespuesDeDuracionMasHolgura() {
-        Cita citaExistente = cita(at(9, 0), at(10, 0), at(10, 30));
+    void permiteCrearCitaExternaExactamenteDespuesDeDuracionMasHolgura() {
+        Cita citaExistente = cita(ID_CLIENTE_OTRO, ID_STAFF, at(9, 0), at(10, 0), at(10, 15), 60, 15);
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarChoquesCliente(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarCitasEnRango(any(), any(), any(), any()))
                 .thenReturn(List.of(citaExistente));
         when(citaRepository.buscarCitasClienteEnRango(any(), any(), any(), any()))
-                .thenReturn(List.of(citaExistente));
+                .thenReturn(List.of());
 
-        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(10, 30), null, null, null));
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(10, 15), null, null, null));
 
-        assertThat(creada.getFechaHoraInicio()).isEqualTo(at(10, 30));
-        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(11, 30));
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(12, 0));
+        assertThat(creada.getFechaHoraInicio()).isEqualTo(at(10, 15));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(11, 15));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(11, 30));
     }
 
     @Test
@@ -266,9 +272,9 @@ class CitaServiceTest {
         Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(8, 0), 999, 0, null));
 
         assertThat(creada.getDuracionServicioMin()).isEqualTo(50);
-        assertThat(creada.getHolguraMin()).isEqualTo(30);
+        assertThat(creada.getHolguraMin()).isEqualTo(15);
         assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(8, 50));
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(9, 20));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(9, 5));
     }
 
     @Test
@@ -297,13 +303,13 @@ class CitaServiceTest {
 
     @Test
     void normalizaHoraRecibidaAUsoHorarioDeAgendaAntesDeGuardar() {
-        OffsetDateTime inicioUtc = at(9, 30).withOffsetSameInstant(java.time.ZoneOffset.UTC);
+        OffsetDateTime inicioUtc = at(9, 15).withOffsetSameInstant(java.time.ZoneOffset.UTC);
 
         Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, inicioUtc, null, null, null));
 
-        assertThat(creada.getFechaHoraInicio()).isEqualTo(at(9, 30));
-        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(10, 30));
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(11, 0));
+        assertThat(creada.getFechaHoraInicio()).isEqualTo(at(9, 15));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(10, 15));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(10, 30));
     }
 
     @Test
@@ -311,7 +317,7 @@ class CitaServiceTest {
         when(citaRepository.saveAndFlush(any(Cita.class)))
                 .thenThrow(new DataIntegrityViolationException("overlap"));
 
-        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 30), null, null, null);
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 15), null, null, null);
 
         assertThatThrownBy(() -> citaService.crear(request))
                 .isInstanceOf(DataIntegrityViolationException.class)
@@ -319,8 +325,8 @@ class CitaServiceTest {
     }
 
     @Test
-    void rechazaCrearCitaSiBloqueConHolguraQuedaFueraDeJornada() {
-        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(12, 0), null, null, null);
+    void rechazaCrearCitaSiAtencionQuedaFueraDeJornada() {
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(12, 15), null, null, null);
 
         assertThatThrownBy(() -> citaService.crear(request))
                 .isInstanceOf(BusinessException.class)
@@ -331,12 +337,12 @@ class CitaServiceTest {
     void crearGeneraReservaTemporalConExpiracionSinGoogleCalendar() {
         when(citaRepository.buscarChoquesAgenda(any(), any(), any(), any())).thenReturn(List.of());
 
-        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 30), null, null, "Test"));
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 15), null, null, "Test"));
 
-        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(10, 30));
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(11, 0));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(10, 15));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(10, 30));
         assertThat(creada.getDuracionServicioMin()).isEqualTo(60);
-        assertThat(creada.getHolguraMin()).isEqualTo(30);
+        assertThat(creada.getHolguraMin()).isEqualTo(15);
         assertThat(creada.getEstadoCita()).isEqualTo(EstadoCita.PENDIENTE_PAGO);
         assertThat(creada.getExpiracionReserva()).isAfter(OffsetDateTime.now(ZONE).plusMinutes(14));
         assertThat(creada.getExpiracionReserva()).isBefore(OffsetDateTime.now(ZONE).plusMinutes(16));
@@ -354,7 +360,7 @@ class CitaServiceTest {
                 ID_CLIENTE,
                 ID_STAFF,
                 ID_SERVICIO,
-                at(9, 30),
+                at(9, 15),
                 null,
                 null,
                 "Admin",
@@ -413,19 +419,19 @@ class CitaServiceTest {
                 BigDecimal.valueOf(20_000),
                 List.of(
                         new CrearCitasLoteRequest.ReservaLoteRequest(ID_SERVICIO, ID_STAFF, LocalTime.of(8, 0), "Primera", null),
-                        new CrearCitasLoteRequest.ReservaLoteRequest(ID_SERVICIO_2, ID_STAFF, LocalTime.of(10, 0), "Segunda", null)
+                        new CrearCitasLoteRequest.ReservaLoteRequest(ID_SERVICIO_2, ID_STAFF, LocalTime.of(9, 1), "Segunda", null)
                 )
         );
 
         CrearCitasLoteResponse response = citaService.crearLoteDesdeAdmin(request);
 
         assertThat(response.totalServicios()).isEqualTo(2);
-        assertThat(response.tiempoTotalMin()).isEqualTo(180);
+        assertThat(response.tiempoTotalMin()).isEqualTo(121);
         assertThat(response.totalEstimado()).isEqualByComparingTo("55000");
         assertThat(response.abono()).isEqualByComparingTo("20000");
         assertThat(response.saldoPendiente()).isEqualByComparingTo("35000");
         assertThat(response.reservas()).extracting(CrearCitasLoteResponse.ReservaLoteCreadaResponse::fechaHoraInicio)
-                .containsExactly(at(8, 0), at(10, 0));
+                .containsExactly(at(8, 0), at(9, 1));
 
         ArgumentCaptor<Cita> captor = ArgumentCaptor.forClass(Cita.class);
         verify(citaRepository, times(2)).saveAndFlush(captor.capture());
@@ -437,6 +443,72 @@ class CitaServiceTest {
             assertThat(cita.getTotalEstimado()).isEqualByComparingTo("55000");
             assertThat(cita.getSaldoPendiente()).isEqualByComparingTo("35000");
         });
+    }
+
+    @Test
+    void planificarAgendaMultipleEncadenaServiciosConUnMinutoSinHolguraInterna() {
+        PlanificarAgendaRequest request = new PlanificarAgendaRequest(
+                ID_CLIENTE,
+                FECHA,
+                LocalTime.of(8, 0),
+                1,
+                List.of(
+                        new PlanificarAgendaRequest.ServicioPlanRequest(ID_SERVICIO, ID_STAFF, null),
+                        new PlanificarAgendaRequest.ServicioPlanRequest(ID_SERVICIO_2, ID_STAFF, null)
+                )
+        );
+
+        PlanificarAgendaResponse response = citaService.planificarAgendaMultiple(request);
+
+        assertThat(response.planes()).hasSize(1);
+        PlanificarAgendaResponse.PlanAgenda plan = response.planes().get(0);
+        assertThat(plan.atencionTotalMin()).isEqualTo(105);
+        assertThat(plan.holguraExternaMin()).isEqualTo(15);
+        assertThat(plan.tiempoBloqueadoTotalMin()).isEqualTo(121);
+        assertThat(plan.servicios()).extracting(PlanificarAgendaResponse.ServicioPlanificado::horaInicio)
+                .containsExactly(at(8, 0), at(9, 1));
+        assertThat(plan.servicios()).extracting(PlanificarAgendaResponse.ServicioPlanificado::horaFinAtencion)
+                .containsExactly(at(9, 0), at(9, 46));
+        assertThat(plan.servicios()).extracting(PlanificarAgendaResponse.ServicioPlanificado::holguraMin)
+                .containsExactly(0, 15);
+        assertThat(plan.bloqueadoHasta()).isEqualTo(at(10, 1));
+    }
+
+    @Test
+    void planificarAgendaMultipleBuscaOtroProfesionalCompatibleSiElPrimeroEstaOcupado() {
+        Cita citaStaffPrincipal = cita(ID_CLIENTE_OTRO, ID_STAFF, at(9, 0), at(10, 0), at(10, 15), 60, 15);
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any()))
+                .thenAnswer(invocation -> Objects.equals(invocation.getArgument(0), ID_STAFF)
+                        ? List.of(citaStaffPrincipal)
+                        : List.of());
+        when(servicioClient.obtenerStaffPorServicio(ID_SERVICIO_2))
+                .thenReturn(List.of(
+                        new ServicioStaffResumen(ID_SERVICIO_2, ID_STAFF, true),
+                        new ServicioStaffResumen(ID_SERVICIO_2, ID_STAFF_ANTERIOR, true)
+                ));
+        when(jornadaStaffRepository.findByIdStaffAndDiaSemanaAndActivoTrue(
+                ID_STAFF_ANTERIOR,
+                FECHA.getDayOfWeek().getValue()
+        )).thenReturn(List.of(jornada(ID_STAFF_ANTERIOR, LocalTime.of(8, 0), LocalTime.of(13, 0))));
+
+        PlanificarAgendaRequest request = new PlanificarAgendaRequest(
+                ID_CLIENTE,
+                FECHA,
+                LocalTime.of(8, 0),
+                1,
+                List.of(
+                        new PlanificarAgendaRequest.ServicioPlanRequest(ID_SERVICIO, ID_STAFF, null),
+                        new PlanificarAgendaRequest.ServicioPlanRequest(ID_SERVICIO_2, null, null)
+                )
+        );
+
+        PlanificarAgendaResponse response = citaService.planificarAgendaMultiple(request);
+
+        assertThat(response.planes()).hasSize(1);
+        assertThat(response.planes().get(0).servicios()).extracting(PlanificarAgendaResponse.ServicioPlanificado::idStaff)
+                .containsExactly(ID_STAFF, ID_STAFF_ANTERIOR);
+        assertThat(response.planes().get(0).servicios()).extracting(PlanificarAgendaResponse.ServicioPlanificado::horaInicio)
+                .containsExactly(at(8, 0), at(9, 1));
     }
 
     @Test
@@ -495,8 +567,15 @@ class CitaServiceTest {
         List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, sabado, null, null));
 
         assertThat(slots).extracting(DisponibilidadSlot::inicio)
-                .containsExactly(at(sabado, 8, 0), at(sabado, 9, 30), at(sabado, 11, 0), at(sabado, 12, 30), at(sabado, 14, 0));
-        assertThat(slots).allMatch(slot -> !slot.finVisible().toLocalTime().isAfter(LocalTime.of(16, 0)));
+                .containsExactly(
+                        at(sabado, 8, 0),
+                        at(sabado, 9, 15),
+                        at(sabado, 10, 30),
+                        at(sabado, 11, 45),
+                        at(sabado, 13, 0),
+                        at(sabado, 14, 15)
+                );
+        assertThat(slots).allMatch(slot -> !slot.finAtencion().toLocalTime().isAfter(LocalTime.of(16, 0)));
     }
 
     @Test
@@ -509,7 +588,7 @@ class CitaServiceTest {
                 ID_CLIENTE,
                 ID_STAFF,
                 ID_SERVICIO,
-                at(sabado, 15, 0),
+                at(sabado, 15, 30),
                 null,
                 null,
                 null
@@ -522,15 +601,15 @@ class CitaServiceTest {
 
     @Test
     void disponibilidadConClienteSoloDevuelveSlotConsecutivo() {
-        Cita citaExistente = cita(at(9, 0), at(10, 0), at(10, 30));
-        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of(citaExistente));
+        Cita citaExistente = cita(ID_CLIENTE, ID_STAFF_ANTERIOR, at(9, 0), at(10, 0), at(10, 15), 60, 15);
+        when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarCitasClienteEnRango(any(), any(), any(), any())).thenReturn(List.of(citaExistente));
 
         List<DisponibilidadSlot> slots = citaService.calcularDisponibilidad(
                 new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null, ID_CLIENTE));
 
         assertThat(slots).extracting(DisponibilidadSlot::inicio)
-                .containsExactly(at(10, 30));
+                .containsExactly(at(10, 1));
     }
 
     @Test
@@ -548,9 +627,9 @@ class CitaServiceTest {
                 new DisponibilidadRequest(ID_STAFF, ID_SERVICIO, FECHA, null, null, ID_CLIENTE));
 
         assertThat(slots).extracting(DisponibilidadSlot::inicio)
-                .containsExactly(at(10, 15));
-        assertThat(slots.get(0).finAtencion()).isEqualTo(at(11, 0));
-        assertThat(slots.get(0).finVisible()).isEqualTo(at(11, 15));
+                .containsExactly(at(10, 1));
+        assertThat(slots.get(0).finAtencion()).isEqualTo(at(10, 46));
+        assertThat(slots.get(0).finVisible()).isEqualTo(at(11, 1));
     }
 
     @Test
@@ -584,11 +663,11 @@ class CitaServiceTest {
         when(citaRepository.buscarCitasEnRango(any(), any(), any(), any())).thenReturn(List.of());
         when(citaRepository.buscarCitasClienteEnRango(any(), any(), any(), any())).thenReturn(List.of(citaAnterior));
 
-        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(10, 15), null, null, null));
+        Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(10, 1), null, null, null));
 
-        assertThat(creada.getFechaHoraInicio()).isEqualTo(at(10, 15));
-        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(11, 0));
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(11, 15));
+        assertThat(creada.getFechaHoraInicio()).isEqualTo(at(10, 1));
+        assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(10, 46));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(11, 1));
     }
 
     @Test
@@ -612,14 +691,14 @@ class CitaServiceTest {
 
         Cita creada = citaService.crear(new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(8, 0), null, null, null));
 
-        assertThat(creada.getHolguraMin()).isEqualTo(10);
+        assertThat(creada.getHolguraMin()).isEqualTo(15);
         assertThat(creada.getFechaHoraFinAtencion()).isEqualTo(at(8, 45));
-        assertThat(creada.getFechaHoraFin()).isEqualTo(at(8, 55));
+        assertThat(creada.getFechaHoraFin()).isEqualTo(at(9, 0));
     }
 
     @Test
     void creaCitaTemporalYRegistraHistorial() {
-        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 30), null, null, null);
+        CrearCitaRequest request = new CrearCitaRequest(ID_CLIENTE, ID_STAFF, ID_SERVICIO, at(9, 15), null, null, null);
 
         Cita creada = citaService.crear(request);
 
@@ -780,9 +859,17 @@ class CitaServiceTest {
         return jornada(FECHA, inicio, fin);
     }
 
+    private JornadaStaff jornada(UUID idStaff, LocalTime inicio, LocalTime fin) {
+        return jornada(idStaff, FECHA, inicio, fin);
+    }
+
     private JornadaStaff jornada(LocalDate fecha, LocalTime inicio, LocalTime fin) {
+        return jornada(ID_STAFF, fecha, inicio, fin);
+    }
+
+    private JornadaStaff jornada(UUID idStaff, LocalDate fecha, LocalTime inicio, LocalTime fin) {
         return JornadaStaff.builder()
-                .idStaff(ID_STAFF)
+                .idStaff(idStaff)
                 .diaSemana(fecha.getDayOfWeek().getValue())
                 .horaInicio(inicio)
                 .horaFin(fin)
@@ -801,7 +888,7 @@ class CitaServiceTest {
     }
 
     private Cita cita(OffsetDateTime inicio, OffsetDateTime finAtencion, OffsetDateTime finVisible) {
-        return cita(ID_CLIENTE, ID_STAFF, inicio, finAtencion, finVisible, 60, 30);
+        return cita(ID_CLIENTE, ID_STAFF, inicio, finAtencion, finVisible, 60, 15);
     }
 
     private Cita cita(

@@ -35,6 +35,12 @@ public class Servicio {
     @Column(name = "duracion_minutos", nullable = false)
     private Integer duracion_minutos;
 
+    @Column(name = "duracion_minutos_min")
+    private Integer duracion_minutos_min;
+
+    @Column(name = "duracion_minutos_max")
+    private Integer duracion_minutos_max;
+
     @Column(name = "holgura_minutos")
     private Integer holgura_minutos;
 

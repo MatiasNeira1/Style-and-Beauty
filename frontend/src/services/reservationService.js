@@ -22,6 +22,52 @@ function normalizeAvailabilityPayload({ idServicio, idStaff, fecha, idCliente })
   return data;
 }
 
+function normalizeMultipleAvailabilityPayload({ idCliente, fecha, horaInicial, servicios, maxPlanes = 8 }) {
+  if (!fecha || !Array.isArray(servicios) || servicios.length < 2) {
+    throw new Error('Selecciona al menos dos servicios y una fecha para consultar disponibilidad.');
+  }
+  assertBookingDateAllowed(fecha);
+
+  return {
+    idCliente,
+    fecha,
+    horaInicial: horaInicial || undefined,
+    maxPlanes,
+    servicios: servicios.map((item, index) => {
+      const idServicio = item?.idServicio || item?.serviceId || item;
+      if (!isValidUuid(idServicio)) throw new Error(`Selecciona el servicio ${index + 1}.`);
+      const payload = { idServicio };
+      if (isValidUuid(item?.idStaff)) payload.idStaff = item.idStaff;
+      if (Number(item?.duracionServicioMin) > 0) payload.duracionServicioMin = Number(item.duracionServicioMin);
+      return payload;
+    }),
+  };
+}
+
+function normalizeReservationBatchPayload({ fecha, reservas }) {
+  if (!fecha || !Array.isArray(reservas) || reservas.length < 2) {
+    throw new Error('Selecciona una agenda múltiple válida para continuar.');
+  }
+  assertBookingDateAllowed(fecha);
+
+  return {
+    fecha,
+    reservas: reservas.map((item, index) => {
+      if (!isValidUuid(item?.idServicio) || !isValidUuid(item?.idStaff) || !item?.horaInicio) {
+        throw new Error(`La reserva ${index + 1} no tiene servicio, profesional u hora validada.`);
+      }
+      const payload = {
+        idServicio: item.idServicio,
+        idStaff: item.idStaff,
+        horaInicio: item.horaInicio,
+        observacionCliente: item.observacionCliente,
+      };
+      if (Number(item?.duracionServicioMin) > 0) payload.duracionServicioMin = Number(item.duracionServicioMin);
+      return payload;
+    }),
+  };
+}
+
 export const reservationService = {
   getMe: () => request({ baseURL: PROFILES_API_BASE_URL, url: '/api/perfiles/me', authRequired: true }),
 
@@ -67,6 +113,14 @@ export const reservationService = {
       data: normalizeAvailabilityPayload({ idServicio, idStaff, fecha, idCliente }),
     }),
 
+  getMultipleAvailability: (payload) =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/disponibilidad-multiple',
+      method: 'POST',
+      data: normalizeMultipleAvailabilityPayload(payload),
+    }),
+
   createReservation: ({ serviceId, professionalId, startsAt, note, clientId }) => {
     if (!clientId) {
       throw new Error('Tu perfil de cliente debe estar completo para confirmar la reserva.');
@@ -90,6 +144,15 @@ export const reservationService = {
       },
     });
   },
+
+  createReservationBatch: (payload) =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/lote/cliente',
+      method: 'POST',
+      authRequired: true,
+      data: normalizeReservationBatchPayload(payload),
+    }),
 
   cancelReservation: (reservationId) =>
     request({

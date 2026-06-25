@@ -12,6 +12,8 @@ import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
+import com.style.beauty.ms_agenda.dto.PlanificarAgendaRequest;
+import com.style.beauty.ms_agenda.dto.PlanificarAgendaResponse;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.exception.BusinessException;
@@ -76,6 +78,15 @@ public class CitaController {
                 request.idServicio(), request.idStaff(), request.fecha());
 
         return citaService.calcularDisponibilidad(request);
+    }
+
+    @PostMapping("/disponibilidad-multiple")
+    public PlanificarAgendaResponse disponibilidadMultiple(@Valid @RequestBody PlanificarAgendaRequest request) {
+        log.info("Entrando a endpoint POST /api/agenda/citas/disponibilidad-multiple");
+        log.info("Request recibido disponibilidad multiple: idCliente={}, fecha={}, servicios={}",
+                request.idCliente(), request.fecha(), request.servicios() == null ? 0 : request.servicios().size());
+
+        return citaService.planificarAgendaMultiple(request);
     }
 
     @GetMapping("/disponibilidad-semanal")
@@ -186,6 +197,19 @@ public class CitaController {
 
         firebaseTokenVerifier.authenticatedAdminUid(authHeader);
         return citaService.crearLoteDesdeAdmin(request);
+    }
+
+    @PostMapping("/lote/cliente")
+    public CrearCitasLoteResponse crearLoteCliente(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @Valid @RequestBody CrearCitasLoteRequest request) {
+        log.info("Entrando a endpoint POST /api/agenda/citas/lote/cliente");
+        log.info("Request recibido crear lote cliente: fecha={}, reservas={}",
+                request.fecha(), request.reservas() == null ? 0 : request.reservas().size());
+
+        String uid = firebaseTokenVerifier.authenticatedClientUid(authHeader);
+        PerfilResumen cliente = perfilClient.obtenerClientePorAuthId(uid);
+        return citaService.crearLoteCliente(request.withCliente(cliente.idPersona()));
     }
 
     @PatchMapping("/{id:[0-9a-fA-F-]+}/estado")
