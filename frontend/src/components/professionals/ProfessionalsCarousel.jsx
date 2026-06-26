@@ -42,6 +42,13 @@ export function ProfessionalsCarousel({ professionals = [], isLoading = false })
 
   const next = () => setPage((current) => (current + 1) % pageCount);
   const prev = () => setPage((current) => (current - 1 + pageCount) % pageCount);
+  const handleDragEnd = (_, info) => {
+    if (pageCount <= 1) return;
+    const swipeOffset = info.offset.x;
+    const swipeVelocity = info.velocity.x;
+    if (swipeOffset < -45 || swipeVelocity < -350) next();
+    if (swipeOffset > 45 || swipeVelocity > 350) prev();
+  };
   const visibleDots = useMemo(() => {
     if (pageCount <= 7) return Array.from({ length: pageCount }, (_, index) => index);
     const start = Math.min(Math.max(page - 3, 0), pageCount - 7);
@@ -83,6 +90,11 @@ export function ProfessionalsCarousel({ professionals = [], isLoading = false })
               key={page}
               className="professionals-carousel-grid"
               style={{ gridTemplateColumns: `repeat(${visible.length}, minmax(0, 1fr))` }}
+              drag={pageCount > 1 ? 'x' : false}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.12}
+              onDragEnd={handleDragEnd}
+              whileTap={pageCount > 1 ? { cursor: 'grabbing' } : undefined}
               initial={{ opacity: 0, x: 24 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -24 }}

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Button } from './Button.jsx';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
@@ -29,9 +30,9 @@ export function Modal({
     };
   }, [closeDisabled, closeOnEscape, open, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal((
     <div
       className="modal-backdrop"
       role="presentation"
@@ -59,5 +60,5 @@ export function Modal({
         </div>
       </section>
     </div>
-  );
+  ), document.body);
 }

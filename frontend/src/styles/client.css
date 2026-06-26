@@ -1379,12 +1379,28 @@ a.contact-info-card:hover {
   overflow: hidden;
 }
 
+.professionals-carousel-grid {
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.professionals-carousel-grid:active {
+  cursor: grabbing;
+}
+
+.professionals-carousel-grid a,
+.professionals-carousel-grid button {
+  user-select: auto;
+}
+
 .professionals-carousel-grid,
 .professionals-grid {
   align-items: stretch;
   display: grid;
   gap: clamp(0.8rem, 2vw, 1.15rem);
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
 }
 
 .professionals-grid {
@@ -1660,10 +1676,11 @@ a.contact-info-card:hover {
   display: flex;
   inset: 0;
   justify-content: center;
+  overflow: hidden;
   padding: clamp(0.75rem, 3vw, 2rem);
   position: fixed;
   overscroll-behavior: contain;
-  z-index: 1000;
+  z-index: 2147482990;
 }
 
 .professional-profile-modal,
@@ -1681,7 +1698,8 @@ a.contact-info-card:hover {
   box-shadow: 0 28px 80px rgba(25, 20, 23, 0.2);
   display: grid;
   gap: clamp(1rem, 2vw, 1.25rem);
-  max-height: min(90vh, 820px);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   max-width: calc(100vw - clamp(1rem, 4vw, 3rem));
   overflow-x: clip;
   overflow-y: auto;
@@ -1690,7 +1708,7 @@ a.contact-info-card:hover {
   scroll-behavior: smooth;
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
-  width: min(960px, calc(100vw - clamp(1rem, 4vw, 3rem)));
+  width: min(960px, calc(100vw - 32px));
 }
 
 .professional-modal-close {
@@ -1734,6 +1752,7 @@ a.contact-info-card:hover {
   border-radius: 1.25rem;
   display: flex;
   justify-content: center;
+  max-height: 18rem;
   overflow: hidden;
 }
 
@@ -2851,8 +2870,10 @@ a.contact-info-card:hover {
   gap: 0.9rem;
   grid-template-columns: 5.25rem minmax(0, 1fr);
   min-height: 0;
+  min-width: 0;
   padding: 0.9rem;
   text-align: left;
+  width: 100%;
 }
 
 .professionals-page .professional-card:hover {
@@ -2876,6 +2897,7 @@ a.contact-info-card:hover {
   border: 0;
   border-radius: var(--radius-xs);
   box-shadow: none;
+  max-width: 100%;
 }
 
 .professionals-page .professional-status {
@@ -2908,6 +2930,7 @@ a.contact-info-card:hover {
   font-size: 0.86rem;
   line-height: 1.4;
   min-height: 0;
+  overflow-wrap: anywhere;
 }
 
 .professionals-page .professional-meta,
@@ -2934,6 +2957,7 @@ a.contact-info-card:hover {
   border-radius: var(--radius-xs);
   font-size: 0.82rem;
   padding: 0.5rem 0.7rem;
+  white-space: normal;
 }
 
 .professionals-calendar-note {
@@ -3960,7 +3984,9 @@ img[data-fallback="true"] {
   }
 
   .professional-profile-modal {
-    max-height: 92vh;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    width: calc(100vw - 24px);
   }
 
   .professional-modal-hero,
@@ -3971,7 +3997,7 @@ img[data-fallback="true"] {
 
   .professional-modal-photo {
     aspect-ratio: 16 / 10;
-    max-height: 22rem;
+    max-height: 14rem;
   }
 
   .professional-modal-footer {
@@ -4226,22 +4252,58 @@ img[data-fallback="true"] {
   }
 
   .professionals-page .professional-card {
-    grid-template-columns: 4.25rem minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
     padding: 0.75rem;
+    text-align: left;
+    width: 100%;
+  }
+
+  .professionals-page .professional-card-header {
+    display: grid;
+    gap: 0.45rem;
+    width: 100%;
+  }
+
+  .professionals-page .professional-card-media {
+    aspect-ratio: 16 / 10;
+    border-radius: var(--radius-xs);
+    max-height: 11.5rem;
+    width: 100%;
+  }
+
+  .professionals-page .professional-status {
+    justify-self: start;
   }
 
   .professionals-page .professional-card p,
-  .professionals-page .professional-meta span:nth-child(2),
   .professionals-page .professional-hours span:not(.next-hour-chip) {
     display: none;
+  }
+
+  .professionals-page .professional-meta,
+  .professionals-page .professional-hours {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  .professionals-page .professional-meta span,
+  .professionals-page .professional-hours span,
+  .professionals-page .next-hour-chip {
+    max-width: 100%;
   }
 
   .professionals-page .professional-actions {
     align-items: stretch;
     flex-direction: column;
+    gap: 0.5rem;
   }
 
+  .professionals-page .professional-actions .text-link,
   .professionals-page .professional-booking-link {
+    justify-content: center;
+    min-height: 2.55rem;
     width: 100%;
   }
 
@@ -4250,14 +4312,17 @@ img[data-fallback="true"] {
   }
 
   .professional-modal-backdrop {
-    align-items: stretch;
-    padding: 0.55rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem;
   }
 
   .professional-profile-modal {
     border-radius: var(--radius-sm);
-    max-height: calc(100vh - 1.1rem);
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
     padding: 0.85rem;
+    width: calc(100vw - 24px);
   }
 
   .professional-modal-close {
@@ -4267,6 +4332,20 @@ img[data-fallback="true"] {
 
   .professional-modal-intro h2 {
     font-size: clamp(2rem, 13vw, 3.2rem);
+  }
+
+  .professional-modal-hero {
+    gap: 0.8rem;
+  }
+
+  .professional-modal-photo {
+    max-height: 11rem;
+  }
+
+  .professional-modal-meta,
+  .professional-modal-services,
+  .professional-modal-hours {
+    gap: 0.4rem;
   }
 
   .professional-modal-gallery {
