@@ -19,15 +19,8 @@ import java.util.UUID;
 @Service
 public class ServicioService {
 
-    private static final int MINUTOS_ATENCION_MINIMA = 5;
     private static final double FIANZA_FUERA_HORARIO = 15_000D;
-    private static final Map<String, Integer> HOLGURA_POR_CATEGORIA = Map.of(
-            "cabello", 30,
-            "maquillaje", 15,
-            "nails", 15,
-            "piel", 20,
-            "spa", 30
-    );
+    private static final int HOLGURA_EXTERNA_MINUTOS = 15;
 
     @Autowired
     private ServicioRepository repository;
@@ -73,6 +66,8 @@ public class ServicioService {
             String categoria,
             String manualUsoUrl,
             Integer duracionMinutos,
+            Integer duracionMinutosMin,
+            Integer duracionMinutosMax,
             Integer holguraMinutos,
             Double precioTotal,
             Double montoFianza,
@@ -85,6 +80,8 @@ public class ServicioService {
         servicio.setCategoria(categoria);
         servicio.setManual_uso_url(manualUsoUrl);
         servicio.setDuracion_minutos(duracionMinutos);
+        servicio.setDuracion_minutos_min(duracionMinutosMin);
+        servicio.setDuracion_minutos_max(duracionMinutosMax);
         servicio.setHolgura_minutos(holguraMinutos);
         servicio.setPrecio_total(precioTotal);
         servicio.setMonto_fianza(montoFianza);
@@ -110,6 +107,8 @@ public class ServicioService {
                 existente.setImagenUrl(cambios.getImagenUrl());
             }
             existente.setDuracion_minutos(cambios.getDuracion_minutos());
+            existente.setDuracion_minutos_min(cambios.getDuracion_minutos_min());
+            existente.setDuracion_minutos_max(cambios.getDuracion_minutos_max());
             existente.setHolgura_minutos(cambios.getHolgura_minutos());
             existente.setPrecio_total(cambios.getPrecio_total());
             existente.setMonto_fianza(cambios.getMonto_fianza());
@@ -162,42 +161,8 @@ public class ServicioService {
             servicio.setActivo(true);
         }
 
-        if (servicio.getHolgura_minutos() == null) {
-            Integer holguraCategoria = obtenerHolguraCategoria(servicio.getCategoria());
-
-            if (holguraCategoria == null) {
-                throw new IllegalArgumentException("El servicio no tiene holgura configurada y la categoría tampoco tiene holgura por defecto");
-            }
-
-            servicio.setHolgura_minutos(holguraCategoria);
-        }
-
-        if (servicio.getDuracion_minutos() != null
-                && servicio.getDuracion_minutos() > 0
-                && servicio.getHolgura_minutos() != null
-                && servicio.getHolgura_minutos() >= servicio.getDuracion_minutos()) {
-            servicio.setHolgura_minutos(ajustarHolguraSegura(
-                    servicio.getDuracion_minutos(),
-                    servicio.getHolgura_minutos()
-            ));
-        }
-    }
-
-    private Integer obtenerHolguraCategoria(String categoria) {
-
-        if (categoria == null || categoria.isBlank()) {
-            return null;
-        }
-
-        Integer holguraPersistida = categoriaRepository.findByNombreIgnoreCase(categoria.trim())
-                .map(categoriaEncontrada -> categoriaEncontrada.getHolgura())
-                .orElse(null);
-
-        if (holguraPersistida != null) {
-            return holguraPersistida;
-        }
-
-        return holguraPorCategoria(categoria);
+        normalizarRangoDuracion(servicio);
+        servicio.setHolgura_minutos(HOLGURA_EXTERNA_MINUTOS);
     }
 
     private void validarServicio(Servicio servicio) {
@@ -220,6 +185,23 @@ public class ServicioService {
 
         if (servicio.getDuracion_minutos() == null || servicio.getDuracion_minutos() <= 0) {
             throw new IllegalArgumentException("La duración del servicio debe ser mayor a 0");
+        }
+
+        if (servicio.getDuracion_minutos_min() == null || servicio.getDuracion_minutos_min() <= 0) {
+            throw new IllegalArgumentException("La duración mínima del servicio debe ser mayor a 0");
+        }
+
+        if (servicio.getDuracion_minutos_max() == null || servicio.getDuracion_minutos_max() <= 0) {
+            throw new IllegalArgumentException("La duración máxima del servicio debe ser mayor a 0");
+        }
+
+        if (servicio.getDuracion_minutos_min() > servicio.getDuracion_minutos_max()) {
+            throw new IllegalArgumentException("La duración mínima no puede ser mayor a la máxima");
+        }
+
+        if (servicio.getDuracion_minutos() < servicio.getDuracion_minutos_min()
+                || servicio.getDuracion_minutos() > servicio.getDuracion_minutos_max()) {
+            throw new IllegalArgumentException("La duración efectiva debe estar dentro del rango configurado");
         }
 
         if (servicio.getHolgura_minutos() == null) {
@@ -303,36 +285,6 @@ public class ServicioService {
         return List.of();
     }
 
-    private Integer holguraPorCategoria(String categoria) {
-        String normalizada = normalizarCategoria(categoria);
-
-        if (normalizada == null) {
-            return null;
-        }
-
-        if (normalizada.contains("cabello") || normalizada.contains("peluqueria")) {
-            return HOLGURA_POR_CATEGORIA.get("cabello");
-        }
-
-        if (normalizada.contains("maquillaje")) {
-            return HOLGURA_POR_CATEGORIA.get("maquillaje");
-        }
-
-        if (normalizada.contains("nails") || normalizada.contains("manicure") || normalizada.contains("unas")) {
-            return HOLGURA_POR_CATEGORIA.get("nails");
-        }
-
-        if (normalizada.contains("piel") || normalizada.contains("facial")) {
-            return HOLGURA_POR_CATEGORIA.get("piel");
-        }
-
-        if (normalizada.contains("spa")) {
-            return HOLGURA_POR_CATEGORIA.get("spa");
-        }
-
-        return null;
-    }
-
     private String normalizarCategoria(String categoria) {
         if (categoria == null || categoria.isBlank()) {
             return null;
@@ -351,11 +303,30 @@ public class ServicioService {
                 .replaceAll("^-|-$", "");
     }
 
-    private int ajustarHolguraSegura(int duracion, int holgura) {
-        if (holgura < duracion) {
-            return holgura;
+    private void normalizarRangoDuracion(Servicio servicio) {
+        Integer duracion = servicio.getDuracion_minutos();
+        Integer min = servicio.getDuracion_minutos_min();
+        Integer max = servicio.getDuracion_minutos_max();
+
+        if (min == null && max == null) {
+            min = duracion;
+            max = duracion;
+        } else if (min == null) {
+            min = duracion != null ? Math.min(duracion, max) : max;
+        } else if (max == null) {
+            max = duracion != null ? Math.max(duracion, min) : min;
         }
 
-        return Math.max(0, duracion - MINUTOS_ATENCION_MINIMA);
+        if (duracion == null && max != null) {
+            duracion = max;
+        }
+
+        if (duracion != null && min != null && max != null) {
+            duracion = Math.max(min, Math.min(duracion, max));
+        }
+
+        servicio.setDuracion_minutos_min(min);
+        servicio.setDuracion_minutos_max(max);
+        servicio.setDuracion_minutos(duracion);
     }
 }

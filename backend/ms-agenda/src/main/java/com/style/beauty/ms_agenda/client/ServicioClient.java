@@ -127,7 +127,9 @@ public class ServicioClient {
                 readString(servicioData, "categoria", "category"),
                 readInteger(servicioData, "duracion_minutos", "duracionMinutos", "duracionServicioMin", "duracion"),
                 readInteger(servicioData, "holgura_minutos", "holguraMinutos", "holguraMin"),
-                readBigDecimal(servicioData, "precio_total", "precioTotal", "precio", "price")
+                readBigDecimal(servicioData, "precio_total", "precioTotal", "precio", "price"),
+                readInteger(servicioData, "duracion_minutos_min", "duracionMinutosMin", "duracionMin"),
+                readInteger(servicioData, "duracion_minutos_max", "duracionMinutosMax", "duracionMax")
         );
     }
 

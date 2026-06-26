@@ -12,23 +12,23 @@ class HolguraServiceTest {
     private final HolguraService holguraService = new HolguraService();
 
     @Test
-    void usaHolguraConfiguradaEnCatalogo() {
+    void usaHolguraExternaGeneralAunqueCatalogoTengaOtroValor() {
         assertThat(holgura("Manicure permanente", "Manicure", 15)).isEqualTo(15);
-        assertThat(holgura("Mechas balayage", "Cabello", 30)).isEqualTo(30);
-        assertThat(holgura("Limpieza facial profunda", "Cuidados de la piel", 20)).isEqualTo(20);
+        assertThat(holgura("Mechas balayage", "Cabello", 30)).isEqualTo(15);
+        assertThat(holgura("Limpieza facial profunda", "Cuidados de la piel", 20)).isEqualTo(15);
     }
 
     @Test
-    void usaHolguraPorCategoriaSiCatalogoNoLaEnvia() {
+    void usaHolguraExternaGeneralAunqueCategoriaTengaReglasHistoricas() {
         assertThat(holgura("Corte express", "Cabello", 20, null)).isEqualTo(15);
         assertThat(holgura("Maquillaje express", "Maquillaje", 60, null)).isEqualTo(15);
         assertThat(holgura("Manicure express", "Nails", 15, null)).isEqualTo(10);
         assertThat(holgura("Limpieza facial express", "Piel", 20, null)).isEqualTo(15);
-        assertThat(holgura("Masaje express", "Spa", 30, null)).isEqualTo(25);
+        assertThat(holgura("Masaje express", "Spa", 30, null)).isEqualTo(15);
     }
 
     @Test
-    void ajustaHolguraConfiguradaSiEsIgualOMayorALaDuracion() {
+    void ajustaHolguraExternaSiEsIgualOMayorALaDuracion() {
         assertThat(holgura("Corte express", "Cabello", 20, 30)).isEqualTo(15);
         assertThat(holgura("Servicio minimo", "Spa", 5, 30)).isEqualTo(0);
     }
@@ -41,10 +41,10 @@ class HolguraServiceTest {
     }
 
     @Test
-    void usaHolguraDeStaffSiServicioNoTieneHolgura() {
+    void ignoraHolguraDeStaffYUsaHolguraExternaGeneral() {
         ServicioResumen servicio = new ServicioResumen(UUID.randomUUID(), "Servicio", "Categoria", 60, null);
 
-        assertThat(holguraService.calcularHolguraMin(servicio, 20)).isEqualTo(20);
+        assertThat(holguraService.calcularHolguraMin(servicio, 20)).isEqualTo(15);
     }
 
     private int holgura(String nombre, String categoria, Integer holguraMinutos) {

@@ -37,7 +37,8 @@ public record CrearCitasLoteResponse(
             OffsetDateTime fechaHoraFinAtencion,
             Integer duracionServicioMin,
             Integer holguraMin,
-            EstadoCita estadoCita
+            EstadoCita estadoCita,
+            OffsetDateTime expiracionReserva
     ) {
     }
 }
