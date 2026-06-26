@@ -1,4 +1,4 @@
-import { CalendarDays, Clock, X } from 'lucide-react';
+import { CalendarDays, Clock, Trash2, X } from 'lucide-react';
 import { useCart } from '../../store/CartContext.jsx';
 import { reservationService } from '../../services/reservationService.js';
 import { Button } from '../ui/Button.jsx';
@@ -48,8 +48,9 @@ function professionalName(item) {
 }
 
 export function CartDrawer() {
-  const { items, total, isCartOpen, setIsCartOpen, removeItem, updateQuantity, lastCartError, setLastCartError } = useCart();
+  const { items, total, isCartOpen, setIsCartOpen, removeItem, updateQuantity, clearCart, lastCartError, setLastCartError } = useCart();
   const [now, setNow] = useState(Date.now());
+  const [clearingCart, setClearingCart] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -68,13 +69,46 @@ export function CartDrawer() {
     removeItem(item.id);
   };
 
+  const handleClearCart = async () => {
+    if (!items.length || clearingCart) return;
+    const confirmed = window.confirm('¿Vaciar todo el carrito? Se eliminarán productos y reservas temporales.');
+    if (!confirmed) return;
+
+    setClearingCart(true);
+    setLastCartError('');
+    const reservations = items.filter((item) => item.type === 'reservation' && item.reservationId);
+    const results = await Promise.allSettled(
+      reservations.map((item) => reservationService.cancelReservation(item.reservationId)),
+    );
+    clearCart();
+    if (results.some((result) => result.status === 'rejected')) {
+      setLastCartError('Vaciamos el carrito localmente, pero alguna reserva temporal no pudo cancelarse en el backend. Se liberará al expirar si sigue pendiente.');
+    }
+    setClearingCart(false);
+  };
+
   return (
     <aside className={`cart-drawer ${isCartOpen ? 'is-open' : ''}`} aria-hidden={!isCartOpen}>
       <header>
         <h2>Carrito</h2>
-        <Button variant="ghost" onClick={() => setIsCartOpen(false)} aria-label="Cerrar carrito">
-          <X size={18} />
-        </Button>
+        <div className="cart-header-actions">
+          {items.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="cart-clear-button"
+              onClick={handleClearCart}
+              disabled={clearingCart}
+              aria-label="Vaciar carrito"
+            >
+              <Trash2 size={15} />
+              {clearingCart ? 'Vaciando...' : 'Vaciar'}
+            </Button>
+          )}
+          <Button variant="ghost" onClick={() => setIsCartOpen(false)} aria-label="Cerrar carrito">
+            <X size={18} />
+          </Button>
+        </div>
       </header>
 
       <div className="cart-items" data-lenis-prevent>
@@ -136,7 +170,7 @@ export function CartDrawer() {
       <footer>
         <strong>Total a abonar hoy {formatCLP(total)}</strong>
         {items.some((item) => item.type === 'reservation') && <small>Saldo restante se paga en el local.</small>}
-        <Button disabled={items.length === 0} onClick={() => {
+        <Button disabled={items.length === 0 || clearingCart} onClick={() => {
           setLastCartError('');
           setIsCartOpen(false);
           navigate('/checkout');

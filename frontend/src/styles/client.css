@@ -495,6 +495,18 @@
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
 
+.booking-professional-scroll {
+  max-height: min(62vh, 680px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
+  scrollbar-gutter: stable;
+}
+
+.booking-time-staff-panel .booking-professional-scroll {
+  max-height: min(48vh, 440px);
+}
+
 .booking-choice-card,
 .booking-category-card,
 .booking-service-card,
@@ -692,6 +704,12 @@
   border: 1px solid rgba(25, 20, 23, 0.1);
   border-radius: 8px;
   padding: 0.9rem;
+}
+
+.booking-followup-modal {
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
 }
 
 .admin-success {
@@ -3856,6 +3874,11 @@ img[data-fallback="true"] {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .booking-professional-scroll {
+    max-height: min(60vh, 560px);
+    padding-right: 0.15rem;
+  }
+
   .booking-progress {
     align-items: flex-start;
     flex-direction: column;
@@ -4087,6 +4110,10 @@ img[data-fallback="true"] {
 
   .booking-professional-card {
     grid-template-columns: 4rem minmax(0, 1fr);
+  }
+
+  .booking-professional-scroll {
+    max-height: min(58vh, 520px);
   }
 
   .booking-professional-photo {

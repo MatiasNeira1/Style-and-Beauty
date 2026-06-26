@@ -2667,8 +2667,21 @@ img { max-width: 100%; display: block; }
   align-items: center;
   border-bottom: 1px solid var(--color-line);
   display: flex;
+  gap: 0.75rem;
   justify-content: space-between;
   padding-bottom: 0.8rem;
+}
+
+.cart-header-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.cart-clear-button {
+  color: var(--color-primary-strong);
 }
 
 .cart-items {
@@ -2938,8 +2951,8 @@ body.modal-open {
   display: flex;
   flex-direction: column;
   max-width: min(760px, calc(100vw - 2rem));
-  max-height: calc(100vh - 2rem);
-  max-height: calc(100dvh - 2rem);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow: hidden;
   padding: 1.5rem;
   width: 100%;

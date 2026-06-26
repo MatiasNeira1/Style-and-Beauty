@@ -75,6 +75,10 @@ function servicePriceLabel(service) {
   return formatCLP(value);
 }
 
+function isActiveService(service) {
+  return service?.activo !== false;
+}
+
 function normalizeText(value = '') {
   return String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
@@ -261,7 +265,9 @@ export function BookingPage() {
     retry: false,
   });
 
-  const services = useMemo(() => (Array.isArray(servicesQuery.data) ? servicesQuery.data : []), [servicesQuery.data]);
+  const services = useMemo(() => (
+    Array.isArray(servicesQuery.data) ? servicesQuery.data.filter(isActiveService) : []
+  ), [servicesQuery.data]);
   const serviceStaff = useMemo(() => (Array.isArray(serviceStaffQuery.data) ? serviceStaffQuery.data : []), [serviceStaffQuery.data]);
   const publicStaff = useMemo(() => (
     Array.isArray(staffQuery.data) ? staffQuery.data.filter((item) => item?.activo !== false) : []
@@ -294,6 +300,12 @@ export function BookingPage() {
     });
     return map;
   }, [professionalServiceQueries, services]);
+  const professionalServicesLoading = servicesQuery.isLoading || professionalServiceQueries.some((query) => query.isLoading || query.isFetching);
+  const professionalServicesError = servicesQuery.isError || professionalServiceQueries.some((query) => query.isError);
+  const publicStaffWithActiveServices = useMemo(() => {
+    if (professionalServicesLoading || professionalServicesError) return [];
+    return publicStaff.filter((item) => (professionalServicesByStaff.get(staffId(item)) || []).length > 0);
+  }, [professionalServicesByStaff, professionalServicesError, professionalServicesLoading, publicStaff]);
 
   const categoryCovers = useMemo(
     () => (Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : []),
@@ -488,12 +500,13 @@ export function BookingPage() {
     if (!member) return [];
     const embedded = member.serviciosAsociados || member.servicios || member.services || [];
     if (Array.isArray(embedded) && embedded.length > 0) {
-      return embedded.map((item) => {
+      const embeddedServices = embedded.map((item) => {
         const id = typeof item === 'string' ? item : serviceId(item);
         return services.find((candidate) => serviceId(candidate) === id) || (typeof item === 'object' ? item : null);
-      }).filter(Boolean);
+      }).filter(Boolean).filter(isActiveService);
+      if (embeddedServices.length > 0) return embeddedServices;
     }
-    return professionalServicesByStaff.get(selectedStaffId) || [];
+    return (professionalServicesByStaff.get(selectedStaffId) || []).filter(isActiveService);
   }, [member, professionalServicesByStaff, selectedStaffId, services]);
 
   const profileMessage = isProfileError
@@ -945,12 +958,17 @@ export function BookingPage() {
                   <p className="admin-alert">No pudimos cargar profesionales reales.</p>
                 ) : publicStaff.length === 0 ? (
                   <p className="admin-alert">No hay profesionales disponibles por el momento.</p>
+                ) : professionalServicesLoading ? (
+                  <Loader />
+                ) : professionalServicesError ? (
+                  <p className="admin-alert">No pudimos validar servicios activos por profesional.</p>
+                ) : publicStaffWithActiveServices.length === 0 ? (
+                  <p className="admin-alert">No hay profesionales con servicios activos disponibles por el momento.</p>
                 ) : (
                   <ProfessionalGrid
-                    professionals={publicStaff}
+                    professionals={publicStaffWithActiveServices}
                     selectedId={selectedStaffId}
                     servicesByStaff={professionalServicesByStaff}
-                    servicesLoading={professionalServiceQueries.some((query) => query.isLoading || query.isFetching)}
                     onSelect={(value) => selectProfessional(value, 'professional-services')}
                   />
                 )}
@@ -1035,9 +1053,9 @@ export function BookingPage() {
               </StepBlock>
             )}
 
-            {flowStep !== 'summary' && (
+            {flowStep !== 'summary' && flowStep !== 'start' && (
               <div className="wizard-actions">
-                <Button type="button" variant="ghost" disabled={flowStep === 'start'} onClick={goBack}>
+                <Button type="button" variant="ghost" onClick={goBack}>
                   <ArrowLeft size={16} /> Volver
                 </Button>
               </div>
@@ -1065,6 +1083,9 @@ export function BookingPage() {
         title="Reserva creada correctamente"
         onClose={finishFlow}
         className="booking-followup-modal"
+        showCloseButton={false}
+        closeOnBackdrop={false}
+        closeOnEscape={false}
       >
         <SuccessReservationContent reservation={lastReservationSummary} />
         <p>Tienes {RESERVATION_EXPIRATION_MINUTES} minutos para confirmarla antes de que el horario se libere.</p>
@@ -1207,56 +1228,58 @@ function ProfessionalGrid({
   onSelect,
 }) {
   return (
-    <div className={compact ? 'booking-professional-grid booking-professional-grid--compact' : 'booking-professional-grid'}>
-      {professionals.map((professional) => {
-        const id = staffId(professional);
-        const selected = id === selectedId;
-        const services = servicesByStaff.get(id) || [];
-        const earliest = availabilityByStaff.get(id);
-        const hasAvailabilityInfo = availabilityByStaff.has(id);
-        return (
-          <button
-            key={id || staffName(professional)}
-            type="button"
-            className={`booking-professional-card ${selected ? 'is-selected' : ''}`}
-            onClick={() => onSelect(professional)}
-          >
-            <SafeImage
-              src={staffPhoto(professional)}
-              alt={staffName(professional)}
-              fallback={AZURE_PUBLIC_STAFF_IMAGE_URL}
-              className="booking-professional-photo"
-            />
-            <div className="booking-professional-body">
-              <span className="card-kicker">{staffSpecialty(professional)}</span>
-              <strong>{staffName(professional)}</strong>
-              <p>{staffDescription(professional)}</p>
-              <div className="booking-meta-row">
-                {staffExperience(professional) && <span>{staffExperience(professional)}</span>}
-                {service && <span>{serviceDurationLabel(service)} · {servicePriceLabel(service)}</span>}
+    <div className="booking-professional-scroll" data-lenis-prevent>
+      <div className={compact ? 'booking-professional-grid booking-professional-grid--compact' : 'booking-professional-grid'}>
+        {professionals.map((professional) => {
+          const id = staffId(professional);
+          const selected = id === selectedId;
+          const services = servicesByStaff.get(id) || [];
+          const earliest = availabilityByStaff.get(id);
+          const hasAvailabilityInfo = availabilityByStaff.has(id);
+          return (
+            <button
+              key={id || staffName(professional)}
+              type="button"
+              className={`booking-professional-card ${selected ? 'is-selected' : ''}`}
+              onClick={() => onSelect(professional)}
+            >
+              <SafeImage
+                src={staffPhoto(professional)}
+                alt={staffName(professional)}
+                fallback={AZURE_PUBLIC_STAFF_IMAGE_URL}
+                className="booking-professional-photo"
+              />
+              <div className="booking-professional-body">
+                <span className="card-kicker">{staffSpecialty(professional)}</span>
+                <strong>{staffName(professional)}</strong>
+                <p>{staffDescription(professional)}</p>
+                <div className="booking-meta-row">
+                  {staffExperience(professional) && <span>{staffExperience(professional)}</span>}
+                  {service && <span>{serviceDurationLabel(service)} · {servicePriceLabel(service)}</span>}
+                </div>
+                <div className="booking-service-tags">
+                  {servicesLoading ? (
+                    <span>Servicios en consulta</span>
+                  ) : services.length > 0 ? (
+                    services.slice(0, 3).map((item) => <span key={serviceId(item) || serviceName(item)}>{serviceName(item)}</span>)
+                  ) : (
+                    <span>Servicios según disponibilidad</span>
+                  )}
+                </div>
+                {availabilityLoading ? (
+                  <small>Buscando próximo horario...</small>
+                ) : hasAvailabilityInfo ? (
+                  earliest?.slot ? (
+                    <small>Próximo horario: {formatDateLabel(earliest.fecha)} · {formatTime(earliest.slot.inicio)}</small>
+                  ) : (
+                    <small>Sin horarios disponibles próximos</small>
+                  )
+                ) : null}
               </div>
-              <div className="booking-service-tags">
-                {servicesLoading ? (
-                  <span>Servicios en consulta</span>
-                ) : services.length > 0 ? (
-                  services.slice(0, 3).map((item) => <span key={serviceId(item) || serviceName(item)}>{serviceName(item)}</span>)
-                ) : (
-                  <span>Servicios según disponibilidad</span>
-                )}
-              </div>
-              {availabilityLoading ? (
-                <small>Buscando próximo horario...</small>
-              ) : hasAvailabilityInfo ? (
-                earliest?.slot ? (
-                  <small>Próximo horario: {formatDateLabel(earliest.fecha)} · {formatTime(earliest.slot.inicio)}</small>
-                ) : (
-                  <small>Sin horarios disponibles próximos</small>
-                )
-              ) : null}
-            </div>
-          </button>
-        );
-      })}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
