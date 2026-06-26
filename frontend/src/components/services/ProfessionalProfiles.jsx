@@ -33,12 +33,6 @@ function ProfessionalProfilesComponent({
                 <h3>{fullName(member)}</h3>
                 <span>{member.emailContacto || member.especialidad?.nombre || 'Especialista'}</span>
 
-                {member.activo !== undefined && (
-                  <small className={member.activo ? 'professional-status active' : 'professional-status inactive'}>
-                    {member.activo ? 'Activo' : 'No disponible'}
-                  </small>
-                )}
-
                 <p>
                   {member.descripcionPerfil ||
                     member.especialidad?.descripcion ||
