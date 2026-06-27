@@ -1,11 +1,15 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CalendarDays, Clock, Image as ImageIcon, MapPin, Signal, Sparkles, X } from 'lucide-react';
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { professionalTheme, statusTone } from '../../utils/professionalTheme.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
+import { reservationService } from '../../services/reservationService.js';
+import { serviceCatalogService } from '../../services/serviceCatalogService.js';
+import { addDays, filterBookableSlots, formatLocalDate, minBookingDate } from '../../utils/bookingDateRules.js';
 
 function normalize(value = '') {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -30,23 +34,31 @@ function serviceName(service) {
     || service?.descripcion;
 }
 
+function serviceId(service) {
+  if (typeof service === 'string') return '';
+  return service?.id_servicio || service?.idServicio || service?.id || '';
+}
+
+function staffId(professional) {
+  return professional?.idPersona
+    || professional?.idStaff
+    || professional?.id
+    || professional?.raw?.idPersona
+    || professional?.raw?.idStaff
+    || professional?.raw?.id
+    || '';
+}
+
+function isActiveService(service) {
+  return service?.activo !== false;
+}
+
 function servicesFor(professional) {
   const assignedServices = professional?.serviciosAsociados || professional?.servicios || professional?.services || [];
   const normalizedServices = Array.isArray(assignedServices)
-    ? assignedServices.map(serviceName).filter(Boolean)
+    ? assignedServices.filter((service) => serviceName(service))
     : [];
-
-  if (normalizedServices.length > 0) {
-    return normalizedServices;
-  }
-
-  const text = normalize(`${professional?.especialidad || ''} ${professional?.descripcion || ''}`);
-  if (text.includes('maquill')) return ['Maquillaje social', 'Maquillaje de novia', 'Preparación de piel'];
-  if (text.includes('manicur') || text.includes('nail')) return ['Manicure premium', 'Esmaltado permanente', 'Nail art'];
-  if (text.includes('capilar') || text.includes('color') || text.includes('estilista')) return ['Corte y brushing', 'Coloración', 'Tratamientos capilares'];
-  if (text.includes('maso')) return ['Masaje relajante', 'Drenaje', 'Ritual spa'];
-  if (text.includes('corporal') || text.includes('kines')) return ['Drenaje linfático', 'Modelación corporal', 'Tratamientos reafirmantes'];
-  return ['Limpieza facial', 'Hidratación profunda', 'Glow facial'];
+  return normalizedServices;
 }
 
 function specialtiesFor(professional) {
@@ -71,25 +83,119 @@ function yearsWithUs(professional) {
   return `${(numericId % 4) + 1} años junto a Style & Beauty`;
 }
 
-function isBookableHour(value) {
-  return /^\d{1,2}:\d{2}$/.test(String(value || '').trim());
+function formatSlotDate(value) {
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('es-CL', { weekday: 'short', day: '2-digit', month: 'short' }).format(date);
+}
+
+function formatSlotTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+}
+
+function mergeServices(...groups) {
+  const map = new Map();
+  groups.flat().filter(Boolean).forEach((service) => {
+    const id = serviceId(service);
+    const key = id || normalize(serviceName(service));
+    if (key && !map.has(key)) map.set(key, service);
+  });
+  return [...map.values()];
 }
 
 export function ProfessionalProfileModal({ professional, onClose, showBookingAction = true }) {
   const theme = professionalTheme(professional?.especialidad);
   const tone = statusTone(professional?.estado);
+  const selectedStaffId = staffId(professional);
   const portfolio = useMemo(() => portfolioFor(professional), [professional]);
-  const services = useMemo(() => servicesFor(professional), [professional]);
+  const declaredServices = useMemo(() => servicesFor(professional), [professional]);
   const specialties = useMemo(() => specialtiesFor(professional), [professional]);
-  const nextHour = professional?.proximaHora || professional?.proximasHoras?.[0] || 'Consultar disponibilidad';
+  const nextHour = professional?.proximaHora || professional?.proximasHoras?.[0] || '';
   const biography = professional?.biografiaProfesional || professional?.descripcionPerfil || professional?.descripcion || 'Atencion personalizada con diagnostico, tecnica cuidada y acabado profesional.';
   const curriculum = professional?.perfilCurricular || professional?.trayectoria || professional?.descripcionPerfil || `${professional?.fullName || 'El profesional'} combina tecnica, criterio estetico y una experiencia cercana para crear resultados pulidos y naturales.`;
-  const publicHours = professional?.horariosPublicos || professional?.jornadasPublicas || [];
-  const displayedHours = Array.isArray(publicHours) && publicHours.length
-    ? publicHours
-    : (professional?.proximasHoras?.length ? professional.proximasHoras : ['Consultar disponibilidad']);
+  const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [availability, setAvailability] = useState({ status: 'idle', slots: [], error: '' });
   const hasPortfolio = portfolio.length > 0;
   useBodyScrollLock(Boolean(professional));
+
+  const servicesQuery = useQuery({
+    queryKey: ['services'],
+    queryFn: serviceCatalogService.listServices,
+    enabled: Boolean(professional),
+    staleTime: 1000 * 60 * 5,
+  });
+  const activeServices = useMemo(() => (
+    Array.isArray(servicesQuery.data) ? servicesQuery.data.filter(isActiveService) : []
+  ), [servicesQuery.data]);
+  const serviceStaffQueries = useQueries({
+    queries: activeServices.map((service) => {
+      const id = serviceId(service);
+      return {
+        queryKey: ['service-staff', id],
+        queryFn: () => serviceCatalogService.listProfessionalsByService(id),
+        enabled: Boolean(professional && selectedStaffId && serviceCatalogService.isValidUuid(id)),
+        staleTime: 1000 * 60 * 5,
+      };
+    }),
+  });
+  const relationServices = useMemo(() => {
+    if (!selectedStaffId) return [];
+    return activeServices.filter((service, index) => {
+      const rows = serviceStaffQueries[index]?.data;
+      return Array.isArray(rows) && rows.some((member) => staffId(member) === selectedStaffId);
+    });
+  }, [activeServices, selectedStaffId, serviceStaffQueries]);
+  const declaredServiceObjects = useMemo(() => (
+    declaredServices.map((item) => {
+      if (typeof item !== 'string' && serviceId(item) && isActiveService(item)) return item;
+      const name = serviceName(item);
+      return activeServices.find((service) => normalize(serviceName(service)) === normalize(name));
+    }).filter(Boolean)
+  ), [activeServices, declaredServices]);
+  const services = useMemo(() => mergeServices(relationServices, declaredServiceObjects), [declaredServiceObjects, relationServices]);
+  const servicesLoading = servicesQuery.isLoading || serviceStaffQueries.some((query) => query.isLoading || query.isFetching);
+  const servicesError = services.length === 0 && (servicesQuery.isError || serviceStaffQueries.some((query) => query.isError));
+  const selectedService = services.find((service) => serviceId(service) === selectedServiceId) || null;
+
+  useEffect(() => {
+    if (!professional) return;
+    setAvailability({ status: 'idle', slots: [], error: '' });
+  }, [professional]);
+
+  useEffect(() => {
+    const firstId = serviceId(services[0]);
+    if (!firstId) {
+      setSelectedServiceId('');
+      return;
+    }
+    if (!services.some((service) => serviceId(service) === selectedServiceId)) {
+      setSelectedServiceId(firstId);
+    }
+  }, [selectedServiceId, services]);
+
+  const consultAvailability = async () => {
+    if (!serviceCatalogService.isValidUuid(selectedServiceId) || !reservationService.isValidUuid(selectedStaffId)) {
+      setAvailability({ status: 'error', slots: [], error: 'Selecciona servicio y profesional para consultar disponibilidad.' });
+      return;
+    }
+
+    setAvailability({ status: 'loading', slots: [], error: '' });
+    try {
+      const foundSlots = [];
+      for (let offset = 0; offset < 14 && foundSlots.length < 6; offset += 1) {
+        const date = formatLocalDate(addDays(minBookingDate(), offset));
+        const slots = await reservationService.getAvailability({ idServicio: selectedServiceId, idStaff: selectedStaffId, fecha: date });
+        filterBookableSlots(slots).forEach((slot) => {
+          if (foundSlots.length < 6) foundSlots.push({ ...slot, date, service: selectedService });
+        });
+      }
+      setAvailability({ status: 'success', slots: foundSlots, error: '' });
+    } catch (error) {
+      setAvailability({ status: 'error', slots: [], error: error?.message || 'No fue posible consultar disponibilidad.' });
+    }
+  };
 
   useEffect(() => {
     if (!professional) return undefined;
@@ -143,7 +249,11 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                 <div className="professional-modal-meta">
                   <span><MapPin size={15} /> Sucursal: {professional.sucursal || 'Providencia'}</span>
                   <span className={`professional-modal-status ${tone}`}><Signal size={15} /> Estado: {professional.estado || 'Disponible hoy'}</span>
-                  <span><Clock size={15} /> Próxima hora: {nextHour}</span>
+                  {nextHour ? (
+                    <span><Clock size={15} /> Próxima hora: {nextHour}</span>
+                  ) : (
+                    <span><Clock size={15} /> Disponibilidad por consultar</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -166,7 +276,9 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                 <h3>Especialidades y servicios</h3>
                 <div className="professional-modal-services">
                   {specialties.map((specialty, index) => <span key={`specialty-${specialty}-${index}`}>{specialty}</span>)}
-                  {services.map((service, index) => <span key={`service-${service}-${index}`}>{service}</span>)}
+                  {servicesLoading && <span>Servicios activos en consulta</span>}
+                  {!servicesLoading && services.map((service, index) => <span key={`service-${serviceId(service) || index}`}>{serviceName(service)}</span>)}
+                  {!servicesLoading && services.length === 0 && <span>Sin servicios activos asociados</span>}
                 </div>
               </section>
             </div>
@@ -192,28 +304,62 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
 
             <div className="professional-modal-footer">
               <div>
-                <span className="modal-section-kicker">Horarios disponibles</span>
-                <div className="professional-modal-hours">
-                  {displayedHours.map((hour) => {
-                    const todayStr = new Date().toLocaleDateString('sv-SE');
-                    return isBookableHour(hour) ? (
+                <span className="modal-section-kicker">Disponibilidad real</span>
+                <div className="professional-availability-controls">
+                  {services.length > 1 && (
+                    <label>
+                      <span>Servicio</span>
+                      <select value={selectedServiceId} onChange={(event) => {
+                        setSelectedServiceId(event.target.value);
+                        setAvailability({ status: 'idle', slots: [], error: '' });
+                      }}>
+                        {services.map((service) => (
+                          <option key={serviceId(service)} value={serviceId(service)}>{serviceName(service)}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  <button
+                    type="button"
+                    className="professional-availability-button"
+                    onClick={consultAvailability}
+                    disabled={availability.status === 'loading' || servicesLoading || services.length === 0 || servicesError}
+                  >
+                    {availability.status === 'loading' ? 'Consultando...' : 'Consultar disponibilidad'}
+                  </button>
+                </div>
+
+                {servicesError && <p className="professional-availability-message is-error">No pudimos validar servicios activos asociados.</p>}
+                {!servicesLoading && services.length === 0 && (
+                  <p className="professional-availability-message">Este profesional no tiene servicios activos asociados para consultar agenda.</p>
+                )}
+                {availability.status === 'idle' && services.length > 0 && (
+                  <p className="professional-availability-message">Selecciona un servicio y consulta próximos horarios reales.</p>
+                )}
+                {availability.status === 'error' && <p className="professional-availability-message is-error">{availability.error}</p>}
+                {availability.status === 'success' && availability.slots.length === 0 && (
+                  <p className="professional-availability-message">Sin horarios disponibles en los próximos días para este servicio.</p>
+                )}
+                {availability.slots.length > 0 && (
+                  <div className="professional-modal-hours">
+                    {availability.slots.map((slot) => (
                       <Link
-                        key={hour}
+                        key={`${slot.date}-${slot.inicio}`}
                         to="/reservar"
                         state={{
                           professional,
-                          selectedHour: `${todayStr}T${hour}:00`,
-                          selectedDate: todayStr
+                          service: slot.service,
+                          selectedHour: slot.inicio,
+                          selectedDate: slot.date,
                         }}
                         onClick={onClose}
                       >
-                        {hour}
+                        <em>{formatSlotDate(slot.date)}</em>
+                        <strong>{formatSlotTime(slot.inicio)}</strong>
                       </Link>
-                    ) : (
-                      <span key={hour}>{hour}</span>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
               {showBookingAction && (
                 <Link to="/reservar" state={{ professional }} className="professional-modal-booking" onClick={onClose}>

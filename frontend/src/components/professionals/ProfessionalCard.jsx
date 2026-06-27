@@ -8,6 +8,7 @@ export function ProfessionalCard({ professional, compact = false, onViewProfile 
   const theme = professionalTheme(professional.especialidad);
   const tone = statusTone(professional.estado);
   const color = professional.colorEspecialidad || theme.color;
+  const nextHour = professional.proximaHora || professional.proximasHoras?.[0] || 'Disponibilidad por consultar';
 
   return (
     <motion.article
@@ -38,7 +39,7 @@ export function ProfessionalCard({ professional, compact = false, onViewProfile 
 
         <div className="professional-hours" aria-label="Próximas horas disponibles">
           <strong>Próxima hora</strong>
-          <span className="next-hour-chip">{professional.proximaHora || professional.proximasHoras?.[0] || 'Consultar disponibilidad'}</span>
+          <span className="next-hour-chip">{nextHour}</span>
           {!compact && (professional.proximasHoras || []).slice(0, 3).map((hour) => (
             <span key={hour}>{hour}</span>
           ))}
