@@ -79,6 +79,7 @@ export const router = createBrowserRouter([
       { path: 'pagos', element: lazyRoute(() => import('../pages/admin/PaymentsAdminPage.jsx'), 'PaymentsAdminPage') },
       { path: 'clientes', element: lazyRoute(() => import('../pages/admin/ClientsAdminPage.jsx'), 'ClientsAdminPage') },
       { path: 'staff', element: lazyRoute(() => import('../pages/admin/StaffAdminPage.jsx'), 'StaffAdminPage') },
+      { path: 'imagenes', element: lazyRoute(() => import('../pages/admin/SiteVisualAssetsAdminPage.jsx'), 'SiteVisualAssetsAdminPage') },
       { path: 'perfil', element: lazyRoute(() => import('../pages/admin/AdminProfilePage.jsx'), 'AdminProfilePage') },
     ],
   },

@@ -7,6 +7,8 @@ import { ProfessionalSkeleton } from '../../components/professionals/Professiona
 import { PremiumSelect } from '../../components/ui/PremiumSelect.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useProfessionals } from '../../hooks/useProfessionals.js';
+import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
+import { assetFallback, heroImageStyle } from '../../utils/siteVisualAssets.js';
 
 function unique(values) {
   const seen = new Map();
@@ -58,6 +60,7 @@ function slotWeight(professional) {
 
 export function ProfessionalsPage() {
   const { professionals, isLoading, isError, error } = useProfessionals();
+  const visualAssetsQuery = useSiteVisualAssets();
   const allProfessionals = professionals;
   const gridRef = useRef(null);
   const [filters, setFilters] = useState({
@@ -124,7 +127,10 @@ export function ProfessionalsPage() {
 
   return (
     <>
-      <section className="page-hero page-hero-professionals">
+      <section
+        className="page-hero page-hero-professionals"
+        style={heroImageStyle(visualAssetsQuery.getAsset('professionals.hero'), assetFallback('professionals.hero'), 'center 28%')}
+      >
         <div className="page-hero-media" />
         <div className="page-hero-overlay" />
         <div className="page-hero-content">

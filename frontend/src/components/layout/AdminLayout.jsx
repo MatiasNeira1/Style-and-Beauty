@@ -5,6 +5,7 @@ import {
   Bell,
   CalendarRange,
   CreditCard,
+  Image,
   LogOut,
   Menu,
   Package,
@@ -38,6 +39,7 @@ const adminGroups = [
       { to: '/admin/inventario', label: 'Inventario', icon: Package },
       { to: '/admin/clientes', label: 'Usuarios', icon: Users },
       { to: '/admin/staff', label: 'Profesionales', icon: ShieldCheck },
+      { to: '/admin/imagenes', label: 'Imagenes', icon: Image },
     ],
   },
   {

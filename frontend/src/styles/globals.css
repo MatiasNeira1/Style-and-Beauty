@@ -465,7 +465,7 @@ img { max-width: 100%; display: block; }
 .hero-media {
   background:
     linear-gradient(115deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1)),
-    var(--home-hero-image, url("/jefes.png")) center 28%/cover;
+    var(--home-hero-image, url("/jefes.png")) var(--home-hero-position, center 28%)/cover;
 }
 
 .hero-overlay {
@@ -594,7 +594,7 @@ img { max-width: 100%; display: block; }
 
 .page-hero-media {
   background:
-    linear-gradient(115deg, rgba(25, 20, 23, 0.42), rgba(25, 20, 23, 0.1) 54%, rgba(255, 248, 244, 0.04)),
+    linear-gradient(115deg, rgba(25, 20, 23, 0.34), rgba(25, 20, 23, 0.12) 54%, rgba(255, 248, 244, 0.04)),
     var(--page-hero-image) var(--page-hero-position, center)/cover;
   filter: saturate(1.08) contrast(1.04);
 }
@@ -653,9 +653,9 @@ img { max-width: 100%; display: block; }
 .products-hero-overlay,
 .page-hero-overlay {
   background:
-    linear-gradient(180deg, rgba(255, 248, 244, 0.02), rgba(255, 248, 244, 0.72) 82%, rgba(255, 248, 244, 0.96)),
-    radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.22), transparent 32%),
-    linear-gradient(90deg, rgba(25, 20, 23, 0.42), rgba(25, 20, 23, 0.04) 64%);
+    linear-gradient(180deg, rgba(25, 20, 23, 0.08), rgba(25, 20, 23, 0.6)),
+    radial-gradient(circle at 80% 30%, rgba(255, 255, 255, 0.12), transparent 32%),
+    linear-gradient(90deg, rgba(25, 20, 23, 0.66), rgba(25, 20, 23, 0.16) 68%, rgba(25, 20, 23, 0.04));
 }
 
 .products-hero-content,
@@ -669,21 +669,30 @@ img { max-width: 100%; display: block; }
 
 .products-hero-content h1,
 .page-hero-content h1 {
+  color: #fff;
   font-family: var(--font-serif);
   font-size: clamp(2.45rem, 5.8vw, 5.2rem);
   font-weight: 430;
   line-height: 0.95;
   margin: 0.35rem 0 0.8rem;
   max-width: 880px;
+  text-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
 }
 
 .products-hero-content p,
 .page-hero-content p {
-  color: var(--color-ink-soft);
+  color: rgba(255, 255, 255, 0.88);
   font-size: clamp(1rem, 2vw, 1.2rem);
   line-height: 1.45;
   margin: 0;
   max-width: 560px;
+  text-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
+}
+
+.products-hero-content .card-kicker,
+.page-hero-content .card-kicker {
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
 }
 
 .products-section {

@@ -6,10 +6,12 @@ import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
+import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
 import { contactService } from '../../services/contactService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { profileService } from '../../services/profileService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
+import { assetFallback, heroImageStyle } from '../../utils/siteVisualAssets.js';
 
 const whatsappUrl = 'https://wa.me/56958612677';
 const instagramUrl = 'https://www.instagram.com/dri.glow_';
@@ -38,6 +40,7 @@ export function ContactPage() {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const visualAssetsQuery = useSiteVisualAssets();
   const [sent, setSent] = useState(false);
   const [message, setMessage] = useState('');
   const contactMutation = useMutation({ mutationFn: contactService.sendMessage });
@@ -84,7 +87,10 @@ export function ContactPage() {
 
   return (
     <>
-      <section className="page-hero page-hero-contact">
+      <section
+        className="page-hero page-hero-contact"
+        style={heroImageStyle(visualAssetsQuery.getAsset('contact.hero'), assetFallback('contact.hero'), 'center')}
+      >
         <div className="page-hero-media" />
         <div className="page-hero-overlay" />
         <div className="page-hero-content">

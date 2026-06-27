@@ -1,9 +1,16 @@
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
+import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
+import { assetFallback, heroImageStyle } from '../../utils/siteVisualAssets.js';
 
 export function AboutPage() {
+  const visualAssetsQuery = useSiteVisualAssets();
+
   return (
     <>
-      <section className="page-hero page-hero-about">
+      <section
+        className="page-hero page-hero-about"
+        style={heroImageStyle(visualAssetsQuery.getAsset('about.hero'), assetFallback('about.hero'), 'center 42%')}
+      >
         <div className="page-hero-media" />
         <div className="page-hero-overlay" />
         <div className="page-hero-content">
