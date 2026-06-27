@@ -11,17 +11,19 @@ import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { BookingSummary } from '../../components/booking/BookingSummary.jsx';
 import { DateTimePicker } from '../../components/booking/DateTimePicker.jsx';
+import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
 import { reservationService } from '../../services/reservationService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
 import { staffService } from '../../services/staffService.js';
-import { HOME_HERO_IMAGE_URL, AZURE_PUBLIC_STAFF_IMAGE_URL } from '../../services/apiClient.js';
+import { AZURE_PUBLIC_STAFF_IMAGE_URL } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
 import { useCart } from '../../store/CartContext.jsx';
 import { addDays, filterBookableSlots, formatLocalDate, maxBookingDate, minBookingDate, RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
 import { RESERVATION_DEPOSIT_CLP, formatCLP } from '../../utils/priceUtils.js';
+import { assetFallback, heroImageStyle } from '../../utils/siteVisualAssets.js';
 
 const PREFERRED_CATEGORIES = ['Nails', 'Cuidados de la piel', 'Spa', 'Cabello', 'Maquillaje'];
 const CATEGORY_COPY = {
@@ -1381,11 +1383,15 @@ function SuccessReservationContent({ reservation }) {
 }
 
 function BookingHero() {
+  const visualAssetsQuery = useSiteVisualAssets();
+
   return (
     <section
       className="page-hero page-hero-booking"
-      style={{ '--page-hero-image': `url("${HOME_HERO_IMAGE_URL}")` }}
+      style={heroImageStyle(visualAssetsQuery.getAsset('booking.hero'), assetFallback('booking.hero'), 'center 42%')}
     >
+      <div className="page-hero-media" />
+      <div className="page-hero-overlay" />
       <div className="page-hero-content">
         <span className="eyebrow">Reserva cliente</span>
         <h1>Agenda tu momento con disponibilidad real</h1>

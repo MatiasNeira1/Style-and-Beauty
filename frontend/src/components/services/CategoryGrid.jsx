@@ -4,12 +4,13 @@ import { ArrowRight } from 'lucide-react';
 import { BalancedGrid } from '../ui/BalancedGrid.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { categorySlug, groupByCategory } from '../../utils/categoryUtils.js';
+import { assetPosition, serviceCategoryAssetKey } from '../../utils/siteVisualAssets.js';
 
 function serviceImage(service) {
   return service?.imageUrl || service?.imagenUrl || service?.imagen_url || service?.imagen || service?.fotoUrl;
 }
 
-export const CategoryGrid = memo(function CategoryGrid({ services = [], categoryCovers = [] }) {
+export const CategoryGrid = memo(function CategoryGrid({ services = [], categoryCovers = [], visualAssetsByKey = {} }) {
   const categories = useMemo(() => Object.entries(groupByCategory(services)), [services]);
   const coversByCategory = useMemo(() => categoryCovers.reduce((acc, cover) => {
     if (cover?.categoria && cover?.imagenUrl) acc[categorySlug(cover.categoria)] = cover.imagenUrl;
@@ -20,7 +21,10 @@ export const CategoryGrid = memo(function CategoryGrid({ services = [], category
     <BalancedGrid className="category-grid public-category-grid">
       {categories.map(([category, categoryServices]) => {
         const sample = categoryServices[0];
-        const imageUrl = coversByCategory[categorySlug(category)] || serviceImage(sample);
+        const assetKey = serviceCategoryAssetKey(category);
+        const visualAsset = assetKey ? visualAssetsByKey[assetKey] : null;
+        const imageUrl = visualAsset?.imageUrl || coversByCategory[categorySlug(category)] || serviceImage(sample);
+        const objectPosition = assetPosition(visualAsset, 'center');
 
         return (
           <Link key={category} className="category-card" to={`/servicios/${categorySlug(category)}`}>
@@ -31,7 +35,8 @@ export const CategoryGrid = memo(function CategoryGrid({ services = [], category
                 alt={category}
                 loading="eager"
                 width={640}
-                height={400}
+                height={640}
+                style={{ '--category-image-position': objectPosition }}
               />
             ) : (
               <div className="category-card-placeholder" aria-hidden="true">

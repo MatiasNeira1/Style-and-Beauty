@@ -3559,8 +3559,8 @@ a.contact-info-card:hover {
 
 .public-category-grid .category-card {
   border-radius: var(--radius-sm);
-  grid-template-columns: minmax(6.4rem, 34%) minmax(0, 1fr);
-  min-height: 12.5rem;
+  grid-template-columns: minmax(7.4rem, 38%) minmax(0, 1fr);
+  min-height: 10.8rem;
   max-width: 100%;
 }
 
@@ -3586,7 +3586,24 @@ a.contact-info-card:hover {
 
 .public-category-grid .category-card-media,
 .public-category-grid .category-card-placeholder {
-  min-height: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  min-height: 0;
+  object-position: var(--category-image-position, center);
+}
+
+.public-category-grid .category-card-media {
+  align-self: center;
+  border-radius: var(--radius-xs);
+  margin: 0.78rem;
+  width: calc(100% - 1.56rem);
+}
+
+.public-category-grid .category-card-placeholder {
+  align-self: center;
+  border-radius: var(--radius-xs);
+  margin: 0.78rem;
+  width: calc(100% - 1.56rem);
 }
 
 .public-category-grid .catalog-feature-card {
@@ -3835,9 +3852,10 @@ img[data-fallback="true"] {
 
   .public-category-grid .category-card-media,
   .public-category-grid .category-card-placeholder {
-    aspect-ratio: 16 / 10;
+    aspect-ratio: 1 / 1;
     height: auto;
     min-height: 0;
+    width: calc(100% - 1.56rem);
   }
 }
 
@@ -3945,9 +3963,10 @@ img[data-fallback="true"] {
 
   .public-category-grid .category-card-media,
   .public-category-grid .category-card-placeholder {
-    aspect-ratio: 16 / 10;
+    aspect-ratio: 1 / 1;
     height: auto;
     min-height: 0;
+    width: calc(100% - 1.56rem);
   }
 }
 
