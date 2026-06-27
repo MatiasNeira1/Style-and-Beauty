@@ -13,14 +13,13 @@ import { Button } from '../../components/ui/Button.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
 import { agendaService } from '../../services/agendaService.js';
-import { catalogService } from '../../services/catalogService.js';
-import { paymentService } from '../../services/paymentService.js';
 import { profileService } from '../../services/profileService.js';
 
-const completedStatuses = new Set(['FINALIZADA', 'FINALIZADO']);
-const finalizableStatuses = new Set(['CONFIRMADA']);
-const paidStatuses = new Set(['APROBADA', 'PAGADO', 'PAGADA', 'COMPLETADO', 'COMPLETADA', 'EXITOSO', 'EXITOSA']);
+const completedStatuses = new Set(['FINALIZADA', 'FINALIZADO', 'COMPLETADA', 'COMPLETADO', 'ATENDIDA', 'ATENDIDO']);
+const finalizableStatuses = new Set(['CONFIRMADA', 'CONFIRMADO']);
 const dayLabels = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'];
+const insufficientDataMessage = 'Aun no hay datos suficientes para generar este grafico.';
+const numberFormatter = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 });
 const statusDefinitions = [
   { key: 'confirmed', label: 'Confirmadas' },
   { key: 'pending', label: 'Pendientes' },
@@ -40,10 +39,6 @@ function primaryStaffId(staff) {
 
 function entityId(entity, keys) {
   return keys.map((key) => entity?.[key]).find(Boolean);
-}
-
-function sameId(left, right) {
-  return left && right && String(left) === String(right);
 }
 
 function matchesAnyId(id, ids) {
@@ -90,14 +85,6 @@ function inRange(value, start, end) {
   return Boolean(date && date >= start && date < end);
 }
 
-function currency(value) {
-  return new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    maximumFractionDigits: 0,
-  }).format(Number(value) || 0);
-}
-
 function formatDateTime(value) {
   const date = parseDate(value);
   if (!date) return 'Sin fecha';
@@ -112,63 +99,6 @@ function fullName(person) {
   return `${person.nombre || ''} ${person.apellidos || ''}`.trim() || person.emailContacto || null;
 }
 
-function paymentStatus(payment) {
-  return String(payment?.estadoPago || payment?.estado || '').toUpperCase();
-}
-
-function isPaid(payment) {
-  return paidStatuses.has(paymentStatus(payment));
-}
-
-function paymentAmount(payment) {
-  return Number(payment?.montoTotal ?? payment?.monto ?? payment?.total ?? 0);
-}
-
-function paymentBookingIds(payment) {
-  const ids = [
-    entityId(payment, ['idCita', 'id_cita', 'idReserva']),
-  ].filter(Boolean);
-
-  const rawIds = payment?.idCitas || payment?.id_citas;
-  if (Array.isArray(rawIds)) {
-    rawIds.forEach((id) => {
-      if (id) ids.push(id);
-    });
-  } else if (typeof rawIds === 'string' && rawIds.trim()) {
-    try {
-      const parsed = JSON.parse(rawIds);
-      if (Array.isArray(parsed)) {
-        parsed.forEach((id) => {
-          if (id) ids.push(id);
-        });
-      } else {
-        rawIds.split(',').forEach((id) => {
-          if (id.trim()) ids.push(id.trim());
-        });
-      }
-    } catch {
-      rawIds.split(',').forEach((id) => {
-        if (id.trim()) ids.push(id.trim());
-      });
-    }
-  }
-
-  return Array.from(new Set(ids.map(String)));
-}
-
-function paymentAmountForBooking(payment) {
-  const ids = paymentBookingIds(payment);
-  const divisor = Math.max(ids.length, 1);
-  return paymentAmount(payment) / divisor;
-}
-
-function paymentAmountForStaff(payment, bookingsById) {
-  const ids = paymentBookingIds(payment);
-  if (!ids.length) return 0;
-  const matchedCount = ids.filter((bookingId) => bookingsById[String(bookingId)]).length;
-  return (paymentAmount(payment) / ids.length) * matchedCount;
-}
-
 function bookingDate(booking) {
   return booking?.fechaHoraInicio || booking?.fecha || booking?.createdAt;
 }
@@ -177,8 +107,18 @@ function bookingStatus(booking) {
   return String(booking?.estadoCita || booking?.estado || '').toUpperCase();
 }
 
+function bookingServiceName(booking) {
+  return (
+    booking?.nombreServicio
+    || booking?.servicio?.nombre
+    || booking?.servicio?.nombreServicio
+    || entityId(booking, ['idServicio', 'id_servicio', 'servicioId'])
+    || 'Sin servicio'
+  );
+}
+
 function statusBucket(status) {
-  if (status.includes('FINAL')) return 'finalized';
+  if (status.includes('FINAL') || status.includes('COMPLET') || status.includes('ATEND')) return 'finalized';
   if (status.includes('CANCEL')) return 'cancelled';
   if (status.includes('CONFIRM')) return 'confirmed';
   if (status.includes('PEND')) return 'pending';
@@ -189,32 +129,50 @@ function canFinalizeBooking(row) {
   return Boolean(row?.id && finalizableStatuses.has(String(row.estado || '').toUpperCase()));
 }
 
-function ChartBars({ title, subtitle, data }) {
-  const max = Math.max(...data.map((item) => item.value), 1);
+function buildRangeCounts(bookings, ranges, filter = () => true) {
+  return ranges.map((range) => ({
+    label: range.label,
+    value: bookings.reduce((sum, booking) => (
+      filter(booking) && inRange(bookingDate(booking), range.start, range.end) ? sum + 1 : sum
+    ), 0),
+  }));
+}
+
+function ChartBars({ eyebrow = 'Actividad', title, subtitle, data }) {
+  const hasData = data.some((item) => Number(item.value) > 0);
+  const max = Math.max(...data.map((item) => Number(item.value) || 0), 1);
 
   return (
     <section className="staff-dashboard-panel">
       <div className="staff-dashboard-panel-header">
         <div>
-          <span>Ganancias</span>
+          <span>{eyebrow}</span>
           <h3>{title}</h3>
           {subtitle && <p>{subtitle}</p>}
         </div>
       </div>
-      <div className="staff-chart">
-        {data.map((item) => {
-          const height = Math.max((item.value / max) * 100, item.value > 0 ? 8 : 2);
-          return (
-            <div className="staff-chart-item" key={item.label}>
-              <div className="staff-chart-track" title={`${item.label}: ${currency(item.value)}`}>
-                <span style={{ height: `${height}%` }} />
+      {hasData ? (
+        <div className="staff-chart" role="img" aria-label={title}>
+          {data.map((item) => {
+            const value = Number(item.value) || 0;
+            const height = Math.max((value / max) * 100, value > 0 ? 8 : 2);
+            return (
+              <div className="staff-chart-item" key={item.label}>
+                <div className="staff-chart-track" title={`${item.label}: ${numberFormatter.format(value)}`}>
+                  <span style={{ height: `${height}%` }} />
+                </div>
+                <strong>{item.label}</strong>
+                <small>{numberFormatter.format(value)}</small>
               </div>
-              <strong>{item.label}</strong>
-              <small>{currency(item.value)}</small>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="staff-chart-empty">
+          <Activity size={18} />
+          <p>{insufficientDataMessage}</p>
+        </div>
+      )}
     </section>
   );
 }
@@ -235,7 +193,7 @@ function MetricCard({ icon: Icon, label, value, hint }) {
 }
 
 function StatusPanel({ items }) {
-  const total = Math.max(items.reduce((sum, item) => sum + item.value, 0), 1);
+  const total = items.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <section className="staff-status-panel">
@@ -247,22 +205,29 @@ function StatusPanel({ items }) {
         </div>
         <Activity size={18} />
       </div>
-      <div className="staff-status-list">
-        {items.map((item) => {
-          const width = (item.value / total) * 100;
-          return (
-            <div className="staff-status-item" key={item.key}>
-              <div>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+      {total > 0 ? (
+        <div className="staff-status-list">
+          {items.map((item) => {
+            const width = (item.value / total) * 100;
+            return (
+              <div className="staff-status-item" key={item.key}>
+                <div>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
+                <div className="staff-status-track">
+                  <span style={{ width: `${width}%` }} />
+                </div>
               </div>
-              <div className="staff-status-track">
-                <span style={{ width: `${width}%` }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="staff-chart-empty compact">
+          <Activity size={18} />
+          <p>{insufficientDataMessage}</p>
+        </div>
+      )}
     </section>
   );
 }
@@ -274,6 +239,7 @@ function ReadOnlyTable({
   emptyMessage = 'No hay registros para mostrar.',
   onFinalize,
   finalizingId,
+  scrollable = false,
 }) {
   const columns = [
     { key: 'fecha', label: 'Fecha', render: (row) => formatDateTime(row.fecha) },
@@ -281,7 +247,6 @@ function ReadOnlyTable({
     { key: 'servicio', label: 'Servicio' },
     { key: 'profesional', label: 'Profesional' },
     { key: 'estado', label: 'Estado' },
-    { key: 'precio', label: 'Precio', render: (row) => currency(row.precio) },
   ];
 
   if (onFinalize) {
@@ -315,11 +280,13 @@ function ReadOnlyTable({
           <h3>{title}</h3>
         </div>
       </div>
-      <DataTable
-        emptyMessage={emptyMessage}
-        columns={columns}
-        rows={rows}
-      />
+      <div className={scrollable ? 'staff-history-scroll' : undefined}>
+        <DataTable
+          emptyMessage={emptyMessage}
+          columns={columns}
+          rows={rows}
+        />
+      </div>
     </section>
   );
 }
@@ -339,16 +306,6 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
   const clientsQuery = useQuery({
     queryKey: ['staff-dashboard-clients'],
     queryFn: profileService.listClients,
-  });
-
-  const servicesQuery = useQuery({
-    queryKey: ['staff-dashboard-services'],
-    queryFn: catalogService.listServices,
-  });
-
-  const paymentsQuery = useQuery({
-    queryKey: ['staff-dashboard-payments'],
-    queryFn: paymentService.listTransactions,
   });
 
   const finalizeBookingMutation = useMutation({
@@ -372,9 +329,10 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
     weekRows,
     nextWeekRows,
     statusSummary,
-    dailyRevenue,
-    weeklyRevenue,
-    monthlyRevenue,
+    dailyActivity,
+    weeklyActivity,
+    monthlyActivity,
+    topServices,
   } = useMemo(() => {
     const now = new Date();
     const todayStart = startOfDay(now);
@@ -387,8 +345,6 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
 
     const bookings = Array.isArray(bookingsQuery.data) ? bookingsQuery.data : [];
     const clients = Array.isArray(clientsQuery.data) ? clientsQuery.data : [];
-    const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
-    const payments = Array.isArray(paymentsQuery.data) ? paymentsQuery.data : [];
 
     const clientsById = clients.reduce((acc, client) => {
       const id = entityId(client, ['idPersona', 'idCliente', 'id']);
@@ -396,26 +352,9 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
       return acc;
     }, {});
 
-    const servicesById = services.reduce((acc, service) => {
-      const id = entityId(service, ['id_servicio', 'idServicio', 'id']);
-      if (id) acc[String(id)] = service;
-      return acc;
-    }, {});
-
     const staffBookings = bookings.filter((booking) => {
       const id = entityId(booking, ['idStaff', 'staffId', 'idProfesional', 'idPersonaStaff']);
-      return matchesAnyId(id, currentStaffIds);
-    });
-
-    const bookingsById = staffBookings.reduce((acc, booking) => {
-      const id = entityId(booking, ['idCita', 'id', 'idReserva']);
-      if (id) acc[String(id)] = booking;
-      return acc;
-    }, {});
-
-    const paidPayments = payments.filter((payment) => {
-      const bookingIds = paymentBookingIds(payment);
-      return isPaid(payment) && bookingIds.some((bookingId) => bookingsById[String(bookingId)]);
+      return !id || matchesAnyId(id, currentStaffIds);
     });
 
     const today = staffBookings.filter((booking) => inRange(bookingDate(booking), todayStart, tomorrowStart));
@@ -441,24 +380,15 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
       })
       .map((booking) => {
         const clientId = entityId(booking, ['idCliente', 'idPersonaCliente', 'clienteId']);
-        const serviceId = entityId(booking, ['idServicio', 'id_servicio', 'servicioId']);
         const bookingId = entityId(booking, ['idCita', 'id', 'idReserva']);
-        const service = servicesById[String(serviceId)] || {};
-        const payment = payments.find((item) => {
-          return paymentBookingIds(item).some((paymentBookingId) => sameId(paymentBookingId, bookingId)) && isPaid(item);
-        });
-        const price = payment
-          ? paymentAmountForBooking(payment)
-          : Number(service.precio_total ?? service.precioTotal ?? service.precio ?? 0);
 
         return {
           id: bookingId,
           fecha: bookingDate(booking),
-          cliente: booking.nombreCliente || fullName(clientsById[String(clientId)]) || clientId || 'Sin cliente',
-          servicio: booking.nombreServicio || service.nombre || service.nombreServicio || serviceId || 'Sin servicio',
+          cliente: booking.nombreCliente || booking.clienteNombre || fullName(clientsById[String(clientId)]) || clientId || 'Sin cliente',
+          servicio: bookingServiceName(booking),
           profesional: professionalName,
           estado: booking.estadoCita || booking.estado || 'Sin estado',
-          precio: price,
         };
       });
 
@@ -469,17 +399,6 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
         const rightDate = parseDate(right.fecha)?.getTime() || 0;
         return leftDate - rightDate;
       });
-
-    const buildRevenue = (ranges) => ranges.map((range) => ({
-      label: range.label,
-      value: paidPayments.reduce((sum, payment) => {
-        const booking = paymentBookingIds(payment)
-          .map((bookingId) => bookingsById[String(bookingId)])
-          .find(Boolean);
-        const date = payment.fechaPago || payment.createdAt || bookingDate(booking);
-        return inRange(date, range.start, range.end) ? sum + paymentAmountForStaff(payment, bookingsById) : sum;
-      }, 0),
-    }));
 
     const dailyRanges = Array.from({ length: 7 }, (_, index) => {
       const start = addDays(weekStart, index);
@@ -514,6 +433,13 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
       return acc;
     }, {});
 
+    const completedBookings = staffBookings.filter((booking) => completedStatuses.has(bookingStatus(booking)));
+    const serviceCounts = completedBookings.reduce((acc, booking) => {
+      const name = bookingServiceName(booking);
+      acc[name] = (acc[name] || 0) + 1;
+      return acc;
+    }, {});
+
     return {
       todayBookings: today,
       weekBookings: week,
@@ -528,15 +454,17 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
         ...definition,
         value: statusCounts[definition.key] || 0,
       })),
-      dailyRevenue: buildRevenue(dailyRanges),
-      weeklyRevenue: buildRevenue(weeklyRanges),
-      monthlyRevenue: buildRevenue(monthlyRanges),
+      dailyActivity: buildRangeCounts(staffBookings, dailyRanges),
+      weeklyActivity: buildRangeCounts(staffBookings, weeklyRanges, (booking) => completedStatuses.has(bookingStatus(booking))),
+      monthlyActivity: buildRangeCounts(staffBookings, monthlyRanges, (booking) => completedStatuses.has(bookingStatus(booking))),
+      topServices: Object.entries(serviceCounts)
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 5)
+        .map(([label, value]) => ({ label, value })),
     };
-  }, [bookingsQuery.data, clientsQuery.data, currentStaffIds, paymentsQuery.data, professionalName, servicesQuery.data]);
+  }, [bookingsQuery.data, clientsQuery.data, currentStaffIds, professionalName]);
 
-  const isLoading = bookingsQuery.isLoading || servicesQuery.isLoading;
-
-  if (isLoading) {
+  if (bookingsQuery.isLoading) {
     return (
       <div className="staff-dashboard-loader">
         <Loader />
@@ -549,18 +477,6 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
       {bookingsQuery.isError && (
         <p className="admin-alert">
           Agenda no disponible. Se mostraran metricas e historial vacios hasta que el servicio responda.
-        </p>
-      )}
-
-      {servicesQuery.isError && (
-        <p className="admin-alert">
-          Catalogo no disponible para enriquecer servicios. Se mostraran identificadores internos cuando corresponda.
-        </p>
-      )}
-
-      {paymentsQuery.isError && (
-        <p className="admin-alert">
-          Pagos no disponible para graficos de ganancias. El panel continua en modo consulta con montos en cero.
         </p>
       )}
 
@@ -678,11 +594,12 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
         {alerts}
         <ReadOnlyTable
           eyebrow="Historial"
-          title="Servicios y citas asignadas"
+          title="Historial de citas"
           rows={historyRows}
-          emptyMessage="Aun no hay servicios asociados a tu agenda."
+          emptyMessage="Aun no hay historial de citas para mostrar."
           onFinalize={handleOpenFinalizeModal}
           finalizingId={finalizingId}
+          scrollable
         />
         {finalizeConfirmationModal}
       </div>
@@ -696,19 +613,40 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
         <MetricCard icon={CalendarDays} label="Citas de la semana" value={weekBookings.length} hint="Lunes a domingo" />
         <MetricCard icon={CalendarDays} label="Citas proxima semana" value={nextWeekBookings.length} hint="Lunes a domingo siguiente" />
         <MetricCard icon={Users} label="Clientes atendidos" value={monthClients} hint="Mes actual" />
-        <MetricCard icon={Scissors} label="Servicios realizados" value={servicesDone} hint="Citas finalizadas" />
+        <MetricCard icon={Scissors} label="Servicios realizados" value={servicesDone} hint="Citas finalizadas del mes" />
       </div>
 
       {alerts}
 
       <div className="staff-dashboard-main-grid">
-        <ChartBars title="Ganancias diarias" subtitle="Pagos aprobados asociados a tus citas." data={dailyRevenue} />
+        <ChartBars
+          eyebrow="Agenda real"
+          title="Citas por dia"
+          subtitle="Citas asignadas durante la semana actual."
+          data={dailyActivity}
+        />
         <StatusPanel items={statusSummary} />
       </div>
 
       <div className="staff-dashboard-charts">
-        <ChartBars title="Ganancias semanales" subtitle="Comparativo de las ultimas cuatro semanas." data={weeklyRevenue} />
-        <ChartBars title="Ganancias mensuales" subtitle="Comparativo de los ultimos seis meses." data={monthlyRevenue} />
+        <ChartBars
+          eyebrow="Atenciones"
+          title="Atenciones semanales"
+          subtitle="Citas finalizadas en las ultimas cuatro semanas."
+          data={weeklyActivity}
+        />
+        <ChartBars
+          eyebrow="Atenciones"
+          title="Atenciones mensuales"
+          subtitle="Citas finalizadas en los ultimos seis meses."
+          data={monthlyActivity}
+        />
+        <ChartBars
+          eyebrow="Servicios"
+          title="Servicios mas realizados"
+          subtitle="Ranking basado en citas finalizadas."
+          data={topServices}
+        />
       </div>
 
       <ReadOnlyTable
@@ -722,11 +660,12 @@ export function StaffDashboard({ currentStaff, fullName: professionalName, view 
 
       <ReadOnlyTable
         eyebrow="Historial"
-        title="Servicios y citas asignadas"
+        title="Historial de citas"
         rows={historyRows}
-        emptyMessage="Aun no hay servicios asociados a tu agenda."
+        emptyMessage="Aun no hay historial de citas para mostrar."
         onFinalize={handleOpenFinalizeModal}
         finalizingId={finalizingId}
+        scrollable
       />
       {finalizeConfirmationModal}
     </div>

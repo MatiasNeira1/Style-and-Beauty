@@ -5,13 +5,11 @@ import {
   AlertCircle,
   BarChart3,
   Bell,
-  Bot,
   BookOpen,
   BriefcaseBusiness,
   CalendarClock,
   CalendarDays,
   CalendarRange,
-  CalendarX,
   ChevronRight,
   Eye,
   Image,
@@ -23,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { StaffFormModal } from '../../components/admin/staff/StaffFormModal.jsx';
 import { StaffPortfolioGallery } from '../../components/admin/staff/StaffPortfolioGallery.jsx';
 import { StaffWorkSchedule } from '../../components/admin/staff/StaffWorkSchedule.jsx';
@@ -45,18 +44,14 @@ const TABS = {
   PROFILE: 'profile',
   SCHEDULE: 'schedule',
   PORTFOLIO: 'portfolio',
-  VACATIONS: 'vacations',
 };
 
 const TAB_VALUES = new Set(Object.values(TABS));
+const PORTFOLIO_BIO_MAX_LENGTH = 500;
+const MANAGED_PROFILE_FIELDS = ['nombre', 'apellidos', 'experienciaAnios'];
 
 function viewFromSearch(value) {
   return TAB_VALUES.has(value) ? value : TABS.DASHBOARD;
-}
-
-function isLocalDevHost() {
-  const hostname = window.location.hostname;
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
 }
 
 const MENU_GROUPS = [
@@ -69,7 +64,7 @@ const MENU_GROUPS = [
         icon: BarChart3,
         eyebrow: 'Staff',
         title: 'Resumen operativo',
-        description: 'Citas, clientes atendidos, servicios realizados y ganancias asociadas a tu agenda.',
+        description: 'Citas, clientes atendidos, servicios realizados y actividad real de tu agenda.',
       },
       {
         key: TABS.AGENDA,
@@ -118,28 +113,6 @@ const MENU_GROUPS = [
       },
     ],
   },
-  {
-    label: 'Cuenta',
-    items: [
-      {
-        key: TABS.VACATIONS,
-        label: 'Solicitud de Vacaciones',
-        icon: CalendarX,
-        eyebrow: 'Proximamente',
-        title: 'Solicitud de Vacaciones',
-        description: 'Vista reservada para enviar y revisar periodos de descanso.',
-      },
-    ],
-  },
-];
-
-const mockSpecialties = [
-  { idEspecialidad: 1, nombre: 'Peluqueria', descripcion: 'Servicios de peluqueria, tratamiento y asesoria de estilo.' },
-  { idEspecialidad: 2, nombre: 'Nails', descripcion: 'Manicure, nail art, esmaltado y cuidado de unas.' },
-  { idEspecialidad: 3, nombre: 'Cabello', descripcion: 'Corte, coloracion, peinado y cuidado capilar.' },
-  { idEspecialidad: 4, nombre: 'Cuidados de la piel', descripcion: 'Limpiezas, tratamientos faciales y cuidado dermatocosmetico.' },
-  { idEspecialidad: 5, nombre: 'Spa', descripcion: 'Servicios de relajacion, bienestar y cuidado corporal.' },
-  { idEspecialidad: 6, nombre: 'Maquillaje', descripcion: 'Maquillaje social, profesional y asesoria de imagen.' },
 ];
 
 function staffNotificationKey(staffId) {
@@ -287,15 +260,12 @@ function normalizeDate(value) {
 function buildProfilePayload(data) {
   return {
     rut: normalizeRut(data.rut),
-    nombre: data.nombre,
-    apellidos: optionalValue(data.apellidos),
     fechaNacimiento: normalizeDate(data.fechaNacimiento),
     genero: optionalValue(data.genero),
     telefono: optionalValue(data.telefono),
     emailContacto: data.emailContacto,
     idEspecialidad: data.idEspecialidad ? Number(data.idEspecialidad) : undefined,
     descripcionPerfil: optionalValue(data.descripcionPerfil),
-    experienciaAnios: data.experienciaAnios ? Number(data.experienciaAnios) : undefined,
   };
 }
 
@@ -324,13 +294,6 @@ export function StaffPortalPage() {
     [setSearchParams],
   );
 
-  const handleOpenVirtualAssistant = useCallback(() => {
-    const chatbotToggle = document.querySelector('.chatbot-toggle');
-    if (chatbotToggle instanceof HTMLButtonElement) {
-      chatbotToggle.click();
-    }
-  }, []);
-
   const {
     data: ownProfile,
     isLoading: isLoadingProfile,
@@ -347,26 +310,7 @@ export function StaffPortalPage() {
     queryFn: staffService.listSpecialties,
   });
 
-  const mockStaff = {
-    idStaff: '11111111-1111-1111-8111-111111111111',
-    idAuth: user?.uid || 'mock-uid',
-    nombre: user?.email ? user.email.split('@')[0].toUpperCase() : 'Staff',
-    apellidos: 'Staff',
-    rut: '21904025',
-    emailContacto: user?.email || 'stafftest@gmail.com',
-    telefono: '222222222',
-    fechaNacimiento: '1999-02-22',
-    genero: 'Femenino',
-    experienciaAnios: '5',
-    especialidad: {
-      idEspecialidad: 1,
-      nombre: 'Peluqueria',
-      descripcion: 'Servicios de peluqueria, tratamiento y asesoria de estilo.',
-    },
-    descripcionPerfil: 'Aun no has agregado una biografia curricular.',
-  };
-
-  const currentStaff = ownProfile || (isLocalDevHost() ? mockStaff : null);
+  const currentStaff = ownProfile || null;
   const currentStaffResourceId = staffResourceId(currentStaff);
   const notificationStorageKey = staffNotificationKey(currentStaffResourceId);
 
@@ -580,7 +524,7 @@ export function StaffPortalPage() {
     );
   }
 
-  if (isProfileError && !isLocalDevHost()) {
+  if (isProfileError) {
     return (
       <div className="admin-container animate-fade-in" style={{ padding: '2.5rem var(--page-x)' }}>
         <div className="admin-alert error" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 1.5rem', borderRadius: '12px' }}>
@@ -619,9 +563,7 @@ export function StaffPortalPage() {
     .toUpperCase();
 
   const specialtyName = currentStaff.especialidad?.nombre || currentStaff.nombreEspecialidad || 'Sin especialidad';
-  const specialties = specialtiesData.length > 0
-    ? specialtiesData
-    : (isLocalDevHost() ? mockSpecialties : []);
+  const specialties = Array.isArray(specialtiesData) ? specialtiesData : [];
 
   const schedules = scheduleData.map((schedule) => ({
     diaSemana: schedule.diaSemana,
@@ -634,6 +576,8 @@ export function StaffPortalPage() {
     id: photo.idFoto || photo.id || photo.idPortfolio,
     url: photo.urlFoto || photo.url || photo.imageUrl,
   }));
+  const previewPhotoUrl = previewSource?.fotoUrl || previewSource?.imageUrl || currentStaff.fotoUrl || currentStaff.foto || '';
+  const portfolioPreviewImages = portfolio.slice(0, 4);
 
   const portfolioErrorMessage = uploadImageMutation.error?.message || deleteImageMutation.error?.message;
 
@@ -734,11 +678,16 @@ export function StaffPortalPage() {
             <textarea
               className="staff-bio-textarea"
               value={portfolioBio}
-              onChange={(event) => setPortfolioBio(event.target.value)}
+              onChange={(event) => setPortfolioBio(event.target.value.slice(0, PORTFOLIO_BIO_MAX_LENGTH))}
               rows={5}
+              maxLength={PORTFOLIO_BIO_MAX_LENGTH}
+              aria-describedby="staff-bio-counter"
               placeholder="Describe experiencia, certificaciones, tecnica, estilo y los servicios donde mas destacas."
             />
             <div className="staff-editor-actions">
+              <span id="staff-bio-counter" className="staff-bio-counter">
+                {portfolioBio.length} / {PORTFOLIO_BIO_MAX_LENGTH}
+              </span>
               <Button
                 type="button"
                 size="sm"
@@ -749,6 +698,37 @@ export function StaffPortalPage() {
                 {bioMutation.isPending ? 'Guardando...' : 'Guardar biografia'}
               </Button>
             </div>
+          </div>
+          <div className="staff-portfolio-preview-panel">
+            <div className="staff-dashboard-panel-header">
+              <div>
+                <span>Preview cliente</span>
+                <h3>Asi se vera tu perfil</h3>
+                <p>Previsualizacion con foto, especialidad, biografia y trabajos publicados.</p>
+              </div>
+              <Eye size={18} />
+            </div>
+            <article className="staff-client-preview-card">
+              <SafeImage src={previewPhotoUrl} alt={`Foto de ${fullName}`} />
+              <div className="staff-client-preview-copy">
+                <span>{specialtyName}</span>
+                <h4>{fullName}</h4>
+                <p>{previewBio || 'Aun no hay biografia publicada para mostrar al cliente.'}</p>
+              </div>
+            </article>
+            {portfolioPreviewImages.length > 0 ? (
+              <div className="staff-client-preview-gallery">
+                {portfolioPreviewImages.map((image) => (
+                  <SafeImage key={image.id} src={image.url} alt="Trabajo publicado en portfolio" />
+                ))}
+              </div>
+            ) : (
+              <div className="staff-empty-state compact">
+                <Image size={24} />
+                <h3>Sin trabajos publicados</h3>
+                <p>Las imagenes que subas apareceran aqui como vista previa.</p>
+              </div>
+            )}
           </div>
           <StaffPortfolioGallery
             images={portfolio}
@@ -761,20 +741,7 @@ export function StaffPortalPage() {
       );
     }
 
-    return (
-      <div className="staff-vacation-placeholder">
-        <div className="staff-vacation-icon">
-          <CalendarX size={28} />
-        </div>
-        <div>
-          <span>Proximamente</span>
-          <h3>Solicitud de Vacaciones</h3>
-          <p>
-            Esta vista quedara disponible para revisar solicitudes y enviar nuevos periodos de descanso.
-          </p>
-        </div>
-      </div>
-    );
+    return <StaffDashboard currentStaff={currentStaff} fullName={fullName} view="dashboard" />;
   };
 
   return (
@@ -851,10 +818,6 @@ export function StaffPortalPage() {
             </div>
           </div>
           <div className="staff-topbar-actions">
-            <button className="staff-assistant-button" type="button" onClick={handleOpenVirtualAssistant} aria-label="Abrir asistente virtual">
-              <Bot size={17} />
-              <span>Asistente</span>
-            </button>
             <div className="staff-notification-menu">
               <button
                 className={`staff-icon-button staff-notification-button ${unreadNotificationCount > 0 ? 'has-unread' : ''}`}
@@ -942,6 +905,7 @@ export function StaffPortalPage() {
           showPhotoField={false}
           showBioField={false}
           strictStaffProfileValidation
+          managedByAdminFields={MANAGED_PROFILE_FIELDS}
         />
       )}
       {showPublicPreview && (
