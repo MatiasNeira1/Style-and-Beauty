@@ -265,6 +265,8 @@ export function ClientsAdminPage() {
       ) : (
         <DataTable
           compact
+          className="admin-clients-table-card"
+          scrollClassName="admin-clients-table-scroll"
           onRowClick={(row) => setSelectedUser(row)}
           getRowKey={(row) => getUserId(row)}
           getRowLabel={(row) => `Ver detalle de ${fullName(row) || row.emailContacto || 'usuario'}`}
