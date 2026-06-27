@@ -13,10 +13,15 @@ export const DataTable = memo(function DataTable({
   getRowKey = defaultRowKey,
   getRowLabel,
   compact = false,
+  className = '',
+  scrollClassName = '',
 }) {
+  const shellClassName = `admin-data-table-shell ${compact ? 'compact' : ''} ${className}`.trim();
+  const scrollClassNames = `admin-data-table-scroll ${scrollClassName}`.trim();
+
   return (
-    <div className={`admin-data-table-shell ${compact ? 'compact' : ''}`.trim()}>
-      <div className="admin-data-table-scroll">
+    <div className={shellClassName}>
+      <div className={scrollClassNames}>
         <table className="admin-data-table">
           <thead>
             <tr>
