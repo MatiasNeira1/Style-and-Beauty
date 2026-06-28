@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Camera, Eye, Image, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton } from '../../components/admin/AdminPrimitives.jsx';
@@ -14,7 +14,7 @@ import { Input } from '../../components/ui/Input.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { authService } from '../../services/authService.js';
-import { staffService } from '../../services/staffService.js';
+import { STAFF_QUERY_OPTIONS, staffService } from '../../services/staffService.js';
 
 const TABS = {
   PROFILE: 'profile',
@@ -34,21 +34,12 @@ function staffPhoto(staff) {
   return staff?.fotoUrl || staff?.imageUrl || staff?.foto;
 }
 
+function staffSpecialty(staff) {
+  return staff?.especialidad?.nombre || staff?.especialidad || staff?.nombreEspecialidad || 'Sin asignar';
+}
+
 function normalizeText(value = '') {
   return String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function hasActiveSchedule(schedules) {
-  return Array.isArray(schedules) && schedules.some((schedule) => (
-    schedule?.activo !== false && schedule?.horaInicio && schedule?.horaFin
-  ));
-}
-
-function getPortfolioImages(staff) {
-  if (Array.isArray(staff?.portfolioImages)) return staff.portfolioImages;
-  if (Array.isArray(staff?.portfolio)) return staff.portfolio;
-  if (Array.isArray(staff?.trabajos)) return staff.trabajos;
-  return null;
 }
 
 function summaryValue(isLoading, isError, value) {
@@ -67,31 +58,39 @@ export function StaffAdminPage() {
   const [staffSearch, setStaffSearch] = useState('');
   const [staffStatusFilter, setStaffStatusFilter] = useState('TODOS');
 
-  const staffQuery = useQuery({ queryKey: ['staff-list'], queryFn: staffService.listStaff });
-  const specialtiesQuery = useQuery({ queryKey: ['staff-specialties'], queryFn: staffService.listSpecialties });
+  const selectedStaffId = getStaffId(selectedStaff);
+  const staffQuery = useQuery({ queryKey: ['staff-list'], queryFn: staffService.listStaff, ...STAFF_QUERY_OPTIONS });
+  const summaryQuery = useQuery({ queryKey: ['staff-summary'], queryFn: staffService.getStaffSummary, ...STAFF_QUERY_OPTIONS });
+  const specialtiesQuery = useQuery({ queryKey: ['staff-specialties'], queryFn: staffService.listSpecialties, ...STAFF_QUERY_OPTIONS });
+  const selectedStaffDetailQuery = useQuery({
+    queryKey: ['staff-detail', selectedStaffId],
+    queryFn: () => staffService.getStaffById(selectedStaffId),
+    enabled: Boolean(staffService.isValidUuid(selectedStaffId)),
+    ...STAFF_QUERY_OPTIONS,
+  });
   const scheduleQuery = useQuery({
-    queryKey: ['staff-schedules', getStaffId(selectedStaff)],
-    queryFn: () => staffService.listSchedules(getStaffId(selectedStaff)),
-    enabled: Boolean(getStaffId(selectedStaff)),
+    queryKey: ['staff-schedules', selectedStaffId],
+    queryFn: () => staffService.listSchedules(selectedStaffId),
+    enabled: Boolean(activeTab === TABS.SCHEDULE && staffService.isValidUuid(selectedStaffId)),
+    ...STAFF_QUERY_OPTIONS,
   });
   const portfolioQuery = useQuery({
-    queryKey: ['staff-portfolio', getStaffId(selectedStaff)],
-    queryFn: () => staffService.listPortfolio(getStaffId(selectedStaff)),
-    enabled: Boolean(getStaffId(selectedStaff)),
+    queryKey: ['staff-portfolio', selectedStaffId],
+    queryFn: () => staffService.listPortfolio(selectedStaffId),
+    enabled: Boolean(activeTab === TABS.PORTFOLIO && staffService.isValidUuid(selectedStaffId)),
+    ...STAFF_QUERY_OPTIONS,
   });
   const staff = useMemo(() => (Array.isArray(staffQuery.data) ? staffQuery.data : []), [staffQuery.data]);
-  const staffIds = useMemo(() => staff.map(getStaffId).filter(staffService.isValidUuid), [staff]);
-  const scheduleSummaryQueries = useQueries({
-    queries: staffIds.map((staffId) => ({
-      queryKey: ['staff-schedules-summary', staffId],
-      queryFn: () => staffService.listSchedules(staffId),
-      enabled: staffQuery.isSuccess,
-      staleTime: 5 * 60 * 1000,
-    })),
-  });
+  const selectedStaffDetail = useMemo(() => {
+    if (!selectedStaff) return null;
+    return selectedStaffDetailQuery.data ? { ...selectedStaff, ...selectedStaffDetailQuery.data } : selectedStaff;
+  }, [selectedStaff, selectedStaffDetailQuery.data]);
 
   const invalidateStaff = () => {
     queryClient.invalidateQueries({ queryKey: ['staff-list'] });
+    queryClient.invalidateQueries({ queryKey: ['staff-summary'] });
+    queryClient.invalidateQueries({ queryKey: ['staff-detail'] });
+    queryClient.invalidateQueries({ queryKey: ['professionals-public'] });
     queryClient.invalidateQueries({ queryKey: ['admin-dashboard-snapshot'] });
   };
 
@@ -142,7 +141,7 @@ export function StaffAdminPage() {
     onSuccess: (updatedStaff) => {
       setShowFormModal(false);
       setEditingStaff(null);
-      setSelectedStaff((current) => (getStaffId(current) === getStaffId(updatedStaff) ? updatedStaff : current));
+      setSelectedStaff((current) => (getStaffId(current) === getStaffId(updatedStaff) ? { ...current, ...updatedStaff } : current));
       invalidateStaff();
     },
   });
@@ -159,7 +158,7 @@ export function StaffAdminPage() {
   const staffPhotoMutation = useMutation({
     mutationFn: ({ staffId, file }) => staffService.uploadStaffPhoto(staffId, file),
     onSuccess: (updatedStaff) => {
-      setSelectedStaff((current) => (getStaffId(current) === getStaffId(updatedStaff) ? updatedStaff : current));
+      setSelectedStaff((current) => (getStaffId(current) === getStaffId(updatedStaff) ? { ...current, ...updatedStaff } : current));
       invalidateStaff();
     },
   });
@@ -167,31 +166,32 @@ export function StaffAdminPage() {
   const deleteStaffPhotoMutation = useMutation({
     mutationFn: (staffId) => staffService.deleteStaffPhoto(staffId),
     onSuccess: (updatedStaff) => {
-      setSelectedStaff((current) => (getStaffId(current) === getStaffId(updatedStaff) ? updatedStaff : current));
+      setSelectedStaff((current) => (getStaffId(current) === getStaffId(updatedStaff) ? { ...current, ...updatedStaff } : current));
       invalidateStaff();
     },
   });
 
   const scheduleMutation = useMutation({
-    mutationFn: (jornadas) => staffService.saveSchedules(getStaffId(selectedStaff), jornadas),
+    mutationFn: (jornadas) => staffService.saveSchedules(selectedStaffId, jornadas),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff-schedules', getStaffId(selectedStaff)] });
-      queryClient.invalidateQueries({ queryKey: ['staff-schedules-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-schedules', selectedStaffId] });
     },
   });
 
   const uploadImageMutation = useMutation({
-    mutationFn: (file) => staffService.uploadPortfolioImage(getStaffId(selectedStaff), file),
+    mutationFn: (file) => staffService.uploadPortfolioImage(selectedStaffId, file),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff-portfolio', getStaffId(selectedStaff)] });
+      queryClient.invalidateQueries({ queryKey: ['staff-portfolio', selectedStaffId] });
+      queryClient.invalidateQueries({ queryKey: ['staff-detail', selectedStaffId] });
       invalidateStaff();
     },
   });
 
   const deleteImageMutation = useMutation({
-    mutationFn: (imageId) => staffService.deletePortfolioImage(getStaffId(selectedStaff), imageId),
+    mutationFn: (imageId) => staffService.deletePortfolioImage(selectedStaffId, imageId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff-portfolio', getStaffId(selectedStaff)] });
+      queryClient.invalidateQueries({ queryKey: ['staff-portfolio', selectedStaffId] });
+      queryClient.invalidateQueries({ queryKey: ['staff-detail', selectedStaffId] });
       invalidateStaff();
     },
   });
@@ -217,13 +217,7 @@ export function StaffAdminPage() {
   const specialties = useMemo(() => (Array.isArray(specialtiesQuery.data) ? specialtiesQuery.data : []), [specialtiesQuery.data]);
   const schedules = useMemo(() => (Array.isArray(scheduleQuery.data) ? scheduleQuery.data : []), [scheduleQuery.data]);
   const portfolio = useMemo(() => (Array.isArray(portfolioQuery.data) ? portfolioQuery.data : []), [portfolioQuery.data]);
-  const scheduleSummaryLoading = staffQuery.isLoading || scheduleSummaryQueries.some((query) => query.isPending && !query.data);
-  const scheduleSummaryError = staffQuery.isError || scheduleSummaryQueries.some((query) => query.isError);
-  const portfolioSummaryAvailable = staff.every((member) => getPortfolioImages(member) !== null);
-  const professionalsWithSchedule = scheduleSummaryError ? null : scheduleSummaryQueries.filter((query) => hasActiveSchedule(query.data)).length;
-  const professionalsWithPortfolio = !portfolioSummaryAvailable || staffQuery.isError
-    ? null
-    : staff.filter((member) => getPortfolioImages(member)?.length > 0).length;
+  const staffSummary = summaryQuery.data || {};
   const filteredStaff = useMemo(() => {
     const needle = normalizeText(staffSearch.trim());
     return staff.filter((member) => {
@@ -231,8 +225,7 @@ export function StaffAdminPage() {
         staffFullName(member),
         member.emailContacto,
         member.telefono,
-        member.especialidad?.nombre,
-        member.nombreEspecialidad,
+        staffSpecialty(member),
       ].map(normalizeText).join(' ');
       const matchesSearch = needle ? haystack.includes(needle) : true;
       const matchesStatus = staffStatusFilter === 'TODOS'
@@ -259,17 +252,21 @@ export function StaffAdminPage() {
             </div>
             <div>
               <span>{name}</span>
-              <small>{row.emailContacto || 'Sin email registrado'}</small>
+              <small>{staffSpecialty(row)}</small>
             </div>
           </div>
         );
       },
     },
-    { key: 'telefono', label: 'Teléfono' },
+    {
+      key: 'experienciaAnios',
+      label: 'Experiencia',
+      render: (row) => row.experienciaAnios ? `${row.experienciaAnios} años` : 'Sin dato',
+    },
     {
       key: 'especialidad',
       label: 'Especialidad',
-      render: (row) => <Badge tone="primary">{row.especialidad?.nombre || row.nombreEspecialidad || 'Sin asignar'}</Badge>,
+      render: (row) => <Badge tone="primary">{staffSpecialty(row)}</Badge>,
     },
     {
       key: 'activo',
@@ -299,9 +296,9 @@ export function StaffAdminPage() {
       />
 
       <AdminKpiGrid>
-        <AdminKpiCard icon={Users} title="Profesionales" value={summaryValue(staffQuery.isLoading, staffQuery.isError, staff.length)} trend={0} microcopy="Perfiles registrados" tone="rose" />
-        <AdminKpiCard icon={CalendarClock} title="Jornadas" value={summaryValue(scheduleSummaryLoading, scheduleSummaryError, professionalsWithSchedule)} trend={0} microcopy={scheduleSummaryError ? 'Jornadas no disponibles' : 'Profesionales con jornada'} tone="sage" />
-        <AdminKpiCard icon={Image} title="Portfolio" value={summaryValue(staffQuery.isLoading, staffQuery.isError || !portfolioSummaryAvailable, professionalsWithPortfolio)} trend={0} microcopy={portfolioSummaryAvailable ? 'Profesionales con trabajos visibles' : 'Portfolio no disponible'} tone="gold" />
+        <AdminKpiCard icon={Users} title="Profesionales" value={summaryValue(summaryQuery.isLoading, summaryQuery.isError, staffSummary.total)} trend={0} microcopy="Perfiles registrados" tone="rose" />
+        <AdminKpiCard icon={CalendarClock} title="Activos" value={summaryValue(summaryQuery.isLoading, summaryQuery.isError, staffSummary.activos)} trend={0} microcopy="Profesionales disponibles en el sistema" tone="sage" />
+        <AdminKpiCard icon={Image} title="Portfolio" value={summaryValue(summaryQuery.isLoading, summaryQuery.isError, staffSummary.conPortfolio)} trend={0} microcopy="Profesionales con trabajos visibles" tone="gold" />
       </AdminKpiGrid>
 
       {(createMutation.isError || updateMutation.isError || deleteMutation.isError || staffPhotoMutation.isError || deleteStaffPhotoMutation.isError) && (
@@ -314,7 +311,7 @@ export function StaffAdminPage() {
         <header>
           <div>
             <h3>Busqueda y filtros</h3>
-            <p>Busca por nombre, especialidad, email o telefono.</p>
+            <p>Busca por nombre o especialidad.</p>
           </div>
           {hasActiveStaffFilters && (
             <button
@@ -334,7 +331,7 @@ export function StaffAdminPage() {
             <span>Buscar</span>
             <div className="admin-filter-search">
               <Search size={16} />
-              <input value={staffSearch} onChange={(event) => setStaffSearch(event.target.value)} placeholder="Nombre, especialidad o email" />
+              <input value={staffSearch} onChange={(event) => setStaffSearch(event.target.value)} placeholder="Nombre o especialidad" />
             </div>
           </label>
           <Input as="select" label="Estado" id="staff-status-filter" value={staffStatusFilter} onChange={(event) => setStaffStatusFilter(event.target.value)}>
@@ -377,22 +374,23 @@ export function StaffAdminPage() {
             </div>
 
             <div className="staff-detail-actions">
-              <Button type="button" size="sm" variant="ghost" onClick={() => { setEditingStaff(selectedStaff); setShowFormModal(true); }}>
+              <Button type="button" size="sm" variant="ghost" onClick={() => { setEditingStaff(selectedStaffDetail); setShowFormModal(true); }} disabled={selectedStaffDetailQuery.isLoading || !selectedStaffDetail?.idAuth}>
                 <Pencil size={14} /> Editar
               </Button>
               <label className="button button-ghost button-sm staff-file-button">
                 <span className="button-content"><Camera size={14} /> Cambiar foto</span>
-                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handlePhotoChange(selectedStaff, event)} />
+                <input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handlePhotoChange(selectedStaffDetail, event)} />
               </label>
-              <Button type="button" size="sm" variant="ghost" onClick={() => deleteStaffPhotoMutation.mutate(getStaffId(selectedStaff))} disabled={deleteStaffPhotoMutation.isPending || !staffPhoto(selectedStaff)}>
+              <Button type="button" size="sm" variant="ghost" onClick={() => deleteStaffPhotoMutation.mutate(selectedStaffId)} disabled={deleteStaffPhotoMutation.isPending || !staffPhoto(selectedStaffDetail)}>
                 <Image size={14} /> Eliminar foto
               </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setStaffToDelete(selectedStaff)}>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setStaffToDelete(selectedStaffDetail)} disabled={selectedStaffDetailQuery.isLoading || !selectedStaffDetail?.idAuth}>
                 <Trash2 size={14} /> Eliminar
               </Button>
             </div>
 
-            {activeTab === TABS.PROFILE && <StaffProfileCard staff={selectedStaff} />}
+            {selectedStaffDetailQuery.isError && <p className="admin-alert">No fue posible cargar el detalle del profesional.</p>}
+            {activeTab === TABS.PROFILE && <StaffProfileCard staff={selectedStaffDetail} />}
             {activeTab === TABS.SCHEDULE && (
               <StaffWorkSchedule
                 schedules={schedules}

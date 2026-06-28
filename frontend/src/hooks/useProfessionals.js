@@ -1,8 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { staffService } from '../services/staffService.js';
-
-const MOCKS_ENABLED = import.meta.env.DEV && String(import.meta.env.VITE_USE_MOCKS || '').toLowerCase() === 'true';
+import { STAFF_QUERY_OPTIONS, staffService } from '../services/staffService.js';
 
 const emptyProfessional = {
   nombre: 'Profesional',
@@ -18,7 +16,7 @@ const emptyProfessional = {
 };
 
 function getProfessionalId(member) {
-  return member.idPersona || member.idStaff || member.id || member.idAuth || `${member.nombre}-${member.apellidos}`;
+  return member.idStaff || member.idPersona || member.id || member.idAuth || `${member.nombre}-${member.apellidos || member.apellido || ''}`;
 }
 
 function normalizeValue(value = '') {
@@ -56,9 +54,11 @@ export function normalizeProfessional(member, index = 0) {
 
   return {
     id: getProfessionalId(member),
+    idStaff: member.idStaff || member.idPersona || member.id,
+    idPersona: member.idPersona || member.idStaff || member.id,
     nombre: member.nombre || member.name || fallbackProfessional.nombre,
-    apellidos: member.apellidos || fallbackProfessional.apellidos,
-    fullName: `${member.nombre || member.name || fallbackProfessional.nombre} ${member.apellidos || fallbackProfessional.apellidos}`.trim(),
+    apellidos: member.apellidos || member.apellido || fallbackProfessional.apellidos,
+    fullName: `${member.nombre || member.name || fallbackProfessional.nombre} ${member.apellidos || member.apellido || fallbackProfessional.apellidos}`.trim(),
     cargo: hasMedicalTerm(rawCargo) ? specialty : rawCargo,
     especialidad: specialty,
     descripcion: member.descripcionPerfil || member.descripcion || member.bio || member.resumen || fallbackProfessional.descripcion,
@@ -83,30 +83,17 @@ export function useProfessionals() {
   const query = useQuery({
     queryKey: ['professionals-public'],
     queryFn: staffService.listPublicStaff,
-    staleTime: 1000 * 60 * 5,
-  });
-  const mockQuery = useQuery({
-    queryKey: ['professionals-public-mock'],
-    queryFn: async () => {
-      if (!MOCKS_ENABLED) return [];
-      const module = await import('../mocks/professionals.mock.js');
-      return module.mockProfessionals;
-    },
-    enabled: MOCKS_ENABLED && !(Array.isArray(query.data) && query.data.length),
-    staleTime: Infinity,
+    ...STAFF_QUERY_OPTIONS,
   });
 
   const professionals = useMemo(() => {
-    const source = Array.isArray(query.data) && query.data.length
-      ? query.data
-      : MOCKS_ENABLED && Array.isArray(mockQuery.data) ? mockQuery.data : [];
+    const source = Array.isArray(query.data) ? query.data : [];
     return source.map(normalizeProfessional);
-  }, [mockQuery.data, query.data]);
+  }, [query.data]);
 
   return {
     ...query,
-    isLoading: query.isLoading || (MOCKS_ENABLED && mockQuery.isLoading && !(Array.isArray(query.data) && query.data.length)),
     professionals,
-    isFallback: MOCKS_ENABLED && Array.isArray(mockQuery.data) && !(Array.isArray(query.data) && query.data.length),
+    isFallback: false,
   };
 }
