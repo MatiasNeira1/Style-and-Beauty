@@ -2038,12 +2038,100 @@ a.contact-info-card:hover {
   font-weight: 800;
 }
 
+.professional-availability-panel {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.professional-availability-heading {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.professional-availability-heading h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.professional-availability-heading p {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.professional-availability-days {
+  display: grid;
+  gap: 0.65rem;
+  max-height: 15rem;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.professional-availability-day {
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--color-line);
+  border-radius: 0.85rem;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.7rem;
+}
+
+.professional-availability-day h4 {
+  color: var(--color-ink);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.professional-availability-day p {
+  color: var(--color-muted);
+  font-size: 0.84rem;
+  margin: 0;
+}
+
+.professional-slot-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.professional-slot-chip {
+  background: #fff;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  color: var(--color-ink-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 900;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.75rem;
+}
+
+.professional-slot-chip:hover,
+.professional-slot-chip.is-selected {
+  background: var(--specialty-soft);
+  border-color: var(--specialty-color, var(--color-primary));
+  color: var(--specialty-color, var(--color-primary-strong));
+}
+
+.professional-modal-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
+}
+
 .professional-modal-booking {
   align-items: center;
   background: var(--specialty-color, var(--color-primary-strong));
+  border: 0;
   border-radius: 999px;
   color: #fff;
   display: inline-flex;
+  font: inherit;
   font-weight: 900;
   gap: 0.45rem;
   justify-content: center;
@@ -2051,6 +2139,11 @@ a.contact-info-card:hover {
   padding: 0.75rem 1.05rem;
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+.professional-modal-booking.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .carousel-dots {
@@ -4455,6 +4548,16 @@ img[data-fallback="true"] {
 
   .professional-availability-controls label,
   .professional-availability-button {
+    width: 100%;
+  }
+
+  .professional-modal-actions {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .professional-modal-actions .professional-modal-booking {
     width: 100%;
   }
 

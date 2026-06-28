@@ -7,10 +7,21 @@ import { CalendarDays, Clock, Image as ImageIcon, MapPin, Signal, Sparkles, X } 
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { professionalTheme, statusTone } from '../../utils/professionalTheme.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
-import { reservationService } from '../../services/reservationService.js';
+import { agendaService } from '../../services/agendaService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
 import { STAFF_QUERY_OPTIONS, staffService } from '../../services/staffService.js';
-import { addDays, filterBookableSlots, formatLocalDate, minBookingDate } from '../../utils/bookingDateRules.js';
+import { addDays, filterBookableSlots, formatLocalDate, minBookingDate, parseLocalDate } from '../../utils/bookingDateRules.js';
+
+const INITIAL_WORK_DAYS = 3;
+const WORK_DAYS_INCREMENT = 3;
+const MAX_WORK_DAYS = 9;
+const SEARCH_LIMIT_DAYS = 21;
+const AVAILABILITY_QUERY_OPTIONS = {
+  staleTime: 30 * 1000,
+  gcTime: 2 * 60 * 1000,
+  refetchOnWindowFocus: false,
+  retry: 1,
+};
 
 function normalize(value = '') {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -84,16 +95,86 @@ function yearsWithUs(professional) {
   return `${(numericId % 4) + 1} años junto a Style & Beauty`;
 }
 
-function formatSlotDate(value) {
-  const date = new Date(`${value}T12:00:00`);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('es-CL', { weekday: 'short', day: '2-digit', month: 'short' }).format(date);
-}
-
 function formatSlotTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return new Intl.DateTimeFormat('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+}
+
+function formatAvailabilityDayLabel(value) {
+  const date = parseLocalDate(value);
+  if (!date) return value;
+  const label = new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: '2-digit', month: 'long' }).format(date);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function agendaWeekday(date) {
+  const day = date.getDay();
+  return day === 0 ? 7 : day;
+}
+
+function activeWorkdays(schedules = []) {
+  return new Set(
+    schedules
+      .filter((schedule) => schedule?.activo !== false)
+      .map((schedule) => Number(schedule?.diaSemana))
+      .filter((day) => day >= 1 && day <= 6)
+  );
+}
+
+function sortSlots(slots = []) {
+  return [...slots].sort((left, right) => new Date(left.inicio).getTime() - new Date(right.inicio).getTime());
+}
+
+function publicStatus(value) {
+  if (!value || normalize(value).includes('consultar disponibilidad')) return 'Agenda según servicio';
+  return value;
+}
+
+async function loadUpcomingAvailability({ idStaff, idServicio, schedules, requiredDays }) {
+  const workdays = activeWorkdays(schedules);
+  if (!workdays.size) {
+    return { days: [], canLoadMore: false };
+  }
+
+  const start = minBookingDate();
+  const maxDate = addDays(start, SEARCH_LIMIT_DAYS);
+  const seenDates = new Set();
+  const days = [];
+
+  for (let cursor = start; cursor <= maxDate && days.length < requiredDays; cursor = addDays(cursor, 7)) {
+    const week = await agendaService.consultarDisponibilidadSemanal({
+      idStaff,
+      idServicio,
+      fecha: formatLocalDate(cursor),
+    });
+
+    const rows = Array.isArray(week) ? week : [];
+    rows
+      .slice()
+      .sort((left, right) => String(left.fecha).localeCompare(String(right.fecha)))
+      .forEach((row) => {
+        if (days.length >= requiredDays) return;
+
+        const date = parseLocalDate(row?.fecha);
+        if (!date || date < start || date > maxDate) return;
+        const weekday = agendaWeekday(date);
+        const dateKey = formatLocalDate(date);
+        if (!workdays.has(weekday) || seenDates.has(dateKey)) return;
+
+        seenDates.add(dateKey);
+        days.push({
+          fecha: dateKey,
+          label: formatAvailabilityDayLabel(dateKey),
+          slots: sortSlots(filterBookableSlots(row?.slots || [])),
+        });
+      });
+  }
+
+  return {
+    days,
+    canLoadMore: days.length >= requiredDays && requiredDays < MAX_WORK_DAYS,
+  };
 }
 
 function mergeServices(...groups) {
@@ -140,7 +221,8 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
     };
   }, [detailQuery.data, professional]);
   const theme = professionalTheme(professionalView?.especialidad);
-  const tone = statusTone(professionalView?.estado);
+  const statusLabel = publicStatus(professionalView?.estado);
+  const tone = statusTone(statusLabel);
   const portfolio = useMemo(() => portfolioFor(professionalView), [professionalView]);
   const declaredServices = useMemo(() => servicesFor(professionalView), [professionalView]);
   const specialties = useMemo(() => specialtiesFor(professionalView), [professionalView]);
@@ -148,7 +230,8 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
   const biography = professionalView?.biografiaProfesional || professionalView?.descripcionPerfil || professionalView?.descripcion || 'Atencion personalizada con diagnostico, tecnica cuidada y acabado profesional.';
   const curriculum = professionalView?.perfilCurricular || professionalView?.trayectoria || professionalView?.descripcionPerfil || `${professionalView?.fullName || 'El profesional'} combina tecnica, criterio estetico y una experiencia cercana para crear resultados pulidos y naturales.`;
   const [selectedServiceId, setSelectedServiceId] = useState('');
-  const [availability, setAvailability] = useState({ status: 'idle', slots: [], error: '' });
+  const [visibleWorkDays, setVisibleWorkDays] = useState(INITIAL_WORK_DAYS);
+  const [selectedAvailabilitySlot, setSelectedAvailabilitySlot] = useState(null);
   const hasPortfolio = portfolio.length > 0;
   useBodyScrollLock(Boolean(professional));
 
@@ -190,10 +273,38 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
   const servicesLoading = servicesQuery.isLoading || serviceStaffQueries.some((query) => query.isLoading || query.isFetching);
   const servicesError = services.length === 0 && (servicesQuery.isError || serviceStaffQueries.some((query) => query.isError));
   const selectedService = services.find((service) => serviceId(service) === selectedServiceId) || null;
+  const schedulesQuery = useQuery({
+    queryKey: ['staff-public-schedules', selectedStaffId],
+    queryFn: () => staffService.listPublicSchedules(selectedStaffId),
+    enabled: Boolean(professional && staffService.isValidUuid(selectedStaffId)),
+    ...STAFF_QUERY_OPTIONS,
+  });
+  const availabilityQuery = useQuery({
+    queryKey: ['professional-upcoming-availability', selectedStaffId, selectedServiceId, visibleWorkDays],
+    queryFn: () => loadUpcomingAvailability({
+      idStaff: selectedStaffId,
+      idServicio: selectedServiceId,
+      schedules: schedulesQuery.data,
+      requiredDays: visibleWorkDays,
+    }),
+    enabled: Boolean(
+      professional
+        && staffService.isValidUuid(selectedStaffId)
+        && serviceCatalogService.isValidUuid(selectedServiceId)
+        && schedulesQuery.isSuccess
+        && !servicesLoading
+        && !servicesError
+    ),
+    ...AVAILABILITY_QUERY_OPTIONS,
+  });
+  const availabilityDays = availabilityQuery.data?.days || [];
+  const availabilityLoading = schedulesQuery.isLoading || availabilityQuery.isLoading || availabilityQuery.isFetching;
+  const availabilityError = schedulesQuery.isError || availabilityQuery.isError;
 
   useEffect(() => {
     if (!professional) return;
-    setAvailability({ status: 'idle', slots: [], error: '' });
+    setSelectedAvailabilitySlot(null);
+    setVisibleWorkDays(INITIAL_WORK_DAYS);
   }, [professional]);
 
   useEffect(() => {
@@ -207,27 +318,10 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
     }
   }, [selectedServiceId, services]);
 
-  const consultAvailability = async () => {
-    if (!serviceCatalogService.isValidUuid(selectedServiceId) || !reservationService.isValidUuid(selectedStaffId)) {
-      setAvailability({ status: 'error', slots: [], error: 'Selecciona servicio y profesional para consultar disponibilidad.' });
-      return;
-    }
-
-    setAvailability({ status: 'loading', slots: [], error: '' });
-    try {
-      const foundSlots = [];
-      for (let offset = 0; offset < 14 && foundSlots.length < 6; offset += 1) {
-        const date = formatLocalDate(addDays(minBookingDate(), offset));
-        const slots = await reservationService.getAvailability({ idServicio: selectedServiceId, idStaff: selectedStaffId, fecha: date });
-        filterBookableSlots(slots).forEach((slot) => {
-          if (foundSlots.length < 6) foundSlots.push({ ...slot, date, service: selectedService });
-        });
-      }
-      setAvailability({ status: 'success', slots: foundSlots, error: '' });
-    } catch (error) {
-      setAvailability({ status: 'error', slots: [], error: error?.message || 'No fue posible consultar disponibilidad.' });
-    }
-  };
+  useEffect(() => {
+    setSelectedAvailabilitySlot(null);
+    setVisibleWorkDays(INITIAL_WORK_DAYS);
+  }, [selectedServiceId, selectedStaffId]);
 
   useEffect(() => {
     if (!professional) return undefined;
@@ -280,11 +374,11 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                 <p>{biography}</p>
                 <div className="professional-modal-meta">
                   <span><MapPin size={15} /> Sucursal: {professionalView.sucursal || 'Providencia'}</span>
-                  <span className={`professional-modal-status ${tone}`}><Signal size={15} /> Estado: {professionalView.estado || 'Disponible hoy'}</span>
+                  <span className={`professional-modal-status ${tone}`}><Signal size={15} /> Estado: {statusLabel}</span>
                   {nextHour ? (
                     <span><Clock size={15} /> Próxima hora: {nextHour}</span>
                   ) : (
-                    <span><Clock size={15} /> Disponibilidad por consultar</span>
+                    <span><Clock size={15} /> Horarios reales por servicio</span>
                   )}
                 </div>
               </div>
@@ -343,7 +437,6 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                       <span>Servicio</span>
                       <select value={selectedServiceId} onChange={(event) => {
                         setSelectedServiceId(event.target.value);
-                        setAvailability({ status: 'idle', slots: [], error: '' });
                       }}>
                         {services.map((service) => (
                           <option key={serviceId(service)} value={serviceId(service)}>{serviceName(service)}</option>
@@ -351,52 +444,96 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                       </select>
                     </label>
                   )}
-                  <button
-                    type="button"
-                    className="professional-availability-button"
-                    onClick={consultAvailability}
-                    disabled={availability.status === 'loading' || servicesLoading || services.length === 0 || servicesError}
-                  >
-                    {availability.status === 'loading' ? 'Consultando...' : 'Consultar disponibilidad'}
-                  </button>
                 </div>
 
                 {servicesError && <p className="professional-availability-message is-error">No pudimos validar servicios activos asociados.</p>}
                 {!servicesLoading && services.length === 0 && (
                   <p className="professional-availability-message">Este profesional no tiene servicios activos asociados para consultar agenda.</p>
                 )}
-                {availability.status === 'idle' && services.length > 0 && (
-                  <p className="professional-availability-message">Selecciona un servicio y consulta próximos horarios reales.</p>
-                )}
-                {availability.status === 'error' && <p className="professional-availability-message is-error">{availability.error}</p>}
-                {availability.status === 'success' && availability.slots.length === 0 && (
-                  <p className="professional-availability-message">Sin horarios disponibles en los próximos días para este servicio.</p>
-                )}
-                {availability.slots.length > 0 && (
-                  <div className="professional-modal-hours">
-                    {availability.slots.map((slot) => (
-                      <Link
-                        key={`${slot.date}-${slot.inicio}`}
-                        to="/reservar"
-                        state={{
-                          professional: professionalView,
-                          service: slot.service,
-                          selectedHour: slot.inicio,
-                          selectedDate: slot.date,
-                        }}
-                        onClick={onClose}
-                      >
-                        <em>{formatSlotDate(slot.date)}</em>
-                        <strong>{formatSlotTime(slot.inicio)}</strong>
-                      </Link>
-                    ))}
+                {services.length > 0 && (
+                  <div className="professional-availability-panel">
+                    <div className="professional-availability-heading">
+                      <h3>Próximas horas disponibles</h3>
+                      <p>Buscamos los próximos días reales de atención del profesional.</p>
+                    </div>
+
+                    {availabilityLoading && (
+                      <p className="professional-availability-message">Buscando las próximas horas disponibles...</p>
+                    )}
+                    {availabilityError && (
+                      <p className="professional-availability-message is-error">No pudimos consultar disponibilidad en este momento. Intenta nuevamente.</p>
+                    )}
+                    {!availabilityLoading && !availabilityError && availabilityDays.length === 0 && (
+                      <p className="professional-availability-message">No encontramos horas disponibles en los próximos días de atención. Prueba con otro servicio o revisa más horarios.</p>
+                    )}
+                    {!availabilityLoading && !availabilityError && availabilityDays.length > 0 && (
+                      <div className="professional-availability-days" data-lenis-prevent>
+                        {availabilityDays.map((day) => (
+                          <section className="professional-availability-day" key={day.fecha}>
+                            <h4>{day.label}</h4>
+                            {day.slots.length === 0 ? (
+                              <p>Sin horas disponibles</p>
+                            ) : (
+                              <div className="professional-slot-grid">
+                                {day.slots.map((slot) => {
+                                  const isSelected = selectedAvailabilitySlot?.inicio === slot.inicio;
+                                  return (
+                                    <button
+                                      type="button"
+                                      className={`professional-slot-chip ${isSelected ? 'is-selected' : ''}`}
+                                      key={`${day.fecha}-${slot.inicio}`}
+                                      onClick={() => setSelectedAvailabilitySlot({ ...slot, date: day.fecha, service: selectedService })}
+                                    >
+                                      {formatSlotTime(slot.inicio)}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </section>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
               {showBookingAction && (
-                <Link to="/reservar" state={{ professional: professionalView }} className="professional-modal-booking" onClick={onClose}>
-                  <CalendarDays size={17} /> Reservar hora
-                </Link>
+                <div className="professional-modal-actions">
+                  <button
+                    type="button"
+                    className="professional-availability-button"
+                    onClick={() => setVisibleWorkDays((current) => Math.min(current + WORK_DAYS_INCREMENT, MAX_WORK_DAYS))}
+                    disabled={availabilityLoading || !availabilityQuery.data?.canLoadMore}
+                  >
+                    Ver más horarios
+                  </button>
+                  {selectedAvailabilitySlot ? (
+                    <Link
+                      to="/reservar"
+                      state={{
+                        professional: professionalView,
+                        service: selectedAvailabilitySlot.service,
+                        selectedHour: selectedAvailabilitySlot.inicio,
+                        selectedDate: selectedAvailabilitySlot.date,
+                        availabilitySelection: {
+                          idStaff: selectedStaffId,
+                          idServicio: selectedServiceId,
+                          fecha: selectedAvailabilitySlot.date,
+                          horaInicio: selectedAvailabilitySlot.inicio,
+                          duracionServicioMin: selectedAvailabilitySlot.duracionServicioMin,
+                        },
+                      }}
+                      className="professional-modal-booking"
+                      onClick={onClose}
+                    >
+                      <CalendarDays size={17} /> Reservar hora
+                    </Link>
+                  ) : (
+                    <button type="button" className="professional-modal-booking is-disabled" disabled>
+                      <CalendarDays size={17} /> Reservar hora
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </motion.article>

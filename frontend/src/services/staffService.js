@@ -61,6 +61,11 @@ export const staffService = {
     return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/jornadas/staff/${staffId}`, method: 'GET', authRequired: true });
   },
 
+  listPublicSchedules: (staffId) => {
+    if (!isValidUuid(staffId)) return Promise.resolve([]);
+    return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/jornadas/staff/${staffId}`, method: 'GET' });
+  },
+
   listStaffAppointments: (staffId) => {
     if (!isValidUuid(staffId)) return Promise.resolve([]);
     return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/citas/staff/${staffId}`, method: 'GET', authRequired: true });
