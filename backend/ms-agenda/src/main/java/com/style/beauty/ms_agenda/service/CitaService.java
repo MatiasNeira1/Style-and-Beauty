@@ -18,6 +18,11 @@ import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
 import com.style.beauty.ms_agenda.dto.PlanificarAgendaRequest;
 import com.style.beauty.ms_agenda.dto.PlanificarAgendaResponse;
+import com.style.beauty.ms_agenda.dto.StaffProximasDisponiblesBatchRequest;
+import com.style.beauty.ms_agenda.dto.StaffProximasDisponiblesBatchResponse;
+import com.style.beauty.ms_agenda.dto.StaffProximasDisponiblesDiaResponse;
+import com.style.beauty.ms_agenda.dto.StaffProximasDisponiblesHorarioResponse;
+import com.style.beauty.ms_agenda.dto.StaffProximasDisponiblesResponse;
 import com.style.beauty.ms_agenda.entity.BloqueoAgenda;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.entity.HistorialCita;
@@ -46,12 +51,15 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -68,6 +76,13 @@ public class CitaService {
     private static final int MINUTOS_SEPARACION_TECNICA = 1;
     private static final int MAX_PLANES_DISPONIBILIDAD_MULTIPLE = 24;
     private static final int DEFAULT_PLANES_DISPONIBILIDAD_MULTIPLE = 8;
+    private static final int DEFAULT_DURACION_REFERENCIA_STAFF_MINUTOS = 30;
+    private static final int DEFAULT_DIAS_TRABAJO_STAFF = 3;
+    private static final int DEFAULT_LIMITE_DIAS_STAFF = 21;
+    private static final int MAX_STAFF_DISPONIBILIDAD_BATCH = 50;
+    private static final int MAX_HORARIOS_STAFF_POR_DIA = 3;
+    private static final DateTimeFormatter STAFF_DAY_LABEL_FORMATTER = DateTimeFormatter.ofPattern("EEE dd", new Locale("es", "CL"));
+    private static final DateTimeFormatter STAFF_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
     private static final BigDecimal ABONO_RESERVA_CLP = BigDecimal.valueOf(10_000);
     private static final int SABADO_HORA_CIERRE = 16;
     private static final String MSG_FECHA_PASADA = "No puedes reservar fechas anteriores a hoy.";
@@ -335,6 +350,111 @@ public class CitaService {
         }
 
         return disponibilidad;
+    }
+
+    public StaffProximasDisponiblesBatchResponse calcularProximasDisponiblesStaffBatch(
+            StaffProximasDisponiblesBatchRequest request
+    ) {
+        int totalStaff = request.idsStaff() == null ? 0 : request.idsStaff().size();
+        log.info("Calculando proximas disponibilidades por staff: staff={}, fechaDesde={}, diasTrabajoRequeridos={}, limiteDiasBusqueda={}",
+                totalStaff, request.fechaDesde(), request.diasTrabajoRequeridos(), request.limiteDiasBusqueda());
+
+        if (totalStaff > MAX_STAFF_DISPONIBILIDAD_BATCH) {
+            throw new BusinessException("La consulta de disponibilidad permite hasta " + MAX_STAFF_DISPONIBILIDAD_BATCH + " profesionales por lote.");
+        }
+
+        liberarReservasVencidas();
+
+        LocalDate hoy = fechaActualAgenda();
+        LocalDate fechaDesde = request.fechaDesde() == null || request.fechaDesde().isBefore(hoy)
+                ? hoy
+                : request.fechaDesde();
+        int diasTrabajoRequeridos = limitarEntero(
+                request.diasTrabajoRequeridos(),
+                DEFAULT_DIAS_TRABAJO_STAFF,
+                1,
+                7
+        );
+        int limiteDiasBusqueda = limitarEntero(
+                request.limiteDiasBusqueda(),
+                DEFAULT_LIMITE_DIAS_STAFF,
+                diasTrabajoRequeridos,
+                Math.min(maxDiasAnticipacion, DEFAULT_LIMITE_DIAS_STAFF)
+        );
+        LocalDate fechaHasta = fechaDesde.plusDays(limiteDiasBusqueda);
+        if (fechaHasta.isAfter(fechaMaximaReserva())) {
+            fechaHasta = fechaMaximaReserva();
+        }
+
+        LocalDate fechaHastaBusqueda = fechaHasta;
+        List<UUID> idsStaff = new ArrayList<>(new LinkedHashSet<>(request.idsStaff()));
+        List<StaffProximasDisponiblesResponse> resultados = idsStaff.stream()
+                .map(idStaff -> calcularProximasDisponiblesStaff(
+                        idStaff,
+                        fechaDesde,
+                        fechaHastaBusqueda,
+                        diasTrabajoRequeridos
+                ))
+                .toList();
+
+        log.info("Proximas disponibilidades por staff calculadas: resultados={}", resultados.size());
+        return new StaffProximasDisponiblesBatchResponse(agendaZone, resultados);
+    }
+
+    private StaffProximasDisponiblesResponse calcularProximasDisponiblesStaff(
+            UUID idStaff,
+            LocalDate fechaDesde,
+            LocalDate fechaHasta,
+            int diasTrabajoRequeridos
+    ) {
+        Set<Integer> diasActivos = new HashSet<>();
+        jornadaStaffRepository.findByIdStaff(idStaff).forEach(jornada -> {
+            Integer diaSemana = jornada.getDiaSemana();
+            if (Boolean.TRUE.equals(jornada.getActivo()) && diaSemana != null && diaSemana >= 1 && diaSemana <= 6) {
+                diasActivos.add(diaSemana);
+            }
+        });
+
+        if (diasActivos.isEmpty()) {
+            return new StaffProximasDisponiblesResponse(idStaff, List.of());
+        }
+
+        List<StaffProximasDisponiblesDiaResponse> dias = new ArrayList<>();
+        for (LocalDate cursor = fechaDesde; !cursor.isAfter(fechaHasta) && dias.size() < diasTrabajoRequeridos; cursor = cursor.plusDays(1)) {
+            if (!fechaDisponibleParaListado(cursor) || !diasActivos.contains(cursor.getDayOfWeek().getValue())) {
+                continue;
+            }
+
+            List<StaffProximasDisponiblesHorarioResponse> horarios = calcularDisponibilidadParaDia(
+                    idStaff,
+                    cursor,
+                    DEFAULT_DURACION_REFERENCIA_STAFF_MINUTOS,
+                    DEFAULT_HOLGURA_MINUTOS,
+                    null
+            ).stream()
+                    .sorted(Comparator.comparing(DisponibilidadSlot::inicio))
+                    .limit(MAX_HORARIOS_STAFF_POR_DIA)
+                    .map(slot -> new StaffProximasDisponiblesHorarioResponse(
+                            slot.inicio(),
+                            STAFF_TIME_FORMATTER.format(slot.inicio().toLocalTime())
+                    ))
+                    .toList();
+
+            dias.add(new StaffProximasDisponiblesDiaResponse(cursor, labelStaffDia(cursor), horarios));
+        }
+
+        return new StaffProximasDisponiblesResponse(idStaff, dias);
+    }
+
+    private int limitarEntero(Integer value, int fallback, int min, int max) {
+        int safeMax = Math.max(min, max);
+        int normalized = value == null ? fallback : value;
+        return Math.max(min, Math.min(safeMax, normalized));
+    }
+
+    private String labelStaffDia(LocalDate fecha) {
+        String label = STAFF_DAY_LABEL_FORMATTER.format(fecha).replace(".", "");
+        return label.substring(0, 1).toUpperCase(Locale.ROOT) + label.substring(1);
     }
 
     public PlanificarAgendaResponse planificarAgendaMultiple(PlanificarAgendaRequest request) {

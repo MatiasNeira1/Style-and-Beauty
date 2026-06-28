@@ -89,6 +89,22 @@ function weeklyAvailabilityPayload(payload) {
   return data;
 }
 
+function staffAvailabilityBatchPayload(payload) {
+  const idsStaff = Array.isArray(payload?.idsStaff)
+    ? Array.from(new Set(payload.idsStaff.filter(isValidUuid)))
+    : [];
+
+  if (idsStaff.length === 0) throw new Error('Selecciona profesionales para consultar disponibilidad.');
+
+  return {
+    idsStaff,
+    fechaDesde: payload?.fechaDesde,
+    diasTrabajoRequeridos: Number(payload?.diasTrabajoRequeridos) > 0 ? Number(payload.diasTrabajoRequeridos) : 3,
+    limiteDiasBusqueda: Number(payload?.limiteDiasBusqueda) > 0 ? Number(payload.limiteDiasBusqueda) : 21,
+    zonaHoraria: payload?.zonaHoraria || 'America/Santiago',
+  };
+}
+
 export function crearCita(payload) {
   if (!isValidUuid(payload?.idStaff)) throw new Error('Selecciona un profesional para reservar.');
   if (!isValidUuid(payload?.idServicio)) throw new Error('Selecciona un servicio para reservar.');
@@ -170,6 +186,14 @@ export const agendaService = {
   },
   consultarDisponibilidadSemanal: (payload) => {
     return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad-semanal', method: 'POST', data: weeklyAvailabilityPayload(payload) });
+  },
+  consultarProximasDisponiblesStaffBatch: (payload) => {
+    return request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/staff/proximas-disponibles/batch',
+      method: 'POST',
+      data: staffAvailabilityBatchPayload(payload),
+    });
   },
   listarStaffPorServicio: (idServicio) => {
     if (!isValidUuid(idServicio)) return Promise.resolve([]);

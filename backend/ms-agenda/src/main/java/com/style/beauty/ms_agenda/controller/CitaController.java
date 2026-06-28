@@ -15,6 +15,8 @@ import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.dto.PlanificarAgendaRequest;
 import com.style.beauty.ms_agenda.dto.PlanificarAgendaResponse;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
+import com.style.beauty.ms_agenda.dto.StaffProximasDisponiblesBatchRequest;
+import com.style.beauty.ms_agenda.dto.StaffProximasDisponiblesBatchResponse;
 import com.style.beauty.ms_agenda.entity.Cita;
 import com.style.beauty.ms_agenda.exception.BusinessException;
 import com.style.beauty.ms_agenda.exception.ResourceNotFoundException;
@@ -87,6 +89,19 @@ public class CitaController {
                 request.idCliente(), request.fecha(), request.servicios() == null ? 0 : request.servicios().size());
 
         return citaService.planificarAgendaMultiple(request);
+    }
+
+    @PostMapping("/staff/proximas-disponibles/batch")
+    public StaffProximasDisponiblesBatchResponse proximasDisponiblesStaffBatch(
+            @Valid @RequestBody StaffProximasDisponiblesBatchRequest request
+    ) {
+        log.info("Entrando a endpoint POST /api/agenda/citas/staff/proximas-disponibles/batch");
+        log.info("Request recibido proximas disponibles staff batch: staff={}, fechaDesde={}, diasTrabajoRequeridos={}",
+                request.idsStaff() == null ? 0 : request.idsStaff().size(),
+                request.fechaDesde(),
+                request.diasTrabajoRequeridos());
+
+        return citaService.calcularProximasDisponiblesStaffBatch(request);
     }
 
     @GetMapping("/disponibilidad-semanal")

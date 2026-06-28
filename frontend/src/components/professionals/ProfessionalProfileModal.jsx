@@ -382,7 +382,7 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                   <span><MapPin size={15} /> Sucursal: {professionalView.sucursal || 'Providencia'}</span>
                   <span className={`professional-modal-status ${tone}`}><Signal size={15} /> Estado: {statusLabel}</span>
                   {nextHour ? (
-                    <span><Clock size={15} /> Próxima hora: {nextHour}</span>
+                    <span><Clock size={15} /> Próximas horas disponibles: {nextHour}</span>
                   ) : (
                     <span><Clock size={15} /> Horarios reales por servicio</span>
                   )}

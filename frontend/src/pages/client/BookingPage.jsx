@@ -497,6 +497,14 @@ export function BookingPage() {
   const summaryDate = automaticScheduleFlow ? automaticResult?.fecha : date;
   const summaryTime = automaticScheduleFlow ? automaticResult?.slot?.inicio : time;
   const summaryEnd = slotEnd(summarySlot);
+  const selectedPresetUnavailable = Boolean(
+    flowStep === 'summary'
+      && !automaticScheduleFlow
+      && date
+      && time
+      && manualAvailabilityQuery.isSuccess
+      && !summarySlot,
+  );
 
   const selectedProfessionalServices = useMemo(() => {
     if (!member) return [];
@@ -640,7 +648,7 @@ export function BookingPage() {
         setTime('');
         throw new Error(continuationMode
           ? 'No fue posible agregar este servicio después de tu cita anterior dentro del horario disponible. Elige otro profesional o finaliza la reserva actual.'
-          : 'El horario seleccionado ya no esta disponible. Elige otra hora.');
+          : 'El horario seleccionado ya no está disponible para este servicio. Elige otra hora.');
       }
 
       const refreshedSession = await firebaseAuthService.refreshSession();
@@ -1025,6 +1033,10 @@ export function BookingPage() {
                         <span>{serviceDurationLabel(service)} · {staffName(member)}</span>
                       </div>
                     </div>
+                  )}
+
+                  {selectedPresetUnavailable && (
+                    <p className="admin-alert">El horario seleccionado ya no está disponible para este servicio. Elige otra hora.</p>
                   )}
 
                   {profileMessage && (
