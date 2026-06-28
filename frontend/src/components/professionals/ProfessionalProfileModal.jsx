@@ -226,6 +226,7 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
   const portfolio = useMemo(() => portfolioFor(professionalView), [professionalView]);
   const declaredServices = useMemo(() => servicesFor(professionalView), [professionalView]);
   const specialties = useMemo(() => specialtiesFor(professionalView), [professionalView]);
+  const primarySpecialty = specialties[0] || '';
   const nextHour = professionalView?.proximaHora || professionalView?.proximasHoras?.[0] || '';
   const biography = professionalView?.biografiaProfesional || professionalView?.descripcionPerfil || professionalView?.descripcion || 'Atencion personalizada con diagnostico, tecnica cuidada y acabado profesional.';
   const curriculum = professionalView?.perfilCurricular || professionalView?.trayectoria || professionalView?.descripcionPerfil || `${professionalView?.fullName || 'El profesional'} combina tecnica, criterio estetico y una experiencia cercana para crear resultados pulidos y naturales.`;
@@ -300,6 +301,11 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
   const availabilityDays = availabilityQuery.data?.days || [];
   const availabilityLoading = schedulesQuery.isLoading || availabilityQuery.isLoading || availabilityQuery.isFetching;
   const availabilityError = schedulesQuery.isError || availabilityQuery.isError;
+  const selectedServiceLabel = selectedService ? serviceName(selectedService) : '';
+  const selectedSlotLabel = selectedAvailabilitySlot
+    ? `${formatAvailabilityDayLabel(selectedAvailabilitySlot.date)} · ${formatSlotTime(selectedAvailabilitySlot.inicio)}`
+    : '';
+  const canLoadMoreAvailability = Boolean(availabilityQuery.data?.canLoadMore);
 
   useEffect(() => {
     if (!professional) return;
@@ -400,11 +406,27 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
               <section>
                 <span className="modal-section-kicker">Servicios</span>
                 <h3>Especialidades y servicios</h3>
-                <div className="professional-modal-services">
-                  {specialties.map((specialty, index) => <span key={`specialty-${specialty}-${index}`}>{specialty}</span>)}
-                  {servicesLoading && <span>Servicios activos en consulta</span>}
-                  {!servicesLoading && services.map((service, index) => <span key={`service-${serviceId(service) || index}`}>{serviceName(service)}</span>)}
-                  {!servicesLoading && services.length === 0 && <span>Sin servicios activos asociados</span>}
+                <div className="professional-service-groups">
+                  <div className="professional-service-group">
+                    <span className="professional-group-label">Especialidad</span>
+                    {primarySpecialty ? (
+                      <span className="professional-specialty-badge">{primarySpecialty}</span>
+                    ) : (
+                      <p>Especialidad no configurada.</p>
+                    )}
+                  </div>
+                  <div className="professional-service-group">
+                    <span className="professional-group-label">Servicios disponibles</span>
+                    <div className="professional-service-chip-list">
+                      {servicesLoading && <span>Servicios activos en consulta</span>}
+                      {!servicesLoading && services.map((service, index) => (
+                        <span key={`service-${serviceId(service) || index}`}>{serviceName(service)}</span>
+                      ))}
+                    </div>
+                    {!servicesLoading && services.length === 0 && (
+                      <p>Este profesional aún no tiene servicios asociados.</p>
+                    )}
+                  </div>
                 </div>
               </section>
             </div>
@@ -428,8 +450,8 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
               )}
             </section>
 
-            <div className="professional-modal-footer">
-              <div>
+            <div className={`professional-modal-footer ${showBookingAction ? '' : 'is-single'}`}>
+              <div className="professional-availability-main">
                 <span className="modal-section-kicker">Disponibilidad real</span>
                 <div className="professional-availability-controls">
                   {services.length > 1 && (
@@ -498,42 +520,57 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                 )}
               </div>
               {showBookingAction && (
-                <div className="professional-modal-actions">
-                  <button
-                    type="button"
-                    className="professional-availability-button"
-                    onClick={() => setVisibleWorkDays((current) => Math.min(current + WORK_DAYS_INCREMENT, MAX_WORK_DAYS))}
-                    disabled={availabilityLoading || !availabilityQuery.data?.canLoadMore}
-                  >
-                    Ver más horarios
-                  </button>
-                  {selectedAvailabilitySlot ? (
-                    <Link
-                      to="/reservar"
-                      state={{
-                        professional: professionalView,
-                        service: selectedAvailabilitySlot.service,
-                        selectedHour: selectedAvailabilitySlot.inicio,
-                        selectedDate: selectedAvailabilitySlot.date,
-                        availabilitySelection: {
-                          idStaff: selectedStaffId,
-                          idServicio: selectedServiceId,
-                          fecha: selectedAvailabilitySlot.date,
-                          horaInicio: selectedAvailabilitySlot.inicio,
-                          duracionServicioMin: selectedAvailabilitySlot.duracionServicioMin,
-                        },
-                      }}
-                      className="professional-modal-booking"
-                      onClick={onClose}
-                    >
-                      <CalendarDays size={17} /> Reservar hora
-                    </Link>
-                  ) : (
-                    <button type="button" className="professional-modal-booking is-disabled" disabled>
-                      <CalendarDays size={17} /> Reservar hora
-                    </button>
-                  )}
-                </div>
+                <aside className="professional-availability-summary">
+                  <span className="modal-section-kicker">Resumen</span>
+                  <div className="professional-summary-list">
+                    <div>
+                      <span>Servicio seleccionado</span>
+                      <strong>{selectedServiceLabel || 'Selecciona un servicio'}</strong>
+                    </div>
+                    <div>
+                      <span>Día y hora</span>
+                      <strong>{selectedSlotLabel || 'Selecciona una hora disponible'}</strong>
+                    </div>
+                  </div>
+                  <div className="professional-modal-actions">
+                    {canLoadMoreAvailability && (
+                      <button
+                        type="button"
+                        className="professional-availability-button"
+                        onClick={() => setVisibleWorkDays((current) => Math.min(current + WORK_DAYS_INCREMENT, MAX_WORK_DAYS))}
+                        disabled={availabilityLoading}
+                      >
+                        Ver más horarios
+                      </button>
+                    )}
+                    {selectedAvailabilitySlot ? (
+                      <Link
+                        to="/reservar"
+                        state={{
+                          professional: professionalView,
+                          service: selectedAvailabilitySlot.service,
+                          selectedHour: selectedAvailabilitySlot.inicio,
+                          selectedDate: selectedAvailabilitySlot.date,
+                          availabilitySelection: {
+                            idStaff: selectedStaffId,
+                            idServicio: selectedServiceId,
+                            fecha: selectedAvailabilitySlot.date,
+                            horaInicio: selectedAvailabilitySlot.inicio,
+                            duracionServicioMin: selectedAvailabilitySlot.duracionServicioMin,
+                          },
+                        }}
+                        className="professional-modal-booking"
+                        onClick={onClose}
+                      >
+                        <CalendarDays size={17} /> Reservar hora
+                      </Link>
+                    ) : (
+                      <button type="button" className="professional-modal-booking is-disabled" disabled>
+                        <CalendarDays size={17} /> Reservar hora
+                      </button>
+                    )}
+                  </div>
+                </aside>
               )}
             </div>
           </motion.article>
