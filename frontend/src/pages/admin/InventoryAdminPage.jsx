@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Camera, Edit3, Package, PackagePlus, Plus, Power, PowerOff, Save, Search, Trash2, X } from 'lucide-react';
+import { AdminPagination } from '../../components/admin/AdminPagination.jsx';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
+import { compareNewestByFields, useAdminPagination } from '../../hooks/useAdminPagination.js';
 import { inventoryService } from '../../services/inventoryService.js';
 import { formatCurrencyCLP } from '../../utils/adminFormatters.js';
 import {
@@ -363,8 +365,16 @@ export function InventoryAdminPage() {
                   ? stockStatus === STOCK_STATUS.OUT_OF_STOCK
                   : stockStatus === STOCK_STATUS.INCONSISTENT;
       return matchesSearch && matchesCategory && matchesStatus;
-    });
+    }).sort(compareNewestByFields(
+      ['updatedAt', 'updated_at', 'fechaActualizacion', 'fecha_actualizacion', 'modifiedAt', 'createdAt', 'created_at', 'fechaCreacion', 'fecha_creacion', 'fechaRegistro'],
+      getProductId,
+    ));
   }, [categoryFilter, inventorySearch, products, statusFilter, stockByProduct]);
+  const hasActiveInventoryFilters = Boolean(inventorySearch || categoryFilter !== 'TODAS' || statusFilter !== 'TODOS');
+  const productPagination = useAdminPagination(
+    filteredProducts,
+    `${inventorySearch}|${categoryFilter}|${statusFilter}`,
+  );
 
   const invalidateInventory = () => {
     queryClient.invalidateQueries({ queryKey: ['inventory-admin'] });
@@ -802,47 +812,56 @@ export function InventoryAdminPage() {
       ) : isError ? (
         <p className="admin-alert">{error.message}</p>
       ) : (
-        <DataTable
-          compact
-          onRowClick={openProductDetail}
-          getRowKey={(product) => getProductId(product)}
-          getRowLabel={(product) => `Ver detalle de ${product.nombre || 'producto'}`}
-          columns={[
-            {
-              key: 'nombre',
-              label: 'Producto',
-              render: (row) => (
-                <div className="admin-media-cell compact">
-                  <SafeImage src={productImage(row)} alt={row.nombre || 'Producto'} />
-                  <div className="admin-table-main-cell">
-                    <strong>{row.nombre || 'Producto sin nombre'}</strong>
-                    <span>{row.descripcion || 'Sin descripcion'}</span>
+        <div className="admin-paginated-section">
+          <DataTable
+            compact
+            onRowClick={openProductDetail}
+            getRowKey={(product) => getProductId(product)}
+            getRowLabel={(product) => `Ver detalle de ${product.nombre || 'producto'}`}
+            columns={[
+              {
+                key: 'nombre',
+                label: 'Producto',
+                render: (row) => (
+                  <div className="admin-media-cell compact">
+                    <SafeImage src={productImage(row)} alt={row.nombre || 'Producto'} />
+                    <div className="admin-table-main-cell">
+                      <strong>{row.nombre || 'Producto sin nombre'}</strong>
+                      <span>{row.descripcion || 'Sin descripcion'}</span>
+                    </div>
                   </div>
-                </div>
-              ),
-            },
-            { key: 'categoria', label: 'Categoria', render: (row) => row.categoria || 'Sin categoria' },
-            { key: 'precio', label: 'Precio', render: (row) => formatCurrencyCLP(row.precio || 0) },
-            {
-              key: 'stock',
-              label: 'Stock',
-              render: (row) => {
-                const stock = stockByProduct[getProductId(row)];
-                const status = getStockStatus(stock);
-                if (status === STOCK_STATUS.NO_RECORD) {
-                  return <span className="admin-table-muted">Sin registro</span>;
-                }
-                const qty = Number(stock.cantidadActual);
-                const isAlert = status === STOCK_STATUS.OUT_OF_STOCK || status === STOCK_STATUS.LOW_STOCK || status === STOCK_STATUS.INCONSISTENT;
-                const label = status === STOCK_STATUS.INCONSISTENT ? `Inconsistente: ${qty}` : qty;
-                return <span className={isAlert ? 'admin-table-danger' : ''}>{label} {stock?.unidadMedida || 'unidades'}</span>;
+                ),
               },
-            },
-            { key: 'activo', label: 'Estado', render: (row) => <AdminStatusBadge status={row.activo ? 'ACTIVO' : 'INACTIVO'} /> },
-          ]}
-          rows={filteredProducts}
-          emptyMessage="No hay productos registrados. Agrega un producto para comenzar a controlar inventario."
-        />
+              { key: 'categoria', label: 'Categoria', render: (row) => row.categoria || 'Sin categoria' },
+              { key: 'precio', label: 'Precio', render: (row) => formatCurrencyCLP(row.precio || 0) },
+              {
+                key: 'stock',
+                label: 'Stock',
+                render: (row) => {
+                  const stock = stockByProduct[getProductId(row)];
+                  const status = getStockStatus(stock);
+                  if (status === STOCK_STATUS.NO_RECORD) {
+                    return <span className="admin-table-muted">Sin registro</span>;
+                  }
+                  const qty = Number(stock.cantidadActual);
+                  const isAlert = status === STOCK_STATUS.OUT_OF_STOCK || status === STOCK_STATUS.LOW_STOCK || status === STOCK_STATUS.INCONSISTENT;
+                  const label = status === STOCK_STATUS.INCONSISTENT ? `Inconsistente: ${qty}` : qty;
+                  return <span className={isAlert ? 'admin-table-danger' : ''}>{label} {stock?.unidadMedida || 'unidades'}</span>;
+                },
+              },
+              { key: 'activo', label: 'Estado', render: (row) => <AdminStatusBadge status={row.activo ? 'ACTIVO' : 'INACTIVO'} /> },
+            ]}
+            rows={productPagination.paginatedItems}
+            emptyMessage={hasActiveInventoryFilters ? 'No encontramos resultados con los filtros seleccionados.' : 'No hay productos registrados. Agrega un producto para comenzar a controlar inventario.'}
+          />
+          <AdminPagination
+            page={productPagination.page}
+            pageSize={productPagination.pageSize}
+            totalItems={productPagination.totalItems}
+            itemLabel="productos"
+            onPageChange={productPagination.setPage}
+          />
+        </div>
       )}
 
       <ProductFormModal
