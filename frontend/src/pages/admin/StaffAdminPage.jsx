@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarClock, Camera, Eye, Image, Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
+import { AdminPagination } from '../../components/admin/AdminPagination.jsx';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton } from '../../components/admin/AdminPrimitives.jsx';
 import { StaffDeleteDialog } from '../../components/admin/staff/StaffDeleteDialog.jsx';
@@ -13,6 +14,7 @@ import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
+import { compareNewestByFields, useAdminPagination } from '../../hooks/useAdminPagination.js';
 import { authService } from '../../services/authService.js';
 import { STAFF_QUERY_OPTIONS, staffService } from '../../services/staffService.js';
 
@@ -234,9 +236,16 @@ export function StaffAdminPage() {
           ? member.activo !== false
           : member.activo === false;
       return matchesSearch && matchesStatus;
-    });
+    }).sort(compareNewestByFields(
+      ['createdAt', 'created_at', 'fechaCreacion', 'fecha_creacion', 'fechaRegistro', 'updatedAt', 'updated_at', 'fechaActualizacion', 'fecha_actualizacion'],
+      getStaffId,
+    ));
   }, [staff, staffSearch, staffStatusFilter]);
   const hasActiveStaffFilters = staffSearch || staffStatusFilter !== 'TODOS';
+  const staffPagination = useAdminPagination(
+    filteredStaff,
+    `${staffSearch}|${staffStatusFilter}`,
+  );
 
   const columns = [
     {
@@ -347,15 +356,24 @@ export function StaffAdminPage() {
       ) : staffQuery.isError ? (
         <p className="admin-alert">{staffQuery.error.message}</p>
       ) : (
-        <DataTable
-          compact
-          columns={columns}
-          rows={filteredStaff}
-          emptyMessage="No hay profesionales para este filtro."
-          onRowClick={(row) => { setSelectedStaff(row); setActiveTab(TABS.PROFILE); }}
-          getRowKey={(row) => getStaffId(row)}
-          getRowLabel={(row) => `Ver detalle de ${staffFullName(row)}`}
-        />
+        <div className="admin-paginated-section">
+          <DataTable
+            compact
+            columns={columns}
+            rows={staffPagination.paginatedItems}
+            emptyMessage={hasActiveStaffFilters ? 'No encontramos resultados con los filtros seleccionados.' : 'No hay profesionales registrados.'}
+            onRowClick={(row) => { setSelectedStaff(row); setActiveTab(TABS.PROFILE); }}
+            getRowKey={(row) => getStaffId(row)}
+            getRowLabel={(row) => `Ver detalle de ${staffFullName(row)}`}
+          />
+          <AdminPagination
+            page={staffPagination.page}
+            pageSize={staffPagination.pageSize}
+            totalItems={staffPagination.totalItems}
+            itemLabel="profesionales"
+            onPageChange={staffPagination.setPage}
+          />
+        </div>
       )}
 
       <Modal open={Boolean(selectedStaff)} title="Detalle profesional" onClose={() => setSelectedStaff(null)}>

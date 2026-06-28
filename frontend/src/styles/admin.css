@@ -792,6 +792,10 @@
   min-width: 0;
 }
 
+.admin-date-picker {
+  position: relative;
+}
+
 .admin-service-picker-control,
 .admin-date-picker-control {
   align-items: stretch;
@@ -1050,10 +1054,19 @@
   box-shadow: 0 18px 44px rgba(84, 50, 62, 0.14);
   display: grid;
   gap: 0.68rem;
-  margin-top: 0.48rem;
+  left: 0;
+  margin-top: 0;
+  max-width: calc(100vw - 2rem);
   padding: 0.78rem;
-  position: relative;
-  z-index: 25;
+  position: absolute;
+  top: calc(100% + 0.48rem);
+  width: min(20rem, calc(100vw - 2rem));
+  z-index: 80;
+}
+
+.admin-reservation-form .admin-date-picker-panel {
+  left: auto;
+  right: 0;
 }
 
 .admin-date-picker-nav,
@@ -1644,6 +1657,71 @@
   gap: 0.35rem;
   min-height: 2rem;
   padding: 0 0.68rem;
+}
+
+.admin-paginated-section {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.admin-pagination {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(25, 20, 23, 0.08);
+  border-radius: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0.72rem 0.85rem;
+}
+
+.admin-pagination-range {
+  color: var(--color-ink-soft);
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.admin-pagination-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-pagination-controls span {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.admin-pagination button {
+  align-items: center;
+  background: white;
+  border: 1px solid rgba(25, 20, 23, 0.08);
+  border-radius: 999px;
+  color: var(--color-ink-soft);
+  display: inline-flex;
+  font-size: 0.82rem;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 2.35rem;
+  padding: 0 0.9rem;
+  transition: border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.admin-pagination button:hover:not(:disabled) {
+  border-color: rgba(191, 91, 132, 0.32);
+  color: var(--color-primary-strong);
+  transform: translateY(-1px);
+}
+
+.admin-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
 }
 
 .admin-agenda-workspace {
@@ -4051,6 +4129,28 @@
   .admin-segmented {
     justify-content: flex-start;
     overflow-x: auto;
+  }
+
+  .admin-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-pagination-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .admin-pagination button {
+    width: 100%;
+  }
+
+  .admin-date-picker-panel,
+  .admin-reservation-form .admin-date-picker-panel {
+    left: 0;
+    right: auto;
+    width: min(20rem, calc(100vw - 2rem));
   }
 
   .admin-category-inline {

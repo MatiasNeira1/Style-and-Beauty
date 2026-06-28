@@ -29,6 +29,7 @@ import {
   AdminStatusBadge,
 } from '../../components/admin/AdminPrimitives.jsx';
 import { AdminAutocomplete } from '../../components/admin/AdminAutocomplete.jsx';
+import { AdminPagination } from '../../components/admin/AdminPagination.jsx';
 import { AdminDatePicker } from '../../components/admin/agenda/AdminDatePicker.jsx';
 import { ReservationDateLabel } from '../../components/admin/agenda/ReservationDateLabel.jsx';
 import { ReservationTimeBlock } from '../../components/admin/agenda/ReservationTimeBlock.jsx';
@@ -39,6 +40,7 @@ import { Modal } from '../../components/ui/Modal.jsx';
 import { agendaService } from '../../services/agendaService.js';
 import { catalogService } from '../../services/catalogService.js';
 import { profileService } from '../../services/profileService.js';
+import { useAdminPagination } from '../../hooks/useAdminPagination.js';
 import { formatCurrencyCLP, formatDate, formatTime, fullName } from '../../utils/adminFormatters.js';
 import { bookingDateRejectionMessage, filterBookableSlots, formatLocalDate, parseLocalDate } from '../../utils/bookingDateRules.js';
 
@@ -1394,7 +1396,7 @@ export function AgendaAdminPage() {
     const selectedMonth = selectedDate ? selectedDate.slice(0, 7) : monthValue();
     return bookings
       .filter((booking) => sameLocalMonth(booking.fechaHoraInicio, selectedMonth))
-      .sort((a, b) => new Date(a.fechaHoraInicio) - new Date(b.fechaHoraInicio));
+      .sort((a, b) => new Date(b.fechaHoraInicio) - new Date(a.fechaHoraInicio));
   }, [bookingsQuery.data, selectedDate]);
 
   const filteredBookings = useMemo(() => (
@@ -1436,10 +1438,16 @@ export function AgendaAdminPage() {
   const cancelledCount = monthBookings.filter((booking) => booking.estadoCita === 'CANCELADA').length;
   const finishedCount = monthBookings.filter((booking) => booking.estadoCita === 'FINALIZADA').length;
   const estimatedRevenue = monthBookings.reduce((sum, booking) => sum + Number(servicesById[booking.idServicio]?.precio_total || 0), 0);
-  const todayBookings = monthBookings.filter((booking) => sameLocalDay(booking.fechaHoraInicio, selectedDate || todayValue()));
+  const todayBookings = monthBookings
+    .filter((booking) => sameLocalDay(booking.fechaHoraInicio, selectedDate || todayValue()))
+    .sort((a, b) => new Date(a.fechaHoraInicio) - new Date(b.fechaHoraInicio));
   const occupancy = monthBookings.length ? Math.round(((confirmedCount + finishedCount) / monthBookings.length) * 100) : 0;
 
   const hasActiveFilters = Boolean(selectedDate || searchTerm || statusFilter !== 'TODOS' || staffFilter !== 'TODOS' || serviceFilter !== 'TODOS');
+  const bookingPagination = useAdminPagination(
+    filteredBookings,
+    `${selectedDate}|${statusFilter}|${staffFilter}|${serviceFilter}|${searchTerm}`,
+  );
   const activeChips = [
     selectedDate && { label: `Fecha ${formatDate(selectedDate, { day: '2-digit', month: 'short' })}`, onClear: () => setSelectedDate('') },
     statusFilter !== 'TODOS' && { label: statusFilter, onClear: () => setStatusFilter('TODOS') },
@@ -1641,30 +1649,39 @@ export function AgendaAdminPage() {
             </header>
 
             {filteredBookings.length ? (
-              <div className="admin-booking-list">
-                {filteredBookings.map((booking) => {
-                  const bookingId = getBookingId(booking);
-                  return (
-                    <BookingCard
-                      key={bookingId}
-                      booking={booking}
-                      service={servicesById[booking.idServicio]}
-                      client={clientsById[booking.idCliente]}
-                      staffMember={staffById[booking.idStaff]}
-                      statusDraft={statusDrafts[bookingId]}
-                      isMutating={isMutating}
-                      onStatusDraftChange={(id, status) => setStatusDrafts((current) => ({ ...current, [id]: status }))}
-                      onSaveStatus={(idCita, estadoCita) => updateStatusMutation.mutate({ idCita, estadoCita })}
-                      onCancel={(idCita) => cancelMutation.mutate(idCita)}
-                    />
-                  );
-                })}
+              <div className="admin-paginated-section">
+                <div className="admin-booking-list">
+                  {bookingPagination.paginatedItems.map((booking) => {
+                    const bookingId = getBookingId(booking);
+                    return (
+                      <BookingCard
+                        key={bookingId}
+                        booking={booking}
+                        service={servicesById[booking.idServicio]}
+                        client={clientsById[booking.idCliente]}
+                        staffMember={staffById[booking.idStaff]}
+                        statusDraft={statusDrafts[bookingId]}
+                        isMutating={isMutating}
+                        onStatusDraftChange={(id, status) => setStatusDrafts((current) => ({ ...current, [id]: status }))}
+                        onSaveStatus={(idCita, estadoCita) => updateStatusMutation.mutate({ idCita, estadoCita })}
+                        onCancel={(idCita) => cancelMutation.mutate(idCita)}
+                      />
+                    );
+                  })}
+                </div>
+                <AdminPagination
+                  page={bookingPagination.page}
+                  pageSize={bookingPagination.pageSize}
+                  totalItems={bookingPagination.totalItems}
+                  itemLabel="reservas"
+                  onPageChange={bookingPagination.setPage}
+                />
               </div>
             ) : (
               <AdminEmptyState
                 compact
-                title="No hay reservas para este filtro"
-                description="Prueba cambiando la fecha, el estado o creando una nueva reserva."
+                title={hasActiveFilters ? 'No hay reservas para este filtro' : 'No hay reservas para mostrar'}
+                description={hasActiveFilters ? 'Prueba cambiando la fecha, el estado o creando una nueva reserva.' : 'Cuando existan reservas del mes apareceran aqui.'}
                 action={(
                   <div className="admin-empty-actions">
                     {hasActiveFilters && <button type="button" className="admin-empty-action" onClick={clearFilters}>Limpiar filtros</button>}
