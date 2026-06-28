@@ -812,56 +812,58 @@ export function InventoryAdminPage() {
       ) : isError ? (
         <p className="admin-alert">{error.message}</p>
       ) : (
-        <div className="admin-paginated-section">
-          <DataTable
-            compact
-            onRowClick={openProductDetail}
-            getRowKey={(product) => getProductId(product)}
-            getRowLabel={(product) => `Ver detalle de ${product.nombre || 'producto'}`}
-            columns={[
-              {
-                key: 'nombre',
-                label: 'Producto',
-                render: (row) => (
-                  <div className="admin-media-cell compact">
-                    <SafeImage src={productImage(row)} alt={row.nombre || 'Producto'} />
-                    <div className="admin-table-main-cell">
-                      <strong>{row.nombre || 'Producto sin nombre'}</strong>
-                      <span>{row.descripcion || 'Sin descripcion'}</span>
-                    </div>
+        <DataTable
+          compact
+          className="admin-list-table-card"
+          scrollClassName="admin-list-table-scroll"
+          onRowClick={openProductDetail}
+          getRowKey={(product) => getProductId(product)}
+          getRowLabel={(product) => `Ver detalle de ${product.nombre || 'producto'}`}
+          columns={[
+            {
+              key: 'nombre',
+              label: 'Producto',
+              render: (row) => (
+                <div className="admin-media-cell compact">
+                  <SafeImage src={productImage(row)} alt={row.nombre || 'Producto'} />
+                  <div className="admin-table-main-cell">
+                    <strong>{row.nombre || 'Producto sin nombre'}</strong>
+                    <span>{row.descripcion || 'Sin descripcion'}</span>
                   </div>
-                ),
+                </div>
+              ),
+            },
+            { key: 'categoria', label: 'Categoria', render: (row) => row.categoria || 'Sin categoria' },
+            { key: 'precio', label: 'Precio', render: (row) => formatCurrencyCLP(row.precio || 0) },
+            {
+              key: 'stock',
+              label: 'Stock',
+              render: (row) => {
+                const stock = stockByProduct[getProductId(row)];
+                const status = getStockStatus(stock);
+                if (status === STOCK_STATUS.NO_RECORD) {
+                  return <span className="admin-table-muted">Sin registro</span>;
+                }
+                const qty = Number(stock.cantidadActual);
+                const isAlert = status === STOCK_STATUS.OUT_OF_STOCK || status === STOCK_STATUS.LOW_STOCK || status === STOCK_STATUS.INCONSISTENT;
+                const label = status === STOCK_STATUS.INCONSISTENT ? `Inconsistente: ${qty}` : qty;
+                return <span className={isAlert ? 'admin-table-danger' : ''}>{label} {stock?.unidadMedida || 'unidades'}</span>;
               },
-              { key: 'categoria', label: 'Categoria', render: (row) => row.categoria || 'Sin categoria' },
-              { key: 'precio', label: 'Precio', render: (row) => formatCurrencyCLP(row.precio || 0) },
-              {
-                key: 'stock',
-                label: 'Stock',
-                render: (row) => {
-                  const stock = stockByProduct[getProductId(row)];
-                  const status = getStockStatus(stock);
-                  if (status === STOCK_STATUS.NO_RECORD) {
-                    return <span className="admin-table-muted">Sin registro</span>;
-                  }
-                  const qty = Number(stock.cantidadActual);
-                  const isAlert = status === STOCK_STATUS.OUT_OF_STOCK || status === STOCK_STATUS.LOW_STOCK || status === STOCK_STATUS.INCONSISTENT;
-                  const label = status === STOCK_STATUS.INCONSISTENT ? `Inconsistente: ${qty}` : qty;
-                  return <span className={isAlert ? 'admin-table-danger' : ''}>{label} {stock?.unidadMedida || 'unidades'}</span>;
-                },
-              },
-              { key: 'activo', label: 'Estado', render: (row) => <AdminStatusBadge status={row.activo ? 'ACTIVO' : 'INACTIVO'} /> },
-            ]}
-            rows={productPagination.paginatedItems}
-            emptyMessage={hasActiveInventoryFilters ? 'No encontramos resultados con los filtros seleccionados.' : 'No hay productos registrados. Agrega un producto para comenzar a controlar inventario.'}
-          />
-          <AdminPagination
-            page={productPagination.page}
-            pageSize={productPagination.pageSize}
-            totalItems={productPagination.totalItems}
-            itemLabel="productos"
-            onPageChange={productPagination.setPage}
-          />
-        </div>
+            },
+            { key: 'activo', label: 'Estado', render: (row) => <AdminStatusBadge status={row.activo ? 'ACTIVO' : 'INACTIVO'} /> },
+          ]}
+          rows={productPagination.paginatedItems}
+          emptyMessage={hasActiveInventoryFilters ? 'No encontramos resultados con los filtros seleccionados.' : 'No hay productos registrados. Agrega un producto para comenzar a controlar inventario.'}
+          toolbar={(
+            <AdminPagination
+              page={productPagination.page}
+              pageSize={productPagination.pageSize}
+              totalItems={productPagination.totalItems}
+              itemLabel="productos"
+              onPageChange={productPagination.setPage}
+            />
+          )}
+        />
       )}
 
       <ProductFormModal

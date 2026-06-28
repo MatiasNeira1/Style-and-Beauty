@@ -191,38 +191,40 @@ export function PaymentsAdminPage() {
       ) : payments.length === 0 ? (
         <AdminEmptyState title="Sin transacciones registradas" description="Cuando existan pagos WebPay apareceran aqui y alimentaran los graficos financieros." />
       ) : (
-        <div className="admin-paginated-section">
-          <DataTable
-            compact
-            onRowClick={(payment) => setSelectedPayment(payment)}
-            getRowKey={(payment, index) => getPaymentId(payment) || index}
-            getRowLabel={(payment) => `Ver transaccion ${getPaymentId(payment) || ''}`}
-            emptyMessage={hasActivePaymentFilters ? 'No encontramos resultados con los filtros seleccionados.' : 'No hay transacciones para mostrar.'}
-            columns={[
-              {
-                key: 'orden',
-                label: 'Orden',
-                render: (row) => (
-                  <div className="admin-table-main-cell">
-                    <strong>{row.buyOrder || row.idTransaccion || 'Sin orden'}</strong>
-                    <span>{getPaymentDate(row) ? formatDate(getPaymentDate(row)) : 'Sin fecha'}</span>
-                  </div>
-                ),
-              },
-              { key: 'monto', label: 'Monto', render: (row) => <strong>{formatCurrencyCLP(getAmount(row))}</strong> },
-              { key: 'metodo', label: 'Metodo', render: (row) => getMethod(row) },
-              { key: 'estado', label: 'Estado', render: (row) => <AdminStatusBadge status={row.estado || 'SIN_ESTADO'} /> },
-            ]}
-            rows={paymentPagination.paginatedItems}
-          />
-          <AdminPagination
-            page={paymentPagination.page}
-            pageSize={paymentPagination.pageSize}
-            totalItems={paymentPagination.totalItems}
-            itemLabel="pagos"
-            onPageChange={paymentPagination.setPage}
-          />
-        </div>
+        <DataTable
+          compact
+          className="admin-list-table-card"
+          scrollClassName="admin-list-table-scroll"
+          onRowClick={(payment) => setSelectedPayment(payment)}
+          getRowKey={(payment, index) => getPaymentId(payment) || index}
+          getRowLabel={(payment) => `Ver transaccion ${getPaymentId(payment) || ''}`}
+          emptyMessage={hasActivePaymentFilters ? 'No encontramos resultados con los filtros seleccionados.' : 'No hay transacciones para mostrar.'}
+          columns={[
+            {
+              key: 'orden',
+              label: 'Orden',
+              render: (row) => (
+                <div className="admin-table-main-cell">
+                  <strong>{row.buyOrder || row.idTransaccion || 'Sin orden'}</strong>
+                  <span>{getPaymentDate(row) ? formatDate(getPaymentDate(row)) : 'Sin fecha'}</span>
+                </div>
+              ),
+            },
+            { key: 'monto', label: 'Monto', render: (row) => <strong>{formatCurrencyCLP(getAmount(row))}</strong> },
+            { key: 'metodo', label: 'Metodo', render: (row) => getMethod(row) },
+            { key: 'estado', label: 'Estado', render: (row) => <AdminStatusBadge status={row.estado || 'SIN_ESTADO'} /> },
+          ]}
+          rows={paymentPagination.paginatedItems}
+          toolbar={(
+            <AdminPagination
+              page={paymentPagination.page}
+              pageSize={paymentPagination.pageSize}
+              totalItems={paymentPagination.totalItems}
+              itemLabel="pagos"
+              onPageChange={paymentPagination.setPage}
+            />
+          )}
+        />
       )}
 
       <PaymentDetailModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} />

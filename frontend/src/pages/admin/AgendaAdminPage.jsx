@@ -1649,26 +1649,7 @@ export function AgendaAdminPage() {
             </header>
 
             {filteredBookings.length ? (
-              <div className="admin-paginated-section">
-                <div className="admin-booking-list">
-                  {bookingPagination.paginatedItems.map((booking) => {
-                    const bookingId = getBookingId(booking);
-                    return (
-                      <BookingCard
-                        key={bookingId}
-                        booking={booking}
-                        service={servicesById[booking.idServicio]}
-                        client={clientsById[booking.idCliente]}
-                        staffMember={staffById[booking.idStaff]}
-                        statusDraft={statusDrafts[bookingId]}
-                        isMutating={isMutating}
-                        onStatusDraftChange={(id, status) => setStatusDrafts((current) => ({ ...current, [id]: status }))}
-                        onSaveStatus={(idCita, estadoCita) => updateStatusMutation.mutate({ idCita, estadoCita })}
-                        onCancel={(idCita) => cancelMutation.mutate(idCita)}
-                      />
-                    );
-                  })}
-                </div>
+              <>
                 <AdminPagination
                   page={bookingPagination.page}
                   pageSize={bookingPagination.pageSize}
@@ -1676,7 +1657,28 @@ export function AgendaAdminPage() {
                   itemLabel="reservas"
                   onPageChange={bookingPagination.setPage}
                 />
-              </div>
+                <div className="admin-booking-list-scroll">
+                  <div className="admin-booking-list">
+                    {bookingPagination.paginatedItems.map((booking) => {
+                      const bookingId = getBookingId(booking);
+                      return (
+                        <BookingCard
+                          key={bookingId}
+                          booking={booking}
+                          service={servicesById[booking.idServicio]}
+                          client={clientsById[booking.idCliente]}
+                          staffMember={staffById[booking.idStaff]}
+                          statusDraft={statusDrafts[bookingId]}
+                          isMutating={isMutating}
+                          onStatusDraftChange={(id, status) => setStatusDrafts((current) => ({ ...current, [id]: status }))}
+                          onSaveStatus={(idCita, estadoCita) => updateStatusMutation.mutate({ idCita, estadoCita })}
+                          onCancel={(idCita) => cancelMutation.mutate(idCita)}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
             ) : (
               <AdminEmptyState
                 compact

@@ -796,6 +796,12 @@
   position: relative;
 }
 
+.admin-agenda-filters {
+  overflow: visible;
+  position: relative;
+  z-index: 20;
+}
+
 .admin-service-picker-control,
 .admin-date-picker-control {
   align-items: stretch;
@@ -1659,10 +1665,10 @@
   padding: 0 0.68rem;
 }
 
-.admin-paginated-section {
+.admin-data-table-toolbar {
   display: grid;
   gap: 0.75rem;
-  min-width: 0;
+  padding-bottom: 0.75rem;
 }
 
 .admin-pagination {
@@ -1734,11 +1740,23 @@
 
 .admin-booking-list-panel {
   align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  max-height: clamp(34rem, 72vh, 58rem);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .admin-booking-list {
   display: grid;
   gap: 0.85rem;
+}
+
+.admin-booking-list-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.2rem;
 }
 
 .admin-booking-card {
@@ -2453,8 +2471,18 @@
   overflow: hidden;
 }
 
+.admin-list-table-card {
+  overflow: hidden;
+}
+
 .admin-clients-table-scroll {
   max-height: min(65vh, 720px);
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.admin-list-table-scroll {
+  max-height: clamp(24rem, 56vh, 38rem);
   overflow-x: auto;
   overflow-y: auto;
 }
@@ -2463,7 +2491,19 @@
   min-width: 760px;
 }
 
+.admin-list-table-scroll .admin-data-table {
+  min-width: 760px;
+}
+
 .admin-clients-table-scroll .admin-data-table thead th {
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 1px 0 rgba(25, 20, 23, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.admin-list-table-scroll .admin-data-table thead th {
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 1px 0 rgba(25, 20, 23, 0.08);
   position: sticky;
@@ -4144,6 +4184,18 @@
 
   .admin-pagination button {
     width: 100%;
+  }
+
+  .admin-list-table-scroll {
+    max-height: min(54vh, 32rem);
+  }
+
+  .admin-booking-list-panel {
+    max-height: min(76vh, 44rem);
+  }
+
+  .admin-booking-list-scroll {
+    padding-right: 0;
   }
 
   .admin-date-picker-panel,

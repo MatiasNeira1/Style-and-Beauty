@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
-export const ADMIN_PAGE_SIZE = 20;
+export const ADMIN_PAGE_SIZE = 15;
 
 export function useAdminPagination(items = [], resetKey = '', pageSize = ADMIN_PAGE_SIZE) {
   const [page, setPage] = useState(1);
