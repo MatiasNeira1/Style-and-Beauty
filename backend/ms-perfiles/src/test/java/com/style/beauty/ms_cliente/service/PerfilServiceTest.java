@@ -1,6 +1,10 @@
 package com.style.beauty.ms_cliente.service;
 
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
+import com.style.beauty.ms_cliente.dto.StaffDetalleBaseDTO;
+import com.style.beauty.ms_cliente.dto.StaffDetalleDTO;
+import com.style.beauty.ms_cliente.dto.StaffListadoDTO;
+import com.style.beauty.ms_cliente.dto.StaffPortfolioImageDTO;
 import com.style.beauty.ms_cliente.exception.ProfileNotFoundException;
 import com.style.beauty.ms_cliente.model.ClienteModel;
 import com.style.beauty.ms_cliente.model.PersonaModel;
@@ -16,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class PerfilServiceTest {
@@ -149,6 +155,96 @@ class PerfilServiceTest {
 
         assertThat(actualizado.getTelefono()).isEqualTo("56987654321");
         verify(personaRepository).save(cliente);
+    }
+
+    @Test
+    void actualizarMiPerfilStaffIgnoraCamposGestionadosPorAdmin() {
+        StaffModel staff = new StaffModel();
+        staff.setNombre("Valentina");
+        staff.setApellidos("Rojas");
+        staff.setExperienciaAnios(7);
+
+        PerfilRequestDTO dto = new PerfilRequestDTO();
+        dto.setNombre("Nombre editado");
+        dto.setApellidos("Apellido editado");
+        dto.setExperienciaAnios(20);
+        dto.setTelefono("+56 9 8765 4321");
+        dto.setDescripcionPerfil("Perfil actualizado por staff");
+
+        when(personaRepository.findByIdAuth("staff-auth")).thenReturn(Optional.of(staff));
+        when(personaRepository.save(staff)).thenReturn(staff);
+
+        PersonaModel actualizado = service.actualizarMiPerfil("staff-auth", dto);
+
+        assertThat(actualizado).isSameAs(staff);
+        assertThat(staff.getNombre()).isEqualTo("Valentina");
+        assertThat(staff.getApellidos()).isEqualTo("Rojas");
+        assertThat(staff.getExperienciaAnios()).isEqualTo(7);
+        assertThat(staff.getTelefono()).isEqualTo("56987654321");
+        assertThat(staff.getDescripcionPerfil()).isEqualTo("Perfil actualizado por staff");
+        verify(personaRepository).save(staff);
+    }
+
+    @Test
+    void listarStaffLigeroUsaProjectionSinConsultarPortfolio() {
+        UUID idStaff = UUID.randomUUID();
+        StaffListadoDTO row = new StaffListadoDTO(
+                idStaff,
+                idStaff,
+                "Camila",
+                "Torres",
+                "Nails",
+                "https://example.test/foto.webp",
+                6,
+                true
+        );
+        when(staffRepository.listarStaffLigero()).thenReturn(List.of(row));
+
+        List<StaffListadoDTO> result = service.listarStaffLigero();
+
+        assertThat(result).containsExactly(row);
+        verify(staffRepository).listarStaffLigero();
+        verifyNoInteractions(staffPortfolioImageRepository);
+    }
+
+    @Test
+    void obtenerDetalleStaffCargaPortfolioBajoDemanda() {
+        UUID idStaff = UUID.randomUUID();
+        StaffDetalleBaseDTO base = new StaffDetalleBaseDTO(
+                idStaff,
+                "staff-auth",
+                "12345678-5",
+                "Camila",
+                "Torres",
+                LocalDate.of(1992, 4, 12),
+                "femenino",
+                "56912345678",
+                "camila@test.cl",
+                1L,
+                "Nails",
+                "https://example.test/foto.webp",
+                "https://example.test/cv.pdf",
+                "Especialista en manicure",
+                6,
+                true
+        );
+        StaffPortfolioImageDTO image = new StaffPortfolioImageDTO(
+                UUID.randomUUID(),
+                "https://example.test/portfolio.webp",
+                "portfolio.webp",
+                OffsetDateTime.parse("2026-06-27T12:00:00Z")
+        );
+        when(staffRepository.buscarDetalleBase(idStaff)).thenReturn(Optional.of(base));
+        when(staffPortfolioImageRepository.listarPortfolioLigero(idStaff)).thenReturn(List.of(image));
+
+        StaffDetalleDTO result = service.obtenerDetalleStaff(idStaff);
+
+        assertThat(result.idStaff()).isEqualTo(idStaff);
+        assertThat(result.idAuth()).isEqualTo("staff-auth");
+        assertThat(result.especialidad()).isEqualTo("Nails");
+        assertThat(result.portfolioImages()).containsExactly(image);
+        verify(staffRepository).buscarDetalleBase(idStaff);
+        verify(staffPortfolioImageRepository).listarPortfolioLigero(idStaff);
     }
 
     @Test

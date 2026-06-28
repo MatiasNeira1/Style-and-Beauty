@@ -47,3 +47,23 @@ preview_staff_service_alignment_catalogo.sql
 preview_staff_service_alignment_counts_catalogo.sql
 apply_staff_service_alignment_catalogo.sql
 verify_staff_service_alignment_catalogo.sql
+
+# Build artifacts
+*.jar
+*.war
+*.ear
+target/
+build/
+dist/
+
+# Local Docker runtime artifacts
+backend/ms-agenda/docker-runtime-agenda/
+backend/ms-agenda/Dockerfile.runtime
+
+# Database backups / local dumps
+*.dump
+db_backups_*/
+db_backups_pg17_*/
+
+# Local diagnostic SQL files
+diagnostico_staff_alignment.sql

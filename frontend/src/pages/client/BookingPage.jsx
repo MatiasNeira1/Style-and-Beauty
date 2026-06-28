@@ -16,7 +16,7 @@ import { reservationService } from '../../services/reservationService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { firebaseAuthService } from '../../services/firebaseAuthService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
-import { staffService } from '../../services/staffService.js';
+import { STAFF_QUERY_OPTIONS, staffService } from '../../services/staffService.js';
 import { AZURE_PUBLIC_STAFF_IMAGE_URL } from '../../services/apiClient.js';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { useBooking } from '../../store/BookingContext.jsx';
@@ -39,7 +39,7 @@ function serviceId(service) {
 }
 
 function staffId(member) {
-  return member?.idPersona || member?.idStaff || member?.id;
+  return member?.idStaff || member?.idPersona || member?.id;
 }
 
 function serviceName(service) {
@@ -258,7 +258,7 @@ export function BookingPage() {
     queryKey: ['professionals-public'],
     queryFn: staffService.listPublicStaff,
     enabled: flowMode === 'professional-first',
-    staleTime: 1000 * 60 * 5,
+    ...STAFF_QUERY_OPTIONS,
   });
   const { data: myProfile, isError: isProfileError, error: profileError } = useQuery({
     queryKey: ['my-profile'],

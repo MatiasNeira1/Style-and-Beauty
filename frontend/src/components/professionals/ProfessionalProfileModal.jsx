@@ -9,6 +9,7 @@ import { professionalTheme, statusTone } from '../../utils/professionalTheme.js'
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { reservationService } from '../../services/reservationService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
+import { STAFF_QUERY_OPTIONS, staffService } from '../../services/staffService.js';
 import { addDays, filterBookableSlots, formatLocalDate, minBookingDate } from '../../utils/bookingDateRules.js';
 
 function normalize(value = '') {
@@ -106,15 +107,46 @@ function mergeServices(...groups) {
 }
 
 export function ProfessionalProfileModal({ professional, onClose, showBookingAction = true }) {
-  const theme = professionalTheme(professional?.especialidad);
-  const tone = statusTone(professional?.estado);
   const selectedStaffId = staffId(professional);
-  const portfolio = useMemo(() => portfolioFor(professional), [professional]);
-  const declaredServices = useMemo(() => servicesFor(professional), [professional]);
-  const specialties = useMemo(() => specialtiesFor(professional), [professional]);
-  const nextHour = professional?.proximaHora || professional?.proximasHoras?.[0] || '';
-  const biography = professional?.biografiaProfesional || professional?.descripcionPerfil || professional?.descripcion || 'Atencion personalizada con diagnostico, tecnica cuidada y acabado profesional.';
-  const curriculum = professional?.perfilCurricular || professional?.trayectoria || professional?.descripcionPerfil || `${professional?.fullName || 'El profesional'} combina tecnica, criterio estetico y una experiencia cercana para crear resultados pulidos y naturales.`;
+  const detailQuery = useQuery({
+    queryKey: ['professional-detail', selectedStaffId],
+    queryFn: () => staffService.getStaffById(selectedStaffId),
+    enabled: Boolean(professional && staffService.isValidUuid(selectedStaffId)),
+    ...STAFF_QUERY_OPTIONS,
+  });
+  const professionalView = useMemo(() => {
+    if (!professional || !detailQuery.data) return professional;
+    const detail = detailQuery.data;
+    const nombre = detail.nombre || professional.nombre;
+    const apellidos = detail.apellidos || professional.apellidos;
+    return {
+      ...professional,
+      raw: { ...professional.raw, ...detail },
+      id: detail.idStaff || detail.idPersona || professional.id,
+      idStaff: detail.idStaff || professional.idStaff,
+      idPersona: detail.idPersona || detail.idStaff || professional.idPersona,
+      nombre,
+      apellidos,
+      fullName: `${nombre || ''} ${apellidos || ''}`.trim() || professional.fullName,
+      cargo: detail.especialidad || professional.cargo,
+      especialidad: detail.especialidad || professional.especialidad,
+      descripcion: detail.descripcionPerfil || professional.descripcion,
+      trayectoria: detail.descripcionPerfil || professional.trayectoria,
+      biografiaProfesional: detail.descripcionPerfil || professional.biografiaProfesional,
+      perfilCurricular: detail.descripcionPerfil || professional.perfilCurricular,
+      fotoUrl: detail.fotoUrl || professional.fotoUrl,
+      experienciaAnios: detail.experienciaAnios ?? professional.experienciaAnios,
+      portfolioImages: Array.isArray(detail.portfolioImages) ? detail.portfolioImages : professional.portfolioImages,
+    };
+  }, [detailQuery.data, professional]);
+  const theme = professionalTheme(professionalView?.especialidad);
+  const tone = statusTone(professionalView?.estado);
+  const portfolio = useMemo(() => portfolioFor(professionalView), [professionalView]);
+  const declaredServices = useMemo(() => servicesFor(professionalView), [professionalView]);
+  const specialties = useMemo(() => specialtiesFor(professionalView), [professionalView]);
+  const nextHour = professionalView?.proximaHora || professionalView?.proximasHoras?.[0] || '';
+  const biography = professionalView?.biografiaProfesional || professionalView?.descripcionPerfil || professionalView?.descripcion || 'Atencion personalizada con diagnostico, tecnica cuidada y acabado profesional.';
+  const curriculum = professionalView?.perfilCurricular || professionalView?.trayectoria || professionalView?.descripcionPerfil || `${professionalView?.fullName || 'El profesional'} combina tecnica, criterio estetico y una experiencia cercana para crear resultados pulidos y naturales.`;
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [availability, setAvailability] = useState({ status: 'idle', slots: [], error: '' });
   const hasPortfolio = portfolio.length > 0;
@@ -223,7 +255,7 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
         >
           <motion.article
             className="professional-profile-modal"
-            style={{ '--specialty-color': professional.colorEspecialidad || theme.color, '--specialty-soft': theme.soft }}
+            style={{ '--specialty-color': professionalView?.colorEspecialidad || theme.color, '--specialty-soft': theme.soft }}
             initial={{ opacity: 0, y: 28, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
@@ -240,15 +272,15 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
 
             <div className="professional-modal-hero">
               <div className="professional-modal-photo">
-                <SafeImage src={professional.imageUrl || professional.fotoUrl} alt={professional.fullName} fallback="/logo.jpg" />
+                <SafeImage src={professionalView.imageUrl || professionalView.fotoUrl} alt={professionalView.fullName} fallback="/logo.jpg" />
               </div>
               <div className="professional-modal-intro">
-                <span className="professional-specialty"><Sparkles size={14} /> {professional.especialidad || professional.cargo}</span>
-                <h2 id="professional-profile-title">{professional.fullName}</h2>
+                <span className="professional-specialty"><Sparkles size={14} /> {professionalView.especialidad || professionalView.cargo}</span>
+                <h2 id="professional-profile-title">{professionalView.fullName}</h2>
                 <p>{biography}</p>
                 <div className="professional-modal-meta">
-                  <span><MapPin size={15} /> Sucursal: {professional.sucursal || 'Providencia'}</span>
-                  <span className={`professional-modal-status ${tone}`}><Signal size={15} /> Estado: {professional.estado || 'Disponible hoy'}</span>
+                  <span><MapPin size={15} /> Sucursal: {professionalView.sucursal || 'Providencia'}</span>
+                  <span className={`professional-modal-status ${tone}`}><Signal size={15} /> Estado: {professionalView.estado || 'Disponible hoy'}</span>
                   {nextHour ? (
                     <span><Clock size={15} /> Próxima hora: {nextHour}</span>
                   ) : (
@@ -266,7 +298,7 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                   {curriculum}
                 </p>
                 <div className="professional-modal-stat">
-                  <strong>{yearsWithUs(professional)}</strong>
+                  <strong>{yearsWithUs(professionalView)}</strong>
                   <span>Experiencia curada para clientas que buscan precision, calma y resultados consistentes.</span>
                 </div>
               </section>
@@ -289,7 +321,7 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                   <SafeImage
                     key={image || `portfolio-${index}`}
                     src={image}
-                    alt={`Trabajo realizado ${index + 1} por ${professional.fullName}`}
+                    alt={`Trabajo realizado ${index + 1} por ${professionalView.fullName}`}
                     fallback="/logo.jpg"
                   />
                 ))
@@ -347,7 +379,7 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                         key={`${slot.date}-${slot.inicio}`}
                         to="/reservar"
                         state={{
-                          professional,
+                          professional: professionalView,
                           service: slot.service,
                           selectedHour: slot.inicio,
                           selectedDate: slot.date,
@@ -362,7 +394,7 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                 )}
               </div>
               {showBookingAction && (
-                <Link to="/reservar" state={{ professional }} className="professional-modal-booking" onClick={onClose}>
+                <Link to="/reservar" state={{ professional: professionalView }} className="professional-modal-booking" onClick={onClose}>
                   <CalendarDays size={17} /> Reservar hora
                 </Link>
               )}

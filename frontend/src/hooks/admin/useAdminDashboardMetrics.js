@@ -140,7 +140,7 @@ export function useAdminDashboardMetrics() {
       return {
         id,
         name: fullName(member) || 'Profesional',
-        specialty: member.especialidad?.nombre || member.nombreEspecialidad || 'Especialista',
+        specialty: member.especialidad?.nombre || member.especialidad || member.nombreEspecialidad || 'Especialista',
         reservations: reservations.length,
         ingresos: revenue,
         status: reservations.length >= 6 ? 'Agenda llena' : reservations.length ? 'En atencion' : 'Disponible hoy',
