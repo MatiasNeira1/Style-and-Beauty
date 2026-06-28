@@ -356,24 +356,26 @@ export function StaffAdminPage() {
       ) : staffQuery.isError ? (
         <p className="admin-alert">{staffQuery.error.message}</p>
       ) : (
-        <div className="admin-paginated-section">
-          <DataTable
-            compact
-            columns={columns}
-            rows={staffPagination.paginatedItems}
-            emptyMessage={hasActiveStaffFilters ? 'No encontramos resultados con los filtros seleccionados.' : 'No hay profesionales registrados.'}
-            onRowClick={(row) => { setSelectedStaff(row); setActiveTab(TABS.PROFILE); }}
-            getRowKey={(row) => getStaffId(row)}
-            getRowLabel={(row) => `Ver detalle de ${staffFullName(row)}`}
-          />
-          <AdminPagination
-            page={staffPagination.page}
-            pageSize={staffPagination.pageSize}
-            totalItems={staffPagination.totalItems}
-            itemLabel="profesionales"
-            onPageChange={staffPagination.setPage}
-          />
-        </div>
+        <DataTable
+          compact
+          className="admin-list-table-card"
+          scrollClassName="admin-list-table-scroll"
+          columns={columns}
+          rows={staffPagination.paginatedItems}
+          emptyMessage={hasActiveStaffFilters ? 'No encontramos resultados con los filtros seleccionados.' : 'No hay profesionales registrados.'}
+          onRowClick={(row) => { setSelectedStaff(row); setActiveTab(TABS.PROFILE); }}
+          getRowKey={(row) => getStaffId(row)}
+          getRowLabel={(row) => `Ver detalle de ${staffFullName(row)}`}
+          toolbar={(
+            <AdminPagination
+              page={staffPagination.page}
+              pageSize={staffPagination.pageSize}
+              totalItems={staffPagination.totalItems}
+              itemLabel="profesionales"
+              onPageChange={staffPagination.setPage}
+            />
+          )}
+        />
       )}
 
       <Modal open={Boolean(selectedStaff)} title="Detalle profesional" onClose={() => setSelectedStaff(null)}>

@@ -15,12 +15,14 @@ export const DataTable = memo(function DataTable({
   compact = false,
   className = '',
   scrollClassName = '',
+  toolbar = null,
 }) {
   const shellClassName = `admin-data-table-shell ${compact ? 'compact' : ''} ${className}`.trim();
   const scrollClassNames = `admin-data-table-scroll ${scrollClassName}`.trim();
 
   return (
     <div className={shellClassName}>
+      {toolbar && <div className="admin-data-table-toolbar">{toolbar}</div>}
       <div className={scrollClassNames}>
         <table className="admin-data-table">
           <thead>
