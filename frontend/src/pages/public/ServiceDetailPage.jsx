@@ -740,11 +740,7 @@ export function ServiceDetailPage() {
         </div>
       </Reveal>
 
-      <ProfessionalProfileModal
-        professional={perfilStaffVisible}
-        onClose={() => setPerfilStaffVisible(null)}
-        showBookingAction={false}
-      />
+      <ProfessionalProfileModal professional={perfilStaffVisible} onClose={() => setPerfilStaffVisible(null)} />
       <AuthModal
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}

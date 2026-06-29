@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CalendarDays, Clock, Image as ImageIcon, MapPin, Signal, Sparkles, X } from 'lucide-react';
+import { Clock, Image as ImageIcon, MapPin, Signal, Sparkles, X } from 'lucide-react';
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { professionalTheme, statusTone } from '../../utils/professionalTheme.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
@@ -75,7 +75,7 @@ function isBookableHour(value) {
   return /^\d{1,2}:\d{2}$/.test(String(value || '').trim());
 }
 
-export function ProfessionalProfileModal({ professional, onClose, showBookingAction = true }) {
+export function ProfessionalProfileModal({ professional, onClose }) {
   const theme = professionalTheme(professional?.especialidad);
   const tone = statusTone(professional?.estado);
   const portfolio = useMemo(() => portfolioFor(professional), [professional]);
@@ -215,11 +215,6 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                   })}
                 </div>
               </div>
-              {showBookingAction && (
-                <Link to="/reservar" state={{ professional }} className="professional-modal-booking" onClick={onClose}>
-                  <CalendarDays size={17} /> Reservar hora
-                </Link>
-              )}
             </div>
           </motion.article>
         </motion.div>
