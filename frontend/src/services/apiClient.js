@@ -136,6 +136,13 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.code === 'ERR_CANCELED' || axios.isCancel?.(error)) {
+      const canceledError = new Error('Consulta cancelada.');
+      canceledError.name = 'AbortError';
+      canceledError.code = 'ERR_CANCELED';
+      throw canceledError;
+    }
+
     if (!error.response || error.code === 'ERR_NETWORK') {
       const networkError = new Error('Servicio temporalmente no disponible.');
       networkError.code = error.code || 'ERR_NETWORK';

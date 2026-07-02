@@ -179,13 +179,13 @@ export const agendaService = {
     });
   },
   getAvailability: (payload) => {
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: availabilityPayload(payload) });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: availabilityPayload(payload), signal: payload?.signal });
   },
   consultarDisponibilidad: (payload) => {
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: availabilityPayload(payload) });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: availabilityPayload(payload), signal: payload?.signal });
   },
   consultarDisponibilidadSemanal: (payload) => {
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad-semanal', method: 'POST', data: weeklyAvailabilityPayload(payload) });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad-semanal', method: 'POST', data: weeklyAvailabilityPayload(payload), signal: payload?.signal });
   },
   consultarProximasDisponiblesStaffBatch: (payload) => {
     return request({
@@ -193,6 +193,7 @@ export const agendaService = {
       url: '/api/agenda/citas/staff/proximas-disponibles/batch',
       method: 'POST',
       data: staffAvailabilityBatchPayload(payload),
+      signal: payload?.signal,
     });
   },
   listarStaffPorServicio: (idServicio) => {

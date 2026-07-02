@@ -105,12 +105,13 @@ export const reservationService = {
     });
   },
 
-  getAvailability: ({ idServicio, idStaff, fecha, idCliente }) =>
+  getAvailability: ({ idServicio, idStaff, fecha, idCliente, signal }) =>
     request({
       baseURL: AGENDA_API_BASE_URL,
       url: '/api/agenda/citas/disponibilidad',
       method: 'POST',
       data: normalizeAvailabilityPayload({ idServicio, idStaff, fecha, idCliente }),
+      signal,
     }),
 
   getMultipleAvailability: (payload) =>
