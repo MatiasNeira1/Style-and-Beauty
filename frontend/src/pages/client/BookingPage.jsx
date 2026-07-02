@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CalendarCheck, Clock, Lock, Scissors, UserRound } from 'lucide-react';
@@ -12,6 +12,7 @@ import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { BookingSummary } from '../../components/booking/BookingSummary.jsx';
 import { DateTimePicker } from '../../components/booking/DateTimePicker.jsx';
 import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
+import { agendaService } from '../../services/agendaService.js';
 import { reservationService } from '../../services/reservationService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { firebaseAuthService } from '../../services/firebaseAuthService.js';
@@ -32,6 +33,13 @@ const CATEGORY_COPY = {
   spa: 'Experiencias de relajación, bienestar y cuidado corporal.',
   cabello: 'Corte, color, hidratación y styling profesional.',
   maquillaje: 'Preparación de piel y maquillaje para eventos o sesiones.',
+};
+const DATE_DEBOUNCE_MS = 180;
+const AVAILABILITY_QUERY_OPTIONS = {
+  staleTime: 1000 * 60 * 3,
+  gcTime: 1000 * 60 * 10,
+  refetchOnWindowFocus: false,
+  retry: false,
 };
 
 function serviceId(service) {
@@ -132,24 +140,114 @@ function sortSlots(slots = []) {
   return [...slots].sort((a, b) => new Date(a.inicio).getTime() - new Date(b.inicio).getTime());
 }
 
-async function findEarliestAvailability({ idServicio, idStaff, idCliente, fechaDesde, sameDayOnly = false }) {
+function isAbortError(error) {
+  return error?.name === 'AbortError' || error?.code === 'ERR_CANCELED' || String(error?.message || '').toLowerCase() === 'canceled';
+}
+
+function throwIfAborted(signal) {
+  if (!signal?.aborted) return;
+  if (typeof DOMException !== 'undefined') throw new DOMException('Consulta cancelada', 'AbortError');
+  const error = new Error('Consulta cancelada');
+  error.name = 'AbortError';
+  throw error;
+}
+
+function useDebouncedValue(value, delayMs) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [delayMs, value]);
+
+  return debounced;
+}
+
+function normalizeBookableSlots(slots = []) {
+  const unique = new Map();
+  filterBookableSlots(Array.isArray(slots) ? slots : []).forEach((slot) => {
+    if (slot?.inicio && !unique.has(slot.inicio)) unique.set(slot.inicio, slot);
+  });
+  return sortSlots([...unique.values()]);
+}
+
+async function loadServiceDateAvailability({ idServicio, serviceStaff, fecha, idCliente, signal }) {
+  const uniqueStaff = [];
+  const seen = new Set();
+
+  serviceStaff.forEach((item) => {
+    const id = staffId(item);
+    if (!reservationService.isValidUuid(id) || seen.has(id)) return;
+    seen.add(id);
+    uniqueStaff.push(item);
+  });
+
+  const settled = await Promise.allSettled(uniqueStaff.map(async (item) => {
+    throwIfAborted(signal);
+    const id = staffId(item);
+    const slots = await reservationService.getAvailability({
+      idServicio,
+      idStaff: id,
+      fecha,
+      idCliente,
+      signal,
+    });
+    return { staff: item, slots: normalizeBookableSlots(slots) };
+  }));
+
+  throwIfAborted(signal);
+  const fulfilled = settled.filter((item) => item.status === 'fulfilled').map((item) => item.value);
+  const rejected = settled.find((item) => item.status === 'rejected' && !isAbortError(item.reason));
+  if (!fulfilled.length && rejected) throw rejected.reason;
+  return fulfilled;
+}
+
+async function findEarliestAvailability({ idServicio, idStaff, idCliente, fechaDesde, sameDayOnly = false, signal }) {
   const start = fechaDesde ? new Date(`${fechaDesde}T12:00:00`) : minBookingDate();
   const limit = sameDayOnly ? start : maxBookingDate();
 
+  if (sameDayOnly) {
+    const slots = await reservationService.getAvailability({
+      idServicio,
+      idStaff,
+      fecha: formatLocalDate(start),
+      idCliente,
+      signal,
+    });
+    const bookable = normalizeBookableSlots(slots);
+    return bookable.length > 0 ? { fecha: formatLocalDate(start), slot: bookable[0] } : null;
+  }
+
   for (let cursor = start; cursor <= limit; cursor = addDays(cursor, 1)) {
-    const fecha = formatLocalDate(cursor);
-    let slots = [];
+    throwIfAborted(signal);
+    const weekStart = formatLocalDate(cursor);
     try {
-      slots = await reservationService.getAvailability({ idServicio, idStaff, fecha, idCliente });
+      const week = await agendaService.consultarDisponibilidadSemanal({
+        idServicio,
+        idStaff,
+        fecha: weekStart,
+        idCliente,
+        signal,
+      });
+      const rows = Array.isArray(week) ? week : [];
+      const sortedRows = rows.slice().sort((left, right) => String(left?.fecha || '').localeCompare(String(right?.fecha || ''), 'es'));
+
+      for (const row of sortedRows) {
+        const fecha = row?.fecha;
+        const rowDate = fecha ? new Date(`${fecha}T12:00:00`) : null;
+        if (!rowDate || Number.isNaN(rowDate.getTime()) || rowDate < start || rowDate > limit) continue;
+
+        const bookable = normalizeBookableSlots(row?.slots || []);
+        if (bookable.length > 0) {
+          return { fecha, slot: bookable[0] };
+        }
+      }
     } catch (error) {
-      if (sameDayOnly) throw error;
+      if (signal?.aborted || isAbortError(error)) throw error;
       continue;
     }
 
-    const bookable = sortSlots(filterBookableSlots(Array.isArray(slots) ? slots : []));
-    if (bookable.length > 0) {
-      return { fecha, slot: bookable[0] };
-    }
+    cursor = addDays(cursor, 6);
   }
 
   return null;
@@ -250,7 +348,7 @@ export function BookingPage() {
   });
   const serviceStaffQuery = useQuery({
     queryKey: ['service-staff', selectedServiceId],
-    queryFn: () => serviceCatalogService.listProfessionalsByService(selectedServiceId),
+    queryFn: ({ signal }) => serviceCatalogService.listProfessionalsByService(selectedServiceId, { signal }),
     enabled: hasValidServiceId,
     staleTime: 1000 * 60 * 3,
   });
@@ -275,13 +373,14 @@ export function BookingPage() {
     Array.isArray(staffQuery.data) ? staffQuery.data.filter((item) => item?.activo !== false) : []
   ), [staffQuery.data]);
   const idCliente = myProfile?.idPersona;
+  const debouncedDate = useDebouncedValue(date, DATE_DEBOUNCE_MS);
 
   const professionalServiceQueries = useQueries({
     queries: services.map((item) => {
       const id = serviceId(item);
       return {
         queryKey: ['service-staff', id],
-        queryFn: () => serviceCatalogService.listProfessionalsByService(id),
+        queryFn: ({ signal }) => serviceCatalogService.listProfessionalsByService(id, { signal }),
         enabled: Boolean(flowMode === 'professional-first' && serviceCatalogService.isValidUuid(id)),
         staleTime: 1000 * 60 * 5,
       };
@@ -357,7 +456,7 @@ export function BookingPage() {
   ), [selectedCategory, services]);
 
   const serviceStaffIdsKey = useMemo(
-    () => serviceStaff.map((item) => staffId(item)).filter(Boolean).join(','),
+    () => serviceStaff.map((item) => staffId(item)).filter(Boolean).sort().join(','),
     [serviceStaff],
   );
 
@@ -366,12 +465,13 @@ export function BookingPage() {
       const id = staffId(item);
       return {
         queryKey: ['staff-earliest-availability', selectedServiceId, id, idCliente || 'anon', continuationMode ? date : 'next-30', continuationMode ? 'same-day' : 'open'],
-        queryFn: () => findEarliestAvailability({
+        queryFn: ({ signal }) => findEarliestAvailability({
           idServicio: selectedServiceId,
           idStaff: id,
           idCliente,
           fechaDesde: continuationMode ? date : formatLocalDate(minBookingDate()),
           sameDayOnly: continuationMode,
+          signal,
         }),
         enabled: Boolean(
           flowMode === 'service-first'
@@ -381,7 +481,7 @@ export function BookingPage() {
             && idCliente
             && (!continuationMode || date),
         ),
-        retry: false,
+        ...AVAILABILITY_QUERY_OPTIONS,
       };
     }),
   });
@@ -395,57 +495,52 @@ export function BookingPage() {
   }, [serviceStaff, staffEarliestQueries]);
 
   const timeAvailabilityQuery = useQuery({
-    queryKey: ['service-time-availability', selectedServiceId, date, idCliente || 'anon', serviceStaffIdsKey],
-    queryFn: async () => {
-      const settled = await Promise.allSettled(serviceStaff.map(async (item) => {
-        const id = staffId(item);
-        const slots = await reservationService.getAvailability({
-          idServicio: selectedServiceId,
-          idStaff: id,
-          fecha: date,
-          idCliente,
-        });
-        return { staff: item, slots: filterBookableSlots(Array.isArray(slots) ? slots : []) };
-      }));
-      const fulfilled = settled.filter((item) => item.status === 'fulfilled').map((item) => item.value);
-      const rejected = settled.find((item) => item.status === 'rejected');
-      if (!fulfilled.length && rejected) throw rejected.reason;
-      return fulfilled;
-    },
+    queryKey: ['service-time-availability', selectedServiceId, debouncedDate, idCliente || 'anon', serviceStaffIdsKey],
+    queryFn: ({ signal }) => loadServiceDateAvailability({
+      idServicio: selectedServiceId,
+      serviceStaff,
+      fecha: debouncedDate,
+      idCliente,
+      signal,
+    }),
     enabled: Boolean(
       flowMode === 'service-first'
         && servicePreference === 'time'
         && flowStep === 'time'
         && !continuationMode
         && hasValidServiceId
-        && date
+        && debouncedDate
         && idCliente
         && serviceStaff.length > 0,
     ),
-    retry: false,
+    ...AVAILABILITY_QUERY_OPTIONS,
   });
+  const timeAvailabilityDateSettling = Boolean(date && date !== debouncedDate);
 
   const timeFirstSlots = useMemo(() => {
+    if (timeAvailabilityDateSettling) return [];
     const grouped = new Map();
     const entries = Array.isArray(timeAvailabilityQuery.data) ? timeAvailabilityQuery.data : [];
 
     entries.forEach(({ staff, slots }) => {
       slots.forEach((slot) => {
         if (!slot?.inicio) return;
+        const id = staffId(staff);
         const current = grouped.get(slot.inicio) || {
           ...slot,
           staffOptions: [],
           staffSlotsById: {},
         };
-        const id = staffId(staff);
-        current.staffOptions.push(staff);
-        current.staffSlotsById[id] = slot;
+        if (!current.staffSlotsById[id]) {
+          current.staffOptions.push(staff);
+          current.staffSlotsById[id] = slot;
+        }
         grouped.set(slot.inicio, current);
       });
     });
 
     return sortSlots([...grouped.values()]);
-  }, [timeAvailabilityQuery.data]);
+  }, [timeAvailabilityDateSettling, timeAvailabilityQuery.data]);
 
   const selectedTimeFirstSlot = useMemo(() => timeFirstSlots.find((slot) => slot.inicio === time), [timeFirstSlots, time]);
   const timeFirstStaffOptions = selectedTimeFirstSlot?.staffOptions || [];
@@ -461,30 +556,33 @@ export function BookingPage() {
 
   const earliestAvailabilityQuery = useQuery({
     queryKey: ['earliest-availability', selectedServiceId, selectedStaffId, idCliente || 'anon', continuationMode ? date : 'next-30', continuationMode ? 'same-day' : 'open'],
-    queryFn: () => findEarliestAvailability({
+    queryFn: ({ signal }) => findEarliestAvailability({
       idServicio: selectedServiceId,
       idStaff: selectedStaffId,
       idCliente,
       fechaDesde: continuationMode ? date : formatLocalDate(minBookingDate()),
       sameDayOnly: continuationMode,
+      signal,
     }),
     enabled: Boolean(automaticScheduleFlow && hasValidServiceId && hasValidStaffId && idCliente && (!continuationMode || date)),
-    retry: false,
+    ...AVAILABILITY_QUERY_OPTIONS,
   });
 
   const manualAvailabilityQuery = useQuery({
     queryKey: ['availability', selectedStaffId, selectedServiceId, date, idCliente || 'anon'],
-    queryFn: () => reservationService.getAvailability({
+    queryFn: ({ signal }) => reservationService.getAvailability({
       idServicio: selectedServiceId,
       idStaff: selectedStaffId,
       fecha: date,
       idCliente,
+      signal,
     }),
     enabled: Boolean(flowStep === 'summary' && !automaticScheduleFlow && hasValidStaffId && hasValidServiceId && date && idCliente),
+    ...AVAILABILITY_QUERY_OPTIONS,
   });
 
   const manualAvailableSlots = useMemo(
-    () => filterBookableSlots(Array.isArray(manualAvailabilityQuery.data) ? manualAvailabilityQuery.data : []),
+    () => normalizeBookableSlots(manualAvailabilityQuery.data),
     [manualAvailabilityQuery.data],
   );
 
@@ -527,9 +625,15 @@ export function BookingPage() {
     mutationFn: reservationService.createReservation,
     onSuccess: async (created, variables) => {
       const createdDate = variables?.startsAt ? formatLocalDate(new Date(variables.startsAt)) : date;
-      await queryClient.invalidateQueries({ queryKey: ['availability', variables?.professionalId, variables?.serviceId, createdDate, idCliente || 'anon'] });
-      await queryClient.invalidateQueries({ queryKey: ['agenda-admin'] });
-      await queryClient.invalidateQueries({ queryKey: ['admin-bookings'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['availability', variables?.professionalId, variables?.serviceId, createdDate, idCliente || 'anon'] }),
+        queryClient.invalidateQueries({ queryKey: ['earliest-availability'] }),
+        queryClient.invalidateQueries({ queryKey: ['staff-earliest-availability'] }),
+        queryClient.invalidateQueries({ queryKey: ['service-time-availability'] }),
+        queryClient.invalidateQueries({ queryKey: ['professional-upcoming-availability'] }),
+        queryClient.invalidateQueries({ queryKey: ['agenda-admin'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-bookings'] }),
+      ]);
       return created;
     },
   });
@@ -629,7 +733,7 @@ export function BookingPage() {
     if (!summarySlot) {
       setConfirmError(continuationMode
         ? 'No fue posible agregar este servicio después de tu cita anterior dentro del horario disponible. Elige otro profesional o finaliza la reserva actual.'
-        : 'No encontramos horarios disponibles para esta selección.');
+        : 'No hay horarios disponibles para esta fecha. Prueba otro día o selecciona otro profesional.');
       return;
     }
 
@@ -641,14 +745,14 @@ export function BookingPage() {
         fecha: summaryDate,
         idCliente,
       });
-      const stillAvailable = filterBookableSlots(Array.isArray(freshSlots) ? freshSlots : [])
+      const stillAvailable = normalizeBookableSlots(freshSlots)
         .some((slot) => slot.inicio === summaryTime);
 
       if (!stillAvailable) {
         setTime('');
         throw new Error(continuationMode
           ? 'No fue posible agregar este servicio después de tu cita anterior dentro del horario disponible. Elige otro profesional o finaliza la reserva actual.'
-          : 'El horario seleccionado ya no está disponible para este servicio. Elige otra hora.');
+          : 'El horario seleccionado ya no está disponible para este servicio. Prueba otro día o selecciona otro profesional.');
       }
 
       const refreshedSession = await firebaseAuthService.refreshSession();
@@ -920,8 +1024,8 @@ export function BookingPage() {
                       date={date}
                       time={time}
                       slots={timeFirstSlots}
-                      isLoading={timeAvailabilityQuery.isLoading || timeAvailabilityQuery.isFetching}
-                      error={timeAvailabilityQuery.error?.message || (date && !timeAvailabilityQuery.isFetching && timeFirstSlots.length === 0 ? 'No encontramos horarios disponibles para esta selección.' : '')}
+                      isLoading={timeAvailabilityDateSettling || timeAvailabilityQuery.isLoading || timeAvailabilityQuery.isFetching}
+                      error={timeAvailabilityQuery.error?.message || (date && !timeAvailabilityDateSettling && !timeAvailabilityQuery.isFetching && timeFirstSlots.length === 0 ? 'No hay horarios disponibles para esta fecha. Prueba otro día o selecciona otro profesional.' : '')}
                       onDateChange={(value) => {
                         setDate(value);
                         setTime('');
@@ -1320,7 +1424,7 @@ function EarliestAvailabilityPanel({ isLoading, result, service, professional, c
       <p className="admin-alert">
         {continuationMode
           ? 'No fue posible agregar este servicio después de tu cita anterior dentro del horario disponible. Elige otro profesional o finaliza la reserva actual.'
-          : 'No encontramos horarios disponibles para este profesional con el servicio seleccionado.'}
+          : 'No hay horarios disponibles para esta fecha. Prueba otro día o selecciona otro profesional.'}
       </p>
     );
   }

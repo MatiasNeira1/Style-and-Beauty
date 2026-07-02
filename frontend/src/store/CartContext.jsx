@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
 import { RESERVATION_DEPOSIT_CLP, getCartPaymentTotal } from '../utils/priceUtils.js';
 
@@ -60,8 +60,22 @@ function clearPendingReservationState() {
 
 export function CartProvider({ children }) {
   const [items, setItems] = useLocalStorage(CART_STORAGE_KEY, []);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCartOpen, setCartOpenState] = useState(false);
   const [lastCartError, setLastCartError] = useState('');
+  const cartTriggerRef = useRef(null);
+
+  const setIsCartOpen = useCallback((nextOpen) => {
+    setCartOpenState((current) => {
+      const resolved = typeof nextOpen === 'function' ? nextOpen(current) : nextOpen;
+      if (resolved && typeof document !== 'undefined') {
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement !== document.body && typeof activeElement.focus === 'function') {
+          cartTriggerRef.current = activeElement;
+        }
+      }
+      return resolved;
+    });
+  }, []);
 
   useEffect(() => {
     LEGACY_CART_KEYS.forEach((key) => window.localStorage.removeItem(key));
@@ -106,7 +120,7 @@ export function CartProvider({ children }) {
       return [...current, { ...product, quantity: 1 }];
     });
     setIsCartOpen(true);
-  }, [setItems]);
+  }, [setItems, setIsCartOpen]);
 
   const addReservationItem = useCallback((reservation) => {
     setLastCartError('');
@@ -200,11 +214,12 @@ export function CartProvider({ children }) {
       total,
       isCartOpen,
       setIsCartOpen,
+      cartTriggerRef,
       lastCartError,
       setLastCartError,
       cartSchemaVersion: CART_SCHEMA_VERSION,
     }),
-    [items, addItem, addReservationItem, hasReservationForService, removeItem, removeReservationItems, updateQuantity, clearCart, total, isCartOpen, lastCartError],
+    [items, addItem, addReservationItem, hasReservationForService, removeItem, removeReservationItems, updateQuantity, clearCart, total, isCartOpen, setIsCartOpen, lastCartError],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

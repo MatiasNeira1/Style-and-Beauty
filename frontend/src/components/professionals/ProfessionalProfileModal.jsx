@@ -17,8 +17,8 @@ const WORK_DAYS_INCREMENT = 3;
 const MAX_WORK_DAYS = 9;
 const SEARCH_LIMIT_DAYS = 21;
 const AVAILABILITY_QUERY_OPTIONS = {
-  staleTime: 30 * 1000,
-  gcTime: 2 * 60 * 1000,
+  staleTime: 3 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
   refetchOnWindowFocus: false,
   retry: 1,
 };
@@ -108,22 +108,16 @@ function formatAvailabilityDayLabel(value) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function agendaWeekday(date) {
-  const day = date.getDay();
-  return day === 0 ? 7 : day;
-}
-
-function activeWorkdays(schedules = []) {
-  return new Set(
-    schedules
-      .filter((schedule) => schedule?.activo !== false)
-      .map((schedule) => Number(schedule?.diaSemana))
-      .filter((day) => day >= 1 && day <= 6)
-  );
-}
-
 function sortSlots(slots = []) {
   return [...slots].sort((left, right) => new Date(left.inicio).getTime() - new Date(right.inicio).getTime());
+}
+
+function normalizeBookableSlots(slots = []) {
+  const unique = new Map();
+  filterBookableSlots(Array.isArray(slots) ? slots : []).forEach((slot) => {
+    if (slot?.inicio && !unique.has(slot.inicio)) unique.set(slot.inicio, slot);
+  });
+  return sortSlots([...unique.values()]);
 }
 
 function publicStatus(value) {
@@ -131,12 +125,7 @@ function publicStatus(value) {
   return value;
 }
 
-async function loadUpcomingAvailability({ idStaff, idServicio, schedules, requiredDays }) {
-  const workdays = activeWorkdays(schedules);
-  if (!workdays.size) {
-    return { days: [], canLoadMore: false };
-  }
-
+async function loadUpcomingAvailability({ idStaff, idServicio, requiredDays, signal }) {
   const start = minBookingDate();
   const maxDate = addDays(start, SEARCH_LIMIT_DAYS);
   const seenDates = new Set();
@@ -147,6 +136,7 @@ async function loadUpcomingAvailability({ idStaff, idServicio, schedules, requir
       idStaff,
       idServicio,
       fecha: formatLocalDate(cursor),
+      signal,
     });
 
     const rows = Array.isArray(week) ? week : [];
@@ -158,15 +148,15 @@ async function loadUpcomingAvailability({ idStaff, idServicio, schedules, requir
 
         const date = parseLocalDate(row?.fecha);
         if (!date || date < start || date > maxDate) return;
-        const weekday = agendaWeekday(date);
         const dateKey = formatLocalDate(date);
-        if (!workdays.has(weekday) || seenDates.has(dateKey)) return;
+        const slots = normalizeBookableSlots(row?.slots);
+        if (seenDates.has(dateKey) || slots.length === 0) return;
 
         seenDates.add(dateKey);
         days.push({
           fecha: dateKey,
           label: formatAvailabilityDayLabel(dateKey),
-          slots: sortSlots(filterBookableSlots(row?.slots || [])),
+          slots,
         });
       });
   }
@@ -250,7 +240,7 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
       const id = serviceId(service);
       return {
         queryKey: ['service-staff', id],
-        queryFn: () => serviceCatalogService.listProfessionalsByService(id),
+        queryFn: ({ signal }) => serviceCatalogService.listProfessionalsByService(id, { signal }),
         enabled: Boolean(professional && selectedStaffId && serviceCatalogService.isValidUuid(id)),
         staleTime: 1000 * 60 * 5,
       };
@@ -274,33 +264,26 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
   const servicesLoading = servicesQuery.isLoading || serviceStaffQueries.some((query) => query.isLoading || query.isFetching);
   const servicesError = services.length === 0 && (servicesQuery.isError || serviceStaffQueries.some((query) => query.isError));
   const selectedService = services.find((service) => serviceId(service) === selectedServiceId) || null;
-  const schedulesQuery = useQuery({
-    queryKey: ['staff-public-schedules', selectedStaffId],
-    queryFn: () => staffService.listPublicSchedules(selectedStaffId),
-    enabled: Boolean(professional && staffService.isValidUuid(selectedStaffId)),
-    ...STAFF_QUERY_OPTIONS,
-  });
   const availabilityQuery = useQuery({
     queryKey: ['professional-upcoming-availability', selectedStaffId, selectedServiceId, visibleWorkDays],
-    queryFn: () => loadUpcomingAvailability({
+    queryFn: ({ signal }) => loadUpcomingAvailability({
       idStaff: selectedStaffId,
       idServicio: selectedServiceId,
-      schedules: schedulesQuery.data,
       requiredDays: visibleWorkDays,
+      signal,
     }),
     enabled: Boolean(
       professional
         && staffService.isValidUuid(selectedStaffId)
         && serviceCatalogService.isValidUuid(selectedServiceId)
-        && schedulesQuery.isSuccess
         && !servicesLoading
         && !servicesError
     ),
     ...AVAILABILITY_QUERY_OPTIONS,
   });
   const availabilityDays = availabilityQuery.data?.days || [];
-  const availabilityLoading = schedulesQuery.isLoading || availabilityQuery.isLoading || availabilityQuery.isFetching;
-  const availabilityError = schedulesQuery.isError || availabilityQuery.isError;
+  const availabilityLoading = availabilityQuery.isLoading || availabilityQuery.isFetching;
+  const availabilityError = availabilityQuery.isError;
   const selectedServiceLabel = selectedService ? serviceName(selectedService) : '';
   const selectedSlotLabel = selectedAvailabilitySlot
     ? `${formatAvailabilityDayLabel(selectedAvailabilitySlot.date)} · ${formatSlotTime(selectedAvailabilitySlot.inicio)}`
