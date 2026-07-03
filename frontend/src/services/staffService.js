@@ -12,15 +12,25 @@ function imageFormData(file) {
   return formData;
 }
 
+export const STAFF_QUERY_OPTIONS = {
+  staleTime: 5 * 60 * 1000,
+  gcTime: 15 * 60 * 1000,
+  refetchOnWindowFocus: false,
+  retry: 1,
+};
+
 export const staffService = {
   listPublicStaff: () =>
-    request({ baseURL: PROFILES_API_BASE_URL, url: '/api/perfiles/staff', method: 'GET' }),
+    request({ baseURL: PROFILES_API_BASE_URL, url: '/api/perfiles/staff/listado', method: 'GET' }),
 
   listStaff: () =>
-    request({ baseURL: PROFILES_API_BASE_URL, url: '/api/admin/staff', method: 'GET', authRequired: true }),
+    request({ baseURL: PROFILES_API_BASE_URL, url: '/api/perfiles/staff/listado', method: 'GET', authRequired: true }),
+
+  getStaffSummary: () =>
+    request({ baseURL: PROFILES_API_BASE_URL, url: '/api/perfiles/staff/resumen', method: 'GET', authRequired: true }),
 
   getStaffById: (id) =>
-    request({ baseURL: PROFILES_API_BASE_URL, url: `/api/perfiles/staff/${id}`, method: 'GET' }),
+    request({ baseURL: PROFILES_API_BASE_URL, url: `/api/perfiles/staff/${id}/detalle`, method: 'GET' }),
 
   createStaff: (payload) =>
     request({ baseURL: PROFILES_API_BASE_URL, url: '/api/admin/crear', method: 'POST', authRequired: true, data: { ...payload, tipoPerfil: 'STAFF' } }),
@@ -49,6 +59,11 @@ export const staffService = {
   listSchedules: (staffId) => {
     if (!isValidUuid(staffId)) return Promise.resolve([]);
     return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/jornadas/staff/${staffId}`, method: 'GET', authRequired: true });
+  },
+
+  listPublicSchedules: (staffId) => {
+    if (!isValidUuid(staffId)) return Promise.resolve([]);
+    return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/jornadas/staff/${staffId}`, method: 'GET' });
   },
 
   listStaffAppointments: (staffId) => {

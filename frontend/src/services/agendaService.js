@@ -33,6 +33,9 @@ function availabilityPayload(payload) {
     idStaff: payload?.idStaff,
     fecha: payload?.fecha,
   };
+  if (Number(payload?.duracionServicioMin) > 0) {
+    data.duracionServicioMin = Number(payload.duracionServicioMin);
+  }
   if (isValidUuid(payload?.idCliente)) {
     data.idCliente = payload.idCliente;
   }
@@ -41,6 +44,30 @@ function availabilityPayload(payload) {
   if (!isValidUuid(data.idServicio)) throw new Error('Selecciona un servicio para consultar disponibilidad.');
   requireValue(data.fecha, 'Selecciona una fecha para consultar disponibilidad.');
   assertBookingDateAllowed(data.fecha);
+
+  return data;
+}
+
+function multipleAvailabilityPayload(payload) {
+  const data = {
+    idCliente: payload?.idCliente,
+    fecha: payload?.fecha,
+    horaInicial: payload?.horaInicial || undefined,
+    maxPlanes: payload?.maxPlanes || 1,
+    servicios: Array.isArray(payload?.servicios) ? payload.servicios.map((item, index) => {
+      if (!isValidUuid(item?.idServicio)) throw new Error(`Selecciona el servicio ${index + 1}.`);
+      if (item?.idStaff && !isValidUuid(item.idStaff)) throw new Error(`Selecciona un profesional valido para el servicio ${index + 1}.`);
+      const servicePayload = { idServicio: item.idServicio };
+      if (isValidUuid(item?.idStaff)) servicePayload.idStaff = item.idStaff;
+      if (Number(item?.duracionServicioMin) > 0) servicePayload.duracionServicioMin = Number(item.duracionServicioMin);
+      return servicePayload;
+    }) : [],
+  };
+
+  if (data.idCliente && !isValidUuid(data.idCliente)) throw new Error('Selecciona un cliente para consultar disponibilidad.');
+  requireValue(data.fecha, 'Selecciona una fecha para consultar disponibilidad.');
+  assertBookingDateAllowed(data.fecha);
+  if (data.servicios.length < 2) throw new Error('Agrega al menos dos servicios para crear una agenda múltiple.');
 
   return data;
 }
@@ -60,6 +87,22 @@ function weeklyAvailabilityPayload(payload) {
   requireValue(data.fecha, 'Selecciona una semana para consultar disponibilidad.');
 
   return data;
+}
+
+function staffAvailabilityBatchPayload(payload) {
+  const idsStaff = Array.isArray(payload?.idsStaff)
+    ? Array.from(new Set(payload.idsStaff.filter(isValidUuid)))
+    : [];
+
+  if (idsStaff.length === 0) throw new Error('Selecciona profesionales para consultar disponibilidad.');
+
+  return {
+    idsStaff,
+    fechaDesde: payload?.fechaDesde,
+    diasTrabajoRequeridos: Number(payload?.diasTrabajoRequeridos) > 0 ? Number(payload.diasTrabajoRequeridos) : 3,
+    limiteDiasBusqueda: Number(payload?.limiteDiasBusqueda) > 0 ? Number(payload.limiteDiasBusqueda) : 21,
+    zonaHoraria: payload?.zonaHoraria || 'America/Santiago',
+  };
 }
 
 export function crearCita(payload) {
@@ -110,6 +153,9 @@ export const agendaService = {
       if (!isValidUuid(booking?.idServicio)) throw new Error(`Selecciona el servicio ${index + 1}.`);
       if (!isValidUuid(booking?.idStaff)) throw new Error(`Selecciona el profesional del servicio ${index + 1}.`);
       requireValue(booking?.horaInicio, `Selecciona la hora de inicio del servicio ${index + 1}.`);
+      if (booking?.duracionServicioMin !== undefined && Number(booking.duracionServicioMin) <= 0) {
+        throw new Error(`Selecciona una duración valida para el servicio ${index + 1}.`);
+      }
       if (selectedServices.has(booking.idServicio)) {
         throw new Error('La reserva múltiple requiere servicios distintos.');
       }
@@ -124,14 +170,31 @@ export const agendaService = {
       data: payload,
     });
   },
+  planificarDisponibilidadMultiple: (payload) => {
+    return request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/disponibilidad-multiple',
+      method: 'POST',
+      data: multipleAvailabilityPayload(payload),
+    });
+  },
   getAvailability: (payload) => {
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: availabilityPayload(payload) });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: availabilityPayload(payload), signal: payload?.signal });
   },
   consultarDisponibilidad: (payload) => {
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: availabilityPayload(payload) });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad', method: 'POST', data: availabilityPayload(payload), signal: payload?.signal });
   },
   consultarDisponibilidadSemanal: (payload) => {
-    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad-semanal', method: 'POST', data: weeklyAvailabilityPayload(payload) });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: '/api/agenda/citas/disponibilidad-semanal', method: 'POST', data: weeklyAvailabilityPayload(payload), signal: payload?.signal });
+  },
+  consultarProximasDisponiblesStaffBatch: (payload) => {
+    return request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/staff/proximas-disponibles/batch',
+      method: 'POST',
+      data: staffAvailabilityBatchPayload(payload),
+      signal: payload?.signal,
+    });
   },
   listarStaffPorServicio: (idServicio) => {
     if (!isValidUuid(idServicio)) return Promise.resolve([]);

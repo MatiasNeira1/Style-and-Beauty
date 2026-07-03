@@ -27,3 +27,43 @@ hs_err_pid*.log
 *.sqlite-wal
 n8n/n8n_data/
 n8n/n8n_data/**
+
+# Local DB operation artifacts
+db_backups_perfiles_staff_alignment_*/
+db_backups_staff_alignment_*/
+staff_categories_from_perfiles.csv
+normalizar_staff_especialidades_perfiles.sql
+preview_staff_service_alignment_catalogo.sql
+preview_staff_service_alignment_counts_catalogo.sql
+apply_staff_service_alignment_catalogo.sql
+verify_staff_service_alignment_catalogo.sql
+
+# Local DB operation artifacts
+db_backups_perfiles_staff_alignment_*/
+db_backups_staff_alignment_*/
+staff_categories_from_perfiles.csv
+normalizar_staff_especialidades_perfiles.sql
+preview_staff_service_alignment_catalogo.sql
+preview_staff_service_alignment_counts_catalogo.sql
+apply_staff_service_alignment_catalogo.sql
+verify_staff_service_alignment_catalogo.sql
+
+# Build artifacts
+*.jar
+*.war
+*.ear
+target/
+build/
+dist/
+
+# Local Docker runtime artifacts
+backend/ms-agenda/docker-runtime-agenda/
+backend/ms-agenda/Dockerfile.runtime
+
+# Database backups / local dumps
+*.dump
+db_backups_*/
+db_backups_pg17_*/
+
+# Local diagnostic SQL files
+diagnostico_staff_alignment.sql

@@ -7,6 +7,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.style.beauty.ms_cliente.dto.PerfilRequestDTO;
+import com.style.beauty.ms_cliente.dto.StaffDetalleBaseDTO;
+import com.style.beauty.ms_cliente.dto.StaffDetalleDTO;
+import com.style.beauty.ms_cliente.dto.StaffListadoDTO;
+import com.style.beauty.ms_cliente.dto.StaffPortfolioImageDTO;
+import com.style.beauty.ms_cliente.dto.StaffResumenDTO;
 import com.style.beauty.ms_cliente.exception.DuplicateRutException;
 import com.style.beauty.ms_cliente.exception.ProfileNotFoundException;
 import com.style.beauty.ms_cliente.model.PersonaModel;
@@ -242,6 +247,33 @@ public class PerfilService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<StaffListadoDTO> listarStaffLigero() {
+        return staffRepository.listarStaffLigero().stream()
+                .map(this::aplicarFotoFallback)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public StaffResumenDTO obtenerResumenStaff() {
+        long total = staffRepository.count();
+        return new StaffResumenDTO(
+                total,
+                total,
+                staffRepository.contarConFoto(),
+                staffPortfolioImageRepository.contarStaffConPortfolio(),
+                staffRepository.contarConExperiencia()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public StaffDetalleDTO obtenerDetalleStaff(java.util.UUID idStaff) {
+        StaffDetalleBaseDTO base = staffRepository.buscarDetalleBase(idStaff)
+                .orElseThrow(() -> new RuntimeException("Staff no encontrado."));
+        List<StaffPortfolioImageDTO> portfolio = staffPortfolioImageRepository.listarPortfolioLigero(idStaff);
+        return StaffDetalleDTO.from(aplicarFotoFallback(base), portfolio);
+    }
+
     public StaffModel obtenerStaffPorId(java.util.UUID idStaff) {
         return staffRepository.findById(idStaff)
                 .orElseThrow(() -> new RuntimeException("Staff no encontrado."));
@@ -344,6 +376,7 @@ public class PerfilService {
     private PersonaModel actualizarPerfil(String idAuth, PerfilRequestDTO dto, boolean permitirEditarIdentidad) {
         PersonaModel persona = obtenerMiPerfil(idAuth);
         boolean puedeEditarIdentidad = permitirEditarIdentidad || persona instanceof StaffModel;
+        boolean staffEditandoPerfilPropio = !permitirEditarIdentidad && persona instanceof StaffModel;
 
         if (puedeEditarIdentidad) {
             if (dto.getRut() != null) {
@@ -357,8 +390,8 @@ public class PerfilService {
                 validarRutDisponible(rutNormalizado, persona.getIdPersona());
                 persona.setRut(rutNormalizado);
             }
-            if (dto.getNombre() != null) persona.setNombre(dto.getNombre());
-            if (dto.getApellidos() != null) persona.setApellidos(dto.getApellidos());
+            if (!staffEditandoPerfilPropio && dto.getNombre() != null) persona.setNombre(dto.getNombre());
+            if (!staffEditandoPerfilPropio && dto.getApellidos() != null) persona.setApellidos(dto.getApellidos());
             if (dto.getFechaNacimiento() != null) persona.setFechaNacimiento(dto.getFechaNacimiento());
             if (dto.getGenero() != null) persona.setGenero(dto.getGenero());
             if (dto.getEmailContacto() != null) persona.setEmailContacto(dto.getEmailContacto());
@@ -374,7 +407,7 @@ public class PerfilService {
             }
             if (dto.getCvUrl() != null) staff.setCvUrl(dto.getCvUrl());
             if (dto.getDescripcionPerfil() != null) staff.setDescripcionPerfil(dto.getDescripcionPerfil());
-            if (dto.getExperienciaAnios() != null) staff.setExperienciaAnios(dto.getExperienciaAnios());
+            if (permitirEditarIdentidad && dto.getExperienciaAnios() != null) staff.setExperienciaAnios(dto.getExperienciaAnios());
             if (dto.getIdEspecialidad() != null) {
                 EspecialidadModel especialidad = especialidadRepository.findById(dto.getIdEspecialidad())
                         .orElseThrow(() -> new IllegalArgumentException("No existe la especialidad con ID: " + dto.getIdEspecialidad()));
@@ -413,6 +446,42 @@ public class PerfilService {
         aplicarFotoFallbackSiFalta(staff);
         staff.setPortfolioImages(
                 staffPortfolioImageRepository.findByStaff_IdPersonaOrderByCreatedAtDesc(staff.getIdPersona())
+        );
+    }
+
+    private StaffListadoDTO aplicarFotoFallback(StaffListadoDTO staff) {
+        String fotoUrl = staff.fotoUrl();
+        return new StaffListadoDTO(
+                staff.idStaff(),
+                staff.idPersona(),
+                staff.nombre(),
+                staff.apellidos(),
+                staff.especialidad(),
+                fotoUrl == null || fotoUrl.isBlank() ? companyLogoUrl : fotoUrl,
+                staff.experienciaAnios(),
+                staff.activo()
+        );
+    }
+
+    private StaffDetalleBaseDTO aplicarFotoFallback(StaffDetalleBaseDTO staff) {
+        String fotoUrl = staff.fotoUrl();
+        return new StaffDetalleBaseDTO(
+                staff.idStaff(),
+                staff.idAuth(),
+                staff.rut(),
+                staff.nombre(),
+                staff.apellidos(),
+                staff.fechaNacimiento(),
+                staff.genero(),
+                staff.telefono(),
+                staff.emailContacto(),
+                staff.idEspecialidad(),
+                staff.especialidad(),
+                fotoUrl == null || fotoUrl.isBlank() ? companyLogoUrl : fotoUrl,
+                staff.cvUrl(),
+                staff.descripcionPerfil(),
+                staff.experienciaAnios(),
+                staff.activo()
         );
     }
 

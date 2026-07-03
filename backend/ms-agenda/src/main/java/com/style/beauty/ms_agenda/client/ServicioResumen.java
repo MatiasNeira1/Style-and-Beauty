@@ -20,9 +20,19 @@ public record ServicioResumen(
         Integer holguraMinutos,
 
         @JsonAlias({"precio_total", "precioTotal", "precio", "price"})
-        BigDecimal precioTotal
+        BigDecimal precioTotal,
+
+        @JsonAlias({"duracion_minutos_min", "duracionMinutosMin", "duracionMin"})
+        Integer duracionMinutosMin,
+
+        @JsonAlias({"duracion_minutos_max", "duracionMinutosMax", "duracionMax"})
+        Integer duracionMinutosMax
 ){
     public ServicioResumen(UUID idServicio, String nombre, String categoria, Integer duracionMinutos, Integer holguraMinutos) {
-        this(idServicio, nombre, categoria, duracionMinutos, holguraMinutos, null);
+        this(idServicio, nombre, categoria, duracionMinutos, holguraMinutos, null, null, null);
+    }
+
+    public ServicioResumen(UUID idServicio, String nombre, String categoria, Integer duracionMinutos, Integer holguraMinutos, BigDecimal precioTotal) {
+        this(idServicio, nombre, categoria, duracionMinutos, holguraMinutos, precioTotal, null, null);
     }
 }

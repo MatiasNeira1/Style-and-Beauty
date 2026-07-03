@@ -33,9 +33,9 @@ export const serviceCatalogService = {
     data: imageFormData(file),
     authRequired: true,
   }),
-  listProfessionalsByService: (id) => {
+  listProfessionalsByService: (id, options = {}) => {
     if (!isValidUuid(id)) return Promise.resolve([]);
-    return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/servicios/${id}/staff` });
+    return request({ baseURL: AGENDA_API_BASE_URL, url: `/api/agenda/servicios/${id}/staff`, signal: options.signal });
   },
   listCatalogStaffByService: (id) => {
     if (!isValidUuid(id)) return Promise.resolve([]);

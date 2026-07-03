@@ -62,6 +62,8 @@ function validateForm(values, isEditMode, options = {}) {
   const nextErrors = {};
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const strictStaffProfile = Boolean(options.strictStaffProfile);
+  const managedFields = new Set(options.managedByAdminFields || []);
+  const isManaged = (field) => managedFields.has(field);
 
   if (isBlank(values.rut)) {
     nextErrors.rut = 'El RUT es obligatorio';
@@ -71,11 +73,11 @@ function validateForm(values, isEditMode, options = {}) {
     nextErrors.rut = 'Ingresa un RUT valido';
   }
 
-  if (isBlank(values.nombre)) {
+  if (!isManaged('nombre') && isBlank(values.nombre)) {
     nextErrors.nombre = 'El nombre es obligatorio';
   }
 
-  if (strictStaffProfile && isBlank(values.apellidos)) {
+  if (!isManaged('apellidos') && strictStaffProfile && isBlank(values.apellidos)) {
     nextErrors.apellidos = 'Los apellidos son obligatorios';
   }
 
@@ -113,11 +115,11 @@ function validateForm(values, isEditMode, options = {}) {
     nextErrors.idEspecialidad = 'Selecciona una especialidad';
   }
 
-  if (strictStaffProfile && isBlank(values.experienciaAnios)) {
+  if (!isManaged('experienciaAnios') && strictStaffProfile && isBlank(values.experienciaAnios)) {
     nextErrors.experienciaAnios = 'Los anos de experiencia son obligatorios';
-  } else if (values.experienciaAnios && Number(values.experienciaAnios) < 0) {
+  } else if (!isManaged('experienciaAnios') && values.experienciaAnios && Number(values.experienciaAnios) < 0) {
     nextErrors.experienciaAnios = 'La experiencia no puede ser negativa';
-  } else if (values.experienciaAnios && Number.isNaN(Number(values.experienciaAnios))) {
+  } else if (!isManaged('experienciaAnios') && values.experienciaAnios && Number.isNaN(Number(values.experienciaAnios))) {
     nextErrors.experienciaAnios = 'Ingresa un numero valido';
   }
 
@@ -151,6 +153,7 @@ export function StaffFormModal({
   showPhotoField = true,
   showBioField = true,
   strictStaffProfileValidation = true,
+  managedByAdminFields = [],
 }) {
   const isEditMode = Boolean(initialData);
   const [formValues, setFormValues] = useState(() => valuesFromStaff(initialData, {
@@ -226,6 +229,7 @@ export function StaffFormModal({
     }
     const nextErrors = validateForm(cleanValues, isEditMode, {
       strictStaffProfile: strictStaffProfileValidation,
+      managedByAdminFields,
     });
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
@@ -253,6 +257,8 @@ export function StaffFormModal({
     setPhotoError('');
     onClose();
   };
+  const isManagedByAdmin = (field) => managedByAdminFields.includes(field);
+  const managedHint = 'Gestionado por administracion';
 
   return (
     <Modal open={open} title={isEditMode ? 'Editar Profesional' : 'Nuevo Profesional'} onClose={handleClose}>
@@ -293,8 +299,28 @@ export function StaffFormModal({
               onChange={updateField('rut', formatRut)}
               onBlur={() => setFormValues((current) => ({ ...current, rut: formatRut(current.rut) }))}
             />
-            <Input label="Nombre" id="staff-form-nombre" placeholder="Valentina" error={errors.nombre} value={formValues.nombre} onChange={updateField('nombre')} />
-            <Input label="Apellidos" id="staff-form-apellidos" placeholder="Rojas Soto" error={errors.apellidos} value={formValues.apellidos} onChange={updateField('apellidos')} />
+            <Input
+              label="Nombre"
+              id="staff-form-nombre"
+              placeholder="Valentina"
+              error={errors.nombre}
+              hint={isManagedByAdmin('nombre') ? managedHint : undefined}
+              value={formValues.nombre}
+              onChange={updateField('nombre')}
+              readOnly={isManagedByAdmin('nombre')}
+              aria-readonly={isManagedByAdmin('nombre') || undefined}
+            />
+            <Input
+              label="Apellidos"
+              id="staff-form-apellidos"
+              placeholder="Rojas Soto"
+              error={errors.apellidos}
+              hint={isManagedByAdmin('apellidos') ? managedHint : undefined}
+              value={formValues.apellidos}
+              onChange={updateField('apellidos')}
+              readOnly={isManagedByAdmin('apellidos')}
+              aria-readonly={isManagedByAdmin('apellidos') || undefined}
+            />
             <Input label="Fecha de nacimiento" id="staff-form-fecha" type="date" hint="Formato AAAA-MM-DD" error={errors.fechaNacimiento} value={formValues.fechaNacimiento} onChange={updateField('fechaNacimiento')} />
             <Input label="Genero" id="staff-form-genero" as="select" error={errors.genero} value={formValues.genero} onChange={updateField('genero')}>
               <option value="">Seleccionar</option>
@@ -345,7 +371,19 @@ export function StaffFormModal({
                 </option>
               ))}
             </Input>
-            <Input label="Anos de experiencia" id="staff-form-experiencia" type="number" min="0" placeholder="Ej. 4" error={errors.experienciaAnios} value={formValues.experienciaAnios} onChange={updateField('experienciaAnios')} />
+            <Input
+              label="Anos de experiencia"
+              id="staff-form-experiencia"
+              type="number"
+              min="0"
+              placeholder="Ej. 4"
+              error={errors.experienciaAnios}
+              hint={isManagedByAdmin('experienciaAnios') ? managedHint : undefined}
+              value={formValues.experienciaAnios}
+              onChange={updateField('experienciaAnios')}
+              readOnly={isManagedByAdmin('experienciaAnios')}
+              aria-readonly={isManagedByAdmin('experienciaAnios') || undefined}
+            />
           </div>
           {showBioField && (
             <Input

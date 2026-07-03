@@ -1,10 +1,12 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BarChart3,
   Bell,
   CalendarRange,
   CreditCard,
+  Image,
   LogOut,
   Menu,
   Package,
@@ -16,7 +18,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../store/AuthContext.jsx';
 import { profileService } from '../../services/profileService.js';
 import { useAdminDashboardMetrics } from '../../hooks/admin/useAdminDashboardMetrics.js';
@@ -38,6 +40,7 @@ const adminGroups = [
       { to: '/admin/inventario', label: 'Inventario', icon: Package },
       { to: '/admin/clientes', label: 'Usuarios', icon: Users },
       { to: '/admin/staff', label: 'Profesionales', icon: ShieldCheck },
+      { to: '/admin/imagenes', label: 'Imagenes', icon: Image },
     ],
   },
   {
@@ -57,7 +60,10 @@ export function AdminLayout() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationPanelStyle, setNotificationPanelStyle] = useState(null);
   const notificationsRef = useRef(null);
+  const notificationButtonRef = useRef(null);
+  const notificationPanelRef = useRef(null);
   const profileQuery = useQuery({
     queryKey: ['my-profile'],
     queryFn: profileService.getMyProfile,
@@ -142,6 +148,25 @@ export function AdminLayout() {
     return items;
   }, [dashboardQuery.metrics]);
   const hasNotifications = notificationItems.length > 0;
+  const updateNotificationPanelPosition = useCallback(() => {
+    const button = notificationButtonRef.current;
+    if (!button) return;
+
+    const rect = button.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const panelWidth = Math.min(360, Math.max(0, viewportWidth - 24));
+    const maxLeft = Math.max(12, viewportWidth - panelWidth - 12);
+    const left = Math.min(Math.max(12, rect.right - panelWidth), maxLeft);
+    const top = rect.bottom + 12;
+
+    setNotificationPanelStyle({
+      left: `${left}px`,
+      top: `${top}px`,
+      width: `${panelWidth}px`,
+      maxHeight: `${Math.max(180, viewportHeight - top - 16)}px`,
+    });
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -158,7 +183,9 @@ export function AdminLayout() {
     if (!notificationsOpen) return undefined;
 
     const handlePointerDown = (event) => {
-      if (!notificationsRef.current?.contains(event.target)) {
+      const clickedButton = notificationsRef.current?.contains(event.target);
+      const clickedPanel = notificationPanelRef.current?.contains(event.target);
+      if (!clickedButton && !clickedPanel) {
         setNotificationsOpen(false);
       }
     };
@@ -174,6 +201,18 @@ export function AdminLayout() {
     };
   }, [notificationsOpen]);
 
+  useEffect(() => {
+    if (!notificationsOpen) return undefined;
+
+    updateNotificationPanelPosition();
+    window.addEventListener('resize', updateNotificationPanelPosition);
+    window.addEventListener('scroll', updateNotificationPanelPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateNotificationPanelPosition);
+      window.removeEventListener('scroll', updateNotificationPanelPosition, true);
+    };
+  }, [notificationsOpen, updateNotificationPanelPosition]);
+
   const closeOverlay = () => {
     setIsOpen(false);
     setNotificationsOpen(false);
@@ -185,6 +224,45 @@ export function AdminLayout() {
     queryClient.clear();
     navigate('/login', { replace: true });
   };
+  const notificationPanel = notificationsOpen && typeof document !== 'undefined'
+    ? createPortal(
+      <div
+        id="admin-notification-panel"
+        className="admin-notification-panel"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="admin-notification-title"
+        ref={notificationPanelRef}
+        style={notificationPanelStyle || undefined}
+      >
+        <header>
+          <strong id="admin-notification-title">Notificaciones</strong>
+          <small>Reservas, inventario y alertas administrativas</small>
+        </header>
+        {dashboardQuery.isLoading ? (
+          <p className="admin-notification-empty">Cargando notificaciones...</p>
+        ) : hasNotifications ? (
+          <div className="admin-notification-list">
+            {notificationItems.map((item) => (
+              <article key={item.id} className={`admin-notification-item ${item.tone}`}>
+                <span aria-hidden="true" />
+                <div>
+                  <strong>{item.title}</strong>
+                  <small>{item.detail}</small>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="admin-notification-empty">No hay notificaciones pendientes.</p>
+        )}
+        <footer>
+          <small>Fuente actual: snapshot admin. Endpoint futuro sugerido: GET /api/admin/notificaciones.</small>
+        </footer>
+      </div>,
+      document.body,
+    )
+    : null;
 
   return (
     <section className="admin-layout">
@@ -264,39 +342,15 @@ export function AdminLayout() {
                 aria-label="Ver notificaciones"
                 aria-expanded={notificationsOpen}
                 aria-controls="admin-notification-panel"
-                onClick={() => setNotificationsOpen((current) => !current)}
+                ref={notificationButtonRef}
+                onClick={() => {
+                  updateNotificationPanelPosition();
+                  setNotificationsOpen((current) => !current);
+                }}
               >
                 <Bell size={18} />
                 {hasNotifications && <span>{notificationItems.length}</span>}
               </button>
-              {notificationsOpen && (
-                <div id="admin-notification-panel" className="admin-notification-panel" role="status">
-                  <header>
-                    <strong>Notificaciones</strong>
-                    <small>Reservas, inventario y alertas administrativas</small>
-                  </header>
-                  {dashboardQuery.isLoading ? (
-                    <p className="admin-notification-empty">Cargando notificaciones...</p>
-                  ) : hasNotifications ? (
-                    <div className="admin-notification-list">
-                      {notificationItems.map((item) => (
-                        <article key={item.id} className={`admin-notification-item ${item.tone}`}>
-                          <span aria-hidden="true" />
-                          <div>
-                            <strong>{item.title}</strong>
-                            <small>{item.detail}</small>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="admin-notification-empty">No hay notificaciones pendientes.</p>
-                  )}
-                  <footer>
-                    <small>Fuente actual: snapshot admin. Endpoint futuro sugerido: GET /api/admin/notificaciones.</small>
-                  </footer>
-                </div>
-              )}
             </div>
             <NavLink to="/admin/agenda" state={{ openNewReservation: true }} className="admin-quick-create">
               <Plus size={17} />
@@ -319,6 +373,7 @@ export function AdminLayout() {
         </main>
       </div>
 
+      {notificationPanel}
       {isOpen && <button type="button" className="admin-scrim" aria-label="Cerrar menu" onClick={() => setIsOpen(false)} />}
     </section>
   );

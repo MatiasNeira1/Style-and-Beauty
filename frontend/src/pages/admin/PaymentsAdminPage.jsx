@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { AdminPagination } from '../../components/admin/AdminPagination.jsx';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { paymentService } from '../../services/paymentService.js';
 import { CreditCard, DollarSign, ShieldCheck, WalletCards } from 'lucide-react';
@@ -7,6 +8,7 @@ import { AdminChartCard, AdminEmptyState, AdminErrorState, AdminKpiCard, AdminKp
 import { RevenueChart, ServiceDistributionChart } from '../../components/admin/AdminCharts.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
+import { compareNewestByFields, useAdminPagination } from '../../hooks/useAdminPagination.js';
 import { formatCurrencyCLP, formatDate } from '../../utils/adminFormatters.js';
 
 function getPaymentId(row) {
@@ -84,13 +86,21 @@ export function PaymentsAdminPage() {
   const { data = [], isLoading, isError, refetch } = useQuery({ queryKey: ['payments-admin'], queryFn: paymentService.listTransactions });
   const payments = useMemo(() => (Array.isArray(data) ? data : []), [data]);
   const paymentMethods = useMemo(() => [...new Set(payments.map(getMethod).filter(Boolean))], [payments]);
-  const filteredPayments = payments.filter((row) => {
+  const filteredPayments = useMemo(() => payments.filter((row) => {
     const paymentDate = getPaymentDate(row);
     const matchesStatus = statusFilter === 'TODOS' ? true : String(row.estado || '').toUpperCase() === statusFilter;
     const matchesMethod = methodFilter === 'TODOS' ? true : getMethod(row) === methodFilter;
     const matchesDate = dateFilter ? paymentDate && new Date(paymentDate).toISOString().slice(0, 10) === dateFilter : true;
     return matchesStatus && matchesMethod && matchesDate;
-  });
+  }).sort(compareNewestByFields(
+    ['createdAt', 'created_at', 'fechaCreacion', 'fecha_creacion', 'fechaPago', 'fecha_pago', 'transactionDate', 'updatedAt', 'updated_at'],
+    getPaymentId,
+  )), [dateFilter, methodFilter, payments, statusFilter]);
+  const hasActivePaymentFilters = Boolean(statusFilter !== 'TODOS' || methodFilter !== 'TODOS' || dateFilter);
+  const paymentPagination = useAdminPagination(
+    filteredPayments,
+    `${statusFilter}|${methodFilter}|${dateFilter}`,
+  );
 
   const summary = useMemo(() => {
     const paid = payments.filter(isPaid);
@@ -183,10 +193,12 @@ export function PaymentsAdminPage() {
       ) : (
         <DataTable
           compact
+          className="admin-list-table-card"
+          scrollClassName="admin-list-table-scroll"
           onRowClick={(payment) => setSelectedPayment(payment)}
           getRowKey={(payment, index) => getPaymentId(payment) || index}
           getRowLabel={(payment) => `Ver transaccion ${getPaymentId(payment) || ''}`}
-          emptyMessage="No hay transacciones para este filtro."
+          emptyMessage={hasActivePaymentFilters ? 'No encontramos resultados con los filtros seleccionados.' : 'No hay transacciones para mostrar.'}
           columns={[
             {
               key: 'orden',
@@ -202,7 +214,16 @@ export function PaymentsAdminPage() {
             { key: 'metodo', label: 'Metodo', render: (row) => getMethod(row) },
             { key: 'estado', label: 'Estado', render: (row) => <AdminStatusBadge status={row.estado || 'SIN_ESTADO'} /> },
           ]}
-          rows={filteredPayments}
+          rows={paymentPagination.paginatedItems}
+          toolbar={(
+            <AdminPagination
+              page={paymentPagination.page}
+              pageSize={paymentPagination.pageSize}
+              totalItems={paymentPagination.totalItems}
+              itemLabel="pagos"
+              onPageChange={paymentPagination.setPage}
+            />
+          )}
         />
       )}
 

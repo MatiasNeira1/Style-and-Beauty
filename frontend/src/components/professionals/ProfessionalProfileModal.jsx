@@ -1,11 +1,27 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Clock, Image as ImageIcon, MapPin, Signal, Sparkles, X } from 'lucide-react';
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { professionalTheme, statusTone } from '../../utils/professionalTheme.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
+import { agendaService } from '../../services/agendaService.js';
+import { serviceCatalogService } from '../../services/serviceCatalogService.js';
+import { STAFF_QUERY_OPTIONS, staffService } from '../../services/staffService.js';
+import { addDays, filterBookableSlots, formatLocalDate, minBookingDate, parseLocalDate } from '../../utils/bookingDateRules.js';
+
+const INITIAL_WORK_DAYS = 3;
+const WORK_DAYS_INCREMENT = 3;
+const MAX_WORK_DAYS = 9;
+const SEARCH_LIMIT_DAYS = 21;
+const AVAILABILITY_QUERY_OPTIONS = {
+  staleTime: 3 * 60 * 1000,
+  gcTime: 10 * 60 * 1000,
+  refetchOnWindowFocus: false,
+  retry: 1,
+};
 
 function normalize(value = '') {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -30,23 +46,31 @@ function serviceName(service) {
     || service?.descripcion;
 }
 
+function serviceId(service) {
+  if (typeof service === 'string') return '';
+  return service?.id_servicio || service?.idServicio || service?.id || '';
+}
+
+function staffId(professional) {
+  return professional?.idPersona
+    || professional?.idStaff
+    || professional?.id
+    || professional?.raw?.idPersona
+    || professional?.raw?.idStaff
+    || professional?.raw?.id
+    || '';
+}
+
+function isActiveService(service) {
+  return service?.activo !== false;
+}
+
 function servicesFor(professional) {
   const assignedServices = professional?.serviciosAsociados || professional?.servicios || professional?.services || [];
   const normalizedServices = Array.isArray(assignedServices)
-    ? assignedServices.map(serviceName).filter(Boolean)
+    ? assignedServices.filter((service) => serviceName(service))
     : [];
-
-  if (normalizedServices.length > 0) {
-    return normalizedServices;
-  }
-
-  const text = normalize(`${professional?.especialidad || ''} ${professional?.descripcion || ''}`);
-  if (text.includes('maquill')) return ['Maquillaje social', 'Maquillaje de novia', 'Preparación de piel'];
-  if (text.includes('manicur') || text.includes('nail')) return ['Manicure premium', 'Esmaltado permanente', 'Nail art'];
-  if (text.includes('capilar') || text.includes('color') || text.includes('estilista')) return ['Corte y brushing', 'Coloración', 'Tratamientos capilares'];
-  if (text.includes('maso')) return ['Masaje relajante', 'Drenaje', 'Ritual spa'];
-  if (text.includes('corporal') || text.includes('kines')) return ['Drenaje linfático', 'Modelación corporal', 'Tratamientos reafirmantes'];
-  return ['Limpieza facial', 'Hidratación profunda', 'Glow facial'];
+  return normalizedServices;
 }
 
 function specialtiesFor(professional) {
@@ -71,8 +95,86 @@ function yearsWithUs(professional) {
   return `${(numericId % 4) + 1} años junto a Style & Beauty`;
 }
 
-function isBookableHour(value) {
-  return /^\d{1,2}:\d{2}$/.test(String(value || '').trim());
+function formatSlotTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+}
+
+function formatAvailabilityDayLabel(value) {
+  const date = parseLocalDate(value);
+  if (!date) return value;
+  const label = new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: '2-digit', month: 'long' }).format(date);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function sortSlots(slots = []) {
+  return [...slots].sort((left, right) => new Date(left.inicio).getTime() - new Date(right.inicio).getTime());
+}
+
+function normalizeBookableSlots(slots = []) {
+  const unique = new Map();
+  filterBookableSlots(Array.isArray(slots) ? slots : []).forEach((slot) => {
+    if (slot?.inicio && !unique.has(slot.inicio)) unique.set(slot.inicio, slot);
+  });
+  return sortSlots([...unique.values()]);
+}
+
+function publicStatus(value) {
+  if (!value || normalize(value).includes('consultar disponibilidad')) return 'Agenda según servicio';
+  return value;
+}
+
+async function loadUpcomingAvailability({ idStaff, idServicio, requiredDays, signal }) {
+  const start = minBookingDate();
+  const maxDate = addDays(start, SEARCH_LIMIT_DAYS);
+  const seenDates = new Set();
+  const days = [];
+
+  for (let cursor = start; cursor <= maxDate && days.length < requiredDays; cursor = addDays(cursor, 7)) {
+    const week = await agendaService.consultarDisponibilidadSemanal({
+      idStaff,
+      idServicio,
+      fecha: formatLocalDate(cursor),
+      signal,
+    });
+
+    const rows = Array.isArray(week) ? week : [];
+    rows
+      .slice()
+      .sort((left, right) => String(left.fecha).localeCompare(String(right.fecha)))
+      .forEach((row) => {
+        if (days.length >= requiredDays) return;
+
+        const date = parseLocalDate(row?.fecha);
+        if (!date || date < start || date > maxDate) return;
+        const dateKey = formatLocalDate(date);
+        const slots = normalizeBookableSlots(row?.slots);
+        if (seenDates.has(dateKey) || slots.length === 0) return;
+
+        seenDates.add(dateKey);
+        days.push({
+          fecha: dateKey,
+          label: formatAvailabilityDayLabel(dateKey),
+          slots,
+        });
+      });
+  }
+
+  return {
+    days,
+    canLoadMore: days.length >= requiredDays && requiredDays < MAX_WORK_DAYS,
+  };
+}
+
+function mergeServices(...groups) {
+  const map = new Map();
+  groups.flat().filter(Boolean).forEach((service) => {
+    const id = serviceId(service);
+    const key = id || normalize(serviceName(service));
+    if (key && !map.has(key)) map.set(key, service);
+  });
+  return [...map.values()];
 }
 
 export function ProfessionalProfileModal({ professional, onClose }) {
@@ -90,6 +192,92 @@ export function ProfessionalProfileModal({ professional, onClose }) {
     : (professional?.proximasHoras?.length ? professional.proximasHoras : ['Consultar disponibilidad']);
   const hasPortfolio = portfolio.length > 0;
   useBodyScrollLock(Boolean(professional));
+
+  const servicesQuery = useQuery({
+    queryKey: ['services'],
+    queryFn: serviceCatalogService.listServices,
+    enabled: Boolean(professional),
+    staleTime: 1000 * 60 * 5,
+  });
+  const activeServices = useMemo(() => (
+    Array.isArray(servicesQuery.data) ? servicesQuery.data.filter(isActiveService) : []
+  ), [servicesQuery.data]);
+  const serviceStaffQueries = useQueries({
+    queries: activeServices.map((service) => {
+      const id = serviceId(service);
+      return {
+        queryKey: ['service-staff', id],
+        queryFn: ({ signal }) => serviceCatalogService.listProfessionalsByService(id, { signal }),
+        enabled: Boolean(professional && selectedStaffId && serviceCatalogService.isValidUuid(id)),
+        staleTime: 1000 * 60 * 5,
+      };
+    }),
+  });
+  const relationServices = useMemo(() => {
+    if (!selectedStaffId) return [];
+    return activeServices.filter((service, index) => {
+      const rows = serviceStaffQueries[index]?.data;
+      return Array.isArray(rows) && rows.some((member) => staffId(member) === selectedStaffId);
+    });
+  }, [activeServices, selectedStaffId, serviceStaffQueries]);
+  const declaredServiceObjects = useMemo(() => (
+    declaredServices.map((item) => {
+      if (typeof item !== 'string' && serviceId(item) && isActiveService(item)) return item;
+      const name = serviceName(item);
+      return activeServices.find((service) => normalize(serviceName(service)) === normalize(name));
+    }).filter(Boolean)
+  ), [activeServices, declaredServices]);
+  const services = useMemo(() => mergeServices(relationServices, declaredServiceObjects), [declaredServiceObjects, relationServices]);
+  const servicesLoading = servicesQuery.isLoading || serviceStaffQueries.some((query) => query.isLoading || query.isFetching);
+  const servicesError = services.length === 0 && (servicesQuery.isError || serviceStaffQueries.some((query) => query.isError));
+  const selectedService = services.find((service) => serviceId(service) === selectedServiceId) || null;
+  const availabilityQuery = useQuery({
+    queryKey: ['professional-upcoming-availability', selectedStaffId, selectedServiceId, visibleWorkDays],
+    queryFn: ({ signal }) => loadUpcomingAvailability({
+      idStaff: selectedStaffId,
+      idServicio: selectedServiceId,
+      requiredDays: visibleWorkDays,
+      signal,
+    }),
+    enabled: Boolean(
+      professional
+        && staffService.isValidUuid(selectedStaffId)
+        && serviceCatalogService.isValidUuid(selectedServiceId)
+        && !servicesLoading
+        && !servicesError
+    ),
+    ...AVAILABILITY_QUERY_OPTIONS,
+  });
+  const availabilityDays = availabilityQuery.data?.days || [];
+  const availabilityLoading = availabilityQuery.isLoading || availabilityQuery.isFetching;
+  const availabilityError = availabilityQuery.isError;
+  const selectedServiceLabel = selectedService ? serviceName(selectedService) : '';
+  const selectedSlotLabel = selectedAvailabilitySlot
+    ? `${formatAvailabilityDayLabel(selectedAvailabilitySlot.date)} · ${formatSlotTime(selectedAvailabilitySlot.inicio)}`
+    : '';
+  const canLoadMoreAvailability = Boolean(availabilityQuery.data?.canLoadMore);
+
+  useEffect(() => {
+    if (!professional) return;
+    setSelectedAvailabilitySlot(null);
+    setVisibleWorkDays(INITIAL_WORK_DAYS);
+  }, [professional]);
+
+  useEffect(() => {
+    const firstId = serviceId(services[0]);
+    if (!firstId) {
+      setSelectedServiceId('');
+      return;
+    }
+    if (!services.some((service) => serviceId(service) === selectedServiceId)) {
+      setSelectedServiceId(firstId);
+    }
+  }, [selectedServiceId, services]);
+
+  useEffect(() => {
+    setSelectedAvailabilitySlot(null);
+    setVisibleWorkDays(INITIAL_WORK_DAYS);
+  }, [selectedServiceId, selectedStaffId]);
 
   useEffect(() => {
     if (!professional) return undefined;
@@ -117,7 +305,7 @@ export function ProfessionalProfileModal({ professional, onClose }) {
         >
           <motion.article
             className="professional-profile-modal"
-            style={{ '--specialty-color': professional.colorEspecialidad || theme.color, '--specialty-soft': theme.soft }}
+            style={{ '--specialty-color': professionalView?.colorEspecialidad || theme.color, '--specialty-soft': theme.soft }}
             initial={{ opacity: 0, y: 28, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
@@ -134,16 +322,20 @@ export function ProfessionalProfileModal({ professional, onClose }) {
 
             <div className="professional-modal-hero">
               <div className="professional-modal-photo">
-                <SafeImage src={professional.imageUrl || professional.fotoUrl} alt={professional.fullName} fallback="/logo.jpg" />
+                <SafeImage src={professionalView.imageUrl || professionalView.fotoUrl} alt={professionalView.fullName} fallback="/logo.jpg" />
               </div>
               <div className="professional-modal-intro">
-                <span className="professional-specialty"><Sparkles size={14} /> {professional.especialidad || professional.cargo}</span>
-                <h2 id="professional-profile-title">{professional.fullName}</h2>
+                <span className="professional-specialty"><Sparkles size={14} /> {professionalView.especialidad || professionalView.cargo}</span>
+                <h2 id="professional-profile-title">{professionalView.fullName}</h2>
                 <p>{biography}</p>
                 <div className="professional-modal-meta">
-                  <span><MapPin size={15} /> Sucursal: {professional.sucursal || 'Providencia'}</span>
-                  <span className={`professional-modal-status ${tone}`}><Signal size={15} /> Estado: {professional.estado || 'Disponible hoy'}</span>
-                  <span><Clock size={15} /> Próxima hora: {nextHour}</span>
+                  <span><MapPin size={15} /> Sucursal: {professionalView.sucursal || 'Providencia'}</span>
+                  <span className={`professional-modal-status ${tone}`}><Signal size={15} /> Estado: {statusLabel}</span>
+                  {nextHour ? (
+                    <span><Clock size={15} /> Próximas horas disponibles: {nextHour}</span>
+                  ) : (
+                    <span><Clock size={15} /> Horarios reales por servicio</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -156,7 +348,7 @@ export function ProfessionalProfileModal({ professional, onClose }) {
                   {curriculum}
                 </p>
                 <div className="professional-modal-stat">
-                  <strong>{yearsWithUs(professional)}</strong>
+                  <strong>{yearsWithUs(professionalView)}</strong>
                   <span>Experiencia curada para clientas que buscan precision, calma y resultados consistentes.</span>
                 </div>
               </section>
@@ -164,9 +356,27 @@ export function ProfessionalProfileModal({ professional, onClose }) {
               <section>
                 <span className="modal-section-kicker">Servicios</span>
                 <h3>Especialidades y servicios</h3>
-                <div className="professional-modal-services">
-                  {specialties.map((specialty, index) => <span key={`specialty-${specialty}-${index}`}>{specialty}</span>)}
-                  {services.map((service, index) => <span key={`service-${service}-${index}`}>{service}</span>)}
+                <div className="professional-service-groups">
+                  <div className="professional-service-group">
+                    <span className="professional-group-label">Especialidad</span>
+                    {primarySpecialty ? (
+                      <span className="professional-specialty-badge">{primarySpecialty}</span>
+                    ) : (
+                      <p>Especialidad no configurada.</p>
+                    )}
+                  </div>
+                  <div className="professional-service-group">
+                    <span className="professional-group-label">Servicios disponibles</span>
+                    <div className="professional-service-chip-list">
+                      {servicesLoading && <span>Servicios activos en consulta</span>}
+                      {!servicesLoading && services.map((service, index) => (
+                        <span key={`service-${serviceId(service) || index}`}>{serviceName(service)}</span>
+                      ))}
+                    </div>
+                    {!servicesLoading && services.length === 0 && (
+                      <p>Este profesional aún no tiene servicios asociados.</p>
+                    )}
+                  </div>
                 </div>
               </section>
             </div>
@@ -177,7 +387,7 @@ export function ProfessionalProfileModal({ professional, onClose }) {
                   <SafeImage
                     key={image || `portfolio-${index}`}
                     src={image}
-                    alt={`Trabajo realizado ${index + 1} por ${professional.fullName}`}
+                    alt={`Trabajo realizado ${index + 1} por ${professionalView.fullName}`}
                     fallback="/logo.jpg"
                   />
                 ))
@@ -190,24 +400,119 @@ export function ProfessionalProfileModal({ professional, onClose }) {
               )}
             </section>
 
-            <div className="professional-modal-footer">
-              <div>
-                <span className="modal-section-kicker">Horarios disponibles</span>
-                <div className="professional-modal-hours">
-                  {displayedHours.map((hour) => {
-                    const todayStr = new Date().toLocaleDateString('sv-SE');
-                    return isBookableHour(hour) ? (
+            <div className={`professional-modal-footer ${showBookingAction ? '' : 'is-single'}`}>
+              <div className="professional-availability-main">
+                <span className="modal-section-kicker">Disponibilidad real</span>
+                <div className="professional-availability-controls">
+                  {services.length > 1 && (
+                    <label>
+                      <span>Servicio</span>
+                      <select value={selectedServiceId} onChange={(event) => {
+                        setSelectedServiceId(event.target.value);
+                      }}>
+                        {services.map((service) => (
+                          <option key={serviceId(service)} value={serviceId(service)}>{serviceName(service)}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+
+                {servicesError && <p className="professional-availability-message is-error">No pudimos validar servicios activos asociados.</p>}
+                {!servicesLoading && services.length === 0 && (
+                  <p className="professional-availability-message">Este profesional no tiene servicios activos asociados para consultar agenda.</p>
+                )}
+                {services.length > 0 && (
+                  <div className="professional-availability-panel">
+                    <div className="professional-availability-heading">
+                      <h3>Próximas horas disponibles</h3>
+                      <p>Buscamos los próximos días reales de atención del profesional.</p>
+                    </div>
+
+                    {availabilityLoading && (
+                      <p className="professional-availability-message">Buscando las próximas horas disponibles...</p>
+                    )}
+                    {availabilityError && (
+                      <p className="professional-availability-message is-error">No pudimos consultar disponibilidad en este momento. Intenta nuevamente.</p>
+                    )}
+                    {!availabilityLoading && !availabilityError && availabilityDays.length === 0 && (
+                      <p className="professional-availability-message">No encontramos horas disponibles en los próximos días de atención. Prueba con otro servicio o revisa más horarios.</p>
+                    )}
+                    {!availabilityLoading && !availabilityError && availabilityDays.length > 0 && (
+                      <div className="professional-availability-days" data-lenis-prevent>
+                        {availabilityDays.map((day) => (
+                          <section className="professional-availability-day" key={day.fecha}>
+                            <h4>{day.label}</h4>
+                            {day.slots.length === 0 ? (
+                              <p>Sin horas disponibles</p>
+                            ) : (
+                              <div className="professional-slot-grid">
+                                {day.slots.map((slot) => {
+                                  const isSelected = selectedAvailabilitySlot?.inicio === slot.inicio;
+                                  return (
+                                    <button
+                                      type="button"
+                                      className={`professional-slot-chip ${isSelected ? 'is-selected' : ''}`}
+                                      key={`${day.fecha}-${slot.inicio}`}
+                                      onClick={() => setSelectedAvailabilitySlot({ ...slot, date: day.fecha, service: selectedService })}
+                                    >
+                                      {formatSlotTime(slot.inicio)}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </section>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              {showBookingAction && (
+                <aside className="professional-availability-summary">
+                  <span className="modal-section-kicker">Resumen</span>
+                  <div className="professional-summary-list">
+                    <div>
+                      <span>Servicio seleccionado</span>
+                      <strong>{selectedServiceLabel || 'Selecciona un servicio'}</strong>
+                    </div>
+                    <div>
+                      <span>Día y hora</span>
+                      <strong>{selectedSlotLabel || 'Selecciona una hora disponible'}</strong>
+                    </div>
+                  </div>
+                  <div className="professional-modal-actions">
+                    {canLoadMoreAvailability && (
+                      <button
+                        type="button"
+                        className="professional-availability-button"
+                        onClick={() => setVisibleWorkDays((current) => Math.min(current + WORK_DAYS_INCREMENT, MAX_WORK_DAYS))}
+                        disabled={availabilityLoading}
+                      >
+                        Ver más horarios
+                      </button>
+                    )}
+                    {selectedAvailabilitySlot ? (
                       <Link
-                        key={hour}
                         to="/reservar"
                         state={{
-                          professional,
-                          selectedHour: `${todayStr}T${hour}:00`,
-                          selectedDate: todayStr
+                          professional: professionalView,
+                          service: selectedAvailabilitySlot.service,
+                          selectedHour: selectedAvailabilitySlot.inicio,
+                          selectedDate: selectedAvailabilitySlot.date,
+                          availabilitySelection: {
+                            idStaff: selectedStaffId,
+                            idServicio: selectedServiceId,
+                            fecha: selectedAvailabilitySlot.date,
+                            horaInicio: selectedAvailabilitySlot.inicio,
+                            duracionServicioMin: selectedAvailabilitySlot.duracionServicioMin,
+                          },
                         }}
+                        className="professional-modal-booking"
                         onClick={onClose}
                       >
-                        {hour}
+                        <CalendarDays size={17} /> Reservar hora
                       </Link>
                     ) : (
                       <span key={hour}>{hour}</span>

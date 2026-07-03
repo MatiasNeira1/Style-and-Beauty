@@ -10,6 +10,8 @@ import com.style.beauty.ms_cliente.service.FirebaseClientRoleService;
 import com.style.beauty.ms_cliente.service.FirebaseTokenVerifier;
 import com.style.beauty.ms_cliente.service.PerfilService;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/perfiles")
 public class PerfilController {
+    private static final Logger log = LoggerFactory.getLogger(PerfilController.class);
 
     @Autowired
     private PerfilService perfilService;
@@ -126,10 +129,47 @@ public class PerfilController {
         }
     }
 
-    // Listar Clientes (Endpoint Restringido)
+    // Listar staff publico liviano.
     @GetMapping("/staff")
     public ResponseEntity<?> listarStaffPublico() {
-        return ResponseEntity.ok(perfilService.listarTodoElStaff());
+        long start = System.nanoTime();
+        try {
+            return ResponseEntity.ok(perfilService.listarStaffLigero());
+        } finally {
+            logEndpointDuration("/api/perfiles/staff", start);
+        }
+    }
+
+    @GetMapping("/staff/listado")
+    public ResponseEntity<?> listarStaffPublicoLigero() {
+        long start = System.nanoTime();
+        try {
+            return ResponseEntity.ok(perfilService.listarStaffLigero());
+        } finally {
+            logEndpointDuration("/api/perfiles/staff/listado", start);
+        }
+    }
+
+    @GetMapping("/staff/resumen")
+    public ResponseEntity<?> resumenStaffPublico() {
+        long start = System.nanoTime();
+        try {
+            return ResponseEntity.ok(perfilService.obtenerResumenStaff());
+        } finally {
+            logEndpointDuration("/api/perfiles/staff/resumen", start);
+        }
+    }
+
+    @GetMapping("/staff/{idStaff}/detalle")
+    public ResponseEntity<?> obtenerDetalleStaffPublico(@PathVariable UUID idStaff) {
+        long start = System.nanoTime();
+        try {
+            return ResponseEntity.ok(perfilService.obtenerDetalleStaff(idStaff));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        } finally {
+            logEndpointDuration("/api/perfiles/staff/{idStaff}/detalle", start);
+        }
     }
 
     @GetMapping("/staff/{idStaff}")
@@ -256,6 +296,11 @@ public class PerfilController {
 
     private ResponseEntity<Map<String, String>> mensaje(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(Map.of("message", message));
+    }
+
+    private void logEndpointDuration(String endpoint, long startNanos) {
+        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+        log.info("{} respondio en {} ms", endpoint, elapsedMs);
     }
 
     private ResponseEntity<Map<String, String>> profileNotFound(ProfileNotFoundException e) {

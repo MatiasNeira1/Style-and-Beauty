@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Camera, Edit3, Package, PackagePlus, Plus, Power, PowerOff, Save, Search, Trash2, X } from 'lucide-react';
+import { AdminPagination } from '../../components/admin/AdminPagination.jsx';
 import { DataTable } from '../../components/admin/DataTable.jsx';
 import { AdminKpiCard, AdminKpiGrid, AdminPageHeader, AdminSkeleton, AdminStatusBadge } from '../../components/admin/AdminPrimitives.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Input } from '../../components/ui/Input.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
+import { compareNewestByFields, useAdminPagination } from '../../hooks/useAdminPagination.js';
 import { inventoryService } from '../../services/inventoryService.js';
 import { formatCurrencyCLP } from '../../utils/adminFormatters.js';
 import {
@@ -363,8 +365,16 @@ export function InventoryAdminPage() {
                   ? stockStatus === STOCK_STATUS.OUT_OF_STOCK
                   : stockStatus === STOCK_STATUS.INCONSISTENT;
       return matchesSearch && matchesCategory && matchesStatus;
-    });
+    }).sort(compareNewestByFields(
+      ['updatedAt', 'updated_at', 'fechaActualizacion', 'fecha_actualizacion', 'modifiedAt', 'createdAt', 'created_at', 'fechaCreacion', 'fecha_creacion', 'fechaRegistro'],
+      getProductId,
+    ));
   }, [categoryFilter, inventorySearch, products, statusFilter, stockByProduct]);
+  const hasActiveInventoryFilters = Boolean(inventorySearch || categoryFilter !== 'TODAS' || statusFilter !== 'TODOS');
+  const productPagination = useAdminPagination(
+    filteredProducts,
+    `${inventorySearch}|${categoryFilter}|${statusFilter}`,
+  );
 
   const invalidateInventory = () => {
     queryClient.invalidateQueries({ queryKey: ['inventory-admin'] });
@@ -804,6 +814,8 @@ export function InventoryAdminPage() {
       ) : (
         <DataTable
           compact
+          className="admin-list-table-card"
+          scrollClassName="admin-list-table-scroll"
           onRowClick={openProductDetail}
           getRowKey={(product) => getProductId(product)}
           getRowLabel={(product) => `Ver detalle de ${product.nombre || 'producto'}`}
@@ -840,8 +852,17 @@ export function InventoryAdminPage() {
             },
             { key: 'activo', label: 'Estado', render: (row) => <AdminStatusBadge status={row.activo ? 'ACTIVO' : 'INACTIVO'} /> },
           ]}
-          rows={filteredProducts}
-          emptyMessage="No hay productos registrados. Agrega un producto para comenzar a controlar inventario."
+          rows={productPagination.paginatedItems}
+          emptyMessage={hasActiveInventoryFilters ? 'No encontramos resultados con los filtros seleccionados.' : 'No hay productos registrados. Agrega un producto para comenzar a controlar inventario.'}
+          toolbar={(
+            <AdminPagination
+              page={productPagination.page}
+              pageSize={productPagination.pageSize}
+              totalItems={productPagination.totalItems}
+              itemLabel="productos"
+              onPageChange={productPagination.setPage}
+            />
+          )}
         />
       )}
 

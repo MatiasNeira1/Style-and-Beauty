@@ -5,9 +5,11 @@ import { BalancedGrid } from '../../components/ui/BalancedGrid.jsx';
 import { Loader } from '../../components/ui/Loader.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { SafeImage } from '../../components/ui/SafeImage.jsx';
+import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
 import { catalogService } from '../../services/catalogService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
 import { formatCLP } from '../../utils/priceUtils.js';
+import { assetFallback, assetImage, assetPosition, serviceCategoryAssetKey } from '../../utils/siteVisualAssets.js';
 
 function servicePrice(service) {
   const value = service.precio_total ?? service.precio ?? service.price;
@@ -21,6 +23,7 @@ function serviceImage(service) {
 
 export function ServiceCategoryPage() {
   const { categoria } = useParams();
+  const visualAssetsQuery = useSiteVisualAssets();
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
   const categoryCoversQuery = useQuery({ queryKey: ['service-category-covers'], queryFn: catalogService.getCategoryCovers });
 
@@ -31,15 +34,18 @@ export function ServiceCategoryPage() {
   const categoryServices = grouped[category] || [];
   const categoryCovers = Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : [];
   const categoryCoverUrl = categoryCovers.find((cover) => categorySlug(cover?.categoria) === categorySlug(category))?.imagenUrl || '';
+  const categoryAssetKey = serviceCategoryAssetKey(category);
+  const categoryAsset = categoryAssetKey ? visualAssetsQuery.getAsset(categoryAssetKey) : null;
+  const categoryHeroImage = assetImage(categoryAsset, categoryCoverUrl || assetFallback(categoryAssetKey || 'services.hero'));
 
   return (
     <>
       <section
         className="page-hero page-hero-services page-hero-category"
-        style={{ '--page-hero-position': 'center' }}
+        style={{ '--page-hero-position': assetPosition(categoryAsset, 'center') }}
       >
         <SafeImage
-          src={categoryCoverUrl || '/hero-salon.png'}
+          src={categoryHeroImage}
           fallback="/hero-salon.png"
           alt=""
           aria-hidden="true"

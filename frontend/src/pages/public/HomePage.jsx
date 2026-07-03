@@ -9,9 +9,10 @@ import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useProfessionals } from '../../hooks/useProfessionals.js';
+import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
 import { catalogService } from '../../services/catalogService.js';
-import { HOME_HERO_IMAGE_URL } from '../../services/apiClient.js';
 import { formatCLP } from '../../utils/priceUtils.js';
+import { assetFallback, assetImage, assetPosition, cssImageUrl } from '../../utils/siteVisualAssets.js';
 
 const features = [
   { icon: Sparkles, title: 'Diagnóstico experto', desc: 'Servicios seleccionados por necesidad, estilo y rutina personal.' },
@@ -84,17 +85,23 @@ function featuredServices(services) {
 
 export function HomePage() {
   const professionalsQuery = useProfessionals();
+  const visualAssetsQuery = useSiteVisualAssets();
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
   const services = useMemo(() => (
     featuredServices(Array.isArray(servicesQuery.data) ? servicesQuery.data : [])
   ), [servicesQuery.data]);
+  const homeHeroAsset = visualAssetsQuery.getAsset('home.hero');
+  const homeHeroImage = assetImage(homeHeroAsset, assetFallback('home.hero'));
 
   return (
     <>
       {/* ═══ HERO ═══ */}
       <section
         className="hero-section"
-        style={{ '--home-hero-image': `url("${HOME_HERO_IMAGE_URL}")` }}
+        style={{
+          '--home-hero-image': cssImageUrl(homeHeroImage),
+          '--home-hero-position': assetPosition(homeHeroAsset, 'center 28%'),
+        }}
       >
         <div className="hero-media" />
         <div className="hero-overlay" />

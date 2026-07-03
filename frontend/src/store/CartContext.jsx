@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage.js';
 import { RESERVATION_DEPOSIT_CLP, getCartPaymentTotal } from '../utils/priceUtils.js';
 
@@ -53,20 +53,39 @@ function sanitizeCartItems(items, now = Date.now()) {
   return { items: nextItems, removedLegacy };
 }
 
+function clearPendingReservationState() {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.removeItem('reservaPendiente');
+}
+
 export function CartProvider({ children }) {
   const [items, setItems] = useLocalStorage(CART_STORAGE_KEY, []);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCartOpen, setCartOpenState] = useState(false);
   const [lastCartError, setLastCartError] = useState('');
+  const cartTriggerRef = useRef(null);
+
+  const setIsCartOpen = useCallback((nextOpen) => {
+    setCartOpenState((current) => {
+      const resolved = typeof nextOpen === 'function' ? nextOpen(current) : nextOpen;
+      if (resolved && typeof document !== 'undefined') {
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement !== document.body && typeof activeElement.focus === 'function') {
+          cartTriggerRef.current = activeElement;
+        }
+      }
+      return resolved;
+    });
+  }, []);
 
   useEffect(() => {
     LEGACY_CART_KEYS.forEach((key) => window.localStorage.removeItem(key));
     try {
       const pending = JSON.parse(window.sessionStorage.getItem('reservaPendiente') || 'null');
       if (pending && (!pending.idServicio || !pending.profesionalSeleccionado || !pending.fechaSeleccionada || !pending.horarioSeleccionado)) {
-        window.sessionStorage.removeItem('reservaPendiente');
+        clearPendingReservationState();
       }
     } catch {
-      window.sessionStorage.removeItem('reservaPendiente');
+      clearPendingReservationState();
     }
   }, []);
 
@@ -101,7 +120,7 @@ export function CartProvider({ children }) {
       return [...current, { ...product, quantity: 1 }];
     });
     setIsCartOpen(true);
-  }, [setItems]);
+  }, [setItems, setIsCartOpen]);
 
   const addReservationItem = useCallback((reservation) => {
     setLastCartError('');
@@ -154,10 +173,15 @@ export function CartProvider({ children }) {
   }, [items]);
 
   const removeItem = useCallback((id) => {
-    setItems((current) => current.filter((item) => item.id !== id));
+    setItems((current) => {
+      const nextItems = current.filter((item) => item.id !== id);
+      if (!nextItems.some(isReservation)) clearPendingReservationState();
+      return nextItems;
+    });
   }, [setItems]);
 
   const removeReservationItems = useCallback(() => {
+    clearPendingReservationState();
     setItems((current) => current.filter((item) => !isReservation(item)));
   }, [setItems]);
 
@@ -171,7 +195,10 @@ export function CartProvider({ children }) {
     ));
   }, [setItems]);
 
-  const clearCart = useCallback(() => setItems([]), [setItems]);
+  const clearCart = useCallback(() => {
+    clearPendingReservationState();
+    setItems([]);
+  }, [setItems]);
   const total = getCartPaymentTotal(items);
 
   const value = useMemo(
@@ -187,11 +214,12 @@ export function CartProvider({ children }) {
       total,
       isCartOpen,
       setIsCartOpen,
+      cartTriggerRef,
       lastCartError,
       setLastCartError,
       cartSchemaVersion: CART_SCHEMA_VERSION,
     }),
-    [items, addItem, addReservationItem, hasReservationForService, removeItem, removeReservationItems, updateQuantity, clearCart, total, isCartOpen, lastCartError],
+    [items, addItem, addReservationItem, hasReservationForService, removeItem, removeReservationItems, updateQuantity, clearCart, total, isCartOpen, setIsCartOpen, lastCartError],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
