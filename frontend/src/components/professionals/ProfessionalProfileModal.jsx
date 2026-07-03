@@ -3,19 +3,34 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CalendarDays, Clock, Image as ImageIcon, MapPin, Signal, Sparkles, X } from 'lucide-react';
+import {
+  CalendarDays,
+  Clock,
+  Image as ImageIcon,
+  MapPin,
+  Signal,
+  Sparkles,
+  X,
+} from 'lucide-react';
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { professionalTheme, statusTone } from '../../utils/professionalTheme.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { agendaService } from '../../services/agendaService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
-import { STAFF_QUERY_OPTIONS, staffService } from '../../services/staffService.js';
-import { addDays, filterBookableSlots, formatLocalDate, minBookingDate, parseLocalDate } from '../../utils/bookingDateRules.js';
+import { staffService } from '../../services/staffService.js';
+import {
+  addDays,
+  filterBookableSlots,
+  formatLocalDate,
+  minBookingDate,
+  parseLocalDate,
+} from '../../utils/bookingDateRules.js';
 
 const INITIAL_WORK_DAYS = 3;
 const WORK_DAYS_INCREMENT = 3;
 const MAX_WORK_DAYS = 9;
 const SEARCH_LIMIT_DAYS = 21;
+
 const AVAILABILITY_QUERY_OPTIONS = {
   staleTime: 3 * 60 * 1000,
   gcTime: 10 * 60 * 1000,
@@ -24,31 +39,50 @@ const AVAILABILITY_QUERY_OPTIONS = {
 };
 
 function normalize(value = '') {
-  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return String(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 function portfolioFor(professional) {
-  const images = professional?.portfolioImages || professional?.portfolio || professional?.trabajos || professional?.galeria || [];
+  const images = professional?.portfolioImages
+    || professional?.portfolio
+    || professional?.trabajos
+    || professional?.galeria
+    || [];
+
   const normalized = Array.isArray(images) ? images : [];
+
   return normalized
-    .map((image) => (typeof image === 'string' ? image : image?.urlFoto || image?.url || image?.imageUrl || image?.src))
+    .map((image) => (
+      typeof image === 'string'
+        ? image
+        : image?.urlFoto || image?.url || image?.imageUrl || image?.src
+    ))
     .filter(Boolean);
 }
 
 function serviceName(service) {
   if (typeof service === 'string') return service;
+
   return service?.nombre
     || service?.nombreServicio
     || service?.nombre_servicio
     || service?.name
     || service?.label
     || service?.titulo
-    || service?.descripcion;
+    || service?.descripcion
+    || '';
 }
 
 function serviceId(service) {
   if (typeof service === 'string') return '';
-  return service?.id_servicio || service?.idServicio || service?.id || '';
+
+  return service?.id_servicio
+    || service?.idServicio
+    || service?.id
+    || '';
 }
 
 function staffId(professional) {
@@ -66,11 +100,14 @@ function isActiveService(service) {
 }
 
 function servicesFor(professional) {
-  const assignedServices = professional?.serviciosAsociados || professional?.servicios || professional?.services || [];
-  const normalizedServices = Array.isArray(assignedServices)
+  const assignedServices = professional?.serviciosAsociados
+    || professional?.servicios
+    || professional?.services
+    || [];
+
+  return Array.isArray(assignedServices)
     ? assignedServices.filter((service) => serviceName(service))
     : [];
-  return normalizedServices;
 }
 
 function specialtiesFor(professional) {
@@ -79,16 +116,23 @@ function specialtiesFor(professional) {
     professional?.especialidad,
     professional?.cargo,
   ]
-    .map((value) => (typeof value === 'string' ? value : value?.nombre || value?.name || value?.label))
+    .map((value) => (
+      typeof value === 'string'
+        ? value
+        : value?.nombre || value?.name || value?.label
+    ))
     .filter(Boolean);
 
   return Array.from(new Set(values.map(String)));
 }
 
 function yearsWithUs(professional) {
-  const explicitYears = professional?.experienciaAnios || professional?.aniosExperiencia || professional?.anosExperiencia;
+  const explicitYears = professional?.experienciaAnios
+    || professional?.aniosExperiencia
+    || professional?.anosExperiencia;
+
   if (explicitYears) {
-    return `${explicitYears} anos de experiencia`;
+    return `${explicitYears} años de experiencia`;
   }
 
   const numericId = Number(String(professional?.id || '').match(/\d+/)?.[0] || 1);
@@ -98,40 +142,69 @@ function yearsWithUs(professional) {
 function formatSlotTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+
+  return new Intl.DateTimeFormat('es-CL', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
 }
 
 function formatAvailabilityDayLabel(value) {
   const date = parseLocalDate(value);
   if (!date) return value;
-  const label = new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: '2-digit', month: 'long' }).format(date);
+
+  const label = new Intl.DateTimeFormat('es-CL', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+  }).format(date);
+
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function sortSlots(slots = []) {
-  return [...slots].sort((left, right) => new Date(left.inicio).getTime() - new Date(right.inicio).getTime());
+  return [...slots].sort(
+    (left, right) => new Date(left.inicio).getTime() - new Date(right.inicio).getTime(),
+  );
 }
 
 function normalizeBookableSlots(slots = []) {
   const unique = new Map();
+
   filterBookableSlots(Array.isArray(slots) ? slots : []).forEach((slot) => {
-    if (slot?.inicio && !unique.has(slot.inicio)) unique.set(slot.inicio, slot);
+    if (slot?.inicio && !unique.has(slot.inicio)) {
+      unique.set(slot.inicio, slot);
+    }
   });
+
   return sortSlots([...unique.values()]);
 }
 
 function publicStatus(value) {
-  if (!value || normalize(value).includes('consultar disponibilidad')) return 'Agenda según servicio';
+  if (!value || normalize(value).includes('consultar disponibilidad')) {
+    return 'Agenda según servicio';
+  }
+
   return value;
 }
 
-async function loadUpcomingAvailability({ idStaff, idServicio, requiredDays, signal }) {
+async function loadUpcomingAvailability({
+  idStaff,
+  idServicio,
+  requiredDays,
+  signal,
+}) {
   const start = minBookingDate();
   const maxDate = addDays(start, SEARCH_LIMIT_DAYS);
   const seenDates = new Set();
   const days = [];
 
-  for (let cursor = start; cursor <= maxDate && days.length < requiredDays; cursor = addDays(cursor, 7)) {
+  for (
+    let cursor = start;
+    cursor <= maxDate && days.length < requiredDays;
+    cursor = addDays(cursor, 7)
+  ) {
     const week = await agendaService.consultarDisponibilidadSemanal({
       idStaff,
       idServicio,
@@ -140,6 +213,7 @@ async function loadUpcomingAvailability({ idStaff, idServicio, requiredDays, sig
     });
 
     const rows = Array.isArray(week) ? week : [];
+
     rows
       .slice()
       .sort((left, right) => String(left.fecha).localeCompare(String(right.fecha)))
@@ -148,8 +222,10 @@ async function loadUpcomingAvailability({ idStaff, idServicio, requiredDays, sig
 
         const date = parseLocalDate(row?.fecha);
         if (!date || date < start || date > maxDate) return;
+
         const dateKey = formatLocalDate(date);
         const slots = normalizeBookableSlots(row?.slots);
+
         if (seenDates.has(dateKey) || slots.length === 0) return;
 
         seenDates.add(dateKey);
@@ -169,61 +245,87 @@ async function loadUpcomingAvailability({ idStaff, idServicio, requiredDays, sig
 
 function mergeServices(...groups) {
   const map = new Map();
+
   groups.flat().filter(Boolean).forEach((service) => {
     const id = serviceId(service);
     const key = id || normalize(serviceName(service));
-    if (key && !map.has(key)) map.set(key, service);
+
+    if (key && !map.has(key)) {
+      map.set(key, service);
+    }
   });
+
   return [...map.values()];
 }
 
-export function ProfessionalProfileModal({ professional, onClose, showBookingAction = true }) {
-  const selectedStaffId = staffId(professional);
-  const detailQuery = useQuery({
-    queryKey: ['professional-detail', selectedStaffId],
-    queryFn: () => staffService.getStaffById(selectedStaffId),
-    enabled: Boolean(professional && staffService.isValidUuid(selectedStaffId)),
-    ...STAFF_QUERY_OPTIONS,
-  });
-  const professionalView = useMemo(() => {
-    if (!professional || !detailQuery.data) return professional;
-    const detail = detailQuery.data;
-    const nombre = detail.nombre || professional.nombre;
-    const apellidos = detail.apellidos || professional.apellidos;
-    return {
-      ...professional,
-      raw: { ...professional.raw, ...detail },
-      id: detail.idStaff || detail.idPersona || professional.id,
-      idStaff: detail.idStaff || professional.idStaff,
-      idPersona: detail.idPersona || detail.idStaff || professional.idPersona,
-      nombre,
-      apellidos,
-      fullName: `${nombre || ''} ${apellidos || ''}`.trim() || professional.fullName,
-      cargo: detail.especialidad || professional.cargo,
-      especialidad: detail.especialidad || professional.especialidad,
-      descripcion: detail.descripcionPerfil || professional.descripcion,
-      trayectoria: detail.descripcionPerfil || professional.trayectoria,
-      biografiaProfesional: detail.descripcionPerfil || professional.biografiaProfesional,
-      perfilCurricular: detail.descripcionPerfil || professional.perfilCurricular,
-      fotoUrl: detail.fotoUrl || professional.fotoUrl,
-      experienciaAnios: detail.experienciaAnios ?? professional.experienciaAnios,
-      portfolioImages: Array.isArray(detail.portfolioImages) ? detail.portfolioImages : professional.portfolioImages,
-    };
-  }, [detailQuery.data, professional]);
-  const theme = professionalTheme(professionalView?.especialidad);
-  const statusLabel = publicStatus(professionalView?.estado);
-  const tone = statusTone(statusLabel);
-  const portfolio = useMemo(() => portfolioFor(professionalView), [professionalView]);
-  const declaredServices = useMemo(() => servicesFor(professionalView), [professionalView]);
-  const specialties = useMemo(() => specialtiesFor(professionalView), [professionalView]);
-  const primarySpecialty = specialties[0] || '';
-  const nextHour = professionalView?.proximaHora || professionalView?.proximasHoras?.[0] || '';
-  const biography = professionalView?.biografiaProfesional || professionalView?.descripcionPerfil || professionalView?.descripcion || 'Atencion personalizada con diagnostico, tecnica cuidada y acabado profesional.';
-  const curriculum = professionalView?.perfilCurricular || professionalView?.trayectoria || professionalView?.descripcionPerfil || `${professionalView?.fullName || 'El profesional'} combina tecnica, criterio estetico y una experiencia cercana para crear resultados pulidos y naturales.`;
+function buildProfessionalView(professional) {
+  const fullName = professional?.fullName
+    || professional?.nombreCompleto
+    || [professional?.nombre, professional?.apellidos || professional?.apellido]
+      .filter(Boolean)
+      .join(' ')
+    || 'Profesional Style & Beauty';
+
+  const imageUrl = professional?.imageUrl
+    || professional?.fotoUrl
+    || professional?.imagenUrl
+    || professional?.avatarUrl
+    || professional?.foto
+    || '';
+
+  return {
+    ...professional,
+    fullName,
+    imageUrl,
+    fotoUrl: professional?.fotoUrl || imageUrl,
+    especialidad: professional?.especialidad || professional?.cargo || 'Especialidad no configurada',
+    cargo: professional?.cargo || professional?.especialidad || 'Profesional',
+    sucursal: professional?.sucursal || professional?.ubicacion || 'Providencia',
+    colorEspecialidad: professional?.colorEspecialidad,
+  };
+}
+
+export function ProfessionalProfileModal({ professional, onClose }) {
   const [selectedServiceId, setSelectedServiceId] = useState('');
-  const [visibleWorkDays, setVisibleWorkDays] = useState(INITIAL_WORK_DAYS);
   const [selectedAvailabilitySlot, setSelectedAvailabilitySlot] = useState(null);
+  const [visibleWorkDays, setVisibleWorkDays] = useState(INITIAL_WORK_DAYS);
+
+  const professionalView = useMemo(
+    () => buildProfessionalView(professional),
+    [professional],
+  );
+
+  const theme = professionalTheme(professionalView?.especialidad);
+  const tone = statusTone(professional?.estado);
+  const portfolio = useMemo(() => portfolioFor(professional), [professional]);
+
+  // Servicios declarados directamente en el profesional.
+  // Importante: esta variable NO debe llamarse "services" para evitar duplicidad.
+  const declaredServices = useMemo(() => servicesFor(professional), [professional]);
+
+  const specialties = useMemo(() => specialtiesFor(professional), [professional]);
+  const primarySpecialty = specialties[0] || professionalView?.especialidad || '';
+
+  const selectedStaffId = useMemo(() => staffId(professional), [professional]);
+
+  const nextHour = professional?.proximaHora
+    || professional?.proximasHoras?.[0]
+    || 'Consultar disponibilidad';
+
+  const statusLabel = publicStatus(professional?.estado || nextHour);
+
+  const biography = professional?.biografiaProfesional
+    || professional?.descripcionPerfil
+    || professional?.descripcion
+    || 'Atención personalizada con diagnóstico, técnica cuidada y acabado profesional.';
+
+  const curriculum = professional?.perfilCurricular
+    || professional?.trayectoria
+    || professional?.descripcionPerfil
+    || `${professionalView.fullName || 'El profesional'} combina técnica, criterio estético y una experiencia cercana para crear resultados pulidos y naturales.`;
+
   const hasPortfolio = portfolio.length > 0;
+
   useBodyScrollLock(Boolean(professional));
 
   const servicesQuery = useQuery({
@@ -232,40 +334,82 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
     enabled: Boolean(professional),
     staleTime: 1000 * 60 * 5,
   });
+
   const activeServices = useMemo(() => (
-    Array.isArray(servicesQuery.data) ? servicesQuery.data.filter(isActiveService) : []
+    Array.isArray(servicesQuery.data)
+      ? servicesQuery.data.filter(isActiveService)
+      : []
   ), [servicesQuery.data]);
+
   const serviceStaffQueries = useQueries({
     queries: activeServices.map((service) => {
       const id = serviceId(service);
+
       return {
         queryKey: ['service-staff', id],
         queryFn: ({ signal }) => serviceCatalogService.listProfessionalsByService(id, { signal }),
-        enabled: Boolean(professional && selectedStaffId && serviceCatalogService.isValidUuid(id)),
+        enabled: Boolean(
+          professional
+          && selectedStaffId
+          && serviceCatalogService.isValidUuid(id),
+        ),
         staleTime: 1000 * 60 * 5,
       };
     }),
   });
+
   const relationServices = useMemo(() => {
     if (!selectedStaffId) return [];
+
     return activeServices.filter((service, index) => {
       const rows = serviceStaffQueries[index]?.data;
-      return Array.isArray(rows) && rows.some((member) => staffId(member) === selectedStaffId);
+      return Array.isArray(rows)
+        && rows.some((member) => staffId(member) === selectedStaffId);
     });
   }, [activeServices, selectedStaffId, serviceStaffQueries]);
+
   const declaredServiceObjects = useMemo(() => (
     declaredServices.map((item) => {
-      if (typeof item !== 'string' && serviceId(item) && isActiveService(item)) return item;
+      if (typeof item !== 'string' && serviceId(item) && isActiveService(item)) {
+        return item;
+      }
+
       const name = serviceName(item);
-      return activeServices.find((service) => normalize(serviceName(service)) === normalize(name));
+
+      return activeServices.find(
+        (service) => normalize(serviceName(service)) === normalize(name),
+      );
     }).filter(Boolean)
   ), [activeServices, declaredServices]);
-  const services = useMemo(() => mergeServices(relationServices, declaredServiceObjects), [declaredServiceObjects, relationServices]);
-  const servicesLoading = servicesQuery.isLoading || serviceStaffQueries.some((query) => query.isLoading || query.isFetching);
-  const servicesError = services.length === 0 && (servicesQuery.isError || serviceStaffQueries.some((query) => query.isError));
-  const selectedService = services.find((service) => serviceId(service) === selectedServiceId) || null;
+
+  // Lista final/canónica de servicios disponibles para el profesional.
+  const services = useMemo(
+    () => mergeServices(relationServices, declaredServiceObjects),
+    [declaredServiceObjects, relationServices],
+  );
+
+  const servicesLoading = servicesQuery.isLoading
+    || serviceStaffQueries.some((query) => query.isLoading || query.isFetching);
+
+  const servicesError = services.length === 0
+    && (
+      servicesQuery.isError
+      || serviceStaffQueries.some((query) => query.isError)
+    );
+
+  const selectedService = services.find(
+    (service) => serviceId(service) === selectedServiceId,
+  ) || null;
+
+  const showBookingAction = services.length > 0;
+
   const availabilityQuery = useQuery({
-    queryKey: ['professional-upcoming-availability', selectedStaffId, selectedServiceId, visibleWorkDays],
+    queryKey: [
+      'professional-upcoming-availability',
+      selectedStaffId,
+      selectedServiceId,
+      visibleWorkDays,
+    ],
     queryFn: ({ signal }) => loadUpcomingAvailability({
       idStaff: selectedStaffId,
       idServicio: selectedServiceId,
@@ -277,31 +421,38 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
         && staffService.isValidUuid(selectedStaffId)
         && serviceCatalogService.isValidUuid(selectedServiceId)
         && !servicesLoading
-        && !servicesError
+        && !servicesError,
     ),
     ...AVAILABILITY_QUERY_OPTIONS,
   });
+
   const availabilityDays = availabilityQuery.data?.days || [];
   const availabilityLoading = availabilityQuery.isLoading || availabilityQuery.isFetching;
   const availabilityError = availabilityQuery.isError;
+
   const selectedServiceLabel = selectedService ? serviceName(selectedService) : '';
+
   const selectedSlotLabel = selectedAvailabilitySlot
     ? `${formatAvailabilityDayLabel(selectedAvailabilitySlot.date)} · ${formatSlotTime(selectedAvailabilitySlot.inicio)}`
     : '';
+
   const canLoadMoreAvailability = Boolean(availabilityQuery.data?.canLoadMore);
 
   useEffect(() => {
     if (!professional) return;
+
     setSelectedAvailabilitySlot(null);
     setVisibleWorkDays(INITIAL_WORK_DAYS);
   }, [professional]);
 
   useEffect(() => {
     const firstId = serviceId(services[0]);
+
     if (!firstId) {
       setSelectedServiceId('');
       return;
     }
+
     if (!services.some((service) => serviceId(service) === selectedServiceId)) {
       setSelectedServiceId(firstId);
     }
@@ -316,7 +467,9 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
     if (!professional) return undefined;
 
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') onClose?.();
+      if (event.key === 'Escape') {
+        onClose?.();
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -338,7 +491,10 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
         >
           <motion.article
             className="professional-profile-modal"
-            style={{ '--specialty-color': professionalView?.colorEspecialidad || theme.color, '--specialty-soft': theme.soft }}
+            style={{
+              '--specialty-color': professionalView?.colorEspecialidad || theme.color,
+              '--specialty-soft': theme.soft,
+            }}
             initial={{ opacity: 0, y: 28, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 18, scale: 0.98 }}
@@ -349,25 +505,55 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
             aria-labelledby="professional-profile-title"
             data-lenis-prevent
           >
-            <button type="button" className="professional-modal-close" onClick={onClose} aria-label="Cerrar perfil">
+            <button
+              type="button"
+              className="professional-modal-close"
+              onClick={onClose}
+              aria-label="Cerrar perfil"
+            >
               <X size={18} />
             </button>
 
             <div className="professional-modal-hero">
               <div className="professional-modal-photo">
-                <SafeImage src={professionalView.imageUrl || professionalView.fotoUrl} alt={professionalView.fullName} fallback="/logo.jpg" />
+                <SafeImage
+                  src={professionalView.imageUrl || professionalView.fotoUrl}
+                  alt={professionalView.fullName}
+                  fallback="/logo.jpg"
+                />
               </div>
+
               <div className="professional-modal-intro">
-                <span className="professional-specialty"><Sparkles size={14} /> {professionalView.especialidad || professionalView.cargo}</span>
+                <span className="professional-specialty">
+                  <Sparkles size={14} />
+                  {professionalView.especialidad || professionalView.cargo}
+                </span>
+
                 <h2 id="professional-profile-title">{professionalView.fullName}</h2>
+
                 <p>{biography}</p>
+
                 <div className="professional-modal-meta">
-                  <span><MapPin size={15} /> Sucursal: {professionalView.sucursal || 'Providencia'}</span>
-                  <span className={`professional-modal-status ${tone}`}><Signal size={15} /> Estado: {statusLabel}</span>
+                  <span>
+                    <MapPin size={15} />
+                    Sucursal: {professionalView.sucursal || 'Providencia'}
+                  </span>
+
+                  <span className={`professional-modal-status ${tone}`}>
+                    <Signal size={15} />
+                    Estado: {statusLabel}
+                  </span>
+
                   {nextHour ? (
-                    <span><Clock size={15} /> Próximas horas disponibles: {nextHour}</span>
+                    <span>
+                      <Clock size={15} />
+                      Próximas horas disponibles: {nextHour}
+                    </span>
                   ) : (
-                    <span><Clock size={15} /> Horarios reales por servicio</span>
+                    <span>
+                      <Clock size={15} />
+                      Horarios reales por servicio
+                    </span>
                   )}
                 </div>
               </div>
@@ -377,35 +563,45 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
               <section>
                 <span className="modal-section-kicker">Trayectoria</span>
                 <h3>Perfil curricular</h3>
-                <p>
-                  {curriculum}
-                </p>
+
+                <p>{curriculum}</p>
+
                 <div className="professional-modal-stat">
                   <strong>{yearsWithUs(professionalView)}</strong>
-                  <span>Experiencia curada para clientas que buscan precision, calma y resultados consistentes.</span>
+                  <span>
+                    Experiencia curada para clientas que buscan precisión, calma y resultados consistentes.
+                  </span>
                 </div>
               </section>
 
               <section>
                 <span className="modal-section-kicker">Servicios</span>
                 <h3>Especialidades y servicios</h3>
+
                 <div className="professional-service-groups">
                   <div className="professional-service-group">
                     <span className="professional-group-label">Especialidad</span>
+
                     {primarySpecialty ? (
                       <span className="professional-specialty-badge">{primarySpecialty}</span>
                     ) : (
                       <p>Especialidad no configurada.</p>
                     )}
                   </div>
+
                   <div className="professional-service-group">
                     <span className="professional-group-label">Servicios disponibles</span>
+
                     <div className="professional-service-chip-list">
                       {servicesLoading && <span>Servicios activos en consulta</span>}
+
                       {!servicesLoading && services.map((service, index) => (
-                        <span key={`service-${serviceId(service) || index}`}>{serviceName(service)}</span>
+                        <span key={`service-${serviceId(service) || index}`}>
+                          {serviceName(service)}
+                        </span>
                       ))}
                     </div>
+
                     {!servicesLoading && services.length === 0 && (
                       <p>Este profesional aún no tiene servicios asociados.</p>
                     )}
@@ -414,7 +610,10 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
               </section>
             </div>
 
-            <section className="professional-modal-gallery" aria-label="Galería de trabajos realizados">
+            <section
+              className="professional-modal-gallery"
+              aria-label="Galería de trabajos realizados"
+            >
               {hasPortfolio ? (
                 portfolio.map((image, index) => (
                   <SafeImage
@@ -428,7 +627,7 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                 <div className="professional-modal-empty-gallery">
                   <ImageIcon size={24} />
                   <strong>Portafolio pendiente</strong>
-                  <span>Las imagenes publicadas por el profesional apareceran aqui.</span>
+                  <span>Las imágenes publicadas por el profesional aparecerán aquí.</span>
                 </div>
               )}
             </section>
@@ -436,25 +635,42 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
             <div className={`professional-modal-footer ${showBookingAction ? '' : 'is-single'}`}>
               <div className="professional-availability-main">
                 <span className="modal-section-kicker">Disponibilidad real</span>
+
                 <div className="professional-availability-controls">
                   {services.length > 1 && (
                     <label>
                       <span>Servicio</span>
-                      <select value={selectedServiceId} onChange={(event) => {
-                        setSelectedServiceId(event.target.value);
-                      }}>
+                      <select
+                        value={selectedServiceId}
+                        onChange={(event) => {
+                          setSelectedServiceId(event.target.value);
+                        }}
+                      >
                         {services.map((service) => (
-                          <option key={serviceId(service)} value={serviceId(service)}>{serviceName(service)}</option>
+                          <option
+                            key={serviceId(service)}
+                            value={serviceId(service)}
+                          >
+                            {serviceName(service)}
+                          </option>
                         ))}
                       </select>
                     </label>
                   )}
                 </div>
 
-                {servicesError && <p className="professional-availability-message is-error">No pudimos validar servicios activos asociados.</p>}
-                {!servicesLoading && services.length === 0 && (
-                  <p className="professional-availability-message">Este profesional no tiene servicios activos asociados para consultar agenda.</p>
+                {servicesError && (
+                  <p className="professional-availability-message is-error">
+                    No pudimos validar servicios activos asociados.
+                  </p>
                 )}
+
+                {!servicesLoading && services.length === 0 && (
+                  <p className="professional-availability-message">
+                    Este profesional no tiene servicios activos asociados para consultar agenda.
+                  </p>
+                )}
+
                 {services.length > 0 && (
                   <div className="professional-availability-panel">
                     <div className="professional-availability-heading">
@@ -463,31 +679,51 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                     </div>
 
                     {availabilityLoading && (
-                      <p className="professional-availability-message">Buscando las próximas horas disponibles...</p>
+                      <p className="professional-availability-message">
+                        Buscando las próximas horas disponibles...
+                      </p>
                     )}
+
                     {availabilityError && (
-                      <p className="professional-availability-message is-error">No pudimos consultar disponibilidad en este momento. Intenta nuevamente.</p>
+                      <p className="professional-availability-message is-error">
+                        No pudimos consultar disponibilidad en este momento. Intenta nuevamente.
+                      </p>
                     )}
+
                     {!availabilityLoading && !availabilityError && availabilityDays.length === 0 && (
-                      <p className="professional-availability-message">No encontramos horas disponibles en los próximos días de atención. Prueba con otro servicio o revisa más horarios.</p>
+                      <p className="professional-availability-message">
+                        No encontramos horas disponibles en los próximos días de atención.
+                        Prueba con otro servicio o revisa más horarios.
+                      </p>
                     )}
+
                     {!availabilityLoading && !availabilityError && availabilityDays.length > 0 && (
                       <div className="professional-availability-days" data-lenis-prevent>
                         {availabilityDays.map((day) => (
-                          <section className="professional-availability-day" key={day.fecha}>
+                          <section
+                            className="professional-availability-day"
+                            key={day.fecha}
+                          >
                             <h4>{day.label}</h4>
+
                             {day.slots.length === 0 ? (
                               <p>Sin horas disponibles</p>
                             ) : (
                               <div className="professional-slot-grid">
                                 {day.slots.map((slot) => {
-                                  const isSelected = selectedAvailabilitySlot?.inicio === slot.inicio;
+                                  const isSelected = selectedAvailabilitySlot?.inicio === slot.inicio
+                                    && selectedAvailabilitySlot?.date === day.fecha;
+
                                   return (
                                     <button
                                       type="button"
                                       className={`professional-slot-chip ${isSelected ? 'is-selected' : ''}`}
                                       key={`${day.fecha}-${slot.inicio}`}
-                                      onClick={() => setSelectedAvailabilitySlot({ ...slot, date: day.fecha, service: selectedService })}
+                                      onClick={() => setSelectedAvailabilitySlot({
+                                        ...slot,
+                                        date: day.fecha,
+                                        service: selectedService,
+                                      })}
                                     >
                                       {formatSlotTime(slot.inicio)}
                                     </button>
@@ -502,30 +738,37 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                   </div>
                 )}
               </div>
+
               {showBookingAction && (
                 <aside className="professional-availability-summary">
                   <span className="modal-section-kicker">Resumen</span>
+
                   <div className="professional-summary-list">
                     <div>
                       <span>Servicio seleccionado</span>
                       <strong>{selectedServiceLabel || 'Selecciona un servicio'}</strong>
                     </div>
+
                     <div>
                       <span>Día y hora</span>
                       <strong>{selectedSlotLabel || 'Selecciona una hora disponible'}</strong>
                     </div>
                   </div>
+
                   <div className="professional-modal-actions">
                     {canLoadMoreAvailability && (
                       <button
                         type="button"
                         className="professional-availability-button"
-                        onClick={() => setVisibleWorkDays((current) => Math.min(current + WORK_DAYS_INCREMENT, MAX_WORK_DAYS))}
+                        onClick={() => setVisibleWorkDays((current) => (
+                          Math.min(current + WORK_DAYS_INCREMENT, MAX_WORK_DAYS)
+                        ))}
                         disabled={availabilityLoading}
                       >
                         Ver más horarios
                       </button>
                     )}
+
                     {selectedAvailabilitySlot ? (
                       <Link
                         to="/reservar"
@@ -545,11 +788,17 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
                         className="professional-modal-booking"
                         onClick={onClose}
                       >
-                        <CalendarDays size={17} /> Reservar hora
+                        <CalendarDays size={17} />
+                        Reservar hora
                       </Link>
                     ) : (
-                      <button type="button" className="professional-modal-booking is-disabled" disabled>
-                        <CalendarDays size={17} /> Reservar hora
+                      <button
+                        type="button"
+                        className="professional-modal-booking"
+                        disabled
+                      >
+                        <CalendarDays size={17} />
+                        Reservar hora
                       </button>
                     )}
                   </div>
@@ -560,6 +809,6 @@ export function ProfessionalProfileModal({ professional, onClose, showBookingAct
         </motion.div>
       )}
     </AnimatePresence>,
-    document.body
+    document.body,
   );
 }
