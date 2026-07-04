@@ -10,16 +10,10 @@ import { categorySlug, groupByCategory } from '../../utils/categoryUtils.js';
 import {
   assetFallback,
   assetPosition,
-  hasActiveAssetImage,
   preloadImageUrls,
   resolveVisualAssetImage,
-  serviceCategoryAssetKey,
   visualAssetsInitialLoading,
 } from '../../utils/siteVisualAssets.js';
-
-function serviceImage(service) {
-  return service?.imageUrl || service?.imagenUrl || service?.imagen_url || service?.imagen || service?.fotoUrl || '';
-}
 
 export function ServicesPage() {
   const visualAssetsQuery = useSiteVisualAssets();
@@ -39,7 +33,7 @@ export function ServicesPage() {
     isLoading: visualAssetsLoading,
   }), [servicesHeroAsset, visualAssetsLoading]);
   const categoryPreloadUrls = useMemo(() => {
-    if (servicesQuery.isLoading || visualAssetsLoading || categoryCoversLoading) return [];
+    if (servicesQuery.isLoading || categoryCoversLoading) return [];
 
     const coversByCategory = categoryCovers.reduce((acc, cover) => {
       if (cover?.categoria && cover?.imagenUrl) acc[categorySlug(cover.categoria)] = cover.imagenUrl;
@@ -47,25 +41,13 @@ export function ServicesPage() {
     }, {});
 
     return Object.entries(groupByCategory(services))
-      .map(([category, categoryServices]) => {
-        const assetKey = serviceCategoryAssetKey(category);
-        const asset = assetKey ? visualAssetsQuery.assetsByKey[assetKey] : null;
-        const resolved = resolveVisualAssetImage({
-          asset,
-          imageUrl: coversByCategory[categorySlug(category)] || serviceImage(categoryServices[0]),
-          fallback: assetFallback(assetKey || 'services.hero'),
-          isLoading: !hasActiveAssetImage(asset) && (visualAssetsLoading || categoryCoversLoading),
-        });
-        return resolved.src;
-      })
+      .map(([category]) => coversByCategory[categorySlug(category)])
       .filter(Boolean);
   }, [
     categoryCovers,
     categoryCoversLoading,
     services,
     servicesQuery.isLoading,
-    visualAssetsLoading,
-    visualAssetsQuery.assetsByKey,
   ]);
 
   useEffect(() => {
@@ -115,8 +97,6 @@ export function ServicesPage() {
           <CategoryGrid
             services={services}
             categoryCovers={categoryCovers}
-            visualAssetsByKey={visualAssetsQuery.assetsByKey}
-            visualAssetsLoading={visualAssetsLoading}
             categoryCoversLoading={categoryCoversLoading}
           />
         )}

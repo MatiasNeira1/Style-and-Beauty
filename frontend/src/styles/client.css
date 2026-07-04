@@ -657,6 +657,20 @@
   width: 100%;
 }
 
+.booking-category-image-placeholder {
+  align-content: center;
+  background: linear-gradient(135deg, rgba(255, 248, 244, 0.96), rgba(251, 207, 232, 0.22));
+  color: var(--color-primary-strong);
+  display: grid;
+  justify-items: center;
+}
+
+.booking-category-image-placeholder span {
+  font-family: var(--font-serif);
+  font-size: clamp(2.1rem, 8vw, 3.4rem);
+  line-height: 1;
+}
+
 .booking-service-image {
   aspect-ratio: 16 / 9;
   border-radius: 8px;

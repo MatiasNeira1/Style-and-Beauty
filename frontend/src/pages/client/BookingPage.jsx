@@ -27,10 +27,8 @@ import { RESERVATION_DEPOSIT_CLP, formatCLP } from '../../utils/priceUtils.js';
 import {
   assetFallback,
   assetPosition,
-  hasActiveAssetImage,
   preloadImageUrls,
   resolveVisualAssetImage,
-  serviceCategoryAssetKey,
   visualAssetsInitialLoading,
 } from '../../utils/siteVisualAssets.js';
 
@@ -445,21 +443,14 @@ export function BookingPage() {
     return [...grouped.values()]
       .map((category) => {
         const first = category.services[0];
-        const assetKey = serviceCategoryAssetKey(category.name);
-        const visualAsset = assetKey ? visualAssetsQuery.assetsByKey[assetKey] : null;
-        const waitForAdminOrCover = !hasActiveAssetImage(visualAsset) && (visualAssetsLoading || categoryCoversLoading);
-        const resolvedImage = resolveVisualAssetImage({
-          asset: visualAsset,
-          imageUrl: category.cover?.imagenUrl || serviceImage(first),
-          fallback: assetFallback(assetKey || 'services.hero'),
-          isLoading: waitForAdminOrCover,
-        });
+        const coverUrl = category.cover?.imagenUrl || '';
+        const imagePending = categoryCoversLoading && !coverUrl;
 
         return {
           ...category,
-          image: resolvedImage.src,
-          imagePending: resolvedImage.isPending,
-          imagePosition: assetPosition(visualAsset, 'center'),
+          image: coverUrl,
+          imagePending,
+          imagePosition: 'center',
           description: category.cover?.descripcion || CATEGORY_COPY[category.key] || serviceDescription(first),
           count: category.services.length,
         };
@@ -475,8 +466,6 @@ export function BookingPage() {
     categoryCovers,
     categoryCoversLoading,
     services,
-    visualAssetsLoading,
-    visualAssetsQuery.assetsByKey,
   ]);
 
   const categoryServices = useMemo(() => (
@@ -1361,7 +1350,7 @@ function CategoryGrid({ categories, selected, onSelect }) {
               aria-hidden="true"
               style={{ '--category-image-position': category.imagePosition }}
             />
-          ) : (
+          ) : category.image ? (
             <SafeImage
               src={category.image}
               alt={category.name}
@@ -1372,6 +1361,13 @@ function CategoryGrid({ categories, selected, onSelect }) {
               height={360}
               style={{ '--category-image-position': category.imagePosition }}
             />
+          ) : (
+            <div
+              className="booking-category-image booking-category-image-placeholder"
+              aria-hidden="true"
+            >
+              <span>{category.name.slice(0, 1).toUpperCase()}</span>
+            </div>
           )}
           <span className="card-kicker">{category.count} servicios</span>
           <strong>{category.name}</strong>
