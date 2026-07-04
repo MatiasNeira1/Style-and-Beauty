@@ -1247,6 +1247,10 @@ img { max-width: 100%; display: block; }
   min-width: 0;
 }
 
+.register-field--email {
+  grid-column: 1 / -1;
+}
+
 .register-field span {
   color: var(--color-ink-soft);
   font-size: 0.78rem;
@@ -1281,6 +1285,7 @@ img { max-width: 100%; display: block; }
   background: transparent;
   border: 0;
   color: var(--color-ink);
+  max-width: none;
   min-height: 3.05rem;
   min-width: 0;
   outline: none;

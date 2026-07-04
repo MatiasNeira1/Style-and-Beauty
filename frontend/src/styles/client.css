@@ -710,9 +710,17 @@
   overflow-wrap: anywhere;
 }
 
-.booking-category-image {
+.booking-category-media {
   aspect-ratio: 1 / 1;
   border-radius: 8px;
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.booking-category-image {
+  display: block;
+  height: 100%;
   object-fit: cover;
   object-position: var(--category-image-position, center);
   width: 100%;

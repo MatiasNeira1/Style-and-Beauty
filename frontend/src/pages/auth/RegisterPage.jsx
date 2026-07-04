@@ -687,12 +687,13 @@ export function RegisterPage() {
                     icon={Mail}
                     label="Email"
                     id="register-email"
+                    className="register-field--email"
                     name="emailContacto"
                     type="email"
                     value={form.emailContacto}
                     onChange={handleChange}
                     placeholder="tuemail@correo.com"
-                    maxLength={25}
+                    maxLength={254}
                     required
                   />
                   <PremiumField
