@@ -42,7 +42,7 @@ const BLOCKS = [
   { key: 'Noche', label: 'Noche', icon: Moon },
 ];
 
-export function DateTimePicker({ date, time, slots = [], isLoading = false, error = '', onDateChange, onTimeChange }) {
+export function DateTimePicker({ date, time, slots = [], isLoading = false, loadingLabel = 'Calculando disponibilidad...', error = '', onDateChange, onTimeChange }) {
   const [currentMonth, setCurrentMonth] = useState(() => {
     const base = date ? new Date(`${date}T12:00:00`) : new Date();
     return new Date(base.getFullYear(), base.getMonth(), 1);
@@ -150,7 +150,14 @@ export function DateTimePicker({ date, time, slots = [], isLoading = false, erro
             {error ? (
               <p className="admin-alert">{error}</p>
             ) : isLoading ? (
-              <p className="admin-alert">Calculando disponibilidad del profesional...</p>
+              <div className="availability-skeleton" aria-busy="true" aria-label={loadingLabel}>
+                <span>{loadingLabel}</span>
+                <div className="slot-grid" aria-hidden="true">
+                  {Array.from({ length: 8 }, (_, index) => (
+                    <span className="slot-skeleton" key={index} />
+                  ))}
+                </div>
+              </div>
             ) : bookableSlots.length === 0 ? (
               <p className="admin-alert">No hay horarios disponibles para este profesional en la fecha seleccionada.</p>
             ) : (

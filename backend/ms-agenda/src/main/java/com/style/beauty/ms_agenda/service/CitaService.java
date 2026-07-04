@@ -15,6 +15,8 @@ import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
+import com.style.beauty.ms_agenda.dto.DisponibilidadStaffRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadStaffResponse;
 import com.style.beauty.ms_agenda.dto.ProximaCitaClienteResponse;
 import com.style.beauty.ms_agenda.dto.PlanificarAgendaRequest;
 import com.style.beauty.ms_agenda.dto.PlanificarAgendaResponse;
@@ -262,6 +264,49 @@ public class CitaService {
         log.info("Disponibilidad calculada: idServicio={}, idStaff={}, fecha={}, slots={}",
                 request.idServicio(), request.idStaff(), request.fecha(), slots.size());
         return slots;
+    }
+
+    public List<DisponibilidadStaffResponse> calcularDisponibilidadStaff(DisponibilidadStaffRequest request) {
+        int totalStaff = request.idsStaff() == null ? 0 : request.idsStaff().size();
+        log.info("Calculando disponibilidad por staff: idServicio={}, fecha={}, staff={}",
+                request.idServicio(), request.fecha(), totalStaff);
+
+        if (totalStaff > MAX_STAFF_DISPONIBILIDAD_BATCH) {
+            throw new BusinessException("La consulta de disponibilidad permite hasta " + MAX_STAFF_DISPONIBILIDAD_BATCH + " profesionales por lote.");
+        }
+
+        liberarReservasVencidas();
+        validarFechaReservable(request.fecha());
+
+        ServicioResumen servicio = servicioClient.obtenerServicio(request.idServicio());
+        log.info("Servicio encontrado para disponibilidad staff: idServicio={}, duracionMinutos={}, holguraMinutos={}, categoria={}",
+                request.idServicio(), servicio.duracionMinutos(), servicio.holguraMinutos(), servicio.categoria());
+
+        int duracion = duracionServicio(servicio, request.duracionServicioMin(), true);
+        List<UUID> idsStaff = new ArrayList<>(new LinkedHashSet<>(request.idsStaff()));
+        List<DisponibilidadStaffResponse> disponibilidad = new ArrayList<>();
+
+        for (UUID idStaff : idsStaff) {
+            var staff = perfilClient.obtenerStaff(idStaff);
+            validarStaffActivo(staff);
+            validarStaffRealizaServicio(request.idServicio(), idStaff);
+
+            int holgura = holguraService.calcularHolguraMin(servicio, staff.holguraCitaMinutos());
+            validarDuracionYHolgura(duracion, holgura);
+
+            List<DisponibilidadSlot> slots = calcularDisponibilidadParaDia(
+                    idStaff,
+                    request.fecha(),
+                    duracion,
+                    holgura,
+                    request.idCliente()
+            );
+            disponibilidad.add(new DisponibilidadStaffResponse(idStaff, slots));
+        }
+
+        log.info("Disponibilidad por staff calculada: idServicio={}, fecha={}, resultados={}",
+                request.idServicio(), request.fecha(), disponibilidad.size());
+        return disponibilidad;
     }
 
     public List<DisponibilidadMensualResponse> calcularDisponibilidadMensual(UUID idServicio, UUID idStaff, int anio, int mes) {
