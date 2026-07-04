@@ -11,6 +11,8 @@ import com.style.beauty.ms_agenda.dto.DisponibilidadMensualResponse;
 import com.style.beauty.ms_agenda.dto.DisponibilidadRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSemanalRequest;
 import com.style.beauty.ms_agenda.dto.DisponibilidadSlot;
+import com.style.beauty.ms_agenda.dto.DisponibilidadStaffRequest;
+import com.style.beauty.ms_agenda.dto.DisponibilidadStaffResponse;
 import com.style.beauty.ms_agenda.dto.EvaluarCitaRequest;
 import com.style.beauty.ms_agenda.dto.PlanificarAgendaRequest;
 import com.style.beauty.ms_agenda.dto.PlanificarAgendaResponse;
@@ -80,6 +82,15 @@ public class CitaController {
                 request.idServicio(), request.idStaff(), request.fecha());
 
         return citaService.calcularDisponibilidad(request);
+    }
+
+    @PostMapping("/disponibilidad-staff")
+    public List<DisponibilidadStaffResponse> disponibilidadStaff(@Valid @RequestBody DisponibilidadStaffRequest request) {
+        log.info("Entrando a endpoint POST /api/agenda/citas/disponibilidad-staff");
+        log.info("Request recibido disponibilidad staff: idServicio={}, fecha={}, staff={}",
+                request.idServicio(), request.fecha(), request.idsStaff() == null ? 0 : request.idsStaff().size());
+
+        return citaService.calcularDisponibilidadStaff(request);
     }
 
     @PostMapping("/disponibilidad-multiple")

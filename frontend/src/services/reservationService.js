@@ -22,6 +22,25 @@ function normalizeAvailabilityPayload({ idServicio, idStaff, fecha, idCliente })
   return data;
 }
 
+function normalizeStaffAvailabilityPayload({ idServicio, idsStaff, fecha, idCliente }) {
+  const uniqueStaffIds = Array.isArray(idsStaff)
+    ? Array.from(new Set(idsStaff.filter(isValidUuid)))
+    : [];
+
+  if (!isValidUuid(idServicio) || !fecha || uniqueStaffIds.length === 0) {
+    throw new Error('Selecciona servicio, profesionales y fecha para consultar disponibilidad.');
+  }
+  assertBookingDateAllowed(fecha);
+
+  const data = {
+    idServicio,
+    fecha,
+    idsStaff: uniqueStaffIds,
+  };
+  if (isValidUuid(idCliente)) data.idCliente = idCliente;
+  return data;
+}
+
 function normalizeMultipleAvailabilityPayload({ idCliente, fecha, horaInicial, servicios, maxPlanes = 8 }) {
   if (!fecha || !Array.isArray(servicios) || servicios.length < 2) {
     throw new Error('Selecciona al menos dos servicios y una fecha para consultar disponibilidad.');
@@ -111,6 +130,15 @@ export const reservationService = {
       url: '/api/agenda/citas/disponibilidad',
       method: 'POST',
       data: normalizeAvailabilityPayload({ idServicio, idStaff, fecha, idCliente }),
+      signal,
+    }),
+
+  getStaffAvailability: ({ idServicio, idsStaff, fecha, idCliente, signal }) =>
+    request({
+      baseURL: AGENDA_API_BASE_URL,
+      url: '/api/agenda/citas/disponibilidad-staff',
+      method: 'POST',
+      data: normalizeStaffAvailabilityPayload({ idServicio, idsStaff, fecha, idCliente }),
       signal,
     }),
 

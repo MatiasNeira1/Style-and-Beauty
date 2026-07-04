@@ -329,6 +329,7 @@
   align-items: start;
   gap: 2rem;
   grid-template-columns: minmax(0, 1fr);
+  scroll-margin-top: 7rem;
 }
 
 .booking-shell--with-summary {
@@ -349,6 +350,12 @@
 
 .booking-shell .summary-card {
   position: static;
+}
+
+.booking-wizard-card,
+.booking-step-block,
+.booking-confirmation-stack {
+  scroll-margin-top: 7rem;
 }
 
 .horizontal-scroll {
@@ -420,6 +427,60 @@
 
 .summary-card strong {
   display: block;
+}
+
+.booking-summary-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.booking-summary-grid div {
+  min-width: 0;
+}
+
+.booking-summary-grid dt {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.booking-summary-grid dd {
+  color: var(--color-ink);
+  font-size: 0.92rem;
+  font-weight: 760;
+  margin: 0.12rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.booking-summary-total {
+  border-top: 1px solid rgba(25, 20, 23, 0.1);
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+}
+
+.booking-summary-total span {
+  align-items: center;
+  color: var(--color-muted);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.booking-summary-total strong {
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+
+.booking-summary-note {
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  margin: 0.75rem 0 0;
 }
 
 .booking-multi-summary-card {
@@ -708,6 +769,7 @@
 
 .booking-professional-card {
   grid-template-columns: 4.8rem minmax(0, 1fr);
+  min-height: 7.45rem;
 }
 
 .booking-professional-photo {
@@ -722,6 +784,42 @@
   display: grid;
   gap: 0.35rem;
   min-width: 0;
+}
+
+.booking-professional-card-skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+
+.booking-professional-card-skeleton .booking-professional-photo,
+.booking-professional-card-skeleton .booking-professional-body span,
+.booking-professional-card-skeleton .booking-professional-body strong,
+.booking-professional-card-skeleton .booking-professional-body p,
+.booking-professional-card-skeleton .booking-professional-body small,
+.slot-skeleton {
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+  background:
+    linear-gradient(100deg, rgba(245, 239, 232, 0.58), rgba(255, 255, 255, 0.92), rgba(245, 239, 232, 0.58));
+  background-size: 200% 100%;
+  color: transparent;
+}
+
+.booking-professional-card-skeleton .booking-professional-body span,
+.booking-professional-card-skeleton .booking-professional-body strong,
+.booking-professional-card-skeleton .booking-professional-body p,
+.booking-professional-card-skeleton .booking-professional-body small {
+  border-radius: 999px;
+  min-height: 0.9rem;
+}
+
+.booking-professional-card-skeleton .booking-professional-body strong {
+  min-height: 1.05rem;
+  width: 72%;
+}
+
+.booking-professional-card-skeleton .booking-professional-body p {
+  border-radius: 8px;
+  min-height: 1.9rem;
 }
 
 .booking-meta-row,
@@ -891,6 +989,23 @@
 .availability-title {
   border-bottom: 1px solid var(--color-line);
   padding-bottom: 1rem;
+}
+
+.availability-skeleton {
+  display: grid;
+  gap: 0.85rem;
+  min-height: 8.5rem;
+}
+
+.availability-skeleton > span {
+  color: var(--color-muted);
+  font-size: 0.86rem;
+  font-weight: 760;
+}
+
+.slot-skeleton {
+  border-radius: var(--radius-xs);
+  min-height: 3.15rem;
 }
 
 .slot-block {
@@ -4427,6 +4542,16 @@ img[data-fallback="true"] {
 
   .profile-readonly-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .booking-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .booking-summary-total span {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.15rem;
   }
 
   .profile-birthdate-grid {

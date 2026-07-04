@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CalendarCheck, Clock, Lock, Scissors, UserRound } from 'lucide-react';
@@ -150,6 +150,10 @@ function isAbortError(error) {
   return error?.name === 'AbortError' || error?.code === 'ERR_CANCELED' || String(error?.message || '').toLowerCase() === 'canceled';
 }
 
+function isMissingEndpointError(error) {
+  return error?.status === 404 || error?.status === 405;
+}
+
 function throwIfAborted(signal) {
   if (!signal?.aborted) return;
   if (typeof DOMException !== 'undefined') throw new DOMException('Consulta cancelada', 'AbortError');
@@ -187,6 +191,34 @@ async function loadServiceDateAvailability({ idServicio, serviceStaff, fecha, id
     seen.add(id);
     uniqueStaff.push(item);
   });
+
+  if (uniqueStaff.length === 0) return [];
+
+  const staffById = new Map(uniqueStaff.map((item) => [staffId(item), item]));
+  const staffIds = uniqueStaff.map(staffId).filter(Boolean);
+
+  try {
+    const rows = await reservationService.getStaffAvailability({
+      idServicio,
+      idsStaff: staffIds,
+      fecha,
+      idCliente,
+      signal,
+    });
+    throwIfAborted(signal);
+
+    return (Array.isArray(rows) ? rows : [])
+      .map((row) => {
+        const id = row?.idStaff || row?.staffId || row?.idPersona;
+        const staff = staffById.get(id);
+        if (!staff) return null;
+        return { staff, slots: normalizeBookableSlots(row?.slots) };
+      })
+      .filter(Boolean);
+  } catch (error) {
+    if (signal?.aborted || isAbortError(error)) throw error;
+    if (!isMissingEndpointError(error)) throw error;
+  }
 
   const settled = await Promise.allSettled(uniqueStaff.map(async (item) => {
     throwIfAborted(signal);
@@ -312,6 +344,7 @@ export function BookingPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
+  const bookingFlowRef = useRef(null);
   const { updateBooking } = useBooking();
   const { addReservationItem, hasReservationForService, setIsCartOpen, setLastCartError } = useCart();
   const visualAssetsQuery = useSiteVisualAssets();
@@ -509,6 +542,14 @@ export function BookingPage() {
     ]);
   }, [bookingCategoryImageUrls, bookingHeroImage.src, nextStepPreloadUrls]);
 
+  useEffect(() => {
+    if (flowStep !== 'summary') return undefined;
+    const frameId = window.requestAnimationFrame(() => {
+      bookingFlowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [flowStep]);
+
   const serviceStaffIdsKey = useMemo(
     () => serviceStaff.map((item) => staffId(item)).filter(Boolean).sort().join(','),
     [serviceStaff],
@@ -599,6 +640,21 @@ export function BookingPage() {
   const selectedTimeFirstSlot = useMemo(() => timeFirstSlots.find((slot) => slot.inicio === time), [timeFirstSlots, time]);
   const timeFirstStaffOptions = selectedTimeFirstSlot?.staffOptions || [];
   const selectedTimeFirstStaffSlot = selectedTimeFirstSlot?.staffSlotsById?.[selectedStaffId] || null;
+  const timeAvailabilityLoading = Boolean(
+    date
+      && (timeAvailabilityDateSettling
+        || serviceStaffQuery.isLoading
+        || timeAvailabilityQuery.isLoading
+        || timeAvailabilityQuery.isFetching),
+  );
+  const timeAvailabilityError = serviceStaffQuery.isError
+    ? 'No fue posible cargar profesionales para este servicio.'
+    : serviceStaff.length === 0 && !serviceStaffQuery.isLoading
+      ? 'No hay profesionales disponibles para este servicio.'
+      : timeAvailabilityQuery.error?.message
+        || (date && !timeAvailabilityDateSettling && !timeAvailabilityQuery.isFetching && timeFirstSlots.length === 0
+          ? 'No hay horarios disponibles para esta fecha. Prueba otro día o selecciona otro profesional.'
+          : '');
 
   const automaticScheduleFlow = Boolean(
     flowStep === 'summary'
@@ -631,7 +687,15 @@ export function BookingPage() {
       idCliente,
       signal,
     }),
-    enabled: Boolean(flowStep === 'summary' && !automaticScheduleFlow && hasValidStaffId && hasValidServiceId && date && idCliente),
+    enabled: Boolean(
+      flowStep === 'summary'
+        && !automaticScheduleFlow
+        && !selectedTimeFirstStaffSlot
+        && hasValidStaffId
+        && hasValidServiceId
+        && date
+        && idCliente,
+    ),
     ...AVAILABILITY_QUERY_OPTIONS,
   });
 
@@ -793,11 +857,16 @@ export function BookingPage() {
 
     setAgregandoCarrito(true);
     try {
-      const freshSlots = await reservationService.getAvailability({
-        idServicio: selectedServiceId,
-        idStaff: selectedStaffId,
-        fecha: summaryDate,
-        idCliente,
+      const freshSlots = await queryClient.fetchQuery({
+        queryKey: ['availability', selectedStaffId, selectedServiceId, summaryDate, idCliente || 'anon'],
+        queryFn: ({ signal }) => reservationService.getAvailability({
+          idServicio: selectedServiceId,
+          idStaff: selectedStaffId,
+          fecha: summaryDate,
+          idCliente,
+          signal,
+        }),
+        staleTime: 1000 * 15,
       });
       const stillAvailable = normalizeBookableSlots(freshSlots)
         .some((slot) => slot.inicio === summaryTime);
@@ -955,7 +1024,7 @@ export function BookingPage() {
   return (
     <>
       <BookingHero heroImage={bookingHeroImage} heroAsset={bookingHeroAsset} />
-      <section className={`page-section booking-shell client-view${flowStep === 'summary' ? ' booking-shell--with-summary' : ''}`}>
+      <section className="page-section booking-shell client-view" ref={bookingFlowRef}>
         <div className="stack wizard-panel">
           <SectionTitle eyebrow="Agenda inteligente" title="Reserva guiada con disponibilidad real">
             Elige cómo comenzar y avanza solo con las opciones que corresponden a tu selección.
@@ -970,7 +1039,7 @@ export function BookingPage() {
               </div>
             )}
 
-            {successNotice && <p className="admin-success">{successNotice}</p>}
+            {successNotice && <p className="admin-success" role="status">{successNotice}</p>}
 
             {flowStep === 'start' && (
               <StartChoice onServiceFirst={startServiceFirst} onProfessionalFirst={startProfessionalFirst} />
@@ -1068,52 +1137,47 @@ export function BookingPage() {
 
             {flowMode === 'service-first' && flowStep === 'time' && (
               <StepBlock eyebrow={serviceName(service)} title="Elige fecha y horario">
-                {serviceStaffQuery.isLoading ? (
-                  <Loader />
-                ) : serviceStaff.length === 0 ? (
-                  <p className="admin-alert">No hay profesionales disponibles para este servicio.</p>
-                ) : (
-                  <>
-                    <DateTimePicker
-                      date={date}
-                      time={time}
-                      slots={timeFirstSlots}
-                      isLoading={timeAvailabilityDateSettling || timeAvailabilityQuery.isLoading || timeAvailabilityQuery.isFetching}
-                      error={timeAvailabilityQuery.error?.message || (date && !timeAvailabilityDateSettling && !timeAvailabilityQuery.isFetching && timeFirstSlots.length === 0 ? 'No hay horarios disponibles para esta fecha. Prueba otro día o selecciona otro profesional.' : '')}
-                      onDateChange={(value) => {
-                        setDate(value);
-                        setTime('');
-                        setMember(null);
-                        setConfirmError('');
-                      }}
-                      onTimeChange={(value) => {
-                        setTime(value);
-                        setMember(null);
-                        setConfirmError('');
-                      }}
-                    />
+                <DateTimePicker
+                  date={date}
+                  time={time}
+                  slots={timeFirstSlots}
+                  isLoading={timeAvailabilityLoading}
+                  loadingLabel={serviceStaffQuery.isLoading ? 'Cargando profesionales del servicio...' : 'Calculando disponibilidad...'}
+                  error={timeAvailabilityError}
+                  onDateChange={(value) => {
+                    setDate(value);
+                    setTime('');
+                    setMember(null);
+                    setConfirmError('');
+                  }}
+                  onTimeChange={(value) => {
+                    setTime(value);
+                    setMember(null);
+                    setConfirmError('');
+                  }}
+                />
 
-                    {time && (
-                      <div className="booking-time-staff-panel">
-                        <div>
-                          <span className="card-kicker">Profesionales disponibles</span>
-                          <h3>Estos profesionales están disponibles para el horario seleccionado.</h3>
-                        </div>
-                        {timeFirstStaffOptions.length === 0 ? (
-                          <p className="admin-alert">No hay profesionales disponibles para este horario. Selecciona otra hora.</p>
-                        ) : (
-                          <ProfessionalGrid
-                            professionals={timeFirstStaffOptions}
-                            selectedId={selectedStaffId}
-                            servicesByStaff={new Map(timeFirstStaffOptions.map((item) => [staffId(item), [service]]))}
-                            service={service}
-                            compact
-                            onSelect={(value) => selectProfessional(value)}
-                          />
-                        )}
-                      </div>
+                {time && (
+                  <div className="booking-time-staff-panel">
+                    <div>
+                      <span className="card-kicker">Profesionales disponibles</span>
+                      <h3>Estos profesionales están disponibles para el horario seleccionado.</h3>
+                    </div>
+                    {timeAvailabilityLoading ? (
+                      <ProfessionalGridSkeleton compact />
+                    ) : timeFirstStaffOptions.length === 0 ? (
+                      <p className="admin-alert">No hay profesionales disponibles para este horario. Selecciona otra hora.</p>
+                    ) : (
+                      <ProfessionalGrid
+                        professionals={timeFirstStaffOptions}
+                        selectedId={selectedStaffId}
+                        servicesByStaff={new Map(timeFirstStaffOptions.map((item) => [staffId(item), [service]]))}
+                        service={service}
+                        compact
+                        onSelect={(value) => selectProfessional(value)}
+                      />
                     )}
-                  </>
+                  </div>
                 )}
               </StepBlock>
             )}
@@ -1168,8 +1232,19 @@ export function BookingPage() {
             {flowStep === 'summary' && (
               <StepBlock eyebrow="Resumen" title={continuationMode ? 'Confirma el servicio posterior' : 'Confirma tu reserva'}>
                 <div className="booking-confirmation-stack">
+                  <BookingSummary service={service} staff={member} client={myProfile} date={summaryDate} time={summaryTime} slot={summarySlot} />
+
                   {continuationMode && lastReservationSummary && (
                     <PreviousAppointmentSummary reservation={lastReservationSummary} />
+                  )}
+
+                  {continuationMode && lastReservationSummary && summarySlot && (
+                    <Card className="summary-card booking-total-summary">
+                      <h3>Total acumulado</h3>
+                      <p>Cita anterior: {formatCLP(lastReservationSummary.price)}</p>
+                      <p>Nuevo servicio: {servicePriceLabel(service)}</p>
+                      <strong>Total: {formatCLP(Number(lastReservationSummary.price || 0) + Number(servicePriceValue(service) || 0))}</strong>
+                    </Card>
                   )}
 
                   {automaticScheduleFlow && (
@@ -1198,13 +1273,13 @@ export function BookingPage() {
                   )}
 
                   {profileMessage && (
-                    <p className="admin-alert">
+                    <p className="admin-alert" role="alert">
                       {profileMessage}
                       <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/perfil')}>Ir a mi perfil</Button>
                     </p>
                   )}
 
-                  {confirmError && <p className="admin-alert">{confirmError}</p>}
+                  {confirmError && <p className="admin-alert" role="alert">{confirmError}</p>}
 
                   <div className="wizard-actions">
                     <Button type="button" variant="ghost" onClick={goBack}>
@@ -1215,7 +1290,7 @@ export function BookingPage() {
                         Finalizar
                       </Button>
                     )}
-                    <Button type="button" onClick={confirm} disabled={!canConfirm}>
+                    <Button type="button" onClick={confirm} disabled={!canConfirm} aria-busy={agregandoCarrito || bookingMutation.isPending}>
                       {agregandoCarrito || bookingMutation.isPending
                         ? 'Confirmando...'
                         : continuationMode ? 'Agregar servicio inmediatamente posterior' : 'Confirmar reserva'}
@@ -1235,19 +1310,6 @@ export function BookingPage() {
           </Card>
         </div>
 
-        {flowStep === 'summary' && (
-          <aside className="booking-summary-panel">
-            <BookingSummary service={service} staff={member} date={summaryDate} time={summaryTime} slot={summarySlot} />
-            {continuationMode && lastReservationSummary && summarySlot && (
-              <Card className="summary-card booking-total-summary">
-                <h3>Total acumulado</h3>
-                <p>Cita anterior: {formatCLP(lastReservationSummary.price)}</p>
-                <p>Nuevo servicio: {servicePriceLabel(service)}</p>
-                <strong>Total: {formatCLP(Number(lastReservationSummary.price || 0) + Number(servicePriceValue(service) || 0))}</strong>
-              </Card>
-            )}
-          </aside>
-        )}
       </section>
 
       <Modal
@@ -1454,6 +1516,7 @@ function ProfessionalGrid({
                 className="booking-professional-photo"
                 loading="eager"
                 fetchPriority="high"
+                decoding="async"
                 width={240}
                 height={240}
               />
@@ -1487,6 +1550,27 @@ function ProfessionalGrid({
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function ProfessionalGridSkeleton({ compact = false }) {
+  const count = compact ? 3 : 4;
+  return (
+    <div className="booking-professional-scroll" data-lenis-prevent>
+      <div className={compact ? 'booking-professional-grid booking-professional-grid--compact' : 'booking-professional-grid'}>
+        {Array.from({ length: count }, (_, index) => (
+          <div className="booking-professional-card booking-professional-card-skeleton" key={index} aria-hidden="true">
+            <span className="booking-professional-photo" />
+            <div className="booking-professional-body">
+              <span />
+              <strong />
+              <p />
+              <small />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1562,10 +1646,19 @@ function SuccessReservationContent({ reservation }) {
   if (!reservation) return null;
   return (
     <div className="booking-success-summary">
+      <p className="booking-summary-note">Reserva temporal creada y agregada al carrito para completar el WebPay simulado.</p>
       <dl>
+        <div>
+          <dt>ID reserva</dt>
+          <dd>{reservation.idCita || 'Pendiente'}</dd>
+        </div>
         <div>
           <dt>Servicio reservado</dt>
           <dd>{reservation.serviceName}</dd>
+        </div>
+        <div>
+          <dt>Categoria</dt>
+          <dd>{serviceCategory(reservation.service)}</dd>
         </div>
         <div>
           <dt>Profesional</dt>
@@ -1582,6 +1675,10 @@ function SuccessReservationContent({ reservation }) {
         <div>
           <dt>Precio</dt>
           <dd>{formatCLP(reservation.price)}</dd>
+        </div>
+        <div>
+          <dt>Abono WebPay</dt>
+          <dd>{formatCLP(RESERVATION_DEPOSIT_CLP)}</dd>
         </div>
       </dl>
     </div>
