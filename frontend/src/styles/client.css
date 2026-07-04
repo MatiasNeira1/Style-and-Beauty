@@ -37,6 +37,78 @@
   --page-hero-position: center 42%;
 }
 
+.profile-dashboard-page {
+  background: var(--dashboard-page-background);
+  isolation: isolate;
+  min-height: 100vh;
+  overflow-x: clip;
+  position: relative;
+}
+
+.profile-dashboard-page .page-hero-profile {
+  background: transparent;
+  max-height: none;
+  min-height: clamp(17rem, 34vh, 22rem);
+  padding-bottom: clamp(2rem, 4vw, 3rem);
+}
+
+.profile-dashboard-page .page-hero-profile .page-hero-media {
+  background: none;
+  filter: none;
+  transform: none;
+}
+
+.profile-dashboard-page .page-hero-profile .page-hero-overlay {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.54));
+}
+
+.profile-dashboard-page .page-hero-profile .page-hero-content h1 {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-weight: 620;
+  letter-spacing: 0;
+  text-shadow: none;
+}
+
+.profile-dashboard-page .page-hero-profile .page-hero-content p {
+  color: var(--color-ink-soft);
+  font-weight: 650;
+  text-shadow: none;
+}
+
+.profile-dashboard-page .page-hero-profile .card-kicker {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(191, 91, 132, 0.18);
+  color: var(--color-primary-strong);
+  text-shadow: none;
+}
+
+.profile-dashboard-page .profile-page-layout,
+.profile-dashboard-page .profile-completion-section {
+  position: relative;
+  z-index: 1;
+}
+
+.profile-dashboard-page .profile-page-layout .card,
+.profile-dashboard-page .profile-completion-section .card {
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  background: var(--dashboard-panel-background);
+  border: 1px solid var(--dashboard-panel-border);
+  border-radius: 24px;
+  box-shadow: var(--dashboard-panel-shadow);
+}
+
+.profile-dashboard-page .profile-page-layout .card:hover,
+.profile-dashboard-page .profile-completion-section .card:hover {
+  box-shadow: 0 22px 56px rgba(84, 50, 62, 0.13);
+}
+
+.profile-dashboard-page .profile-completion-card,
+.profile-dashboard-page .profile-missing-role-card {
+  text-align: center;
+}
+
 .profile-page-layout {
   align-items: start;
   padding: clamp(3rem, 5vw, 5rem) var(--page-x);
@@ -4492,6 +4564,25 @@ img[data-fallback="true"] {
 }
 
 @media (max-width: 620px) {
+  .profile-dashboard-page .page-hero-profile {
+    min-height: 17rem;
+    padding-bottom: 1.75rem;
+  }
+
+  .profile-dashboard-page .page-hero-profile .page-hero-content {
+    max-width: min(100%, 21rem);
+  }
+
+  .profile-dashboard-page .profile-page-layout,
+  .profile-dashboard-page .profile-completion-section {
+    padding-inline: 0.9rem;
+  }
+
+  .profile-dashboard-page .profile-page-layout .card,
+  .profile-dashboard-page .profile-completion-section .card {
+    border-radius: 18px;
+  }
+
   .datetime-picker,
   .calendar-card,
   .availability-panel {

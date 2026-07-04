@@ -47,6 +47,15 @@
   /* Layout */
   --page-x: clamp(1rem, 4vw, 4.5rem);
   --max-page: 1200px;
+  --dashboard-page-background:
+    radial-gradient(circle at 18% 4%, rgba(212, 122, 158, 0.14), transparent 28rem),
+    radial-gradient(circle at 86% 8%, rgba(226, 180, 126, 0.14), transparent 26rem),
+    linear-gradient(135deg, #fff8f4 0%, #fff 42%, #f8eef2 100%);
+  --dashboard-panel-background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.74)),
+    rgba(255, 255, 255, 0.82);
+  --dashboard-panel-border: rgba(255, 255, 255, 0.78);
+  --dashboard-panel-shadow: 0 18px 42px rgba(84, 50, 62, 0.08);
 
   /* Glass */
   --glass-bg: rgba(255, 255, 255, 0.65);
