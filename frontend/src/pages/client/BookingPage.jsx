@@ -1406,31 +1406,31 @@ function CategoryGrid({ categories, selected, onSelect }) {
           className={`booking-category-card ${category.name === selected ? 'is-selected' : ''}`}
           onClick={() => onSelect(category)}
         >
-          {category.imagePending ? (
-            <div
-              className="booking-category-image visual-image-skeleton"
-              aria-hidden="true"
-              style={{ '--category-image-position': category.imagePosition }}
-            />
-          ) : category.image ? (
-            <SafeImage
-              src={category.image}
-              alt={category.name}
-              className="booking-category-image"
-              loading="eager"
-              fetchPriority="high"
-              width={360}
-              height={360}
-              style={{ '--category-image-position': category.imagePosition }}
-            />
-          ) : (
-            <div
-              className="booking-category-image booking-category-image-placeholder"
-              aria-hidden="true"
-            >
-              <span>{category.name.slice(0, 1).toUpperCase()}</span>
-            </div>
-          )}
+          <div className="booking-category-media" style={{ '--category-image-position': category.imagePosition }}>
+            {category.imagePending ? (
+              <div
+                className="booking-category-image visual-image-skeleton"
+                aria-hidden="true"
+              />
+            ) : category.image ? (
+              <SafeImage
+                src={category.image}
+                alt={category.name}
+                className="booking-category-image"
+                loading="eager"
+                fetchPriority="high"
+                width={360}
+                height={360}
+              />
+            ) : (
+              <div
+                className="booking-category-image booking-category-image-placeholder"
+                aria-hidden="true"
+              >
+                <span>{category.name.slice(0, 1).toUpperCase()}</span>
+              </div>
+            )}
+          </div>
           <span className="card-kicker">{category.count} servicios</span>
           <strong>{category.name}</strong>
           <p>{category.description}</p>
