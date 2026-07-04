@@ -520,6 +520,10 @@ export function ProfessionalProfileModal({ professional, onClose }) {
                   src={professionalView.imageUrl || professionalView.fotoUrl}
                   alt={professionalView.fullName}
                   fallback="/logo.jpg"
+                  loading="eager"
+                  fetchPriority="high"
+                  width={320}
+                  height={320}
                 />
               </div>
 
@@ -621,6 +625,8 @@ export function ProfessionalProfileModal({ professional, onClose }) {
                     src={image}
                     alt={`Trabajo realizado ${index + 1} por ${professionalView.fullName}`}
                     fallback="/logo.jpg"
+                    loading="eager"
+                    fetchPriority={index === 0 ? 'high' : 'auto'}
                   />
                 ))
               ) : (

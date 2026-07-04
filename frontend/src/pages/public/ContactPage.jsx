@@ -1,17 +1,24 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CalendarDays, Clock, ExternalLink, Instagram, Lock, Mail, MapPin, MessageCircle, Phone, Send } from 'lucide-react';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Input } from '../../components/ui/Input.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
 import { contactService } from '../../services/contactService.js';
 import { isProfileNotFoundError } from '../../services/apiClient.js';
 import { profileService } from '../../services/profileService.js';
 import { useAuth } from '../../store/AuthContext.jsx';
-import { assetFallback, heroImageStyle } from '../../utils/siteVisualAssets.js';
+import {
+  assetFallback,
+  assetPosition,
+  preloadImageUrls,
+  resolveVisualAssetImage,
+  visualAssetsInitialLoading,
+} from '../../utils/siteVisualAssets.js';
 
 const whatsappUrl = 'https://wa.me/56958612677';
 const instagramUrl = 'https://www.instagram.com/dri.glow_';
@@ -41,6 +48,13 @@ export function ContactPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const visualAssetsQuery = useSiteVisualAssets();
+  const contactHeroAsset = visualAssetsQuery.getAsset('contact.hero');
+  const visualAssetsLoading = visualAssetsInitialLoading(visualAssetsQuery);
+  const contactHeroImage = useMemo(() => resolveVisualAssetImage({
+    asset: contactHeroAsset,
+    fallback: assetFallback('contact.hero'),
+    isLoading: visualAssetsLoading,
+  }), [contactHeroAsset, visualAssetsLoading]);
   const [sent, setSent] = useState(false);
   const [message, setMessage] = useState('');
   const contactMutation = useMutation({ mutationFn: contactService.sendMessage });
@@ -55,6 +69,10 @@ export function ContactPage() {
   const contactName = profileName(profile);
   const contactEmailProfile = profile?.emailContacto || profile?.email || '';
   const contactPhoneProfile = profile?.telefono || '';
+
+  useEffect(() => {
+    preloadImageUrls([contactHeroImage.src]);
+  }, [contactHeroImage.src]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -89,9 +107,23 @@ export function ContactPage() {
     <>
       <section
         className="page-hero page-hero-contact"
-        style={heroImageStyle(visualAssetsQuery.getAsset('contact.hero'), assetFallback('contact.hero'), 'center')}
+        style={{ '--page-hero-position': assetPosition(contactHeroAsset, 'center') }}
       >
-        <div className="page-hero-media" />
+        {contactHeroImage.isPending ? (
+          <div className="page-hero-media page-hero-skeleton" aria-hidden="true" />
+        ) : (
+          <SafeImage
+            src={contactHeroImage.src}
+            fallback={assetFallback('contact.hero')}
+            alt=""
+            aria-hidden="true"
+            className="page-hero-media page-hero-image"
+            loading="eager"
+            fetchPriority="high"
+            width={1024}
+            height={1024}
+          />
+        )}
         <div className="page-hero-overlay" />
         <div className="page-hero-content">
           <span className="card-kicker">Contacto</span>

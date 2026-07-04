@@ -473,6 +473,14 @@ img { max-width: 100%; display: block; }
   will-change: transform, filter;
 }
 
+.hero-image {
+  background: none;
+  height: 100%;
+  object-fit: cover;
+  object-position: var(--home-hero-position, center 28%);
+  width: 100%;
+}
+
 .hero-overlay {
   background:
     linear-gradient(90deg, rgba(18, 12, 16, 0.84), rgba(18, 12, 16, 0.5) 58%, rgba(18, 12, 16, 0.22)),

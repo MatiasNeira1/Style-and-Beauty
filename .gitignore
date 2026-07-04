@@ -67,3 +67,12 @@ db_backups_pg17_*/
 
 # Local diagnostic SQL files
 diagnostico_staff_alignment.sql
+
+# Local demo / DB operation artifacts
+aca-before-demo-*.json
+fix_site_visual_assets_defaults.sql
+seed_site_visual_assets.sql
+db_backups_*/
+db_backups_perfiles_staff_alignment_*/
+db_backups_staff_alignment_*/
+staff_categories_from_perfiles.csv

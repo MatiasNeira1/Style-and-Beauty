@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Search, SlidersHorizontal, Sparkles } from 'lucide-react';
@@ -8,13 +8,20 @@ import { ProfessionalProfileModal } from '../../components/professionals/Profess
 import { ProfessionalSkeleton } from '../../components/professionals/ProfessionalsCarousel.jsx';
 import { Modal } from '../../components/ui/Modal.jsx';
 import { PremiumSelect } from '../../components/ui/PremiumSelect.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useProfessionals } from '../../hooks/useProfessionals.js';
 import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
 import { agendaService } from '../../services/agendaService.js';
 import { serviceCatalogService } from '../../services/serviceCatalogService.js';
 import { formatLocalDate, minBookingDate } from '../../utils/bookingDateRules.js';
-import { assetFallback, heroImageStyle } from '../../utils/siteVisualAssets.js';
+import {
+  assetFallback,
+  assetPosition,
+  preloadImageUrls,
+  resolveVisualAssetImage,
+  visualAssetsInitialLoading,
+} from '../../utils/siteVisualAssets.js';
 
 function unique(values) {
   const seen = new Map();
@@ -129,6 +136,13 @@ export function ProfessionalsPage() {
   const navigate = useNavigate();
   const { professionals, isLoading, isError, error } = useProfessionals();
   const visualAssetsQuery = useSiteVisualAssets();
+  const professionalsHeroAsset = visualAssetsQuery.getAsset('professionals.hero');
+  const visualAssetsLoading = visualAssetsInitialLoading(visualAssetsQuery);
+  const professionalsHeroImage = useMemo(() => resolveVisualAssetImage({
+    asset: professionalsHeroAsset,
+    fallback: assetFallback('professionals.hero'),
+    isLoading: visualAssetsLoading,
+  }), [professionalsHeroAsset, visualAssetsLoading]);
   const allProfessionals = professionals;
   const gridRef = useRef(null);
   const [filters, setFilters] = useState({
@@ -259,6 +273,10 @@ export function ProfessionalsPage() {
   const bookingServicesLoading = servicesQuery.isLoading || bookingServiceStaffQueries.some((query) => query.isLoading || query.isFetching);
   const bookingServicesError = servicesQuery.isError || bookingServiceStaffQueries.some((query) => query.isError);
 
+  useEffect(() => {
+    preloadImageUrls([professionalsHeroImage.src]);
+  }, [professionalsHeroImage.src]);
+
   const hasActiveFilters = filters.search || filters.specialty !== 'Todos' || filters.availability !== 'Todos' || filters.branch !== 'Todos';
   const updateFilter = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -307,9 +325,23 @@ export function ProfessionalsPage() {
     <>
       <section
         className="page-hero page-hero-professionals"
-        style={heroImageStyle(visualAssetsQuery.getAsset('professionals.hero'), assetFallback('professionals.hero'), 'center 28%')}
+        style={{ '--page-hero-position': assetPosition(professionalsHeroAsset, 'center 28%') }}
       >
-        <div className="page-hero-media" />
+        {professionalsHeroImage.isPending ? (
+          <div className="page-hero-media page-hero-skeleton" aria-hidden="true" />
+        ) : (
+          <SafeImage
+            src={professionalsHeroImage.src}
+            fallback={assetFallback('professionals.hero')}
+            alt=""
+            aria-hidden="true"
+            className="page-hero-media page-hero-image"
+            loading="eager"
+            fetchPriority="high"
+            width={1024}
+            height={1024}
+          />
+        )}
         <div className="page-hero-overlay" />
         <div className="page-hero-content">
           <span className="card-kicker">Profesionales</span>

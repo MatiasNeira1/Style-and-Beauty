@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Sparkles, Star, Timer, Scissors, Heart, Award, ArrowRight, Quote } from 'lucide-react';
 import { Reveal } from '../../components/animations/Reveal.jsx';
@@ -7,12 +7,19 @@ import { ProfessionalsCarousel } from '../../components/professionals/Profession
 import { BalancedGrid } from '../../components/ui/BalancedGrid.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card } from '../../components/ui/Card.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useProfessionals } from '../../hooks/useProfessionals.js';
 import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
 import { catalogService } from '../../services/catalogService.js';
 import { formatCLP } from '../../utils/priceUtils.js';
-import { assetFallback, assetImage, assetPosition, cssImageUrl } from '../../utils/siteVisualAssets.js';
+import {
+  assetFallback,
+  assetPosition,
+  preloadImageUrls,
+  resolveVisualAssetImage,
+  visualAssetsInitialLoading,
+} from '../../utils/siteVisualAssets.js';
 
 const features = [
   { icon: Sparkles, title: 'Diagnóstico experto', desc: 'Servicios seleccionados por necesidad, estilo y rutina personal.' },
@@ -91,7 +98,16 @@ export function HomePage() {
     featuredServices(Array.isArray(servicesQuery.data) ? servicesQuery.data : [])
   ), [servicesQuery.data]);
   const homeHeroAsset = visualAssetsQuery.getAsset('home.hero');
-  const homeHeroImage = assetImage(homeHeroAsset, assetFallback('home.hero'));
+  const visualAssetsLoading = visualAssetsInitialLoading(visualAssetsQuery);
+  const homeHeroImage = useMemo(() => resolveVisualAssetImage({
+    asset: homeHeroAsset,
+    fallback: assetFallback('home.hero'),
+    isLoading: visualAssetsLoading,
+  }), [homeHeroAsset, visualAssetsLoading]);
+
+  useEffect(() => {
+    preloadImageUrls([homeHeroImage.src]);
+  }, [homeHeroImage.src]);
 
   return (
     <>
@@ -99,11 +115,24 @@ export function HomePage() {
       <section
         className="hero-section"
         style={{
-          '--home-hero-image': cssImageUrl(homeHeroImage),
           '--home-hero-position': assetPosition(homeHeroAsset, 'center 28%'),
         }}
       >
-        <div className="hero-media" />
+        {homeHeroImage.isPending ? (
+          <div className="hero-media page-hero-skeleton" aria-hidden="true" />
+        ) : (
+          <SafeImage
+            src={homeHeroImage.src}
+            fallback={assetFallback('home.hero')}
+            alt=""
+            aria-hidden="true"
+            className="hero-media hero-image"
+            loading="eager"
+            fetchPriority="high"
+            width={1440}
+            height={900}
+          />
+        )}
         <div className="hero-overlay" />
         <div className="hero-content">
           <Reveal>
