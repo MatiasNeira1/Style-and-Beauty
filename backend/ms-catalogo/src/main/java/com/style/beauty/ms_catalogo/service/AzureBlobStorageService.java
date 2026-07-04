@@ -28,6 +28,7 @@ public class AzureBlobStorageService {
             "image/webp"
     );
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp");
+    private static final String IMMUTABLE_IMAGE_CACHE_CONTROL = "public, max-age=604800, immutable";
 
     private final String connectionString;
     private final String containerName;
@@ -55,7 +56,9 @@ public class AzureBlobStorageService {
 
         try {
             blobClient.upload(file.getInputStream(), file.getSize(), true);
-            blobClient.setHttpHeaders(new BlobHttpHeaders().setContentType(file.getContentType()));
+            blobClient.setHttpHeaders(new BlobHttpHeaders()
+                    .setContentType(resolveContentType(file))
+                    .setCacheControl(IMMUTABLE_IMAGE_CACHE_CONTROL));
             return blobClient.getBlobUrl();
         } catch (IOException e) {
             throw new IllegalStateException("No se pudo leer la imagen para subirla a Azure Blob Storage.", e);
@@ -178,5 +181,19 @@ public class AzureBlobStorageService {
             return "";
         }
         return originalFilename.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
+    }
+
+    private String resolveContentType(MultipartFile file) {
+        String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
+        if (ALLOWED_CONTENT_TYPES.contains(contentType)) {
+            return contentType;
+        }
+
+        return switch (extractExtension(file.getOriginalFilename())) {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "webp" -> "image/webp";
+            default -> "application/octet-stream";
+        };
     }
 }

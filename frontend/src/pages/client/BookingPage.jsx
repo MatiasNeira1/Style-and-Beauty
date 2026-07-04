@@ -24,7 +24,15 @@ import { useBooking } from '../../store/BookingContext.jsx';
 import { useCart } from '../../store/CartContext.jsx';
 import { addDays, filterBookableSlots, formatLocalDate, maxBookingDate, minBookingDate, RESERVATION_EXPIRATION_MINUTES } from '../../utils/bookingDateRules.js';
 import { RESERVATION_DEPOSIT_CLP, formatCLP } from '../../utils/priceUtils.js';
-import { assetFallback, heroImageStyle } from '../../utils/siteVisualAssets.js';
+import {
+  assetFallback,
+  assetPosition,
+  hasActiveAssetImage,
+  preloadImageUrls,
+  resolveVisualAssetImage,
+  serviceCategoryAssetKey,
+  visualAssetsInitialLoading,
+} from '../../utils/siteVisualAssets.js';
 
 const PREFERRED_CATEGORIES = ['Nails', 'Cuidados de la piel', 'Spa', 'Cabello', 'Maquillaje'];
 const CATEGORY_COPY = {
@@ -308,6 +316,7 @@ export function BookingPage() {
   const location = useLocation();
   const { updateBooking } = useBooking();
   const { addReservationItem, hasReservationForService, setIsCartOpen, setLastCartError } = useCart();
+  const visualAssetsQuery = useSiteVisualAssets();
 
   const initialService = location.state?.service || null;
   const initialProfessional = location.state?.professional || null;
@@ -343,8 +352,9 @@ export function BookingPage() {
   const categoryCoversQuery = useQuery({
     queryKey: ['service-category-covers'],
     queryFn: serviceCatalogService.getCategoryCovers,
-    enabled: flowMode === 'service-first',
     staleTime: 1000 * 60 * 10,
+    gcTime: 1000 * 60 * 30,
+    refetchOnWindowFocus: false,
   });
   const serviceStaffQuery = useQuery({
     queryKey: ['service-staff', selectedServiceId],
@@ -412,6 +422,8 @@ export function BookingPage() {
     () => (Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : []),
     [categoryCoversQuery.data],
   );
+  const visualAssetsLoading = visualAssetsInitialLoading(visualAssetsQuery);
+  const categoryCoversLoading = categoryCoversQuery.isLoading && categoryCovers.length === 0;
   const categories = useMemo(() => {
     const coverMap = new Map(categoryCovers.map((cover) => [categoryKey(cover.categoria), cover]));
     const grouped = new Map();
@@ -433,9 +445,21 @@ export function BookingPage() {
     return [...grouped.values()]
       .map((category) => {
         const first = category.services[0];
+        const assetKey = serviceCategoryAssetKey(category.name);
+        const visualAsset = assetKey ? visualAssetsQuery.assetsByKey[assetKey] : null;
+        const waitForAdminOrCover = !hasActiveAssetImage(visualAsset) && (visualAssetsLoading || categoryCoversLoading);
+        const resolvedImage = resolveVisualAssetImage({
+          asset: visualAsset,
+          imageUrl: category.cover?.imagenUrl || serviceImage(first),
+          fallback: assetFallback(assetKey || 'services.hero'),
+          isLoading: waitForAdminOrCover,
+        });
+
         return {
           ...category,
-          image: category.cover?.imagenUrl || serviceImage(first),
+          image: resolvedImage.src,
+          imagePending: resolvedImage.isPending,
+          imagePosition: assetPosition(visualAsset, 'center'),
           description: category.cover?.descripcion || CATEGORY_COPY[category.key] || serviceDescription(first),
           count: category.services.length,
         };
@@ -447,13 +471,54 @@ export function BookingPage() {
         const safeB = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
         return safeA - safeB || a.name.localeCompare(b.name, 'es');
       });
-  }, [categoryCovers, services]);
+  }, [
+    categoryCovers,
+    categoryCoversLoading,
+    services,
+    visualAssetsLoading,
+    visualAssetsQuery.assetsByKey,
+  ]);
 
   const categoryServices = useMemo(() => (
     selectedCategory
       ? services.filter((item) => categoryKey(serviceCategory(item)) === categoryKey(selectedCategory))
       : []
   ), [selectedCategory, services]);
+
+  const bookingHeroAsset = visualAssetsQuery.getAsset('booking.hero');
+  const bookingHeroImage = useMemo(() => resolveVisualAssetImage({
+    asset: bookingHeroAsset,
+    fallback: assetFallback('booking.hero'),
+    isLoading: visualAssetsLoading,
+  }), [bookingHeroAsset, visualAssetsLoading]);
+  const bookingCategoryImageUrls = useMemo(
+    () => categories.filter((category) => !category.imagePending).map((category) => category.image).filter(Boolean),
+    [categories],
+  );
+  const nextStepPreloadUrls = useMemo(() => {
+    if (flowMode === 'service-first') {
+      if (flowStep === 'start' || flowStep === 'categories') {
+        return services.map(serviceImage).filter(Boolean);
+      }
+      if (flowStep === 'services') {
+        return categoryServices.map(serviceImage).filter(Boolean);
+      }
+    }
+
+    if (flowMode === 'professional-first' && (flowStep === 'start' || flowStep === 'professional')) {
+      return publicStaffWithActiveServices.map(staffPhoto).filter(Boolean);
+    }
+
+    return [];
+  }, [categoryServices, flowMode, flowStep, publicStaffWithActiveServices, services]);
+
+  useEffect(() => {
+    preloadImageUrls([
+      bookingHeroImage.src,
+      ...bookingCategoryImageUrls,
+      ...nextStepPreloadUrls,
+    ]);
+  }, [bookingCategoryImageUrls, bookingHeroImage.src, nextStepPreloadUrls]);
 
   const serviceStaffIdsKey = useMemo(
     () => serviceStaff.map((item) => staffId(item)).filter(Boolean).sort().join(','),
@@ -885,7 +950,7 @@ export function BookingPage() {
   if (!isAuthenticated) {
     return (
       <>
-        <BookingHero />
+        <BookingHero heroImage={bookingHeroImage} heroAsset={bookingHeroAsset} />
         <section className="page-section client-auth-gate">
           <Card className="client-auth-card">
             <div className="client-auth-icon"><Lock size={32} /></div>
@@ -900,7 +965,7 @@ export function BookingPage() {
 
   return (
     <>
-      <BookingHero />
+      <BookingHero heroImage={bookingHeroImage} heroAsset={bookingHeroAsset} />
       <section className={`page-section booking-shell client-view${flowStep === 'summary' ? ' booking-shell--with-summary' : ''}`}>
         <div className="stack wizard-panel">
           <SectionTitle eyebrow="Agenda inteligente" title="Reserva guiada con disponibilidad real">
@@ -1290,7 +1355,24 @@ function CategoryGrid({ categories, selected, onSelect }) {
           className={`booking-category-card ${category.name === selected ? 'is-selected' : ''}`}
           onClick={() => onSelect(category)}
         >
-          <SafeImage src={category.image} alt={category.name} className="booking-category-image" />
+          {category.imagePending ? (
+            <div
+              className="booking-category-image visual-image-skeleton"
+              aria-hidden="true"
+              style={{ '--category-image-position': category.imagePosition }}
+            />
+          ) : (
+            <SafeImage
+              src={category.image}
+              alt={category.name}
+              className="booking-category-image"
+              loading="eager"
+              fetchPriority="high"
+              width={360}
+              height={360}
+              style={{ '--category-image-position': category.imagePosition }}
+            />
+          )}
           <span className="card-kicker">{category.count} servicios</span>
           <strong>{category.name}</strong>
           <p>{category.description}</p>
@@ -1313,7 +1395,15 @@ function ServiceGrid({ services, selectedId, onSelect }) {
             className={`booking-service-card ${selected ? 'is-selected' : ''}`}
             onClick={() => onSelect(item)}
           >
-            <SafeImage className="booking-service-image" src={serviceImage(item)} alt={serviceName(item)} />
+            <SafeImage
+              className="booking-service-image"
+              src={serviceImage(item)}
+              alt={serviceName(item)}
+              loading="eager"
+              fetchPriority="high"
+              width={480}
+              height={270}
+            />
             <span className="card-kicker">{serviceCategory(item)}</span>
             <strong>{serviceName(item)}</strong>
             <p>{serviceDescription(item)}</p>
@@ -1366,6 +1456,10 @@ function ProfessionalGrid({
                 alt={staffName(professional)}
                 fallback={AZURE_PUBLIC_STAFF_IMAGE_URL}
                 className="booking-professional-photo"
+                loading="eager"
+                fetchPriority="high"
+                width={240}
+                height={240}
               />
               <div className="booking-professional-body">
                 <span className="card-kicker">{staffSpecialty(professional)}</span>
@@ -1498,15 +1592,27 @@ function SuccessReservationContent({ reservation }) {
   );
 }
 
-function BookingHero() {
-  const visualAssetsQuery = useSiteVisualAssets();
-
+function BookingHero({ heroImage, heroAsset }) {
   return (
     <section
       className="page-hero page-hero-booking"
-      style={heroImageStyle(visualAssetsQuery.getAsset('booking.hero'), assetFallback('booking.hero'), 'center 42%')}
+      style={{ '--page-hero-position': assetPosition(heroAsset, 'center 42%') }}
     >
-      <div className="page-hero-media" />
+      {heroImage?.isPending ? (
+        <div className="page-hero-media page-hero-skeleton" aria-hidden="true" />
+      ) : (
+        <SafeImage
+          src={heroImage?.src}
+          fallback={assetFallback('booking.hero')}
+          alt=""
+          aria-hidden="true"
+          className="page-hero-media page-hero-image"
+          loading="eager"
+          fetchPriority="high"
+          width={1024}
+          height={1024}
+        />
+      )}
       <div className="page-hero-overlay" />
       <div className="page-hero-content">
         <span className="eyebrow">Reserva cliente</span>

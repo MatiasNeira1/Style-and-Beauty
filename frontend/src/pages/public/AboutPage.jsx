@@ -1,17 +1,50 @@
+import { useEffect, useMemo } from 'react';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
-import { assetFallback, heroImageStyle } from '../../utils/siteVisualAssets.js';
+import {
+  assetFallback,
+  assetPosition,
+  preloadImageUrls,
+  resolveVisualAssetImage,
+  visualAssetsInitialLoading,
+} from '../../utils/siteVisualAssets.js';
 
 export function AboutPage() {
   const visualAssetsQuery = useSiteVisualAssets();
+  const aboutHeroAsset = visualAssetsQuery.getAsset('about.hero');
+  const visualAssetsLoading = visualAssetsInitialLoading(visualAssetsQuery);
+  const aboutHeroImage = useMemo(() => resolveVisualAssetImage({
+    asset: aboutHeroAsset,
+    fallback: assetFallback('about.hero'),
+    isLoading: visualAssetsLoading,
+  }), [aboutHeroAsset, visualAssetsLoading]);
+
+  useEffect(() => {
+    preloadImageUrls([aboutHeroImage.src]);
+  }, [aboutHeroImage.src]);
 
   return (
     <>
       <section
         className="page-hero page-hero-about"
-        style={heroImageStyle(visualAssetsQuery.getAsset('about.hero'), assetFallback('about.hero'), 'center 42%')}
+        style={{ '--page-hero-position': assetPosition(aboutHeroAsset, 'center 42%') }}
       >
-        <div className="page-hero-media" />
+        {aboutHeroImage.isPending ? (
+          <div className="page-hero-media page-hero-skeleton" aria-hidden="true" />
+        ) : (
+          <SafeImage
+            src={aboutHeroImage.src}
+            fallback={assetFallback('about.hero')}
+            alt=""
+            aria-hidden="true"
+            className="page-hero-media page-hero-image"
+            loading="eager"
+            fetchPriority="high"
+            width={1024}
+            height={1024}
+          />
+        )}
         <div className="page-hero-overlay" />
         <div className="page-hero-content">
           <span className="card-kicker">Nosotros</span>

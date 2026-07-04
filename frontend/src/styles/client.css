@@ -649,7 +649,14 @@
   overflow-wrap: anywhere;
 }
 
-.booking-category-image,
+.booking-category-image {
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  object-fit: cover;
+  object-position: var(--category-image-position, center);
+  width: 100%;
+}
+
 .booking-service-image {
   aspect-ratio: 16 / 9;
   border-radius: 8px;
@@ -3975,6 +3982,23 @@ a.contact-info-card:hover {
   border-radius: var(--radius-xs);
   margin: 0.78rem;
   width: calc(100% - 1.56rem);
+}
+
+.page-hero-skeleton,
+.visual-image-skeleton {
+  background:
+    linear-gradient(100deg, rgba(245, 239, 232, 0.58), rgba(255, 255, 255, 0.92), rgba(245, 239, 232, 0.58));
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.2s ease-in-out infinite;
+}
+
+.page-hero-skeleton {
+  filter: saturate(1.02) contrast(1.02);
+}
+
+.visual-image-skeleton {
+  display: block;
+  min-height: 0;
 }
 
 .public-category-grid .catalog-feature-card {

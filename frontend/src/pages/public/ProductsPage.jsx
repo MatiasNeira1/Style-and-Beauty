@@ -4,12 +4,19 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Reveal } from '../../components/animations/Reveal.jsx';
 import { ProductsBrands } from '../../components/shop/ProductsBrands.jsx';
 import { ProductsByBrand } from '../../components/shop/ProductsByBrand.jsx';
+import { SafeImage } from '../../components/ui/SafeImage.jsx';
 import { SectionTitle } from '../../components/ui/SectionTitle.jsx';
 import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
 import { inventoryService } from '../../services/inventoryService.js';
 import { productService } from '../../services/productService.js';
 import { useCart } from '../../store/CartContext.jsx';
-import { assetFallback, assetImage, assetPosition, cssImageUrl } from '../../utils/siteVisualAssets.js';
+import {
+  assetFallback,
+  assetPosition,
+  preloadImageUrls,
+  resolveVisualAssetImage,
+  visualAssetsInitialLoading,
+} from '../../utils/siteVisualAssets.js';
 
 function slugify(value) {
   return String(value || 'sin-categoria')
@@ -103,8 +110,23 @@ export function ProductsPage() {
   const heroTitle = selectedBrand?.nombre || 'Productos profesionales';
   const heroSubtitle = selectedBrand?.descripcion || 'Primero elige una categoria y luego revisa productos disponibles.';
   const productsHeroAsset = visualAssetsQuery.getAsset('products.hero');
-  const heroCoverUrl = selectedBrand?.coverUrl || assetImage(productsHeroAsset, assetFallback('products.hero'));
+  const visualAssetsLoading = visualAssetsInitialLoading(visualAssetsQuery);
+  const heroImage = useMemo(() => {
+    if (selectedBrand?.coverUrl) {
+      return { src: selectedBrand.coverUrl, source: 'category', isPending: false };
+    }
+
+    return resolveVisualAssetImage({
+      asset: productsHeroAsset,
+      fallback: assetFallback('products.hero'),
+      isLoading: visualAssetsLoading,
+    });
+  }, [productsHeroAsset, selectedBrand?.coverUrl, visualAssetsLoading]);
   const heroPosition = selectedBrand?.coverUrl ? 'center' : assetPosition(productsHeroAsset, 'center 42%');
+
+  useEffect(() => {
+    preloadImageUrls([heroImage.src]);
+  }, [heroImage.src]);
 
   useEffect(() => {
     if (location.state?.showProductsHome && categorySlug) {
@@ -125,11 +147,24 @@ export function ProductsPage() {
       <section
         className="page-hero page-hero-products"
         style={{
-          '--page-hero-image': cssImageUrl(heroCoverUrl),
           '--page-hero-position': heroPosition,
         }}
       >
-        <div className="page-hero-media" />
+        {heroImage.isPending ? (
+          <div className="page-hero-media page-hero-skeleton" aria-hidden="true" />
+        ) : (
+          <SafeImage
+            src={heroImage.src}
+            fallback={assetFallback('products.hero')}
+            alt=""
+            aria-hidden="true"
+            className="page-hero-media page-hero-image"
+            loading="eager"
+            fetchPriority="high"
+            width={1024}
+            height={1024}
+          />
+        )}
         <div className="page-hero-overlay" />
         <div className="page-hero-content">
           <span className="card-kicker">Shop</span>

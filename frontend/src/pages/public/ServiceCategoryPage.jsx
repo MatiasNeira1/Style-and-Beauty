@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, Clock } from 'lucide-react';
 import { BalancedGrid } from '../../components/ui/BalancedGrid.jsx';
@@ -9,7 +10,15 @@ import { useSiteVisualAssets } from '../../hooks/useSiteVisualAssets.js';
 import { catalogService } from '../../services/catalogService.js';
 import { categorySlug, findCategoryBySlug, groupByCategory } from '../../utils/categoryUtils.js';
 import { formatCLP } from '../../utils/priceUtils.js';
-import { assetFallback, assetImage, assetPosition, serviceCategoryAssetKey } from '../../utils/siteVisualAssets.js';
+import {
+  assetFallback,
+  assetPosition,
+  hasActiveAssetImage,
+  preloadImageUrls,
+  resolveVisualAssetImage,
+  serviceCategoryAssetKey,
+  visualAssetsInitialLoading,
+} from '../../utils/siteVisualAssets.js';
 
 function servicePrice(service) {
   const value = service.precio_total ?? service.precio ?? service.price;
@@ -27,16 +36,35 @@ export function ServiceCategoryPage() {
   const servicesQuery = useQuery({ queryKey: ['services'], queryFn: catalogService.listServices });
   const categoryCoversQuery = useQuery({ queryKey: ['service-category-covers'], queryFn: catalogService.getCategoryCovers });
 
-  const services = Array.isArray(servicesQuery.data) ? servicesQuery.data : [];
-  const grouped = groupByCategory(services);
-  const categories = Object.keys(grouped);
+  const services = useMemo(() => (Array.isArray(servicesQuery.data) ? servicesQuery.data : []), [servicesQuery.data]);
+  const grouped = useMemo(() => groupByCategory(services), [services]);
+  const categories = useMemo(() => Object.keys(grouped), [grouped]);
   const category = findCategoryBySlug(categories, categoria) || categories[0] || 'General';
-  const categoryServices = grouped[category] || [];
-  const categoryCovers = Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : [];
-  const categoryCoverUrl = categoryCovers.find((cover) => categorySlug(cover?.categoria) === categorySlug(category))?.imagenUrl || '';
+  const categoryServices = useMemo(() => grouped[category] || [], [category, grouped]);
+  const categoryCovers = useMemo(
+    () => (Array.isArray(categoryCoversQuery.data) ? categoryCoversQuery.data : []),
+    [categoryCoversQuery.data],
+  );
+  const categoryCoverUrl = useMemo(() => (
+    categoryCovers.find((cover) => categorySlug(cover?.categoria) === categorySlug(category))?.imagenUrl || ''
+  ), [category, categoryCovers]);
   const categoryAssetKey = serviceCategoryAssetKey(category);
   const categoryAsset = categoryAssetKey ? visualAssetsQuery.getAsset(categoryAssetKey) : null;
-  const categoryHeroImage = assetImage(categoryAsset, categoryCoverUrl || assetFallback(categoryAssetKey || 'services.hero'));
+  const visualAssetsLoading = visualAssetsInitialLoading(visualAssetsQuery);
+  const categoryCoversLoading = categoryCoversQuery.isLoading && categoryCovers.length === 0;
+  const categoryHeroImage = useMemo(() => resolveVisualAssetImage({
+    asset: categoryAsset,
+    imageUrl: categoryCoverUrl,
+    fallback: assetFallback(categoryAssetKey || 'services.hero'),
+    isLoading: !hasActiveAssetImage(categoryAsset) && (visualAssetsLoading || categoryCoversLoading),
+  }), [categoryAsset, categoryAssetKey, categoryCoverUrl, categoryCoversLoading, visualAssetsLoading]);
+
+  useEffect(() => {
+    preloadImageUrls([
+      categoryHeroImage.src,
+      ...categoryServices.map(serviceImage),
+    ]);
+  }, [categoryHeroImage.src, categoryServices]);
 
   return (
     <>
@@ -44,17 +72,21 @@ export function ServiceCategoryPage() {
         className="page-hero page-hero-services page-hero-category"
         style={{ '--page-hero-position': assetPosition(categoryAsset, 'center') }}
       >
-        <SafeImage
-          src={categoryHeroImage}
-          fallback="/hero-salon.png"
-          alt=""
-          aria-hidden="true"
-          className="page-hero-media page-hero-image"
-          loading="eager"
-          fetchPriority="high"
-          width={1024}
-          height={1024}
-        />
+        {categoryHeroImage.isPending ? (
+          <div className="page-hero-media page-hero-skeleton" aria-hidden="true" />
+        ) : (
+          <SafeImage
+            src={categoryHeroImage.src}
+            fallback="/hero-salon.png"
+            alt=""
+            aria-hidden="true"
+            className="page-hero-media page-hero-image"
+            loading="eager"
+            fetchPriority="high"
+            width={1024}
+            height={1024}
+          />
+        )}
         <div className="page-hero-overlay" />
         <div className="page-hero-content">
           <span className="card-kicker">Categoria</span>
@@ -95,6 +127,7 @@ export function ServiceCategoryPage() {
                           src={serviceImage(service)}
                           alt={service.nombre || service.name || 'Servicio'}
                           loading="eager"
+                          fetchPriority="high"
                           width={160}
                           height={160}
                         />

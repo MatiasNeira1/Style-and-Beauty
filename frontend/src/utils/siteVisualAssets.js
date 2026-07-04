@@ -1,4 +1,7 @@
-import { HOME_HERO_IMAGE_URL } from '../services/apiClient.js';
+import { HOME_HERO_IMAGE_URL, resolveAssetUrl } from '../services/apiClient.js';
+
+export const SITE_VISUAL_ASSET_STALE_TIME_MS = 1000 * 60 * 10;
+export const SITE_VISUAL_ASSET_GC_TIME_MS = 1000 * 60 * 30;
 
 export const SITE_VISUAL_ASSET_DEFINITIONS = [
   {
@@ -148,8 +151,42 @@ export function assetDefaultPosition(assetKey) {
   return SITE_VISUAL_ASSET_DEFINITIONS.find((item) => item.assetKey === assetKey)?.objectPosition || 'center';
 }
 
-export function assetImage(asset, fallback = '/hero-salon.png') {
-  return asset?.active !== false && asset?.imageUrl ? asset.imageUrl : fallback;
+export function hasActiveAssetImage(asset) {
+  return Boolean(asset?.active !== false && asset?.imageUrl);
+}
+
+export function visualAssetsInitialLoading(query) {
+  const hasRows = Array.isArray(query?.assets) && query.assets.length > 0;
+  return Boolean((query?.isLoading || query?.isPending) && !hasRows);
+}
+
+export function resolveVisualAssetImage({
+  asset,
+  imageUrl = '',
+  fallback = '/hero-salon.png',
+  isLoading = false,
+} = {}) {
+  if (hasActiveAssetImage(asset)) {
+    return { src: asset.imageUrl, source: 'admin', isPending: false };
+  }
+
+  if (isLoading) {
+    return { src: '', source: 'pending', isPending: true };
+  }
+
+  if (imageUrl) {
+    return { src: imageUrl, source: 'content', isPending: false };
+  }
+
+  return { src: fallback, source: 'fallback', isPending: false };
+}
+
+export function assetImage(asset, fallback = '/hero-salon.png', options = {}) {
+  return resolveVisualAssetImage({
+    asset,
+    fallback,
+    isLoading: options.isLoading,
+  }).src;
 }
 
 export function assetPosition(asset, fallback = 'center') {
@@ -160,9 +197,44 @@ export function cssImageUrl(value) {
   return `url("${String(value || '').replace(/"/g, '%22')}")`;
 }
 
-export function heroImageStyle(asset, fallback, positionFallback = 'center') {
+export function heroImageStyle(asset, fallback, positionFallback = 'center', options = {}) {
+  const resolved = resolveVisualAssetImage({
+    asset,
+    fallback,
+    isLoading: options.isLoading,
+  });
+
   return {
-    '--page-hero-image': cssImageUrl(assetImage(asset, fallback)),
+    ...(resolved.src ? { '--page-hero-image': cssImageUrl(resolved.src) } : {}),
     '--page-hero-position': assetPosition(asset, positionFallback),
   };
+}
+
+const preloadedImageUrls = new Set();
+
+export function preloadImageUrl(value) {
+  const href = resolveAssetUrl(value);
+  if (!href || typeof document === 'undefined') return href || '';
+  if (preloadedImageUrls.has(href)) return href;
+
+  const alreadyExists = Array.from(document.head.querySelectorAll('link[rel="preload"][as="image"]'))
+    .some((link) => link.href === href || link.getAttribute('href') === href);
+  if (alreadyExists) {
+    preloadedImageUrls.add(href);
+    return href;
+  }
+
+  const link = document.createElement('link');
+  link.rel = 'preload';
+  link.as = 'image';
+  link.href = href;
+  link.fetchPriority = 'high';
+  link.setAttribute('fetchpriority', 'high');
+  document.head.appendChild(link);
+  preloadedImageUrls.add(href);
+  return href;
+}
+
+export function preloadImageUrls(values = []) {
+  values.filter(Boolean).forEach((value) => preloadImageUrl(value));
 }

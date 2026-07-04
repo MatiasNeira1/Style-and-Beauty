@@ -14,7 +14,7 @@ function imageFormData(file, fields = {}) {
 }
 
 export const siteVisualAssetService = {
-  listAssets: () => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/catalogo/site-visual-assets' }),
+  listAssets: ({ signal } = {}) => request({ baseURL: CATALOG_API_BASE_URL, url: '/api/catalogo/site-visual-assets', signal }),
   saveAssetImage: (assetKey, file, fields = {}) => request({
     baseURL: CATALOG_API_BASE_URL,
     url: `/api/catalogo/site-visual-assets/${encodeURIComponent(assetKey)}/image`,
