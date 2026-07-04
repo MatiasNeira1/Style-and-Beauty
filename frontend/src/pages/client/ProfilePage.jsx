@@ -86,6 +86,10 @@ function ProfileHero({ missing = false }) {
   );
 }
 
+function ProfilePageShell({ children }) {
+  return <div className="profile-dashboard-page">{children}</div>;
+}
+
 function BirthDateSelects({ value, onChange, error }) {
   const maxDate = getMaxBirthDateIso();
   const max = parseIsoDate(maxDate);
@@ -961,7 +965,7 @@ export function ProfilePage() {
 
   if (isAdminAccount) {
     return (
-      <>
+      <ProfilePageShell>
         <ProfileHero />
         <section className="page-section profile-completion-section">
           <Card className="client-auth-card profile-missing-role-card">
@@ -972,23 +976,23 @@ export function ProfilePage() {
             <Button type="button" variant="ghost" onClick={logout}>Cerrar sesión</Button>
           </Card>
         </section>
-      </>
+      </ProfilePageShell>
     );
   }
 
   if (isLoading) {
     return (
-      <>
+      <ProfilePageShell>
         <ProfileHero />
         <div style={{ minHeight: '40vh', display: 'grid', placeItems: 'center' }}>Cargando perfil...</div>
-      </>
+      </ProfilePageShell>
     );
   }
 
   if (isProfileNotFoundError(profileError)) {
     if (isStaffAccount) {
       return (
-        <>
+        <ProfilePageShell>
           <ProfileHero />
           <section className="page-section profile-completion-section">
             <Card className="client-auth-card profile-missing-role-card">
@@ -999,7 +1003,7 @@ export function ProfilePage() {
               <Button type="button" variant="ghost" onClick={logout}>Cerrar sesión</Button>
             </Card>
           </section>
-        </>
+        </ProfilePageShell>
       );
     }
 
@@ -1007,7 +1011,7 @@ export function ProfilePage() {
       .some((field) => !String(watchedValues?.[field] || '').trim());
 
     return (
-      <>
+      <ProfilePageShell>
         <ProfileHero missing />
         <section className="page-section profile-completion-section">
           <Card className="profile-completion-card">
@@ -1140,13 +1144,13 @@ export function ProfilePage() {
             </form>
           </Card>
         </section>
-      </>
+      </ProfilePageShell>
     );
   }
 
   if (profileError) {
     return (
-      <>
+      <ProfilePageShell>
         <ProfileHero />
         <section className="page-section">
           <Card className="client-auth-card">
@@ -1155,7 +1159,7 @@ export function ProfilePage() {
             <Button onClick={logout}>Cerrar sesion</Button>
           </Card>
         </section>
-      </>
+      </ProfilePageShell>
     );
   }
 
@@ -1183,7 +1187,7 @@ export function ProfilePage() {
   const hasMissingIdentity = missingIdentityFields.length > 0;
 
   return (
-    <>
+    <ProfilePageShell>
       <ProfileHero />
       <section className="page-section two-column profile-page-layout">
         <div className="stack">
@@ -1326,6 +1330,6 @@ export function ProfilePage() {
         onClose={closePhotoModal}
         onSave={handlePhotoSave}
       />
-    </>
+    </ProfilePageShell>
   );
 }
