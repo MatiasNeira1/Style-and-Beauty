@@ -4,23 +4,10 @@ import { ArrowRight } from 'lucide-react';
 import { BalancedGrid } from '../ui/BalancedGrid.jsx';
 import { SafeImage } from '../ui/SafeImage.jsx';
 import { categorySlug, groupByCategory } from '../../utils/categoryUtils.js';
-import {
-  assetFallback,
-  assetPosition,
-  hasActiveAssetImage,
-  resolveVisualAssetImage,
-  serviceCategoryAssetKey,
-} from '../../utils/siteVisualAssets.js';
-
-function serviceImage(service) {
-  return service?.imageUrl || service?.imagenUrl || service?.imagen_url || service?.imagen || service?.fotoUrl;
-}
 
 export const CategoryGrid = memo(function CategoryGrid({
   services = [],
   categoryCovers = [],
-  visualAssetsByKey = {},
-  visualAssetsLoading = false,
   categoryCoversLoading = false,
 }) {
   const categories = useMemo(() => Object.entries(groupByCategory(services)), [services]);
@@ -31,26 +18,17 @@ export const CategoryGrid = memo(function CategoryGrid({
 
   const resolvedCategories = useMemo(() => categories.map(([category, categoryServices]) => {
     const sample = categoryServices[0];
-    const assetKey = serviceCategoryAssetKey(category);
-    const visualAsset = assetKey ? visualAssetsByKey[assetKey] : null;
     const coverUrl = coversByCategory[categorySlug(category)] || '';
-    const waitForAdminOrCover = !hasActiveAssetImage(visualAsset) && (visualAssetsLoading || categoryCoversLoading);
-    const resolvedImage = resolveVisualAssetImage({
-      asset: visualAsset,
-      imageUrl: coverUrl || serviceImage(sample),
-      fallback: assetFallback(assetKey || 'services.hero'),
-      isLoading: waitForAdminOrCover,
-    });
 
     return {
       category,
       categoryServices,
       sample,
-      imageUrl: resolvedImage.src,
-      imagePending: resolvedImage.isPending,
-      objectPosition: assetPosition(visualAsset, 'center'),
+      imageUrl: coverUrl,
+      imagePending: categoryCoversLoading && !coverUrl,
+      objectPosition: 'center',
     };
-  }), [categories, categoryCoversLoading, coversByCategory, visualAssetsByKey, visualAssetsLoading]);
+  }), [categories, categoryCoversLoading, coversByCategory]);
 
   return (
     <BalancedGrid className="category-grid public-category-grid">
@@ -63,7 +41,7 @@ export const CategoryGrid = memo(function CategoryGrid({
                 aria-hidden="true"
                 style={{ '--category-image-position': objectPosition }}
               />
-            ) : (
+            ) : imageUrl ? (
               <SafeImage
                 className="category-card-media"
                 src={imageUrl}
@@ -74,6 +52,14 @@ export const CategoryGrid = memo(function CategoryGrid({
                 height={640}
                 style={{ '--category-image-position': objectPosition }}
               />
+            ) : (
+              <div
+                className="category-card-placeholder"
+                aria-hidden="true"
+                style={{ '--category-image-position': objectPosition }}
+              >
+                <span>{category.slice(0, 1).toUpperCase()}</span>
+              </div>
             )}
             <div className="category-card-content">
               <span className="card-kicker">{category}</span>
